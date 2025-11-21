@@ -92,13 +92,13 @@ var (
 
 	styleVal = lipgloss.NewStyle().Foreground(cWhite)
 
-	// Fixed: Increased PaddingLeft to 2 to move labels right
+	// ALIGNMENT FIX: MarginLeft(1) matches the "Status" label position
 	styleSectionHeader = lipgloss.NewStyle().
 				Foreground(cGold).
 				Bold(true).
 				MarginTop(1).
 				MarginBottom(0).
-				PaddingLeft(2)
+				MarginLeft(1)
 
 	styleLabel = lipgloss.NewStyle().
 			Foreground(cWhite).
@@ -114,15 +114,12 @@ var (
 			Bold(true)
 
 	// Comment Styles
-	// Fixed: Added PaddingLeft(2) to align with Section Headers
 	styleCommentHeader = lipgloss.NewStyle().
 				Foreground(cBrightGray).
-				Bold(true).
-				PaddingLeft(2)
+				Bold(true)
 
 	styleCommentBody = lipgloss.NewStyle().
-				Foreground(cWhite).
-				PaddingLeft(2)
+				Foreground(cWhite)
 )
 
 // --- Data Structures ---
@@ -251,6 +248,17 @@ func wrapWithHangingIndent(prefixWidth int, text string, maxWidth int) string {
 		sb.WriteString(lines[i])
 	}
 	return sb.String()
+}
+
+func indentBlock(text string, spaces int) string {
+	padding := strings.Repeat(" ", spaces)
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if line != "" {
+			lines[i] = padding + line
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func fetchCommentsForNode(n *Node) {
@@ -547,7 +555,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textInput.Blur()
 				return m, nil
 			case "esc":
-				// Fix: Escape clears search completely
 				m.searching = false
 				m.textInput.Blur()
 				m.textInput.Reset()
@@ -570,7 +577,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "esc":
-			// Fix: Esc in standard mode clears filter if it exists
 			if m.filterText != "" {
 				m.filterText = ""
 				m.textInput.Reset()
@@ -653,13 +659,17 @@ func (m *model) updateViewportContent() {
 
 	vpWidth := m.viewport.Width - 2
 
-	// 1. HEADER
+	// 1. HEADER (ID Never Wraps)
 	idStr := iss.ID
-	prefixWidth := len(idStr) + 2
-	wrappedTitle := wrapWithHangingIndent(prefixWidth, iss.Title, vpWidth)
+	// Calculate title width: Viewport - ID len - 2 spaces - 1 margin (safety)
+	titleWidth := vpWidth - len(idStr) - 4
+	if titleWidth < 10 {
+		titleWidth = 10
+	}
+
+	wrappedTitle := wordwrap.String(iss.Title, titleWidth)
 	titleLines := strings.Split(wrappedTitle, "\n")
 
-	// Fix: Render the 2 spaces separator using the styled background
 	spacer := styleDetailHeaderCombined.Render("  ")
 	fullHeaderStr := fmt.Sprintf("%s%s%s",
 		styleDetailHeaderCombined.Foreground(cGold).Render(idStr),
@@ -672,6 +682,8 @@ func (m *model) updateViewportContent() {
 	headerBlock := styleDetailHeaderBlock.Width(vpWidth).Render(fullHeaderStr)
 
 	// 2. METADATA
+	// Alignment: Labels use MarginLeft(1) to allow 1 space indent.
+	// This aligns "Status" with "Description" (which also has MarginLeft(1)).
 	makeRow := func(k, v string) string {
 		return lipgloss.JoinHorizontal(lipgloss.Left, styleField.Render(k), styleVal.Render(v))
 	}
@@ -741,42 +753,41 @@ func (m *model) updateViewportContent() {
 	} else {
 		metaBlock = lipgloss.JoinHorizontal(lipgloss.Top, leftStack, "    ", rightStack)
 	}
-	metaBlock = lipgloss.NewStyle().Padding(1, 1).Render(metaBlock)
+	// ALIGNMENT FIX: Use MarginLeft(1) instead of Padding to ensure left alignment matches sections
+	metaBlock = lipgloss.NewStyle().MarginLeft(1).PaddingTop(1).PaddingBottom(1).Render(metaBlock)
 
 	// 3. RELATIONSHIPS
 	relBuilder := strings.Builder{}
 
-	// Indentation strategy:
-	// Label is at PaddingLeft(2).
-	// Items need to be 1 deeper -> 3 spaces.
-
 	if iss.ExternalRef != "" {
 		relBuilder.WriteString(styleSectionHeader.Render("External Reference") + "\n")
-		relBuilder.WriteString(fmt.Sprintf(" 🔗 %s\n\n", iss.ExternalRef))
+		// Indent 2 spaces (1 more than header)
+		relBuilder.WriteString(fmt.Sprintf("  🔗 %s\n\n", iss.ExternalRef))
 	}
 
 	if node.Parent != nil {
 		relBuilder.WriteString(styleSectionHeader.Render("Parent") + "\n")
 		pTitle := node.Parent.Issue.Title
 		pId := node.Parent.Issue.ID
-		pPrefixW := len(pId) + 2 - 4
-		if pPrefixW < 0 {
-			pPrefixW = 0
-		}
-		pWrapped := wrapWithHangingIndent(pPrefixW, pTitle, vpWidth-5)
+		// Calculate indent for wrapping
+		// We indent 2 spaces. ID takes len(ID). Then 2 spaces gap.
+		pIndentW := 2 + len(pId) + 2
+		pWrapped := wrapWithHangingIndent(pIndentW, pTitle, vpWidth-2)
 		pLines := strings.Split(pWrapped, "\n")
-		// Fixed: 3 spaces indentation for items
-		relBuilder.WriteString(fmt.Sprintf("   %s  %s\n", styleID.Render(pId), pLines[0]))
+
+		// Indent 2 spaces
+		relBuilder.WriteString(fmt.Sprintf("  %s  %s\n", styleID.Render(pId), pLines[0]))
+		padding := strings.Repeat(" ", pIndentW)
 		for i := 1; i < len(pLines); i++ {
-			relBuilder.WriteString("         " + pLines[i] + "\n") // 3 + len(id) + 2
+			relBuilder.WriteString(padding + pLines[i] + "\n")
 		}
 	}
 
 	if node.IsBlocked {
 		relBuilder.WriteString(styleSectionHeader.Render("Blocked By") + "\n")
 		for _, b := range node.BlockedBy {
-			// Fixed: 3 spaces
-			relBuilder.WriteString(fmt.Sprintf("   %s  %s\n", styleID.Render(b.Issue.ID), b.Issue.Title))
+			// Indent 2 spaces
+			relBuilder.WriteString(fmt.Sprintf("  %s  %s\n", styleID.Render(b.Issue.ID), b.Issue.Title))
 		}
 	}
 
@@ -785,16 +796,14 @@ func (m *model) updateViewportContent() {
 		for _, child := range node.Children {
 			cTitle := child.Issue.Title
 			cId := child.Issue.ID
-			cPrefixW := len(cId) + 2 - 4
-			if cPrefixW < 0 {
-				cPrefixW = 0
-			}
-			cWrapped := wrapWithHangingIndent(cPrefixW, cTitle, vpWidth-5)
+			cIndentW := 2 + len(cId) + 2
+			cWrapped := wrapWithHangingIndent(cIndentW, cTitle, vpWidth-2)
 			cLines := strings.Split(cWrapped, "\n")
-			// Fixed: 3 spaces
-			relBuilder.WriteString(fmt.Sprintf("   %s  %s\n", styleID.Render(cId), cLines[0]))
+			// Indent 2 spaces
+			relBuilder.WriteString(fmt.Sprintf("  %s  %s\n", styleID.Render(cId), cLines[0]))
+			padding := strings.Repeat(" ", cIndentW)
 			for i := 1; i < len(cLines); i++ {
-				relBuilder.WriteString("         " + cLines[i] + "\n")
+				relBuilder.WriteString(padding + cLines[i] + "\n")
 			}
 		}
 	}
@@ -802,14 +811,14 @@ func (m *model) updateViewportContent() {
 	if len(node.Blocks) > 0 {
 		relBuilder.WriteString(styleSectionHeader.Render(fmt.Sprintf("Blocks (%d)", len(node.Blocks))) + "\n")
 		for _, child := range node.Blocks {
-			// Fixed: 3 spaces
-			relBuilder.WriteString(fmt.Sprintf("   %s  %s\n", styleID.Render(child.Issue.ID), child.Issue.Title))
+			// Indent 2 spaces
+			relBuilder.WriteString(fmt.Sprintf("  %s  %s\n", styleID.Render(child.Issue.ID), child.Issue.Title))
 		}
 	}
 
 	relBlock := ""
 	if relBuilder.Len() > 0 {
-		relBlock = lipgloss.NewStyle().Padding(0, 1).Render(relBuilder.String())
+		relBlock = lipgloss.NewStyle().Render(relBuilder.String())
 	}
 
 	// 4. DESCRIPTION
@@ -821,15 +830,18 @@ func (m *model) updateViewportContent() {
 		glamour.WithWordWrap(vpWidth-4),
 	)
 	renderedDesc, _ := renderer.Render(desc)
-	descBuilder.WriteString(renderedDesc)
+	// Indent the rendered description 2 spaces
+	descBuilder.WriteString(indentBlock(renderedDesc, 2))
 
 	// 5. COMMENTS
 	if len(iss.Comments) > 0 {
 		descBuilder.WriteString(styleSectionHeader.Render("Comments") + "\n")
 		for _, c := range iss.Comments {
-			header := fmt.Sprintf("%s  %s", c.Author, formatTime(c.CreatedAt))
+			// Indent 2 spaces
+			header := fmt.Sprintf("  %s  %s", c.Author, formatTime(c.CreatedAt))
 			descBuilder.WriteString(styleCommentHeader.Render(header) + "\n")
-			descBuilder.WriteString(styleCommentBody.Render(c.Text) + "\n\n")
+			// Body indented 2 spaces
+			descBuilder.WriteString(indentBlock(c.Text, 2) + "\n\n")
 		}
 	}
 
@@ -851,11 +863,11 @@ func (m model) View() string {
 		return "Initializing..."
 	}
 
-	// Top Header with Filter Info
+	// FIX: Filter background bug. Add leading space manually.
 	status := fmt.Sprintf("Items: %d", len(m.visibleRows))
 	if m.filterText != "" {
-		filterInfo := fmt.Sprintf(" (Filtered: '%s' - [ESC] to Clear)", m.filterText)
-		status += styleFilterInfo.Render(filterInfo)
+		filterInfo := fmt.Sprintf("(Filtered: '%s' - [ESC] to Clear)", m.filterText)
+		status += " " + styleFilterInfo.Render(filterInfo)
 	}
 	header := styleAppHeader.Render("ABACUS") + " " + status
 
