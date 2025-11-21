@@ -48,7 +48,7 @@ var (
 
 	styleID = lipgloss.NewStyle().Foreground(cGold).Bold(true)
 
-	// Used for the selection cursor (now only applied to the arrow/indent)
+	// Tree Selection Style
 	styleSelected = lipgloss.NewStyle().
 			Background(cHighlight).
 			Foreground(cWhite).
@@ -60,9 +60,14 @@ var (
 			Bold(true).
 			Padding(0, 1)
 
+	// Border Styles for Focus toggling
 	stylePane = lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder()).
 			BorderForeground(cGray)
+
+	stylePaneFocused = lipgloss.NewStyle().
+				Border(lipgloss.ThickBorder()).
+				BorderForeground(cPurple)
 
 	// --- Detail Pane Specifics ---
 
@@ -72,16 +77,10 @@ var (
 				Bold(true).
 				Padding(0, 1)
 
-	// Specific styles to ensure background color continuity in Header
-	styleDetailHeaderID = lipgloss.NewStyle().
-				Background(cHighlight).
-				Foreground(cGold).
-				Bold(true)
-
-	styleDetailHeaderText = lipgloss.NewStyle().
-				Background(cHighlight).
-				Foreground(cWhite).
-				Bold(true)
+	// Combined styles to ensure background continuity
+	styleDetailHeaderCombined = lipgloss.NewStyle().
+					Background(cHighlight).
+					Bold(true)
 
 	styleField = lipgloss.NewStyle().
 			Foreground(cField).
@@ -108,6 +107,14 @@ var (
 			Background(cOrange).
 			Padding(0, 1).
 			Bold(true)
+
+	// Comment Styles
+	styleCommentHeader = lipgloss.NewStyle().
+				Foreground(cBrightGray).
+				Bold(true)
+	styleCommentBody = lipgloss.NewStyle().
+				Foreground(cWhite).
+				PaddingLeft(2)
 )
 
 // --- Data Structures ---
@@ -120,7 +127,7 @@ type Comment struct {
 	ID        int    `json:"id"`
 	IssueID   string `json:"issue_id"`
 	Author    string `json:"author"`
-	Text      string `json:"text"` // Changed from Body to Text to match JSON
+	Text      string `json:"text"`
 	CreatedAt string `json:"created_at"`
 }
 
@@ -151,14 +158,14 @@ type FullIssue struct {
 type Node struct {
 	Issue     FullIssue
 	Children  []*Node
-	Parents   []*Node // Used for depth calc
-	Parent    *Node   // Used for visual tree (points to deepest parent)
+	Parents   []*Node
+	Parent    *Node
 
 	BlockedBy []*Node
 	Blocks    []*Node
 
 	IsBlocked      bool
-	CommentsLoaded bool // Flag for lazy loading
+	CommentsLoaded bool
 
 	Expanded      bool
 	Depth         int
@@ -166,6 +173,13 @@ type Node struct {
 	HasInProgress bool
 	HasReady      bool
 }
+
+type FocusArea int
+
+const (
+	FocusTree FocusArea = iota
+	FocusDetails
+)
 
 // --- Model ---
 
@@ -177,6 +191,7 @@ type model struct {
 
 	viewport    viewport.Model
 	showDetails bool
+	focus       FocusArea // New: Track which pane is active
 	ready       bool
 
 	textInput  textinput.Model
@@ -209,7 +224,7 @@ func wrapWithHangingIndent(prefixWidth int, text string, maxWidth int) string {
 	contentWidth := maxWidth - prefixWidth
 	if contentWidth <= 0 {
 		contentWidth = 10
-	} // Safety
+	}
 
 	wrapped := wordwrap.String(text, contentWidth)
 
@@ -458,6 +473,7 @@ func initialModel() model {
 		err:       err,
 		textInput: ti,
 		repoName:  repo,
+		focus:     FocusTree, // Start focused on tree
 	}
 	m.recalcVisibleRows()
 	return m
@@ -530,6 +546,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// Global keys
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
@@ -537,37 +554,61 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.searching = true
 			m.textInput.Focus()
 			return m, textinput.Blink
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
+		case "tab":
+			if m.showDetails {
+				if m.focus == FocusTree {
+					m.focus = FocusDetails
+				} else {
+					m.focus = FocusTree
+				}
+			}
+		}
+
+		// Focus specific keys
+		if m.focus == FocusDetails && m.showDetails {
+			// Pass keys to viewport for scrolling
+			m.viewport, cmd = m.viewport.Update(msg)
+			return m, cmd
+		} else {
+			// Tree Navigation
+			switch msg.String() {
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+					m.updateViewportContent()
+					if m.focus == FocusTree {
+						m.viewport.GotoTop()
+					}
+				}
+			case "down", "j":
+				if m.cursor < len(m.visibleRows)-1 {
+					m.cursor++
+					m.updateViewportContent()
+					if m.focus == FocusTree {
+						m.viewport.GotoTop()
+					}
+				}
+			case "space", "right", "l":
+				node := m.visibleRows[m.cursor]
+				if len(node.Children) > 0 {
+					node.Expanded = !node.Expanded
+					m.recalcVisibleRows()
+				}
+			case "left", "h":
+				node := m.visibleRows[m.cursor]
+				if node.Expanded {
+					node.Expanded = false
+					m.recalcVisibleRows()
+				}
+			case "enter":
+				m.showDetails = !m.showDetails
+				if m.showDetails {
+					m.focus = FocusDetails // Auto focus details on open
+				} else {
+					m.focus = FocusTree
+				}
 				m.updateViewportContent()
-				m.viewport.GotoTop()
 			}
-		case "down", "j":
-			if m.cursor < len(m.visibleRows)-1 {
-				m.cursor++
-				m.updateViewportContent()
-				m.viewport.GotoTop()
-			}
-		case "space", "right", "l": // Added right/l for expand
-			node := m.visibleRows[m.cursor]
-			if len(node.Children) > 0 {
-				node.Expanded = !node.Expanded
-				m.recalcVisibleRows()
-			}
-		case "left", "h": // Added left/h for collapse (good practice)
-			node := m.visibleRows[m.cursor]
-			if node.Expanded {
-				node.Expanded = false
-				m.recalcVisibleRows()
-			}
-		case "enter":
-			m.showDetails = !m.showDetails
-			m.updateViewportContent()
-		case "ctrl+j":
-			m.viewport.LineDown(1)
-		case "ctrl+k":
-			m.viewport.LineUp(1)
 		}
 	}
 	return m, cmd
@@ -581,7 +622,6 @@ func (m *model) updateViewportContent() {
 	}
 	node := m.visibleRows[m.cursor]
 
-	// Lazy Load Comments: If we are showing details and comments aren't loaded, get them now.
 	if !node.CommentsLoaded {
 		fetchCommentsForNode(node)
 	}
@@ -596,26 +636,20 @@ func (m *model) updateViewportContent() {
 	wrappedTitle := wrapWithHangingIndent(prefixWidth, iss.Title, vpWidth)
 	titleLines := strings.Split(wrappedTitle, "\n")
 
-	// Fix Issue 1: Construct header line with styles applied individually so background is consistent
-	// We style the ID and the first line of text with specific styles that share the background color.
-	headerContent := fmt.Sprintf("%s  %s",
-		styleDetailHeaderID.Render(idStr),
-		styleDetailHeaderText.Render(titleLines[0]))
+	// Fix: Render the ID and Title in one continuous block style to eliminate gaps
+	// We join the ID + "  " + Title so the background applies to the spaces too.
+	fullHeaderStr := fmt.Sprintf("%s  %s", styleDetailHeaderCombined.Foreground(cGold).Render(idStr), styleDetailHeaderCombined.Foreground(cWhite).Render(titleLines[0]))
 
 	for i := 1; i < len(titleLines); i++ {
-		// For wrapped lines in header, ensure they have the background too
-		headerContent += "\n" + styleDetailHeaderBlock.Render(titleLines[i])
+		fullHeaderStr += "\n" + styleDetailHeaderBlock.Render(titleLines[i])
 	}
-
-	// Use the container block for outer padding/margins
-	headerBlock := styleDetailHeaderBlock.Width(vpWidth).Render(headerContent)
+	headerBlock := styleDetailHeaderBlock.Width(vpWidth).Render(fullHeaderStr)
 
 	// 2. METADATA GRID
 	makeRow := func(k, v string) string {
 		return lipgloss.JoinHorizontal(lipgloss.Left, styleField.Render(k), styleVal.Render(v))
 	}
 
-	// Column 1
 	col1 := []string{
 		makeRow("Status:", iss.Status),
 		makeRow("Type:", iss.IssueType),
@@ -628,7 +662,6 @@ func (m *model) updateViewportContent() {
 		col1 = append(col1, makeRow("Closed:", formatTime(iss.ClosedAt)))
 	}
 
-	// Column 2
 	prioLabel := fmt.Sprintf("P%d", iss.Priority)
 	col2 := []string{
 		makeRow("Priority:", stylePrio.Render(prioLabel)),
@@ -696,7 +729,11 @@ func (m *model) updateViewportContent() {
 		relBuilder.WriteString(styleSectionHeader.Render("Parent") + "\n")
 		pTitle := node.Parent.Issue.Title
 		pId := node.Parent.Issue.ID
-		pPrefixW := len(pId) + 2
+		// Fix: Subtract 4 from prefix width to prevent deep indentation on wrapped parent lines
+		pPrefixW := len(pId) + 2 - 4
+		if pPrefixW < 0 {
+			pPrefixW = 0
+		}
 		pWrapped := wrapWithHangingIndent(pPrefixW, pTitle, vpWidth-5)
 		pLines := strings.Split(pWrapped, "\n")
 		relBuilder.WriteString(fmt.Sprintf("%s  %s\n", styleID.Render(pId), pLines[0]))
@@ -717,7 +754,11 @@ func (m *model) updateViewportContent() {
 		for _, child := range node.Children {
 			cTitle := child.Issue.Title
 			cId := child.Issue.ID
-			cPrefixW := len(cId) + 2
+			// Fix: Subtract 4 from prefix width for children wrapping
+			cPrefixW := len(cId) + 2 - 4
+			if cPrefixW < 0 {
+				cPrefixW = 0
+			}
 			cWrapped := wrapWithHangingIndent(cPrefixW, cTitle, vpWidth-5)
 			cLines := strings.Split(cWrapped, "\n")
 			relBuilder.WriteString(fmt.Sprintf("%s  %s\n", styleID.Render(cId), cLines[0]))
@@ -739,29 +780,33 @@ func (m *model) updateViewportContent() {
 		relBlock = lipgloss.NewStyle().Padding(0, 1).Render(relBuilder.String())
 	}
 
-	// 4. DESCRIPTION & COMMENTS
+	// 4. DESCRIPTION
+	descBuilder := strings.Builder{}
+	descBuilder.WriteString(styleSectionHeader.Render("Description") + "\n")
 	desc := strings.ReplaceAll(iss.Description, "• ", "- ")
 	renderer, _ := glamour.NewTermRenderer(
 		glamour.WithStandardStyle("dark"),
 		glamour.WithWordWrap(vpWidth-4),
 	)
-	bodyStr, _ := renderer.Render(desc)
+	renderedDesc, _ := renderer.Render(desc)
+	descBuilder.WriteString(renderedDesc)
 
+	// 5. COMMENTS
 	if len(iss.Comments) > 0 {
-		cBuilder := strings.Builder{}
-		cBuilder.WriteString("\n### Comments\n")
+		descBuilder.WriteString(styleSectionHeader.Render("Comments") + "\n")
 		for _, c := range iss.Comments {
-			cBuilder.WriteString(fmt.Sprintf("**%s** (%s):\n%s\n\n", c.Author, formatTime(c.CreatedAt), c.Text))
+			// Slack-like format: Name Time (newline) Body
+			header := fmt.Sprintf("%s  %s", c.Author, formatTime(c.CreatedAt))
+			descBuilder.WriteString(styleCommentHeader.Render(header) + "\n")
+			descBuilder.WriteString(styleCommentBody.Render(c.Text) + "\n\n")
 		}
-		cStr, _ := renderer.Render(cBuilder.String())
-		bodyStr += "\n" + cStr
 	}
 
 	finalContent := lipgloss.JoinVertical(lipgloss.Left,
 		headerBlock,
 		metaBlock,
 		relBlock,
-		bodyStr,
+		descBuilder.String(),
 	)
 
 	m.viewport.SetContent(finalContent)
@@ -832,7 +877,6 @@ func (m model) View() string {
 		}
 
 		prefixRaw := fmt.Sprintf("%s%s %s ", indent, marker, iconStr)
-		// Fix Issue 2: Adjust prefixWidth for wrapping (-4 correction)
 		totalPrefixWidth := len(prefixRaw) + len(node.Issue.ID) + 1 - 4
 		if totalPrefixWidth < 0 {
 			totalPrefixWidth = 0
@@ -841,22 +885,24 @@ func (m model) View() string {
 		wrappedTitle := wrapWithHangingIndent(totalPrefixWidth, node.Issue.Title, treeWidth)
 		titleLines := strings.Split(wrappedTitle, "\n")
 
-		// Fix Issue 4: Highlight logic
 		if i == m.cursor {
-			// Only highlight up to the arrow (indent + marker)
-			// The rest (Icon + ID + Title) has normal background
-			highlightedPrefix := styleSelected.Render(fmt.Sprintf("%s%s", indent, marker))
-			// Reconstruct the line without the prefix inside
+			// Fix: Alignment of highlighted items
+			// Previously we did styleSelected.Render(fmt.Sprintf("%s%s", indent, marker))
+			// This does not include the leading space that " "+line1 uses below.
+			// We now include the space inside the highlight block to match alignment exactly.
+			highlightedPrefix := styleSelected.Render(fmt.Sprintf(" %s%s", indent, marker))
+
+			// Remove the manual space before iconStyle because highlightedPrefix now handles the margin
 			line1Rest := fmt.Sprintf(" %s %s %s", iconStyle.Render(iconStr), styleID.Render(node.Issue.ID), textStyle.Render(titleLines[0]))
 			treeLines = append(treeLines, highlightedPrefix+line1Rest)
 		} else {
-			line1Prefix := fmt.Sprintf("%s%s %s ", indent, iconStyle.Render(marker), iconStyle.Render(iconStr))
+			// Standard unselected row starts with a space
+			line1Prefix := fmt.Sprintf(" %s%s %s ", indent, iconStyle.Render(marker), iconStyle.Render(iconStr))
 			line1 := fmt.Sprintf("%s%s %s", line1Prefix, styleID.Render(node.Issue.ID), textStyle.Render(titleLines[0]))
-			treeLines = append(treeLines, " "+line1)
+			treeLines = append(treeLines, line1)
 		}
 
 		for k := 1; k < len(titleLines); k++ {
-			// Fix Issue 2b: Ensure wrapped lines keep the text color (e.g. Cyan)
 			treeLines = append(treeLines, " "+textStyle.Render(titleLines[k]))
 		}
 	}
@@ -865,16 +911,33 @@ func (m model) View() string {
 
 	var mainBody string
 	if m.showDetails {
-		left := stylePane.Width(m.width - m.viewport.Width - 4).Height(m.height - 3).Render(treeViewStr)
-		right := stylePane.Width(m.viewport.Width).Height(m.height - 3).Render(m.viewport.View())
+		leftStyle := stylePane
+		rightStyle := stylePane
+
+		// Highlight active pane
+		if m.focus == FocusTree {
+			leftStyle = stylePaneFocused
+		} else {
+			rightStyle = stylePaneFocused
+		}
+
+		left := leftStyle.Width(m.width - m.viewport.Width - 4).Height(m.height - 3).Render(treeViewStr)
+		right := rightStyle.Width(m.viewport.Width).Height(m.height - 3).Render(m.viewport.View())
 		mainBody = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	} else {
 		mainBody = stylePane.Width(m.width - 2).Height(m.height - 3).Render(treeViewStr)
 	}
 
+	footerStr := " [ / ] Search  [ enter ] Detail  [ tab ] Switch Focus  [ q ] Quit"
+	if m.showDetails && m.focus == FocusDetails {
+		footerStr += "  [ j/k ] Scroll Details"
+	} else {
+		footerStr += "  [ space ] Expand"
+	}
+
 	footer := lipgloss.NewStyle().Foreground(cLightGray).Render(
-		fmt.Sprintf(" [ / ] Search  [ b ] Blockers  [ enter ] Detail  [ space/→ ] Expand  [ q ] Quit   %s",
-			lipgloss.PlaceHorizontal(m.width-60, lipgloss.Right, "Repo: "+m.repoName)))
+		fmt.Sprintf("%s   %s", footerStr,
+			lipgloss.PlaceHorizontal(m.width-len(footerStr)-5, lipgloss.Right, "Repo: "+m.repoName)))
 
 	return fmt.Sprintf("%s\n%s\n%s", header, mainBody, footer)
 }
