@@ -541,6 +541,7 @@ func (m *model) recalcVisibleRows() {
 		}
 	}
 	traverse(m.roots)
+	m.clampCursor()
 }
 
 func (m *model) getStats() Stats {
@@ -571,6 +572,19 @@ func (m *model) getStats() Stats {
 }
 
 func (m model) Init() tea.Cmd { return textinput.Blink }
+
+func (m *model) clampCursor() {
+	if len(m.visibleRows) == 0 {
+		m.cursor = 0
+		return
+	}
+	if m.cursor >= len(m.visibleRows) {
+		m.cursor = len(m.visibleRows) - 1
+	}
+	if m.cursor < 0 {
+		m.cursor = 0
+	}
+}
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
