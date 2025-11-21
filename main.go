@@ -116,9 +116,6 @@ var (
 	styleCommentHeader = lipgloss.NewStyle().
 				Foreground(cBrightGray).
 				Bold(true)
-
-	styleCommentBody = lipgloss.NewStyle().
-				Foreground(cWhite)
 )
 
 // --- Data Structures ---
@@ -266,6 +263,11 @@ func indentBlock(text string, spaces int) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// trimGlamourOutput removes leading/trailing whitespace/newlines that Glamour adds by default
+func trimGlamourOutput(s string) string {
+	return strings.TrimSpace(s)
 }
 
 func fetchCommentsForNode(n *Node) {
@@ -675,7 +677,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// --- Viewport Rendering ---
+// --- New Helper Function ---
+// renderRefRow renders an ID and a Title side-by-side, like table cells.
+// The ID never wraps. The Title wraps in its own column to the right.
+func renderRefRow(id, title string, width int, idStyle, titleStyle lipgloss.Style) string {
+	idRendered := idStyle.Render(id)
+	idWidth := lipgloss.Width(idRendered)
+	
+	// Gap between ID and Title
+	gap := "  "
+	gapWidth := 2
+
+	// Calculate remaining width for the title
+	contentWidth := width - idWidth - gapWidth
+	if contentWidth < 10 {
+		contentWidth = 10
+	}
+
+	// Wrap the title manually to the content width
+	wrappedTitle := wordwrap.String(title, contentWidth)
+	titleRendered := titleStyle.Render(wrappedTitle)
+
+	// Join them horizontally aligned to the Top
+	return lipgloss.JoinHorizontal(lipgloss.Top, idRendered, gap, titleRendered)
+}
+
+// --- Updated Viewport Rendering ---
 
 func (m *model) updateViewportContent() {
 	if !m.showDetails || m.cursor >= len(m.visibleRows) {
@@ -688,30 +715,19 @@ func (m *model) updateViewportContent() {
 	}
 
 	iss := node.Issue
-
-	// 2. FIX: Use full viewport width for calculations to fix "short" background
 	vpWidth := m.viewport.Width
 
 	// 1. HEADER
-	idStr := iss.ID
-	titleWidth := vpWidth - len(idStr) - 4
-	if titleWidth < 10 {
-		titleWidth = 10
-	}
-
-	wrappedTitle := wordwrap.String(iss.Title, titleWidth)
-	titleLines := strings.Split(wrappedTitle, "\n")
-
-	spacer := styleDetailHeaderCombined.Render("  ")
-	fullHeaderStr := fmt.Sprintf("%s%s%s",
-		styleDetailHeaderCombined.Foreground(cGold).Render(idStr),
-		spacer,
-		styleDetailHeaderCombined.Foreground(cWhite).Render(titleLines[0]))
-
-	for i := 1; i < len(titleLines); i++ {
-		fullHeaderStr += "\n" + styleDetailHeaderBlock.Render(titleLines[i])
-	}
-	headerBlock := styleDetailHeaderBlock.Width(vpWidth).Render(fullHeaderStr)
+	// We use the new helper to ensure "Table Cell" behavior
+	headerContent := renderRefRow(
+		iss.ID, 
+		iss.Title, 
+		vpWidth, 
+		styleDetailHeaderCombined.Foreground(cGold), 
+		styleDetailHeaderCombined.Foreground(cWhite),
+	)
+	// Apply the background block style to the whole result so it looks like a header bar
+	headerBlock := styleDetailHeaderBlock.Width(vpWidth).Render(headerContent)
 
 	// 2. METADATA
 	makeRow := func(k, v string) string {
@@ -739,6 +755,7 @@ func (m *model) updateViewportContent() {
 	}
 
 	if len(iss.Labels) > 0 {
+		// Simplified label rendering
 		var labelRows []string
 		var currentRow string
 		currentLen := 0
@@ -793,49 +810,37 @@ func (m *model) updateViewportContent() {
 		relBuilder.WriteString(fmt.Sprintf("  🔗 %s\n\n", iss.ExternalRef))
 	}
 
-	if node.Parent != nil {
-		relBuilder.WriteString(styleSectionHeader.Render("Parent") + "\n")
-		pTitle := node.Parent.Issue.Title
-		pId := node.Parent.Issue.ID
-		pIndentW := 2 + len(pId) + 2
-		pWrapped := wrapWithHangingIndent(pIndentW, pTitle, vpWidth-4)
-		pLines := strings.Split(pWrapped, "\n")
-
-		relBuilder.WriteString(fmt.Sprintf("  %s  %s\n", styleID.Render(pId), pLines[0]))
-		padding := strings.Repeat(" ", pIndentW)
-		for i := 1; i < len(pLines); i++ {
-			relBuilder.WriteString(padding + pLines[i] + "\n")
+	// Helper to keep indentation consistent for the section
+	renderRelSection := func(title string, items []*Node) {
+		relBuilder.WriteString(styleSectionHeader.Render(title) + "\n")
+		for _, item := range items {
+			// Use the helper to align title correctly to the right of ID
+			row := renderRefRow(
+				item.Issue.ID,
+				item.Issue.Title,
+				vpWidth-4, // Slightly less width to account for left margin
+				styleID,
+				styleVal, // Standard text color
+			)
+			// Indent the whole row by 2 spaces
+			relBuilder.WriteString("  " + row + "\n")
 		}
+	}
+
+	if node.Parent != nil {
+		renderRelSection("Parent", []*Node{node.Parent})
 	}
 
 	if node.IsBlocked {
-		relBuilder.WriteString(styleSectionHeader.Render("Blocked By") + "\n")
-		for _, b := range node.BlockedBy {
-			relBuilder.WriteString(fmt.Sprintf("  %s  %s\n", styleID.Render(b.Issue.ID), b.Issue.Title))
-		}
+		renderRelSection("Blocked By", node.BlockedBy)
 	}
 
 	if len(node.Children) > 0 {
-		relBuilder.WriteString(styleSectionHeader.Render(fmt.Sprintf("Depends On (%d)", len(node.Children))) + "\n")
-		for _, child := range node.Children {
-			cTitle := child.Issue.Title
-			cId := child.Issue.ID
-			cIndentW := 2 + len(cId) + 2
-			cWrapped := wrapWithHangingIndent(cIndentW, cTitle, vpWidth-4)
-			cLines := strings.Split(cWrapped, "\n")
-			relBuilder.WriteString(fmt.Sprintf("  %s  %s\n", styleID.Render(cId), cLines[0]))
-			padding := strings.Repeat(" ", cIndentW)
-			for i := 1; i < len(cLines); i++ {
-				relBuilder.WriteString(padding + cLines[i] + "\n")
-			}
-		}
+		renderRelSection(fmt.Sprintf("Depends On (%d)", len(node.Children)), node.Children)
 	}
 
 	if len(node.Blocks) > 0 {
-		relBuilder.WriteString(styleSectionHeader.Render(fmt.Sprintf("Blocks (%d)", len(node.Blocks))) + "\n")
-		for _, child := range node.Blocks {
-			relBuilder.WriteString(fmt.Sprintf("  %s  %s\n", styleID.Render(child.Issue.ID), child.Issue.Title))
-		}
+		renderRelSection(fmt.Sprintf("Blocks (%d)", len(node.Blocks)), node.Blocks)
 	}
 
 	relBlock := ""
@@ -843,27 +848,41 @@ func (m *model) updateViewportContent() {
 		relBlock = lipgloss.NewStyle().Render(relBuilder.String())
 	}
 
-	// 4. DESCRIPTION
-	descBuilder := strings.Builder{}
-	descBuilder.WriteString(styleSectionHeader.Render("Description") + "\n")
-	desc := strings.ReplaceAll(iss.Description, "• ", "- ")
+	// 4. DESCRIPTION & COMMENTS
+	
+	// FIX: Increased width usage. Previously was vpWidth - 12. 
+	// Now using vpWidth - 4 to give just enough room for scrollbar/borders.
+	safeWidth := vpWidth - 4 
+	if safeWidth < 10 {
+		safeWidth = 10
+	}
+
 	renderer, _ := glamour.NewTermRenderer(
 		glamour.WithStandardStyle("dark"),
-		glamour.WithWordWrap(vpWidth-6),
+		glamour.WithWordWrap(safeWidth),
 	)
+
+	descBuilder := strings.Builder{}
+	descBuilder.WriteString(styleSectionHeader.Render("Description") + "\n")
+	
+	// Clean bullets
+	desc := strings.ReplaceAll(iss.Description, "• ", "- ")
+
 	renderedDesc, _ := renderer.Render(desc)
-	// FIX: Indent 1 space relative to label (label is at 1, text at 2)
+	renderedDesc = trimGlamourOutput(renderedDesc)
+	
+	// We indent slightly (1 space) but keep the wide width
 	descBuilder.WriteString(indentBlock(renderedDesc, 1))
 
-	// 5. COMMENTS
 	if len(iss.Comments) > 0 {
-		descBuilder.WriteString(styleSectionHeader.Render("Comments") + "\n")
+		descBuilder.WriteString("\n" + styleSectionHeader.Render("Comments") + "\n")
 		for _, c := range iss.Comments {
 			header := fmt.Sprintf("  %s  %s", c.Author, formatTime(c.CreatedAt))
 			descBuilder.WriteString(styleCommentHeader.Render(header) + "\n")
-			// FIX: Use Glamour for Comments + 1 space indent
+
 			renderedComment, _ := renderer.Render(c.Text)
-			descBuilder.WriteString(indentBlock(renderedComment, 1) + "\n")
+			renderedComment = trimGlamourOutput(renderedComment)
+			descBuilder.WriteString(indentBlock(renderedComment, 1) + "\n\n")
 		}
 	}
 
@@ -935,11 +954,9 @@ func (m model) View() string {
 		treeWidth = m.width - m.viewport.Width - 4
 	}
 
-	// FIX: Prevent overflow by checking visual lines
 	visualLinesCount := 0
 
 	for i := start; i < end; i++ {
-		// Critical Check: If we are about to exceed listHeight, stop rendering rows
 		if visualLinesCount >= listHeight {
 			break
 		}
@@ -971,7 +988,6 @@ func (m model) View() string {
 			totalPrefixWidth = 0
 		}
 
-		// FIX: Use a safe width that definitely won't wrap at the terminal edge
 		wrappedTitle := wrapWithHangingIndent(totalPrefixWidth, node.Issue.Title, treeWidth-4)
 		titleLines := strings.Split(wrappedTitle, "\n")
 
@@ -996,7 +1012,6 @@ func (m model) View() string {
 		}
 	}
 
-	// Fill remaining lines to ensure pane height remains constant and doesn't "pull" up
 	for visualLinesCount < listHeight {
 		treeLines = append(treeLines, "")
 		visualLinesCount++
@@ -1014,8 +1029,6 @@ func (m model) View() string {
 			rightStyle = stylePaneFocused
 		}
 
-		// JoinHorizontal usually handles height diffs by aligning top,
-		// but ensuring exact strings is safer for terminal rendering
 		left := leftStyle.Width(m.width - m.viewport.Width - 4).Height(listHeight).Render(treeViewStr)
 		right := rightStyle.Width(m.viewport.Width).Height(listHeight).Render(m.viewport.View())
 		mainBody = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
@@ -1023,7 +1036,6 @@ func (m model) View() string {
 		mainBody = stylePane.Width(m.width - 2).Height(listHeight).Render(treeViewStr)
 	}
 
-	// Bottom Bar
 	var bottomBar string
 	if m.searching {
 		bottomBar = m.textInput.View()
