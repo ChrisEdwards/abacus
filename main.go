@@ -39,7 +39,7 @@ var (
 	styleNormalText     = lipgloss.NewStyle().Foreground(cWhite)
 	styleDoneText       = lipgloss.NewStyle().Foreground(cBrightGray)
 	styleBlockedText    = lipgloss.NewStyle().Foreground(cRed)
-	styleStatsDim = lipgloss.NewStyle().Foreground(cBrightGray)
+	styleStatsDim       = lipgloss.NewStyle().Foreground(cBrightGray)
 
 	// Icon Styles
 	styleIconOpen       = lipgloss.NewStyle().Foreground(cWhite)
@@ -158,10 +158,10 @@ type FullIssue struct {
 }
 
 type Node struct {
-	Issue     FullIssue
-	Children  []*Node
-	Parents   []*Node
-	Parent    *Node
+	Issue    FullIssue
+	Children []*Node
+	Parents  []*Node
+	Parent   *Node
 
 	BlockedBy []*Node
 	Blocks    []*Node
@@ -691,10 +691,9 @@ func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipglos
 	idWidth := lipgloss.Width(idRendered)
 
 	// 3. Calculate Title Width
-	// SAFETY BUFFER: Subtract 4 extra characters to prevent terminal hard-wrapping
-	titleWidth := targetWidth - idWidth - gapWidth - 4
-	if titleWidth < 10 {
-		titleWidth = 10
+	titleWidth := targetWidth - idWidth - gapWidth
+	if titleWidth < 1 {
+		titleWidth = 1
 	}
 
 	// 4. Wrap and Render Title
@@ -705,7 +704,7 @@ func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipglos
 		Render(wordwrap.String(title, titleWidth))
 
 	// 5. Equalize Heights (Crucial for the solid header bar)
-	// If the title wraps to 3 lines, we need the ID and Gap to be 3 lines tall 
+	// If the title wraps to 3 lines, we need the ID and Gap to be 3 lines tall
 	// so the background color extends down.
 	h := lipgloss.Height(titleRendered)
 	idRendered = idStyle.Background(bgColor).Height(h).Render(id)
@@ -729,15 +728,14 @@ func (m *model) updateViewportContent() {
 	vpWidth := m.viewport.Width
 
 	// --- 1. HEADER ---
-	// We pass the full width. The helper now subtracts a safety buffer.
-	// We pass cHighlight (Purple) for the background.
+	// Pass the full width so the row fills the entire header band.
 	headerContent := renderRefRow(
 		iss.ID,
 		iss.Title,
 		vpWidth,
 		styleDetailHeaderCombined.Foreground(cGold),
 		styleDetailHeaderCombined.Foreground(cWhite),
-		cHighlight, 
+		cHighlight,
 	)
 	// Render inside the block style to ensure full width background extension
 	headerBlock := styleDetailHeaderBlock.Width(vpWidth).Render(headerContent)
@@ -825,21 +823,21 @@ func (m *model) updateViewportContent() {
 	// Helper for the lists (Parents, Depends On, etc)
 	renderRelSection := func(title string, items []*Node) {
 		relBuilder.WriteString(styleSectionHeader.Render(title) + "\n")
+		const indentSpaces = 2
+		rowWidth := vpWidth - indentSpaces - 2
+		if rowWidth < 1 {
+			rowWidth = 1
+		}
 		for _, item := range items {
-			// We indent the whole row by 2 spaces manually
-			indent := "  "
-			
-			// We reduce the target width by (Indent + Safety Buffer) to ensure alignment
-			// Passing lipgloss.Color("") ensures no background is applied
 			row := renderRefRow(
 				item.Issue.ID,
 				item.Issue.Title,
-				vpWidth - 6, 
+				rowWidth,
 				styleID,
 				styleVal,
-				lipgloss.Color(""), 
+				lipgloss.Color(""),
 			)
-			relBuilder.WriteString(indent + row + "\n")
+			relBuilder.WriteString(indentBlock(row, indentSpaces) + "\n")
 		}
 	}
 
@@ -862,12 +860,11 @@ func (m *model) updateViewportContent() {
 	}
 
 	// --- 4. DESCRIPTION & COMMENTS ---
-	// Fix for Double Wrapping:
-	// We reserve 10 chars of space. 
-	// (2 for margin + 2 for indent + 2 for scrollbar + 4 for safety)
-	safeWidth := vpWidth - 10
-	if safeWidth < 10 {
-		safeWidth = 10
+	const contentIndentSpaces = 1
+	const contentSafetyMargin = 1
+	safeWidth := vpWidth - contentIndentSpaces - contentSafetyMargin
+	if safeWidth < 1 {
+		safeWidth = 1
 	}
 
 	renderer, _ := glamour.NewTermRenderer(
@@ -881,7 +878,7 @@ func (m *model) updateViewportContent() {
 
 	renderedDesc, _ := renderer.Render(desc)
 	renderedDesc = trimGlamourOutput(renderedDesc)
-	descBuilder.WriteString(indentBlock(renderedDesc, 1))
+	descBuilder.WriteString(indentBlock(renderedDesc, contentIndentSpaces))
 
 	if len(iss.Comments) > 0 {
 		descBuilder.WriteString("\n" + styleSectionHeader.Render("Comments") + "\n")
@@ -891,9 +888,9 @@ func (m *model) updateViewportContent() {
 
 			renderedComment, _ := renderer.Render(c.Text)
 			renderedComment = trimGlamourOutput(renderedComment)
-			// The text is already wrapped to safeWidth (vp - 10).
-			// Indenting it by 1 or 2 spaces is now safe.
-			descBuilder.WriteString(indentBlock(renderedComment, 1) + "\n\n")
+			// The text is already wrapped to safeWidth (viewport width minus indent & safety).
+			// Adding the indent preserves alignment without causing another wrap.
+			descBuilder.WriteString(indentBlock(renderedComment, contentIndentSpaces) + "\n\n")
 		}
 	}
 
@@ -944,7 +941,7 @@ func (m model) View() string {
 	header := styleAppHeader.Render("ABACUS") + " " + status
 
 	// ... (Rest of the View function logic regarding Tree generation remains exactly the same) ...
-	
+
 	var treeLines []string
 	listHeight := m.height - 4
 	start, end := 0, len(m.visibleRows)
