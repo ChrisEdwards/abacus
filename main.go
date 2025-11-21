@@ -39,6 +39,7 @@ var (
 	styleNormalText     = lipgloss.NewStyle().Foreground(cWhite)
 	styleDoneText       = lipgloss.NewStyle().Foreground(cBrightGray)
 	styleBlockedText    = lipgloss.NewStyle().Foreground(cRed)
+	styleStatsDim = lipgloss.NewStyle().Foreground(cBrightGray)
 
 	// Icon Styles
 	styleIconOpen       = lipgloss.NewStyle().Foreground(cWhite)
@@ -677,32 +678,42 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// --- New Helper Function ---
-// renderRefRow renders an ID and a Title side-by-side, like table cells.
-// The ID never wraps. The Title wraps in its own column to the right.
-func renderRefRow(id, title string, width int, idStyle, titleStyle lipgloss.Style) string {
-	idRendered := idStyle.Render(id)
-	idWidth := lipgloss.Width(idRendered)
-	
-	// Gap between ID and Title
+// renderRefRow creates a strict two-column layout: [ID] [Gap] [TitleBlock].
+// It handles background colors explicitly to prevent "black gaps" in headers.
+func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipgloss.Style, bgColor lipgloss.Color) string {
+	// 1. Define the Gap
 	gap := "  "
 	gapWidth := 2
 
-	// Calculate remaining width for the title
-	contentWidth := width - idWidth - gapWidth
-	if contentWidth < 10 {
-		contentWidth = 10
+	// 2. Render ID (single line)
+	// We apply background to ID immediately
+	idRendered := idStyle.Background(bgColor).Render(id)
+	idWidth := lipgloss.Width(idRendered)
+
+	// 3. Calculate Title Width
+	// SAFETY BUFFER: Subtract 4 extra characters to prevent terminal hard-wrapping
+	titleWidth := targetWidth - idWidth - gapWidth - 4
+	if titleWidth < 10 {
+		titleWidth = 10
 	}
 
-	// Wrap the title manually to the content width
-	wrappedTitle := wordwrap.String(title, contentWidth)
-	titleRendered := titleStyle.Render(wrappedTitle)
+	// 4. Wrap and Render Title
+	// We force the width on the style so it fills the block
+	titleRendered := titleStyle.
+		Background(bgColor).
+		Width(titleWidth).
+		Render(wordwrap.String(title, titleWidth))
 
-	// Join them horizontally aligned to the Top
-	return lipgloss.JoinHorizontal(lipgloss.Top, idRendered, gap, titleRendered)
+	// 5. Equalize Heights (Crucial for the solid header bar)
+	// If the title wraps to 3 lines, we need the ID and Gap to be 3 lines tall 
+	// so the background color extends down.
+	h := lipgloss.Height(titleRendered)
+	idRendered = idStyle.Background(bgColor).Height(h).Render(id)
+	gapRendered := lipgloss.NewStyle().Background(bgColor).Height(h).Render(gap)
+
+	// 6. Join
+	return lipgloss.JoinHorizontal(lipgloss.Top, idRendered, gapRendered, titleRendered)
 }
-
-// --- Updated Viewport Rendering ---
 
 func (m *model) updateViewportContent() {
 	if !m.showDetails || m.cursor >= len(m.visibleRows) {
@@ -717,19 +728,21 @@ func (m *model) updateViewportContent() {
 	iss := node.Issue
 	vpWidth := m.viewport.Width
 
-	// 1. HEADER
-	// We use the new helper to ensure "Table Cell" behavior
+	// --- 1. HEADER ---
+	// We pass the full width. The helper now subtracts a safety buffer.
+	// We pass cHighlight (Purple) for the background.
 	headerContent := renderRefRow(
-		iss.ID, 
-		iss.Title, 
-		vpWidth, 
-		styleDetailHeaderCombined.Foreground(cGold), 
+		iss.ID,
+		iss.Title,
+		vpWidth,
+		styleDetailHeaderCombined.Foreground(cGold),
 		styleDetailHeaderCombined.Foreground(cWhite),
+		cHighlight, 
 	)
-	// Apply the background block style to the whole result so it looks like a header bar
+	// Render inside the block style to ensure full width background extension
 	headerBlock := styleDetailHeaderBlock.Width(vpWidth).Render(headerContent)
 
-	// 2. METADATA
+	// --- 2. METADATA ---
 	makeRow := func(k, v string) string {
 		return lipgloss.JoinHorizontal(lipgloss.Left, styleField.Render(k), styleVal.Render(v))
 	}
@@ -755,7 +768,6 @@ func (m *model) updateViewportContent() {
 	}
 
 	if len(iss.Labels) > 0 {
-		// Simplified label rendering
 		var labelRows []string
 		var currentRow string
 		currentLen := 0
@@ -802,7 +814,7 @@ func (m *model) updateViewportContent() {
 	}
 	metaBlock = lipgloss.NewStyle().MarginLeft(1).PaddingTop(1).PaddingBottom(1).Render(metaBlock)
 
-	// 3. RELATIONSHIPS
+	// --- 3. RELATIONSHIPS ---
 	relBuilder := strings.Builder{}
 
 	if iss.ExternalRef != "" {
@@ -810,35 +822,36 @@ func (m *model) updateViewportContent() {
 		relBuilder.WriteString(fmt.Sprintf("  🔗 %s\n\n", iss.ExternalRef))
 	}
 
-	// Helper to keep indentation consistent for the section
+	// Helper for the lists (Parents, Depends On, etc)
 	renderRelSection := func(title string, items []*Node) {
 		relBuilder.WriteString(styleSectionHeader.Render(title) + "\n")
 		for _, item := range items {
-			// Use the helper to align title correctly to the right of ID
+			// We indent the whole row by 2 spaces manually
+			indent := "  "
+			
+			// We reduce the target width by (Indent + Safety Buffer) to ensure alignment
+			// Passing lipgloss.Color("") ensures no background is applied
 			row := renderRefRow(
 				item.Issue.ID,
 				item.Issue.Title,
-				vpWidth-4, // Slightly less width to account for left margin
+				vpWidth - 6, 
 				styleID,
-				styleVal, // Standard text color
+				styleVal,
+				lipgloss.Color(""), 
 			)
-			// Indent the whole row by 2 spaces
-			relBuilder.WriteString("  " + row + "\n")
+			relBuilder.WriteString(indent + row + "\n")
 		}
 	}
 
 	if node.Parent != nil {
 		renderRelSection("Parent", []*Node{node.Parent})
 	}
-
-	if node.IsBlocked {
-		renderRelSection("Blocked By", node.BlockedBy)
-	}
-
 	if len(node.Children) > 0 {
 		renderRelSection(fmt.Sprintf("Depends On (%d)", len(node.Children)), node.Children)
 	}
-
+	if node.IsBlocked {
+		renderRelSection("Blocked By", node.BlockedBy)
+	}
 	if len(node.Blocks) > 0 {
 		renderRelSection(fmt.Sprintf("Blocks (%d)", len(node.Blocks)), node.Blocks)
 	}
@@ -848,11 +861,11 @@ func (m *model) updateViewportContent() {
 		relBlock = lipgloss.NewStyle().Render(relBuilder.String())
 	}
 
-	// 4. DESCRIPTION & COMMENTS
-	
-	// FIX: Increased width usage. Previously was vpWidth - 12. 
-	// Now using vpWidth - 4 to give just enough room for scrollbar/borders.
-	safeWidth := vpWidth - 4 
+	// --- 4. DESCRIPTION & COMMENTS ---
+	// Fix for Double Wrapping:
+	// We reserve 10 chars of space. 
+	// (2 for margin + 2 for indent + 2 for scrollbar + 4 for safety)
+	safeWidth := vpWidth - 10
 	if safeWidth < 10 {
 		safeWidth = 10
 	}
@@ -864,14 +877,10 @@ func (m *model) updateViewportContent() {
 
 	descBuilder := strings.Builder{}
 	descBuilder.WriteString(styleSectionHeader.Render("Description") + "\n")
-	
-	// Clean bullets
 	desc := strings.ReplaceAll(iss.Description, "• ", "- ")
 
 	renderedDesc, _ := renderer.Render(desc)
 	renderedDesc = trimGlamourOutput(renderedDesc)
-	
-	// We indent slightly (1 space) but keep the wide width
 	descBuilder.WriteString(indentBlock(renderedDesc, 1))
 
 	if len(iss.Comments) > 0 {
@@ -882,6 +891,8 @@ func (m *model) updateViewportContent() {
 
 			renderedComment, _ := renderer.Render(c.Text)
 			renderedComment = trimGlamourOutput(renderedComment)
+			// The text is already wrapped to safeWidth (vp - 10).
+			// Indenting it by 1 or 2 spaces is now safe.
 			descBuilder.WriteString(indentBlock(renderedComment, 1) + "\n\n")
 		}
 	}
@@ -921,8 +932,9 @@ func (m model) View() string {
 		breakdown = append(breakdown, fmt.Sprintf("%d Closed", stats.Closed))
 	}
 
+	// Apply the Dim style to the breakdown list
 	if len(breakdown) > 0 {
-		status += fmt.Sprintf(" (%s)", strings.Join(breakdown, ", "))
+		status += " " + styleStatsDim.Render("("+strings.Join(breakdown, ", ")+")")
 	}
 
 	if m.filterText != "" {
@@ -931,6 +943,8 @@ func (m model) View() string {
 	}
 	header := styleAppHeader.Render("ABACUS") + " " + status
 
+	// ... (Rest of the View function logic regarding Tree generation remains exactly the same) ...
+	
 	var treeLines []string
 	listHeight := m.height - 4
 	start, end := 0, len(m.visibleRows)
