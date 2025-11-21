@@ -22,7 +22,7 @@ var (
 	// Theme Colors
 	cPurple    = lipgloss.Color("99")
 	cCyan      = lipgloss.Color("39")
-	cNeonGreen = lipgloss.Color("118") // Icon only
+	cNeonGreen = lipgloss.Color("118")
 	cRed       = lipgloss.Color("196")
 	cOrange    = lipgloss.Color("208")
 	cGold      = lipgloss.Color("220")
@@ -30,29 +30,27 @@ var (
 	cLightGray = lipgloss.Color("250")
 	cWhite     = lipgloss.Color("255")
 	cHighlight = lipgloss.Color("57")
-	cField     = lipgloss.Color("63") // Consistent color for field names (Blue-ish purple)
+	cField     = lipgloss.Color("63") // Bright Purple-Blue for field names
 
-	// Tree Text Styles
+	// Text Styles
 	styleInProgressText = lipgloss.NewStyle().Foreground(cCyan).Bold(true)
 	styleNormalText     = lipgloss.NewStyle().Foreground(cWhite)
 	styleDoneText       = lipgloss.NewStyle().Foreground(cGray)
 	styleBlockedText    = lipgloss.NewStyle().Foreground(cRed)
 
-	// Tree Icon Styles (Separate from text)
+	// Icon Styles
 	styleIconOpen       = lipgloss.NewStyle().Foreground(cWhite)
-	styleIconInProgress = lipgloss.NewStyle().Foreground(cNeonGreen) // THE NEON GREEN ICON
+	styleIconInProgress = lipgloss.NewStyle().Foreground(cNeonGreen)
 	styleIconDone       = lipgloss.NewStyle().Foreground(cGray)
 	styleIconBlocked    = lipgloss.NewStyle().Foreground(cRed)
 
 	styleID = lipgloss.NewStyle().Foreground(cGold).Bold(true).MarginRight(1)
 
-	// Selection Style
 	styleSelected = lipgloss.NewStyle().
 			Background(cHighlight).
 			Foreground(cWhite).
 			Bold(true)
 
-	// Header & Layout
 	styleAppHeader = lipgloss.NewStyle().
 			Foreground(cWhite).
 			Background(cPurple).
@@ -65,16 +63,19 @@ var (
 
 	// --- Detail Pane Specifics ---
 	
-	// The merged ID + Title bar
 	styleDetailHeader = lipgloss.NewStyle().
 			Background(cHighlight).
 			Foreground(cWhite).
 			Bold(true).
 			Padding(0, 1)
 
-	// Metadata Fields
-	styleField = lipgloss.NewStyle().Foreground(cField).Width(10) // Fixed width for alignment
-	styleVal   = lipgloss.NewStyle().Foreground(cWhite)
+	// Field Keys (Fixed width for alignment)
+	styleField = lipgloss.NewStyle().
+			Foreground(cField).
+			Bold(true).
+			Width(10) 
+
+	styleVal = lipgloss.NewStyle().Foreground(cWhite)
 	
 	styleSectionHeader = lipgloss.NewStyle().
 			Foreground(cGold).
@@ -96,7 +97,7 @@ var (
 			Bold(true)
 )
 
-// --- Data Structures (Unchanged) ---
+// --- Data Structures ---
 
 type LiteIssue struct {
 	ID string `json:"id"`
@@ -162,7 +163,7 @@ type model struct {
 	err    error
 }
 
-// --- Logic: Helpers ---
+// --- Helpers ---
 
 func formatTime(isoStr string) string {
 	t, err := time.Parse(time.RFC3339, isoStr)
@@ -180,7 +181,7 @@ func getRepoName() string {
 	return filepath.Base(dir)
 }
 
-// --- Logic: Data Loading (Unchanged) ---
+// --- Data Loading & Sorting ---
 
 func loadData() ([]*Node, error) {
 	cmd := exec.Command("bd", "list", "--json")
@@ -208,7 +209,38 @@ func loadData() ([]*Node, error) {
 		return nil, err
 	}
 
-	return buildGraph(fullIssues), nil
+	roots := buildGraph(fullIssues)
+	
+	// --- SORTING LOGIC ---
+	// 1. Compute states (so we know if a tree has active work)
+	for _, root := range roots {
+		computeStates(root)
+		if root.HasInProgress {
+			root.Expanded = true
+		}
+	}
+
+	// 2. Sort Roots based on "Focus" Logic
+	sort.SliceStable(roots, func(i, j int) bool {
+		a := roots[i]
+		b := roots[j]
+
+		// Rank: 0 = InProgress, 1 = Ready, 2 = Other
+		rankA := 2
+		if a.HasInProgress { rankA = 0 } else if a.HasReady { rankA = 1 }
+
+		rankB := 2
+		if b.HasInProgress { rankB = 0 } else if b.HasReady { rankB = 1 }
+
+		if rankA != rankB {
+			return rankA < rankB
+		}
+
+		// Tie-breaker: Chronological (Oldest Created First)
+		return a.Issue.CreatedAt < b.Issue.CreatedAt
+	})
+
+	return roots, nil
 }
 
 func batchFetchIssues(ids []string) ([]FullIssue, error) {
@@ -289,23 +321,12 @@ func buildGraph(issues []FullIssue) []*Node {
 		sort.Slice(node.Children, func(i, j int) bool {
 			return node.Children[i].Issue.CreatedAt < node.Children[j].Issue.CreatedAt
 		})
-
 		if !childrenIDs[id] {
 			roots = append(roots, node)
 		}
 	}
 
-	sort.Slice(roots, func(i, j int) bool {
-		return roots[i].Issue.CreatedAt < roots[j].Issue.CreatedAt
-	})
-
-	for _, root := range roots {
-		computeStates(root)
-		if root.HasInProgress {
-			root.Expanded = true
-		}
-	}
-
+	// Note: Root sorting happens in loadData now
 	return roots
 }
 
@@ -331,7 +352,6 @@ func computeStates(n *Node) {
 		computeStates(child)
 		if child.HasInProgress {
 			n.HasInProgress = true
-			n.Expanded = true
 		}
 		if child.HasReady {
 			n.HasReady = true
@@ -343,9 +363,7 @@ func (m *model) recalcVisibleRows() {
 	m.visibleRows = []*Node{}
 
 	matches := func(n *Node) bool {
-		if m.filterText == "" {
-			return true
-		}
+		if m.filterText == "" { return true }
 		return strings.Contains(strings.ToLower(n.Issue.Title), strings.ToLower(m.filterText))
 	}
 
@@ -402,6 +420,7 @@ func (m *model) jumpToBlocker() {
 		if n.Issue.ID == target.Issue.ID {
 			m.cursor = i
 			m.updateViewportContent()
+			m.viewport.GotoTop()
 			return
 		}
 	}
@@ -469,11 +488,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor > 0 {
 				m.cursor--
 				m.updateViewportContent()
+				m.viewport.GotoTop() // FIX: Reset scroll
 			}
 		case "down", "j":
 			if m.cursor < len(m.visibleRows)-1 {
 				m.cursor++
 				m.updateViewportContent()
+				m.viewport.GotoTop() // FIX: Reset scroll
 			}
 		case "right", "l", "space":
 			node := m.visibleRows[m.cursor]
@@ -497,7 +518,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// --- REFINED Viewport Renderer ---
+// --- VIEWPORT RENDERER (The New Grid System) ---
 
 func (m *model) updateViewportContent() {
 	if !m.showDetails || m.cursor >= len(m.visibleRows) {
@@ -506,28 +527,23 @@ func (m *model) updateViewportContent() {
 	node := m.visibleRows[m.cursor]
 	iss := node.Issue
 
-	// 1. HEADER: [ID] Title (Full width background)
-	// We construct a single string for the header content
+	// 1. HEADER (Full Width)
 	headerContent := fmt.Sprintf("%s %s", 
 		styleID.Render(iss.ID), 
-		lipgloss.NewStyle().Foreground(cWhite).Render(iss.Title),
+		iss.Title, // No extra style needed, the block style handles white/bold
 	)
-	// Apply the background style to the whole block, ensuring full width
+	// Ensure full width by explicitly sizing the block
 	headerBlock := styleDetailHeader.Width(m.viewport.Width - 2).Render(headerContent)
 
-	// 2. METADATA GRID (Fixed width keys for alignment)
-	// Row 1
-	statusKey := styleField.Render("Status:")
-	statusVal := styleVal.Render(iss.Status)
-	
-	prioKey := styleField.Render("Priority:")
-	prioVal := stylePrio.Render(fmt.Sprintf("P%d", iss.Priority))
+	// 2. METADATA GRID
+	// LEFT COL: Status, Created
+	statusRow := lipgloss.JoinHorizontal(lipgloss.Left, styleField.Render("Status:"), styleVal.Render(iss.Status))
+	createdRow := lipgloss.JoinHorizontal(lipgloss.Left, styleField.Render("Created:"), styleVal.Render(formatTime(iss.CreatedAt)))
+	leftCol := lipgloss.JoinVertical(lipgloss.Left, statusRow, createdRow)
 
-	// Row 2
-	createdKey := styleField.Render("Created:")
-	createdVal := styleVal.Render(formatTime(iss.CreatedAt))
+	// RIGHT COL: Priority, Labels
+	prioRow := lipgloss.JoinHorizontal(lipgloss.Left, styleField.Render("Priority:"), stylePrio.Render(fmt.Sprintf("P%d", iss.Priority)))
 	
-	// Labels (if any)
 	labelsVal := ""
 	if len(iss.Labels) > 0 {
 		var pills []string
@@ -538,16 +554,21 @@ func (m *model) updateViewportContent() {
 	} else {
 		labelsVal = styleVal.Render("-")
 	}
-	labelsKey := styleField.Render("Labels:")
+	labelsRow := lipgloss.JoinHorizontal(lipgloss.Left, styleField.Render("Labels:"), labelsVal)
+	rightCol := lipgloss.JoinVertical(lipgloss.Left, prioRow, labelsRow)
 
-	// Construct Rows
-	row1 := lipgloss.JoinHorizontal(lipgloss.Top, statusKey, statusVal, "    ", prioKey, prioVal)
-	row2 := lipgloss.JoinHorizontal(lipgloss.Top, createdKey, createdVal, "    ", labelsKey, labelsVal)
-	
-	metaBlock := lipgloss.JoinVertical(lipgloss.Left, row1, row2)
+	// GRID ASSEMBLY
+	// If width is tight, stack them. If wide, side-by-side.
+	var metaBlock string
+	if m.viewport.Width < 50 {
+		metaBlock = lipgloss.JoinVertical(lipgloss.Left, leftCol, rightCol)
+	} else {
+		// Add spacing between columns
+		metaBlock = lipgloss.JoinHorizontal(lipgloss.Top, leftCol, "     ", rightCol)
+	}
 	metaBlock = lipgloss.NewStyle().Padding(1, 1).Render(metaBlock)
 
-	// 3. RELATIONSHIPS (Lipgloss, no markdown artifacts)
+	// 3. RELATIONSHIPS
 	relBuilder := strings.Builder{}
 	
 	if node.Parent != nil {
@@ -564,7 +585,9 @@ func (m *model) updateViewportContent() {
 
 	if len(node.Children) > 0 {
 		relBuilder.WriteString(styleSectionHeader.Render(fmt.Sprintf("Children (%d)", len(node.Children))) + "\n")
-		// Optional: List first few children? For now just the header is clean.
+		for _, child := range node.Children {
+			relBuilder.WriteString(fmt.Sprintf("%s %s\n", styleID.Render(child.Issue.ID), child.Issue.Title))
+		}
 	}
 	
 	relBlock := ""
@@ -574,8 +597,6 @@ func (m *model) updateViewportContent() {
 
 	// 4. DESCRIPTION (Glamour)
 	desc := strings.ReplaceAll(iss.Description, "• ", "- ")
-	
-	// Render Markdown
 	width := int(float64(m.width)*0.4) - 6
 	if width < 10 { width = 10 }
 
@@ -586,7 +607,6 @@ func (m *model) updateViewportContent() {
 	
 	bodyStr, _ := renderer.Render(desc)
 	
-	// Add Comments if they exist
 	if len(iss.Comments) > 0 {
 		commentBuilder := strings.Builder{}
 		commentBuilder.WriteString("\n### Comments\n")
@@ -597,7 +617,7 @@ func (m *model) updateViewportContent() {
 		bodyStr += "\n" + commentsStr
 	}
 
-	// Assemble Final
+	// FINAL ASSEMBLY
 	finalContent := lipgloss.JoinVertical(lipgloss.Left,
 		headerBlock,
 		metaBlock,
@@ -618,7 +638,7 @@ func (m model) View() string {
 		return "Initializing..."
 	}
 
-	// --- Header ---
+	// Header
 	header := ""
 	if m.searching {
 		header = styleAppHeader.Render("SEARCH") + " " + m.textInput.View()
@@ -630,7 +650,7 @@ func (m model) View() string {
 		header = styleAppHeader.Render("ABACUS") + " " + status
 	}
 
-	// --- Tree View ---
+	// Tree View
 	treeView := strings.Builder{}
 	listHeight := m.height - 3
 	start := 0
@@ -664,15 +684,14 @@ func (m model) View() string {
 			marker = "•"
 		}
 
-		// Icon vs Text Logic
 		iconStr := "○"
 		iconStyle := styleNormalText
-		textStyle := styleNormalText // Default white for ready
+		textStyle := styleNormalText
 
 		if node.Issue.Status == "in_progress" {
 			iconStr = "◐"
-			iconStyle = styleIconInProgress // Neon Green
-			textStyle = styleInProgressText // Cyan
+			iconStyle = styleIconInProgress
+			textStyle = styleInProgressText
 		} else if node.Issue.Status == "closed" {
 			iconStr = "✔"
 			iconStyle = styleIconDone
@@ -683,12 +702,10 @@ func (m model) View() string {
 			textStyle = styleBlockedText
 		}
 
-		// Elements
 		idStr := styleID.Render(node.Issue.ID)
 		titleStr := textStyle.Render(node.Issue.Title)
 		markerStr := iconStyle.Render(marker + " " + iconStr)
 
-		// Line Construction
 		rawContent := fmt.Sprintf("%s%s %s %s", indent, markerStr, idStr, titleStr)
 
 		if i == m.cursor {
@@ -699,7 +716,7 @@ func (m model) View() string {
 		treeView.WriteString("\n")
 	}
 
-	// --- Pane Assembly ---
+	// Pane Assembly
 	var mainBody string
 	if m.showDetails {
 		left := stylePane.
@@ -720,11 +737,10 @@ func (m model) View() string {
 			Render(treeView.String())
 	}
 
-	// --- Footer ---
+	// Footer (Split Left/Right)
 	leftFooter := lipgloss.NewStyle().Foreground(cLightGray).Render(" [ / ] Search  [ b ] Blockers  [ enter ] Detail  [ space ] Expand  [ q ] Quit")
 	rightFooter := lipgloss.NewStyle().Foreground(cLightGray).Render("Repo: " + m.repoName + " ")
 	
-	// Calculate spacer
 	availableWidth := m.width - lipgloss.Width(leftFooter) - lipgloss.Width(rightFooter)
 	if availableWidth < 0 { availableWidth = 0 }
 	spacer := strings.Repeat(" ", availableWidth)
