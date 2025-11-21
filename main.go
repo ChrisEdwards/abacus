@@ -60,6 +60,10 @@ var (
 			Bold(true).
 			Padding(0, 1)
 
+	styleFilterInfo = lipgloss.NewStyle().
+			Foreground(cLightGray).
+			Background(cPurple)
+
 	// Border Styles for Focus toggling
 	stylePane = lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder()).
@@ -77,7 +81,6 @@ var (
 				Bold(true).
 				Padding(0, 1)
 
-	// Combined styles to ensure background continuity
 	styleDetailHeaderCombined = lipgloss.NewStyle().
 					Background(cHighlight).
 					Bold(true)
@@ -89,11 +92,13 @@ var (
 
 	styleVal = lipgloss.NewStyle().Foreground(cWhite)
 
+	// Fixed: Increased PaddingLeft to 2 to move labels right
 	styleSectionHeader = lipgloss.NewStyle().
 				Foreground(cGold).
 				Bold(true).
 				MarginTop(1).
-				MarginBottom(0)
+				MarginBottom(0).
+				PaddingLeft(2)
 
 	styleLabel = lipgloss.NewStyle().
 			Foreground(cWhite).
@@ -109,9 +114,12 @@ var (
 			Bold(true)
 
 	// Comment Styles
+	// Fixed: Added PaddingLeft(2) to align with Section Headers
 	styleCommentHeader = lipgloss.NewStyle().
 				Foreground(cBrightGray).
-				Bold(true)
+				Bold(true).
+				PaddingLeft(2)
+
 	styleCommentBody = lipgloss.NewStyle().
 				Foreground(cWhite).
 				PaddingLeft(2)
@@ -191,7 +199,7 @@ type model struct {
 
 	viewport    viewport.Model
 	showDetails bool
-	focus       FocusArea // New: Track which pane is active
+	focus       FocusArea
 	ready       bool
 
 	textInput  textinput.Model
@@ -459,8 +467,8 @@ func computeStates(n *Node) {
 func initialModel() model {
 	roots, err := loadData()
 	ti := textinput.New()
-	ti.Placeholder = "Filter..."
-	ti.Prompt = "/ "
+	ti.Placeholder = "Search..."
+	ti.Prompt = "/"
 
 	repo := "abacus"
 	wd, _ := os.Getwd()
@@ -473,7 +481,7 @@ func initialModel() model {
 		err:       err,
 		textInput: ti,
 		repoName:  repo,
-		focus:     FocusTree, // Start focused on tree
+		focus:     FocusTree,
 	}
 	m.recalcVisibleRows()
 	return m
@@ -527,32 +535,55 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.ready = true
 		m.viewport.Width = int(float64(msg.Width)*0.45) - 2
-		m.viewport.Height = msg.Height - 4
+		m.viewport.Height = msg.Height - 5
 		m.updateViewportContent()
 
 	case tea.KeyMsg:
+		// Search Mode Handling
 		if m.searching {
 			switch msg.String() {
-			case "enter", "esc":
+			case "enter":
 				m.searching = false
 				m.textInput.Blur()
+				return m, nil
+			case "esc":
+				// Fix: Escape clears search completely
+				m.searching = false
+				m.textInput.Blur()
+				m.textInput.Reset()
+				m.filterText = ""
+				m.recalcVisibleRows()
+				m.updateViewportContent()
+				return m, nil
 			default:
 				m.textInput, cmd = m.textInput.Update(msg)
 				m.filterText = m.textInput.Value()
 				m.recalcVisibleRows()
 				m.cursor = 0
+				m.updateViewportContent()
 				return m, cmd
 			}
-			return m, nil
 		}
 
-		// Global keys
+		// Global Keys (Standard Mode)
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "esc":
+			// Fix: Esc in standard mode clears filter if it exists
+			if m.filterText != "" {
+				m.filterText = ""
+				m.textInput.Reset()
+				m.recalcVisibleRows()
+				m.updateViewportContent()
+			}
+			return m, nil
 		case "/":
 			m.searching = true
 			m.textInput.Focus()
+			m.textInput.SetValue("")
+			m.filterText = ""
+			m.recalcVisibleRows()
 			return m, textinput.Blink
 		case "tab":
 			if m.showDetails {
@@ -564,13 +595,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Focus specific keys
 		if m.focus == FocusDetails && m.showDetails {
-			// Pass keys to viewport for scrolling
 			m.viewport, cmd = m.viewport.Update(msg)
 			return m, cmd
 		} else {
-			// Tree Navigation
 			switch msg.String() {
 			case "up", "k":
 				if m.cursor > 0 {
@@ -602,11 +630,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "enter":
 				m.showDetails = !m.showDetails
-				if m.showDetails {
-					m.focus = FocusDetails // Auto focus details on open
-				} else {
-					m.focus = FocusTree
-				}
 				m.updateViewportContent()
 			}
 		}
@@ -636,16 +659,19 @@ func (m *model) updateViewportContent() {
 	wrappedTitle := wrapWithHangingIndent(prefixWidth, iss.Title, vpWidth)
 	titleLines := strings.Split(wrappedTitle, "\n")
 
-	// Fix: Render the ID and Title in one continuous block style to eliminate gaps
-	// We join the ID + "  " + Title so the background applies to the spaces too.
-	fullHeaderStr := fmt.Sprintf("%s  %s", styleDetailHeaderCombined.Foreground(cGold).Render(idStr), styleDetailHeaderCombined.Foreground(cWhite).Render(titleLines[0]))
+	// Fix: Render the 2 spaces separator using the styled background
+	spacer := styleDetailHeaderCombined.Render("  ")
+	fullHeaderStr := fmt.Sprintf("%s%s%s",
+		styleDetailHeaderCombined.Foreground(cGold).Render(idStr),
+		spacer,
+		styleDetailHeaderCombined.Foreground(cWhite).Render(titleLines[0]))
 
 	for i := 1; i < len(titleLines); i++ {
 		fullHeaderStr += "\n" + styleDetailHeaderBlock.Render(titleLines[i])
 	}
 	headerBlock := styleDetailHeaderBlock.Width(vpWidth).Render(fullHeaderStr)
 
-	// 2. METADATA GRID
+	// 2. METADATA
 	makeRow := func(k, v string) string {
 		return lipgloss.JoinHorizontal(lipgloss.Left, styleField.Render(k), styleVal.Render(v))
 	}
@@ -720,32 +746,37 @@ func (m *model) updateViewportContent() {
 	// 3. RELATIONSHIPS
 	relBuilder := strings.Builder{}
 
+	// Indentation strategy:
+	// Label is at PaddingLeft(2).
+	// Items need to be 1 deeper -> 3 spaces.
+
 	if iss.ExternalRef != "" {
 		relBuilder.WriteString(styleSectionHeader.Render("External Reference") + "\n")
-		relBuilder.WriteString(fmt.Sprintf("🔗 %s\n\n", iss.ExternalRef))
+		relBuilder.WriteString(fmt.Sprintf(" 🔗 %s\n\n", iss.ExternalRef))
 	}
 
 	if node.Parent != nil {
 		relBuilder.WriteString(styleSectionHeader.Render("Parent") + "\n")
 		pTitle := node.Parent.Issue.Title
 		pId := node.Parent.Issue.ID
-		// Fix: Subtract 4 from prefix width to prevent deep indentation on wrapped parent lines
 		pPrefixW := len(pId) + 2 - 4
 		if pPrefixW < 0 {
 			pPrefixW = 0
 		}
 		pWrapped := wrapWithHangingIndent(pPrefixW, pTitle, vpWidth-5)
 		pLines := strings.Split(pWrapped, "\n")
-		relBuilder.WriteString(fmt.Sprintf("%s  %s\n", styleID.Render(pId), pLines[0]))
+		// Fixed: 3 spaces indentation for items
+		relBuilder.WriteString(fmt.Sprintf("   %s  %s\n", styleID.Render(pId), pLines[0]))
 		for i := 1; i < len(pLines); i++ {
-			relBuilder.WriteString("      " + pLines[i] + "\n")
+			relBuilder.WriteString("         " + pLines[i] + "\n") // 3 + len(id) + 2
 		}
 	}
 
 	if node.IsBlocked {
 		relBuilder.WriteString(styleSectionHeader.Render("Blocked By") + "\n")
 		for _, b := range node.BlockedBy {
-			relBuilder.WriteString(fmt.Sprintf("%s  %s\n", styleID.Render(b.Issue.ID), b.Issue.Title))
+			// Fixed: 3 spaces
+			relBuilder.WriteString(fmt.Sprintf("   %s  %s\n", styleID.Render(b.Issue.ID), b.Issue.Title))
 		}
 	}
 
@@ -754,16 +785,16 @@ func (m *model) updateViewportContent() {
 		for _, child := range node.Children {
 			cTitle := child.Issue.Title
 			cId := child.Issue.ID
-			// Fix: Subtract 4 from prefix width for children wrapping
 			cPrefixW := len(cId) + 2 - 4
 			if cPrefixW < 0 {
 				cPrefixW = 0
 			}
 			cWrapped := wrapWithHangingIndent(cPrefixW, cTitle, vpWidth-5)
 			cLines := strings.Split(cWrapped, "\n")
-			relBuilder.WriteString(fmt.Sprintf("%s  %s\n", styleID.Render(cId), cLines[0]))
+			// Fixed: 3 spaces
+			relBuilder.WriteString(fmt.Sprintf("   %s  %s\n", styleID.Render(cId), cLines[0]))
 			for i := 1; i < len(cLines); i++ {
-				relBuilder.WriteString("      " + cLines[i] + "\n")
+				relBuilder.WriteString("         " + cLines[i] + "\n")
 			}
 		}
 	}
@@ -771,7 +802,8 @@ func (m *model) updateViewportContent() {
 	if len(node.Blocks) > 0 {
 		relBuilder.WriteString(styleSectionHeader.Render(fmt.Sprintf("Blocks (%d)", len(node.Blocks))) + "\n")
 		for _, child := range node.Blocks {
-			relBuilder.WriteString(fmt.Sprintf("%s  %s\n", styleID.Render(child.Issue.ID), child.Issue.Title))
+			// Fixed: 3 spaces
+			relBuilder.WriteString(fmt.Sprintf("   %s  %s\n", styleID.Render(child.Issue.ID), child.Issue.Title))
 		}
 	}
 
@@ -795,7 +827,6 @@ func (m *model) updateViewportContent() {
 	if len(iss.Comments) > 0 {
 		descBuilder.WriteString(styleSectionHeader.Render("Comments") + "\n")
 		for _, c := range iss.Comments {
-			// Slack-like format: Name Time (newline) Body
 			header := fmt.Sprintf("%s  %s", c.Author, formatTime(c.CreatedAt))
 			descBuilder.WriteString(styleCommentHeader.Render(header) + "\n")
 			descBuilder.WriteString(styleCommentBody.Render(c.Text) + "\n\n")
@@ -820,19 +851,16 @@ func (m model) View() string {
 		return "Initializing..."
 	}
 
-	header := ""
-	if m.searching {
-		header = styleAppHeader.Render("SEARCH") + " " + m.textInput.View()
-	} else {
-		status := fmt.Sprintf("Items: %d", len(m.visibleRows))
-		if m.filterText != "" {
-			status += fmt.Sprintf(" (Filtered: '%s')", m.filterText)
-		}
-		header = styleAppHeader.Render("ABACUS") + " " + status
+	// Top Header with Filter Info
+	status := fmt.Sprintf("Items: %d", len(m.visibleRows))
+	if m.filterText != "" {
+		filterInfo := fmt.Sprintf(" (Filtered: '%s' - [ESC] to Clear)", m.filterText)
+		status += styleFilterInfo.Render(filterInfo)
 	}
+	header := styleAppHeader.Render("ABACUS") + " " + status
 
 	var treeLines []string
-	listHeight := m.height - 3
+	listHeight := m.height - 4
 	start, end := 0, len(m.visibleRows)
 
 	if end > listHeight {
@@ -886,17 +914,10 @@ func (m model) View() string {
 		titleLines := strings.Split(wrappedTitle, "\n")
 
 		if i == m.cursor {
-			// Fix: Alignment of highlighted items
-			// Previously we did styleSelected.Render(fmt.Sprintf("%s%s", indent, marker))
-			// This does not include the leading space that " "+line1 uses below.
-			// We now include the space inside the highlight block to match alignment exactly.
 			highlightedPrefix := styleSelected.Render(fmt.Sprintf(" %s%s", indent, marker))
-
-			// Remove the manual space before iconStyle because highlightedPrefix now handles the margin
 			line1Rest := fmt.Sprintf(" %s %s %s", iconStyle.Render(iconStr), styleID.Render(node.Issue.ID), textStyle.Render(titleLines[0]))
 			treeLines = append(treeLines, highlightedPrefix+line1Rest)
 		} else {
-			// Standard unselected row starts with a space
 			line1Prefix := fmt.Sprintf(" %s%s %s ", indent, iconStyle.Render(marker), iconStyle.Render(iconStr))
 			line1 := fmt.Sprintf("%s%s %s", line1Prefix, styleID.Render(node.Issue.ID), textStyle.Render(titleLines[0]))
 			treeLines = append(treeLines, line1)
@@ -913,33 +934,36 @@ func (m model) View() string {
 	if m.showDetails {
 		leftStyle := stylePane
 		rightStyle := stylePane
-
-		// Highlight active pane
 		if m.focus == FocusTree {
 			leftStyle = stylePaneFocused
 		} else {
 			rightStyle = stylePaneFocused
 		}
 
-		left := leftStyle.Width(m.width - m.viewport.Width - 4).Height(m.height - 3).Render(treeViewStr)
-		right := rightStyle.Width(m.viewport.Width).Height(m.height - 3).Render(m.viewport.View())
+		left := leftStyle.Width(m.width - m.viewport.Width - 4).Height(listHeight).Render(treeViewStr)
+		right := rightStyle.Width(m.viewport.Width).Height(listHeight).Render(m.viewport.View())
 		mainBody = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	} else {
-		mainBody = stylePane.Width(m.width - 2).Height(m.height - 3).Render(treeViewStr)
+		mainBody = stylePane.Width(m.width - 2).Height(listHeight).Render(treeViewStr)
 	}
 
-	footerStr := " [ / ] Search  [ enter ] Detail  [ tab ] Switch Focus  [ q ] Quit"
-	if m.showDetails && m.focus == FocusDetails {
-		footerStr += "  [ j/k ] Scroll Details"
+	// Bottom Bar
+	var bottomBar string
+	if m.searching {
+		bottomBar = m.textInput.View()
 	} else {
-		footerStr += "  [ space ] Expand"
+		footerStr := " [ / ] Search  [ enter ] Detail  [ tab ] Switch Focus  [ q ] Quit"
+		if m.showDetails && m.focus == FocusDetails {
+			footerStr += "  [ j/k ] Scroll Details"
+		} else {
+			footerStr += "  [ space ] Expand"
+		}
+		bottomBar = lipgloss.NewStyle().Foreground(cLightGray).Render(
+			fmt.Sprintf("%s   %s", footerStr,
+				lipgloss.PlaceHorizontal(m.width-len(footerStr)-5, lipgloss.Right, "Repo: "+m.repoName)))
 	}
 
-	footer := lipgloss.NewStyle().Foreground(cLightGray).Render(
-		fmt.Sprintf("%s   %s", footerStr,
-			lipgloss.PlaceHorizontal(m.width-len(footerStr)-5, lipgloss.Right, "Repo: "+m.repoName)))
-
-	return fmt.Sprintf("%s\n%s\n%s", header, mainBody, footer)
+	return fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
 }
 
 func main() {
