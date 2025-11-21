@@ -550,7 +550,6 @@ func (m *model) getStats() Stats {
 
 			if matches {
 				s.Total++
-				// Prioritize logic matches UI icon logic
 				if n.Issue.Status == "in_progress" {
 					s.InProgress++
 				} else if n.Issue.Status == "closed" {
@@ -582,7 +581,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateViewportContent()
 
 	case tea.KeyMsg:
-		// Search Mode Handling
 		if m.searching {
 			switch msg.String() {
 			case "enter":
@@ -607,7 +605,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Global Keys (Standard Mode)
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
@@ -692,9 +689,10 @@ func (m *model) updateViewportContent() {
 
 	iss := node.Issue
 
-	vpWidth := m.viewport.Width - 2
+	// 2. FIX: Use full viewport width for calculations to fix "short" background
+	vpWidth := m.viewport.Width
 
-	// 1. HEADER (ID Never Wraps)
+	// 1. HEADER
 	idStr := iss.ID
 	titleWidth := vpWidth - len(idStr) - 4
 	if titleWidth < 10 {
@@ -800,7 +798,7 @@ func (m *model) updateViewportContent() {
 		pTitle := node.Parent.Issue.Title
 		pId := node.Parent.Issue.ID
 		pIndentW := 2 + len(pId) + 2
-		pWrapped := wrapWithHangingIndent(pIndentW, pTitle, vpWidth-2)
+		pWrapped := wrapWithHangingIndent(pIndentW, pTitle, vpWidth-4)
 		pLines := strings.Split(pWrapped, "\n")
 
 		relBuilder.WriteString(fmt.Sprintf("  %s  %s\n", styleID.Render(pId), pLines[0]))
@@ -823,7 +821,7 @@ func (m *model) updateViewportContent() {
 			cTitle := child.Issue.Title
 			cId := child.Issue.ID
 			cIndentW := 2 + len(cId) + 2
-			cWrapped := wrapWithHangingIndent(cIndentW, cTitle, vpWidth-2)
+			cWrapped := wrapWithHangingIndent(cIndentW, cTitle, vpWidth-4)
 			cLines := strings.Split(cWrapped, "\n")
 			relBuilder.WriteString(fmt.Sprintf("  %s  %s\n", styleID.Render(cId), cLines[0]))
 			padding := strings.Repeat(" ", cIndentW)
@@ -851,10 +849,11 @@ func (m *model) updateViewportContent() {
 	desc := strings.ReplaceAll(iss.Description, "• ", "- ")
 	renderer, _ := glamour.NewTermRenderer(
 		glamour.WithStandardStyle("dark"),
-		glamour.WithWordWrap(vpWidth-4),
+		glamour.WithWordWrap(vpWidth-6),
 	)
 	renderedDesc, _ := renderer.Render(desc)
-	descBuilder.WriteString(indentBlock(renderedDesc, 2))
+	// FIX: Indent 1 space relative to label (label is at 1, text at 2)
+	descBuilder.WriteString(indentBlock(renderedDesc, 1))
 
 	// 5. COMMENTS
 	if len(iss.Comments) > 0 {
@@ -862,7 +861,9 @@ func (m *model) updateViewportContent() {
 		for _, c := range iss.Comments {
 			header := fmt.Sprintf("  %s  %s", c.Author, formatTime(c.CreatedAt))
 			descBuilder.WriteString(styleCommentHeader.Render(header) + "\n")
-			descBuilder.WriteString(indentBlock(c.Text, 2) + "\n\n")
+			// FIX: Use Glamour for Comments + 1 space indent
+			renderedComment, _ := renderer.Render(c.Text)
+			descBuilder.WriteString(indentBlock(renderedComment, 1) + "\n")
 		}
 	}
 
@@ -886,8 +887,7 @@ func (m model) View() string {
 
 	stats := m.getStats()
 	status := fmt.Sprintf("Beads: %d", stats.Total)
-	
-	// Add Status Breakdown
+
 	breakdown := []string{}
 	if stats.InProgress > 0 {
 		breakdown = append(breakdown, fmt.Sprintf("%d In Progress", stats.InProgress))
@@ -935,7 +935,15 @@ func (m model) View() string {
 		treeWidth = m.width - m.viewport.Width - 4
 	}
 
+	// FIX: Prevent overflow by checking visual lines
+	visualLinesCount := 0
+
 	for i := start; i < end; i++ {
+		// Critical Check: If we are about to exceed listHeight, stop rendering rows
+		if visualLinesCount >= listHeight {
+			break
+		}
+
 		node := m.visibleRows[i]
 
 		indent := strings.Repeat("  ", node.Depth)
@@ -963,22 +971,35 @@ func (m model) View() string {
 			totalPrefixWidth = 0
 		}
 
-		wrappedTitle := wrapWithHangingIndent(totalPrefixWidth, node.Issue.Title, treeWidth)
+		// FIX: Use a safe width that definitely won't wrap at the terminal edge
+		wrappedTitle := wrapWithHangingIndent(totalPrefixWidth, node.Issue.Title, treeWidth-4)
 		titleLines := strings.Split(wrappedTitle, "\n")
 
 		if i == m.cursor {
 			highlightedPrefix := styleSelected.Render(fmt.Sprintf(" %s%s", indent, marker))
 			line1Rest := fmt.Sprintf(" %s %s %s", iconStyle.Render(iconStr), styleID.Render(node.Issue.ID), textStyle.Render(titleLines[0]))
 			treeLines = append(treeLines, highlightedPrefix+line1Rest)
+			visualLinesCount++
 		} else {
 			line1Prefix := fmt.Sprintf(" %s%s %s ", indent, iconStyle.Render(marker), iconStyle.Render(iconStr))
 			line1 := fmt.Sprintf("%s%s %s", line1Prefix, styleID.Render(node.Issue.ID), textStyle.Render(titleLines[0]))
 			treeLines = append(treeLines, line1)
+			visualLinesCount++
 		}
 
 		for k := 1; k < len(titleLines); k++ {
+			if visualLinesCount >= listHeight {
+				break
+			}
 			treeLines = append(treeLines, " "+textStyle.Render(titleLines[k]))
+			visualLinesCount++
 		}
+	}
+
+	// Fill remaining lines to ensure pane height remains constant and doesn't "pull" up
+	for visualLinesCount < listHeight {
+		treeLines = append(treeLines, "")
+		visualLinesCount++
 	}
 
 	treeViewStr := strings.Join(treeLines, "\n")
@@ -993,6 +1014,8 @@ func (m model) View() string {
 			rightStyle = stylePaneFocused
 		}
 
+		// JoinHorizontal usually handles height diffs by aligning top,
+		// but ensuring exact strings is safer for terminal rendering
 		left := leftStyle.Width(m.width - m.viewport.Width - 4).Height(listHeight).Render(treeViewStr)
 		right := rightStyle.Width(m.viewport.Width).Height(listHeight).Render(m.viewport.View())
 		mainBody = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
