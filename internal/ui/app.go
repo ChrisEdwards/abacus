@@ -50,6 +50,11 @@ type App struct {
 	textInput  textinput.Model
 	searching  bool
 	filterText string
+	// filterCollapsed tracks nodes explicitly collapsed while a search filter is active.
+	filterCollapsed map[string]bool
+	// filterForcedExpanded tracks nodes temporarily expanded to surface filter matches.
+	filterForcedExpanded map[string]bool
+	filterEval           map[string]filterEvaluation
 
 	width            int
 	height           int
@@ -191,7 +196,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			default:
 				m.textInput, cmd = m.textInput.Update(msg)
-				m.filterText = m.textInput.Value()
+				m.setFilterText(m.textInput.Value())
 				m.recalcVisibleRows()
 				return m, cmd
 			}
@@ -268,7 +273,11 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			node := m.visibleRows[m.cursor]
 			if len(node.Children) > 0 {
-				node.Expanded = !node.Expanded
+				if m.isNodeExpandedInView(node) {
+					m.collapseNodeForView(node)
+				} else {
+					m.expandNodeForView(node)
+				}
 				m.recalcVisibleRows()
 			}
 		case "left", "h":
@@ -276,13 +285,13 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			node := m.visibleRows[m.cursor]
-			if node.Expanded {
-				node.Expanded = false
+			if len(node.Children) > 0 && m.isNodeExpandedInView(node) {
+				m.collapseNodeForView(node)
 				m.recalcVisibleRows()
 			}
 		case "backspace":
 			if !m.ShowDetails && !m.searching && len(m.filterText) > 0 {
-				m.filterText = m.filterText[:len(m.filterText)-1]
+				m.setFilterText(m.filterText[:len(m.filterText)-1])
 				m.recalcVisibleRows()
 				m.updateViewportContent()
 			}
@@ -309,9 +318,28 @@ func (m *App) clearSearchFilter() {
 	if prevFilter == "" {
 		return
 	}
-	m.filterText = ""
+	m.setFilterText("")
 	m.recalcVisibleRows()
 	m.updateViewportContent()
+}
+
+func (m *App) setFilterText(value string) {
+	if m.filterText == value {
+		return
+	}
+	prevEmpty := m.filterText == ""
+	newEmpty := value == ""
+	m.filterText = value
+	m.filterEval = nil
+	if newEmpty {
+		m.filterCollapsed = nil
+		m.filterForcedExpanded = nil
+		return
+	}
+	if prevEmpty {
+		m.filterCollapsed = nil
+		m.filterForcedExpanded = nil
+	}
 }
 
 func (m *App) detailFocusActive() bool {

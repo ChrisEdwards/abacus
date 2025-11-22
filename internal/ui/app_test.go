@@ -530,6 +530,95 @@ func TestUpdateClearsFilterWithEsc(t *testing.T) {
 	})
 }
 
+func TestFilteredTreeManualToggle(t *testing.T) {
+	buildApp := func() (*App, *graph.Node) {
+		leaf := &graph.Node{Issue: beads.FullIssue{ID: "ab-003", Title: "Leaf"}}
+		child := &graph.Node{
+			Issue:    beads.FullIssue{ID: "ab-002", Title: "Child"},
+			Children: []*graph.Node{leaf},
+		}
+		root := &graph.Node{
+			Issue:    beads.FullIssue{ID: "ab-001", Title: "Root"},
+			Children: []*graph.Node{child},
+		}
+		return &App{roots: []*graph.Node{root}}, root
+	}
+
+	assertVisible := func(t *testing.T, m *App, want int) {
+		t.Helper()
+		if got := len(m.visibleRows); got != want {
+			t.Fatalf("expected %d visible rows, got %d", want, got)
+		}
+	}
+
+	t.Run("collapseWhileFiltered", func(t *testing.T) {
+		m, root := buildApp()
+		m.setFilterText("leaf")
+		m.recalcVisibleRows()
+		assertVisible(t, m, 3)
+
+		m.collapseNodeForView(root)
+		m.recalcVisibleRows()
+		assertVisible(t, m, 1)
+		if m.isNodeExpandedInView(root) {
+			t.Fatalf("expected root to appear collapsed in filtered view")
+		}
+	})
+
+	t.Run("expandAfterCollapse", func(t *testing.T) {
+		m, root := buildApp()
+		m.setFilterText("leaf")
+		m.recalcVisibleRows()
+		m.collapseNodeForView(root)
+		m.recalcVisibleRows()
+		assertVisible(t, m, 1)
+
+		m.expandNodeForView(root)
+		m.recalcVisibleRows()
+		assertVisible(t, m, 3)
+		if !m.isNodeExpandedInView(root) {
+			t.Fatalf("expected root to appear expanded in filtered view")
+		}
+	})
+}
+
+func TestFilteredTogglePersistsWhileEditing(t *testing.T) {
+	leaf := &graph.Node{Issue: beads.FullIssue{ID: "ab-103", Title: "Leaf"}}
+	child := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-102", Title: "Child"},
+		Children: []*graph.Node{leaf},
+	}
+	root := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-101", Title: "Root"},
+		Children: []*graph.Node{child},
+	}
+	m := &App{roots: []*graph.Node{root}}
+
+	m.setFilterText("le")
+	m.recalcVisibleRows()
+	if len(m.visibleRows) != 3 {
+		t.Fatalf("expected initial filtered rows, got %d", len(m.visibleRows))
+	}
+
+	m.collapseNodeForView(root)
+	m.recalcVisibleRows()
+	if len(m.visibleRows) != 1 {
+		t.Fatalf("expected collapse to hide children, got %d rows", len(m.visibleRows))
+	}
+
+	m.setFilterText("leaf")
+	m.recalcVisibleRows()
+	if len(m.visibleRows) != 1 {
+		t.Fatalf("expected collapse state to persist while editing filter, got %d rows", len(m.visibleRows))
+	}
+
+	m.expandNodeForView(root)
+	m.recalcVisibleRows()
+	if len(m.visibleRows) != 3 {
+		t.Fatalf("expected expand to restore children, got %d rows", len(m.visibleRows))
+	}
+}
+
 func TestFindBeadsDBPrefersEnv(t *testing.T) {
 	t.Setenv("BEADS_DB", "")
 	tmp := t.TempDir()

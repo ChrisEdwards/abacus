@@ -72,7 +72,9 @@ func (m *App) applyRefresh(newRoots []*graph.Node, newDigest map[string]string, 
 	}
 
 	m.restoreExpandedState(state.expandedIDs)
-	m.filterText = state.filterText
+	m.setFilterText(state.filterText)
+	m.filterCollapsed = copyBoolMap(state.filterCollapsed)
+	m.filterForcedExpanded = copyBoolMap(state.filterForcedExpanded)
 	m.textInput.SetValue(state.filterText)
 	m.recalcVisibleRows()
 

@@ -22,12 +22,19 @@ type Stats struct {
 }
 
 type viewState struct {
-	currentID       string
-	expandedIDs     map[string]bool
-	filterText      string
-	viewportYOffset int
-	cursorIndex     int
-	focus           FocusArea
+	currentID            string
+	expandedIDs          map[string]bool
+	filterText           string
+	filterCollapsed      map[string]bool
+	filterForcedExpanded map[string]bool
+	viewportYOffset      int
+	cursorIndex          int
+	focus                FocusArea
+}
+
+type filterEvaluation struct {
+	matches          bool
+	hasMatchingChild bool
 }
 
 func clampDimension(value, minValue, maxValue int) int {
@@ -52,28 +59,33 @@ func clampDimension(value, minValue, maxValue int) int {
 func (m *App) recalcVisibleRows() {
 	m.visibleRows = []*graph.Node{}
 	filterLower := strings.ToLower(m.filterText)
+	filterActive := filterLower != ""
+
+	if filterActive {
+		m.filterEval = m.computeFilterEval(filterLower)
+	} else {
+		m.filterEval = nil
+	}
 
 	var traverse func(nodes []*graph.Node)
 	traverse = func(nodes []*graph.Node) {
 		for _, node := range nodes {
-			isMatch := nodeMatchesFilter(filterLower, node)
+			includeNode := true
 			hasMatchingChild := false
-			if filterLower != "" {
-				var checkChildren func([]*graph.Node) bool
-				checkChildren = func(kids []*graph.Node) bool {
-					for _, k := range kids {
-						if nodeMatchesFilter(filterLower, k) || checkChildren(k.Children) {
-							return true
-						}
-					}
-					return false
+			if filterActive {
+				if eval, ok := m.filterEval[node.Issue.ID]; ok {
+					includeNode = eval.matches || eval.hasMatchingChild
+					hasMatchingChild = eval.hasMatchingChild
+				} else {
+					includeNode = false
 				}
-				hasMatchingChild = checkChildren(node.Children)
 			}
 
-			if isMatch || hasMatchingChild {
+			if includeNode {
 				m.visibleRows = append(m.visibleRows, node)
-				if (filterLower == "" && node.Expanded) || (filterLower != "" && hasMatchingChild) {
+				if !filterActive && node.Expanded {
+					traverse(node.Children)
+				} else if filterActive && m.shouldExpandFilteredNode(node, hasMatchingChild) {
 					traverse(node.Children)
 				}
 			}
@@ -98,10 +110,12 @@ func (m *App) clampCursor() {
 
 func (m *App) captureState() viewState {
 	state := viewState{
-		filterText:  m.filterText,
-		cursorIndex: m.cursor,
-		expandedIDs: m.collectExpandedIDs(),
-		focus:       m.focus,
+		filterText:           m.filterText,
+		cursorIndex:          m.cursor,
+		expandedIDs:          m.collectExpandedIDs(),
+		filterCollapsed:      copyBoolMap(m.filterCollapsed),
+		filterForcedExpanded: copyBoolMap(m.filterForcedExpanded),
+		focus:                m.focus,
 	}
 
 	if m.ShowDetails && m.viewport.Height > 0 {
@@ -176,4 +190,112 @@ func (m *App) restoreCursorToID(id string) {
 	}
 	m.cursor = prev
 	m.clampCursor()
+}
+
+func (m *App) computeFilterEval(filterLower string) map[string]filterEvaluation {
+	evals := make(map[string]filterEvaluation)
+	var walk func(node *graph.Node) bool
+	walk = func(node *graph.Node) bool {
+		matches := nodeMatchesFilter(filterLower, node)
+		hasChildMatch := false
+		for _, child := range node.Children {
+			if walk(child) {
+				hasChildMatch = true
+			}
+		}
+		evals[node.Issue.ID] = filterEvaluation{
+			matches:          matches,
+			hasMatchingChild: hasChildMatch,
+		}
+		return matches || hasChildMatch
+	}
+	for _, root := range m.roots {
+		walk(root)
+	}
+	return evals
+}
+
+func (m *App) shouldExpandFilteredNode(node *graph.Node, hasMatchingChild bool) bool {
+	if len(node.Children) == 0 {
+		return false
+	}
+	id := node.Issue.ID
+	if m.filterCollapsed != nil && m.filterCollapsed[id] {
+		return false
+	}
+	if m.filterForcedExpanded != nil && m.filterForcedExpanded[id] {
+		return true
+	}
+	if hasMatchingChild {
+		return true
+	}
+	return node.Expanded
+}
+
+func (m *App) isNodeExpandedInView(node *graph.Node) bool {
+	if len(node.Children) == 0 {
+		return false
+	}
+	if m.filterText == "" {
+		return node.Expanded
+	}
+	hasMatchingChild := false
+	if m.filterEval != nil {
+		if eval, ok := m.filterEval[node.Issue.ID]; ok {
+			hasMatchingChild = eval.hasMatchingChild
+		}
+	}
+	return m.shouldExpandFilteredNode(node, hasMatchingChild)
+}
+
+func copyBoolMap(src map[string]bool) map[string]bool {
+	if len(src) == 0 {
+		return nil
+	}
+	dest := make(map[string]bool, len(src))
+	for k, v := range src {
+		if v {
+			dest[k] = true
+		}
+	}
+	if len(dest) == 0 {
+		return nil
+	}
+	return dest
+}
+
+func (m *App) expandNodeForView(node *graph.Node) {
+	node.Expanded = true
+	if m.filterText == "" {
+		return
+	}
+	id := node.Issue.ID
+	if m.filterCollapsed != nil {
+		delete(m.filterCollapsed, id)
+		if len(m.filterCollapsed) == 0 {
+			m.filterCollapsed = nil
+		}
+	}
+	if m.filterForcedExpanded == nil {
+		m.filterForcedExpanded = make(map[string]bool)
+	}
+	m.filterForcedExpanded[id] = true
+}
+
+func (m *App) collapseNodeForView(node *graph.Node) {
+	node.Expanded = false
+	if m.filterText == "" {
+		return
+	}
+	id := node.Issue.ID
+	if m.filterCollapsed == nil {
+		m.filterCollapsed = make(map[string]bool)
+	}
+	m.filterCollapsed[id] = true
+	if m.filterForcedExpanded != nil {
+		delete(m.filterForcedExpanded, id)
+		if len(m.filterForcedExpanded) == 0 {
+			m.filterForcedExpanded = nil
+		}
+	}
 }

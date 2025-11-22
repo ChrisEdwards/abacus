@@ -48,7 +48,7 @@ func (m *App) renderTreeView() string {
 		indent := strings.Repeat("  ", node.Depth)
 		marker := " •"
 		if len(node.Children) > 0 {
-			if node.Expanded {
+			if m.isNodeExpandedInView(node) {
 				marker = " ▼"
 			} else {
 				marker = " ▶"
