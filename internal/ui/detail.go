@@ -189,27 +189,41 @@ func (m *App) updateViewportContent() {
 }
 
 func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipgloss.Style, bgColor lipgloss.Color) string {
-	gap := "  "
-	gapWidth := 2
+	const gap = "  "
 
-	idRendered := idStyle.Background(bgColor).Render(id)
+	idStyled := idStyle.Background(bgColor)
+	gapStyled := lipgloss.NewStyle().Background(bgColor)
+	titleStyled := titleStyle.Background(bgColor)
+
+	idRendered := idStyled.Render(id)
 	idWidth := lipgloss.Width(idRendered)
+	gapRendered := gapStyled.Render(gap)
+	gapWidth := lipgloss.Width(gapRendered)
 
 	titleWidth := targetWidth - idWidth - gapWidth
 	if titleWidth < 1 {
 		titleWidth = 1
 	}
 
-	titleRendered := titleStyle.
-		Background(bgColor).
-		Width(titleWidth).
-		Render(wordwrap.String(title, titleWidth))
+	wrappedTitle := wordwrap.String(title, titleWidth)
+	titleLines := strings.Split(wrappedTitle, "\n")
 
-	h := lipgloss.Height(titleRendered)
-	idRendered = idStyle.Background(bgColor).Height(h).Render(id)
-	gapRendered := lipgloss.NewStyle().Background(bgColor).Height(h).Render(gap)
+	idBlank := idStyled.Width(idWidth).Render("")
+	gapBlank := gapStyled.Width(gapWidth).Render("")
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, idRendered, gapRendered, titleRendered)
+	lines := make([]string, len(titleLines))
+	for i, line := range titleLines {
+		idSegment := idBlank
+		gapSegment := gapBlank
+		if i == 0 {
+			idSegment = idStyled.Width(idWidth).Render(id)
+			gapSegment = gapStyled.Width(gapWidth).Render(gap)
+		}
+		titleSegment := titleStyled.Width(titleWidth).Render(line)
+		lines[i] = lipgloss.JoinHorizontal(lipgloss.Left, idSegment, gapSegment, titleSegment)
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func indentBlock(text string, spaces int) string {
