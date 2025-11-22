@@ -195,12 +195,13 @@ type Stats struct {
 }
 
 const (
-	minViewportWidth       = 20
-	minViewportHeight      = 5
-	minTreeWidth           = 18
-	minListHeight          = 5
-	maxErrorSnippetLen     = 200
-	defaultRefreshInterval = 3 * time.Second
+	minViewportWidth        = 20
+	minViewportHeight       = 5
+	minTreeWidth            = 18
+	minListHeight           = 5
+	maxErrorSnippetLen      = 200
+	defaultRefreshInterval  = 3 * time.Second
+	refreshFlashDuration    = 2 * time.Second
 )
 
 func clampDimension(value, minValue, maxValue int) int {
@@ -326,6 +327,8 @@ type model struct {
 	lastDBModTime    time.Time
 	lastRefreshStats string
 	showRefreshFlash bool
+	refreshInFlight  bool
+	lastRefreshTime  time.Time
 }
 
 type viewState struct {
@@ -703,6 +706,11 @@ func initialModel(cfg appConfig) model {
 		repo = filepath.Base(wd)
 	}
 
+	autoRefresh := cfg.autoRefresh
+	if dbErr != nil {
+		autoRefresh = false
+	}
+
 	m := model{
 		roots:           roots,
 		err:             err,
@@ -710,12 +718,17 @@ func initialModel(cfg appConfig) model {
 		repoName:        repo,
 		focus:           FocusTree,
 		refreshInterval: cfg.refreshInterval,
-		autoRefresh:     cfg.autoRefresh,
-		dbPath:          dbPath,
-		lastDBModTime:   dbModTime,
+		autoRefresh:     autoRefresh,
 	}
-	if err == nil && dbErr != nil {
-		m.err = dbErr
+	if dbErr == nil {
+		m.dbPath = dbPath
+		m.lastDBModTime = dbModTime
+	} else if autoRefresh {
+		// Should not happen, but guard anyway.
+		m.autoRefresh = false
+	}
+	if dbErr != nil {
+		m.lastRefreshStats = fmt.Sprintf("refresh unavailable: %v", dbErr)
 	}
 	m.recalcVisibleRows()
 	return m
@@ -863,6 +876,117 @@ func computeDiffStats(oldIssues, newIssues map[string]string) string {
 	return fmt.Sprintf("+%d / Δ%d / -%d", added, changed, removed)
 }
 
+func buildIssueDigest(nodes []*Node) map[string]string {
+	digest := make(map[string]string)
+	var walk func(nodes []*Node)
+	walk = func(nodes []*Node) {
+		for _, n := range nodes {
+			key := fmt.Sprintf("%s|%s|%d|%s", n.Issue.Title, n.Issue.Status, n.Issue.Priority, n.Issue.UpdatedAt)
+			digest[n.Issue.ID] = key
+			walk(n.Children)
+		}
+	}
+	walk(nodes)
+	return digest
+}
+
+type tickMsg struct{}
+
+type refreshCompleteMsg struct {
+	roots     []*Node
+	digest    map[string]string
+	dbModTime time.Time
+	err       error
+}
+
+func scheduleTick(interval time.Duration) tea.Cmd {
+	if interval <= 0 {
+		interval = defaultRefreshInterval
+	}
+	return tea.Tick(interval, func(time.Time) tea.Msg { return tickMsg{} })
+}
+
+func refreshDataCmd(targetModTime time.Time) tea.Cmd {
+	return func() tea.Msg {
+		newRoots, err := loadData()
+		if err != nil {
+			return refreshCompleteMsg{err: err}
+		}
+		return refreshCompleteMsg{
+			roots:     newRoots,
+			digest:    buildIssueDigest(newRoots),
+			dbModTime: targetModTime,
+		}
+	}
+}
+
+func (m *model) checkDBForChanges() tea.Cmd {
+	if m.refreshInFlight || m.dbPath == "" {
+		return nil
+	}
+	info, err := os.Stat(m.dbPath)
+	if err != nil {
+		m.autoRefresh = false
+		m.lastRefreshStats = fmt.Sprintf("refresh disabled: %v", err)
+		m.showRefreshFlash = true
+		m.lastRefreshTime = time.Now()
+		return nil
+	}
+	if !info.ModTime().After(m.lastDBModTime) {
+		return nil
+	}
+	return m.startRefresh(info.ModTime())
+}
+
+func (m *model) startRefresh(targetModTime time.Time) tea.Cmd {
+	if m.refreshInFlight {
+		return nil
+	}
+	m.refreshInFlight = true
+	return refreshDataCmd(targetModTime)
+}
+
+func (m *model) forceRefresh() tea.Cmd {
+	var modTime time.Time
+	if m.dbPath != "" {
+		if info, err := os.Stat(m.dbPath); err == nil {
+			modTime = info.ModTime()
+		}
+	}
+	return m.startRefresh(modTime)
+}
+
+func (m *model) applyRefresh(newRoots []*Node, newDigest map[string]string, newModTime time.Time) {
+	state := m.captureState()
+	oldDigest := buildIssueDigest(m.roots)
+
+	m.roots = newRoots
+	if !newModTime.IsZero() {
+		m.lastDBModTime = newModTime
+	}
+
+	m.restoreExpandedState(state.expandedIDs)
+	m.filterText = state.filterText
+	m.textInput.SetValue(state.filterText)
+	m.recalcVisibleRows()
+
+	if state.currentID != "" {
+		m.restoreCursorToID(state.currentID)
+	} else {
+		m.cursor = state.cursorIndex
+		m.clampCursor()
+	}
+
+	if m.showDetails {
+		m.viewport.YOffset = state.viewportYOffset
+	}
+	m.updateViewportContent()
+
+	m.lastRefreshStats = computeDiffStats(oldDigest, newDigest)
+	m.showRefreshFlash = true
+	m.lastRefreshTime = time.Now()
+}
+
 func (m *model) getStats() Stats {
 	s := Stats{}
 
@@ -890,7 +1014,13 @@ func (m *model) getStats() Stats {
 	return s
 }
 
-func (m model) Init() tea.Cmd { return textinput.Blink }
+func (m model) Init() tea.Cmd {
+	cmds := []tea.Cmd{textinput.Blink}
+	if m.autoRefresh && m.refreshInterval > 0 {
+		cmds = append(cmds, scheduleTick(m.refreshInterval))
+	}
+	return tea.Batch(cmds...)
+}
 
 func (m *model) clampCursor() {
 	if len(m.visibleRows) == 0 {
@@ -908,6 +1038,26 @@ func (m *model) clampCursor() {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case tickMsg:
+		if !m.autoRefresh || m.refreshInterval <= 0 {
+			return m, nil
+		}
+		cmds := []tea.Cmd{}
+		if refreshCmd := m.checkDBForChanges(); refreshCmd != nil {
+			cmds = append(cmds, refreshCmd)
+		}
+		cmds = append(cmds, scheduleTick(m.refreshInterval))
+		return m, tea.Batch(cmds...)
+	case refreshCompleteMsg:
+		m.refreshInFlight = false
+		if msg.err != nil {
+			m.lastRefreshStats = fmt.Sprintf("refresh failed: %v", msg.err)
+			m.showRefreshFlash = true
+			m.lastRefreshTime = time.Now()
+			return m, nil
+		}
+		m.applyRefresh(msg.roots, msg.digest, msg.dbModTime)
+		return m, nil
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -965,9 +1115,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recalcVisibleRows()
 			return m, textinput.Blink
 		case "r":
-			if m.showDetails {
-				m.retryCommentsForCurrentNode()
-				m.updateViewportContent()
+			if refreshCmd := m.forceRefresh(); refreshCmd != nil {
+				return m, refreshCmd
 			}
 			return m, nil
 		case "tab":
@@ -1298,6 +1447,14 @@ func (m model) View() string {
 		status += " " + styleStatsDim.Render("("+strings.Join(breakdown, ", ")+")")
 	}
 
+	if m.showRefreshFlash {
+		if time.Since(m.lastRefreshTime) > refreshFlashDuration {
+			m.showRefreshFlash = false
+		} else if m.lastRefreshStats != "" {
+			status += " " + styleStatsDim.Render(fmt.Sprintf("↺ %s", m.lastRefreshStats))
+		}
+	}
+
 	if m.filterText != "" {
 		filterInfo := fmt.Sprintf("(Filtered: '%s' - [ESC] to Clear)", m.filterText)
 		status += " " + styleFilterInfo.Render(filterInfo)
@@ -1434,9 +1591,7 @@ func (m model) View() string {
 		} else {
 			footerStr += "  [ space ] Expand"
 		}
-		if m.showDetails {
-			footerStr += "  [ r ] Reload Comments"
-		}
+		footerStr += "  [ r ] Refresh"
 		bottomBar = lipgloss.NewStyle().Foreground(cLightGray).Render(
 			fmt.Sprintf("%s   %s", footerStr,
 				lipgloss.PlaceHorizontal(m.width-len(footerStr)-5, lipgloss.Right, "Repo: "+m.repoName)))

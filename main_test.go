@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -303,6 +305,54 @@ func TestComputeDiffStats(t *testing.T) {
 	want := "+1 / Δ1 / -1"
 	if got != want {
 		t.Fatalf("expected %s, got %s", want, got)
+	}
+}
+
+func TestApplyRefreshRestoresState(t *testing.T) {
+	childOld := &Node{Issue: FullIssue{ID: "ab-002", Title: "Child", Status: "open"}}
+	rootOld := &Node{
+		Issue:    FullIssue{ID: "ab-001", Title: "Root", Status: "open"},
+		Children: []*Node{childOld},
+		Expanded: true,
+	}
+
+	m := model{
+		roots:       []*Node{rootOld},
+		visibleRows: []*Node{rootOld, childOld},
+		cursor:      1,
+		filterText:  "child",
+		showDetails: true,
+		viewport: viewport.Model{
+			Height:  5,
+			YOffset: 2,
+		},
+		textInput: textinput.New(),
+	}
+	m.textInput.SetValue("child")
+
+	childNew := &Node{Issue: FullIssue{ID: "ab-002", Title: "Child Updated", Status: "open"}}
+	rootNew := &Node{
+		Issue:    FullIssue{ID: "ab-001", Title: "Root", Status: "open"},
+		Children: []*Node{childNew},
+	}
+	newDigest := buildIssueDigest([]*Node{rootNew})
+
+	m.applyRefresh([]*Node{rootNew}, newDigest, time.Now())
+
+	if m.filterText != "child" {
+		t.Fatalf("expected filter preserved, got %s", m.filterText)
+	}
+	if len(m.visibleRows) == 0 || m.visibleRows[m.cursor].Issue.ID != "ab-002" {
+		t.Fatalf("expected cursor to remain on child after refresh")
+	}
+	if m.viewport.YOffset != 2 {
+		t.Fatalf("expected viewport offset restored, got %d", m.viewport.YOffset)
+	}
+	if m.lastRefreshStats == "" {
+		t.Fatalf("expected refresh stats to be populated")
+	}
+	if !m.showRefreshFlash {
+		t.Fatalf("expected refresh flash flag to be set")
 	}
 }
 
