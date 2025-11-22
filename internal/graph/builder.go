@@ -1,0 +1,197 @@
+package graph
+
+import (
+	"sort"
+
+	"abacus/internal/beads"
+)
+
+// Builder constructs dependency graphs from raw Beads issues.
+type Builder struct{}
+
+// NewBuilder creates a new Builder instance.
+func NewBuilder() *Builder {
+	return &Builder{}
+}
+
+// Build converts raw issues into a rooted dependency forest with computed states.
+func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
+	if len(issues) == 0 {
+		return []*Node{}, nil
+	}
+
+	nodeMap := make(map[string]*Node, len(issues))
+	for _, iss := range issues {
+		nodeMap[iss.ID] = &Node{Issue: iss}
+	}
+
+	// Populate relationships from dependencies/dependents metadata.
+	for _, node := range nodeMap {
+		for _, dep := range node.Issue.Dependencies {
+			switch dep.Type {
+			case "parent-child":
+				if parent, ok := nodeMap[dep.TargetID]; ok {
+					node.Parents = append(node.Parents, parent)
+				}
+			case "blocks":
+				if blocker, ok := nodeMap[dep.TargetID]; ok {
+					if blocker.Issue.Status != "closed" {
+						node.BlockedBy = append(node.BlockedBy, blocker)
+						node.IsBlocked = true
+						blocker.Blocks = append(blocker.Blocks, node)
+					}
+				}
+			}
+		}
+		for _, dep := range node.Issue.Dependents {
+			if child, ok := nodeMap[dep.ID]; ok {
+				child.Parents = append(child.Parents, node)
+			}
+		}
+	}
+
+	for _, node := range nodeMap {
+		if len(node.Parents) <= 1 {
+			continue
+		}
+		seen := make(map[string]bool, len(node.Parents))
+		uniq := node.Parents[:0]
+		for _, parent := range node.Parents {
+			if seen[parent.Issue.ID] {
+				continue
+			}
+			seen[parent.Issue.ID] = true
+			uniq = append(uniq, parent)
+		}
+		node.Parents = uniq
+	}
+
+	if err := ensureAcyclic(nodeMap); err != nil {
+		return nil, err
+	}
+
+	for _, node := range nodeMap {
+		node.TreeDepth = calculateDepth(node, make(map[string]bool))
+	}
+
+	var roots []*Node
+	childrenIDs := make(map[string]bool)
+
+	for _, node := range nodeMap {
+		if len(node.Parents) == 0 {
+			roots = append(roots, node)
+			continue
+		}
+
+		maxParentDepth := -1
+		for _, p := range node.Parents {
+			if p.TreeDepth > maxParentDepth {
+				maxParentDepth = p.TreeDepth
+			}
+		}
+
+		for _, p := range node.Parents {
+			if p.TreeDepth == maxParentDepth {
+				p.Children = append(p.Children, node)
+				node.Parent = p
+				childrenIDs[node.Issue.ID] = true
+			}
+		}
+	}
+
+	for _, node := range nodeMap {
+		if len(node.Parents) > 0 && !childrenIDs[node.Issue.ID] {
+			roots = append(roots, node)
+		}
+	}
+
+	for _, node := range nodeMap {
+		sort.Slice(node.Children, func(i, j int) bool {
+			return node.Children[i].Issue.CreatedAt < node.Children[j].Issue.CreatedAt
+		})
+		sort.Slice(node.Blocks, func(i, j int) bool {
+			return node.Blocks[i].Issue.CreatedAt < node.Blocks[j].Issue.CreatedAt
+		})
+	}
+
+	for _, root := range roots {
+		computeStates(root)
+		if root.HasInProgress {
+			root.Expanded = true
+		}
+	}
+
+	return roots, nil
+}
+
+func calculateDepth(n *Node, visited map[string]bool) int {
+	if visited[n.Issue.ID] {
+		return 0
+	}
+	visited[n.Issue.ID] = true
+	if len(n.Parents) == 0 {
+		return 0
+	}
+	maxDepth := 0
+	for _, parent := range n.Parents {
+		depth := calculateDepth(parent, visited)
+		if depth > maxDepth {
+			maxDepth = depth
+		}
+	}
+	delete(visited, n.Issue.ID)
+	return maxDepth + 1
+}
+
+func ensureAcyclic(nodes map[string]*Node) error {
+	visited := make(map[string]bool)
+	onStack := make(map[string]bool)
+
+	var visit func(n *Node, stack []string) error
+	visit = func(n *Node, stack []string) error {
+		if onStack[n.Issue.ID] {
+			stack = append(stack, n.Issue.ID)
+			return cyclicDependencyError(stack)
+		}
+		if visited[n.Issue.ID] {
+			return nil
+		}
+		onStack[n.Issue.ID] = true
+		stack = append(stack, n.Issue.ID)
+		for _, parent := range n.Parents {
+			if err := visit(parent, stack); err != nil {
+				return err
+			}
+		}
+		onStack[n.Issue.ID] = false
+		visited[n.Issue.ID] = true
+		return nil
+	}
+
+	for _, node := range nodes {
+		if err := visit(node, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func computeStates(n *Node) {
+	if n.Issue.Status == "in_progress" {
+		n.HasInProgress = true
+	}
+	if n.Issue.Status == "open" && !n.IsBlocked {
+		n.HasReady = true
+	}
+	for _, child := range n.Children {
+		child.Depth = n.Depth + 1
+		computeStates(child)
+		if child.HasInProgress {
+			n.HasInProgress = true
+			n.Expanded = true
+		}
+		if child.HasReady {
+			n.HasReady = true
+		}
+	}
+}

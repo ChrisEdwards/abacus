@@ -1,0 +1,115 @@
+package beads
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os/exec"
+	"strings"
+
+	appErrors "abacus/internal/errors"
+)
+
+const maxErrorSnippetLen = 200
+
+type cliClient struct {
+	bin string
+}
+
+// CLIOption configures the CLI client implementation.
+type CLIOption func(*cliClient)
+
+// WithBinaryPath overrides the command used to invoke the Beads CLI.
+func WithBinaryPath(path string) CLIOption {
+	return func(c *cliClient) {
+		if strings.TrimSpace(path) != "" {
+			c.bin = path
+		}
+	}
+}
+
+// NewCLIClient constructs a Beads CLI-backed client implementation.
+func NewCLIClient(opts ...CLIOption) Client {
+	client := &cliClient{bin: "bd"}
+	for _, opt := range opts {
+		opt(client)
+	}
+	return client
+}
+
+func (c *cliClient) List(ctx context.Context) ([]LiteIssue, error) {
+	out, err := c.run(ctx, "list", "--json")
+	if err != nil {
+		return nil, fmt.Errorf("run bd list: %w", err)
+	}
+	var issues []LiteIssue
+	if err := json.Unmarshal(out, &issues); err != nil {
+		return nil, fmt.Errorf("decode bd list output: %w", err)
+	}
+	if issues == nil {
+		issues = []LiteIssue{}
+	}
+	return issues, nil
+}
+
+func (c *cliClient) Show(ctx context.Context, ids []string) ([]FullIssue, error) {
+	if len(ids) == 0 {
+		return []FullIssue{}, nil
+	}
+	args := append([]string{"show"}, ids...)
+	args = append(args, "--json")
+	out, err := c.run(ctx, args...)
+	if err != nil {
+		return nil, fmt.Errorf("run bd show: %w", err)
+	}
+	var issues []FullIssue
+	if err := json.Unmarshal(out, &issues); err != nil {
+		snippet := string(out)
+		if len(snippet) > maxErrorSnippetLen {
+			snippet = snippet[:maxErrorSnippetLen] + "..."
+		}
+		return nil, fmt.Errorf("decode bd show output: %w (output: %s)", err, strings.TrimSpace(snippet))
+	}
+	if issues == nil {
+		issues = []FullIssue{}
+	}
+	return issues, nil
+}
+
+func (c *cliClient) Comments(ctx context.Context, issueID string) ([]Comment, error) {
+	if strings.TrimSpace(issueID) == "" {
+		return nil, fmt.Errorf("issue id is required for comments")
+	}
+	out, err := c.run(ctx, "comments", issueID, "--json")
+	if err != nil {
+		return nil, fmt.Errorf("run bd comments: %w", err)
+	}
+	var comments []Comment
+	if err := json.Unmarshal(out, &comments); err != nil {
+		return nil, fmt.Errorf("decode bd comments output: %w", err)
+	}
+	if comments == nil {
+		comments = []Comment{}
+	}
+	return comments, nil
+}
+
+func (c *cliClient) run(ctx context.Context, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, c.bin, args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, formatCommandError(c.bin, args, err, out)
+	}
+	return out, nil
+}
+
+func formatCommandError(bin string, args []string, cmdErr error, out []byte) error {
+	snippet := strings.TrimSpace(string(out))
+	if len(snippet) > maxErrorSnippetLen {
+		snippet = snippet[:maxErrorSnippetLen] + "..."
+	}
+	command := append([]string{bin}, args...)
+	msg := fmt.Sprintf("%s failed", strings.Join(command, " "))
+	err := classifyCLIError(command, appErrors.New(appErrors.CodeCLIFailed, msg, cmdErr), snippet)
+	return err
+}

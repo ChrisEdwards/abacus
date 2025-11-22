@@ -1,0 +1,32 @@
+[
+  {
+    "id": "ab-1",
+    "title": "Root Epic Updated",
+    "status": "in_progress",
+    "issue_type": "task",
+    "priority": 1,
+    "description": "Root updated after refresh",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-05T00:00:00Z",
+    "labels": ["core", "hot"],
+    "dependents": [
+      {"id": "ab-2"}
+    ],
+    "dependencies": []
+  },
+  {
+    "id": "ab-2",
+    "title": "Child Task Updated",
+    "status": "in_progress",
+    "issue_type": "task",
+    "priority": 2,
+    "description": "Child moved to in progress",
+    "created_at": "2025-01-02T00:00:00Z",
+    "updated_at": "2025-01-05T00:00:00Z",
+    "labels": ["active"],
+    "dependents": [],
+    "dependencies": [
+      {"type": "parent-child", "target_id": "ab-1"}
+    ]
+  }
+]

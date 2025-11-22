@@ -1,0 +1,54 @@
+version: "2"
+run:
+  timeout: 5m
+  tests: false
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - gosec
+    - misspell
+    - unconvert
+    - unparam
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - (*os.File).Close
+      - (io.Closer).Close
+      - (*bytes.Buffer).Write
+      - (*bytes.Buffer).WriteString
+      - (*bytes.Buffer).WriteByte
+      - (*strings.Builder).WriteString
+      - (*strings.Builder).WriteByte
+      - (*strings.Builder).WriteRune
+      - os.Remove
+      - os.RemoveAll
+      - os.MkdirAll
+      - os.Chdir
+      - os.Setenv
+      - os.Unsetenv
+  misspell:
+    locale: US
+issues:
+  uniq-by-line: true
+  exclude-rules:
+    - path: '_test\\.go'
+      linters:
+        - gosec
+      text: G304
+      reason: Test fixtures load from local paths
+    - path: '_test\\.go'
+      linters:
+        - gosec
+      text: G306
+      reason: Test-only file permissions are acceptable
+    - path: 'internal/beads/cli\\.go'
+      linters:
+        - gosec
+      text: G204
+      reason: CLI wrapper intentionally shells out to bd
+    - path: '_test\\.go'
+      linters:
+        - errcheck
+      text: "Error return value of .*(Close|Rollback|RemoveAll|Setenv|Unsetenv|Chdir|MkdirAll|Remove|Write).* is not checked"
+      reason: Cleanup helpers in tests intentionally ignore errors

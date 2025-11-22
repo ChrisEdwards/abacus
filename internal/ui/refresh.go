@@ -1,0 +1,94 @@
+package ui
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"time"
+
+	"abacus/internal/beads"
+	"abacus/internal/graph"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+func refreshDataCmd(client beads.Client, targetModTime time.Time) tea.Cmd {
+	return func() tea.Msg {
+		newRoots, err := loadData(context.Background(), client)
+		if err != nil {
+			return refreshCompleteMsg{err: err}
+		}
+		return refreshCompleteMsg{
+			roots:     newRoots,
+			digest:    buildIssueDigest(newRoots),
+			dbModTime: targetModTime,
+		}
+	}
+}
+
+func (m *App) checkDBForChanges() tea.Cmd {
+	if m.refreshInFlight || m.dbPath == "" {
+		return nil
+	}
+	info, err := os.Stat(m.dbPath)
+	if err != nil {
+		m.autoRefresh = false
+		m.lastRefreshStats = fmt.Sprintf("refresh disabled: %v", err)
+		m.showRefreshFlash = true
+		m.lastRefreshTime = time.Now()
+		return nil
+	}
+	if !info.ModTime().After(m.lastDBModTime) {
+		return nil
+	}
+	return m.startRefresh(info.ModTime())
+}
+
+func (m *App) startRefresh(targetModTime time.Time) tea.Cmd {
+	if m.refreshInFlight {
+		return nil
+	}
+	m.refreshInFlight = true
+	return refreshDataCmd(m.client, targetModTime)
+}
+
+func (m *App) forceRefresh() tea.Cmd {
+	var modTime time.Time
+	if m.dbPath != "" {
+		if info, err := os.Stat(m.dbPath); err == nil {
+			modTime = info.ModTime()
+		}
+	}
+	return m.startRefresh(modTime)
+}
+
+func (m *App) applyRefresh(newRoots []*graph.Node, newDigest map[string]string, newModTime time.Time) {
+	state := m.captureState()
+	oldDigest := buildIssueDigest(m.roots)
+
+	m.roots = newRoots
+	if !newModTime.IsZero() {
+		m.lastDBModTime = newModTime
+	}
+
+	m.restoreExpandedState(state.expandedIDs)
+	m.filterText = state.filterText
+	m.textInput.SetValue(state.filterText)
+	m.recalcVisibleRows()
+
+	if state.currentID != "" {
+		m.restoreCursorToID(state.currentID)
+	} else {
+		m.cursor = state.cursorIndex
+		m.clampCursor()
+	}
+
+	if m.ShowDetails {
+		m.viewport.YOffset = state.viewportYOffset
+	}
+	m.updateViewportContent()
+
+	m.lastRefreshStats = computeDiffStats(oldDigest, newDigest)
+	m.showRefreshFlash = true
+	m.lastRefreshTime = time.Now()
+}

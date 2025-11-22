@@ -1,0 +1,32 @@
+[
+  {
+    "id": "ab-1",
+    "title": "Root Epic",
+    "status": "in_progress",
+    "issue_type": "task",
+    "priority": 1,
+    "description": "Top level issue",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z",
+    "labels": ["core"],
+    "dependents": [
+      {"id": "ab-2"}
+    ],
+    "dependencies": []
+  },
+  {
+    "id": "ab-2",
+    "title": "Child Task",
+    "status": "open",
+    "issue_type": "task",
+    "priority": 2,
+    "description": "Child issue depending on root",
+    "created_at": "2025-01-02T00:00:00Z",
+    "updated_at": "2025-01-02T00:00:00Z",
+    "labels": ["ready"],
+    "dependents": [],
+    "dependencies": [
+      {"type": "parent-child", "target_id": "ab-1"}
+    ]
+  }
+]
