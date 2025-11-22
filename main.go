@@ -168,6 +168,7 @@ type Node struct {
 
 	IsBlocked      bool
 	CommentsLoaded bool
+	CommentError   string
 
 	Expanded      bool
 	Depth         int
@@ -189,6 +190,44 @@ type Stats struct {
 	Ready      int
 	Blocked    int
 	Closed     int
+}
+
+const (
+	minViewportWidth   = 20
+	minViewportHeight  = 5
+	minTreeWidth       = 18
+	minListHeight      = 5
+	maxErrorSnippetLen = 200
+)
+
+func clampDimension(value, minValue, maxValue int) int {
+	if maxValue < 1 {
+		maxValue = 1
+	}
+	if minValue < 1 {
+		minValue = 1
+	}
+	if minValue > maxValue {
+		minValue = maxValue
+	}
+	if value < minValue {
+		return minValue
+	}
+	if value > maxValue {
+		return maxValue
+	}
+	return value
+}
+
+func summarizeCommandError(err error, out []byte) string {
+	snippet := strings.TrimSpace(string(out))
+	if len(snippet) > maxErrorSnippetLen {
+		snippet = snippet[:maxErrorSnippetLen] + "..."
+	}
+	if snippet != "" {
+		return fmt.Sprintf("%v (output: %s)", err, snippet)
+	}
+	return err.Error()
 }
 
 // --- Model ---
@@ -266,24 +305,37 @@ func indentBlock(text string, spaces int) string {
 	return strings.Join(lines, "\n")
 }
 
+func treePrefixWidth(indent, marker, icon, id string) int {
+	raw := fmt.Sprintf(" %s%s %s %s ", indent, marker, icon, id)
+	width := lipgloss.Width(raw)
+	if width < 0 {
+		return 0
+	}
+	return width
+}
+
 // trimGlamourOutput removes leading/trailing whitespace/newlines that Glamour adds by default
 func trimGlamourOutput(s string) string {
 	return strings.TrimSpace(s)
 }
 
-func fetchCommentsForNode(n *Node) {
+func fetchCommentsForNode(n *Node) error {
 	if n.CommentsLoaded {
-		return
+		return nil
 	}
 	cmd := exec.Command("bd", "comments", n.Issue.ID, "--json")
-	out, err := cmd.Output()
-	if err == nil {
-		var comments []Comment
-		if json.Unmarshal(out, &comments) == nil {
-			n.Issue.Comments = comments
-		}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to fetch comments for %s: %s", n.Issue.ID, summarizeCommandError(err, out))
 	}
+	var comments []Comment
+	if err := json.Unmarshal(out, &comments); err != nil {
+		return fmt.Errorf("failed to decode comments for %s: %w", n.Issue.ID, err)
+	}
+	n.Issue.Comments = comments
 	n.CommentsLoaded = true
+	n.CommentError = ""
+	return nil
 }
 
 // --- Data Loading & Graph Logic ---
@@ -606,8 +658,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
-		m.viewport.Width = int(float64(msg.Width)*0.45) - 2
-		m.viewport.Height = msg.Height - 5
+		rawViewportWidth := int(float64(msg.Width)*0.45) - 2
+		maxViewportWidth := msg.Width - minTreeWidth - 4
+		m.viewport.Width = clampDimension(rawViewportWidth, minViewportWidth, maxViewportWidth)
+
+		rawViewportHeight := msg.Height - 5
+		maxViewportHeight := msg.Height - 2
+		m.viewport.Height = clampDimension(rawViewportHeight, minViewportHeight, maxViewportHeight)
 		m.updateViewportContent()
 
 	case tea.KeyMsg:
@@ -653,6 +710,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filterText = ""
 			m.recalcVisibleRows()
 			return m, textinput.Blink
+		case "r":
+			if m.showDetails {
+				m.retryCommentsForCurrentNode()
+				m.updateViewportContent()
+			}
+			return m, nil
 		case "tab":
 			if m.showDetails {
 				if m.focus == FocusTree {
@@ -747,8 +810,10 @@ func (m *model) updateViewportContent() {
 	}
 	node := m.visibleRows[m.cursor]
 
-	if !node.CommentsLoaded {
-		fetchCommentsForNode(node)
+	if !node.CommentsLoaded && node.CommentError == "" {
+		if err := fetchCommentsForNode(node); err != nil {
+			node.CommentError = err.Error()
+		}
 	}
 
 	iss := node.Issue
@@ -907,7 +972,12 @@ func (m *model) updateViewportContent() {
 	renderedDesc = trimGlamourOutput(renderedDesc)
 	descBuilder.WriteString(indentBlock(renderedDesc, contentIndentSpaces))
 
-	if len(iss.Comments) > 0 {
+	if node.CommentError != "" {
+		descBuilder.WriteString("\n" + styleSectionHeader.Render("Comments") + "\n")
+		descBuilder.WriteString(styleBlockedText.Render("Failed to load comments. Press 'r' to retry.") + "\n")
+		wrappedErr := wordwrap.String(node.CommentError, safeWidth)
+		descBuilder.WriteString(indentBlock(wrappedErr, contentIndentSpaces) + "\n")
+	} else if len(iss.Comments) > 0 {
 		descBuilder.WriteString("\n" + styleSectionHeader.Render("Comments") + "\n")
 		for _, c := range iss.Comments {
 			header := fmt.Sprintf("  %s  %s", c.Author, formatTime(c.CreatedAt))
@@ -929,6 +999,19 @@ func (m *model) updateViewportContent() {
 	)
 
 	m.viewport.SetContent(finalContent)
+}
+
+func (m *model) retryCommentsForCurrentNode() {
+	if m.cursor >= len(m.visibleRows) {
+		return
+	}
+	node := m.visibleRows[m.cursor]
+	node.Issue.Comments = nil
+	node.CommentsLoaded = false
+	node.CommentError = ""
+	if err := fetchCommentsForNode(node); err != nil {
+		node.CommentError = err.Error()
+	}
 }
 
 func (m model) View() string {
@@ -970,7 +1053,7 @@ func (m model) View() string {
 	// ... (Rest of the View function logic regarding Tree generation remains exactly the same) ...
 
 	var treeLines []string
-	listHeight := m.height - 4
+	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
 	start, end := 0, len(m.visibleRows)
 
 	if end > listHeight {
@@ -991,6 +1074,7 @@ func (m model) View() string {
 	if m.showDetails {
 		treeWidth = m.width - m.viewport.Width - 4
 	}
+	treeWidth = clampDimension(treeWidth, minTreeWidth, m.width-2)
 
 	visualLinesCount := 0
 
@@ -1020,13 +1104,12 @@ func (m model) View() string {
 			iconStr, iconStyle, textStyle = "⛔", styleIconBlocked, styleBlockedText
 		}
 
-		prefixRaw := fmt.Sprintf("%s%s %s ", indent, marker, iconStr)
-		totalPrefixWidth := len(prefixRaw) + len(node.Issue.ID) + 1 - 4
-		if totalPrefixWidth < 0 {
-			totalPrefixWidth = 0
+		wrapWidth := treeWidth - 4
+		if wrapWidth < 1 {
+			wrapWidth = 1
 		}
-
-		wrappedTitle := wrapWithHangingIndent(totalPrefixWidth, node.Issue.Title, treeWidth-4)
+		totalPrefixWidth := treePrefixWidth(indent, marker, iconStr, node.Issue.ID)
+		wrappedTitle := wrapWithHangingIndent(totalPrefixWidth, node.Issue.Title, wrapWidth)
 		titleLines := strings.Split(wrappedTitle, "\n")
 
 		if i == m.cursor {
@@ -1067,11 +1150,24 @@ func (m model) View() string {
 			rightStyle = stylePaneFocused
 		}
 
-		left := leftStyle.Width(m.width - m.viewport.Width - 4).Height(listHeight).Render(treeViewStr)
-		right := rightStyle.Width(m.viewport.Width).Height(listHeight).Render(m.viewport.View())
+		leftWidth := m.width - m.viewport.Width - 4
+		if leftWidth < 1 {
+			leftWidth = 1
+		}
+		rightWidth := m.viewport.Width
+		if rightWidth < 1 {
+			rightWidth = 1
+		}
+
+		left := leftStyle.Width(leftWidth).Height(listHeight).Render(treeViewStr)
+		right := rightStyle.Width(rightWidth).Height(listHeight).Render(m.viewport.View())
 		mainBody = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	} else {
-		mainBody = stylePane.Width(m.width - 2).Height(listHeight).Render(treeViewStr)
+		singleWidth := m.width - 2
+		if singleWidth < 1 {
+			singleWidth = 1
+		}
+		mainBody = stylePane.Width(singleWidth).Height(listHeight).Render(treeViewStr)
 	}
 
 	var bottomBar string
@@ -1083,6 +1179,9 @@ func (m model) View() string {
 			footerStr += "  [ j/k ] Scroll Details"
 		} else {
 			footerStr += "  [ space ] Expand"
+		}
+		if m.showDetails {
+			footerStr += "  [ r ] Reload Comments"
 		}
 		bottomBar = lipgloss.NewStyle().Foreground(cLightGray).Render(
 			fmt.Sprintf("%s   %s", footerStr,
