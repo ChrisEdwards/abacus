@@ -7,7 +7,22 @@ import (
 	"time"
 )
 
-func TestInitializeLoadsDefaults(t *testing.T) {
+func TestInitialize(t *testing.T) {
+	reset()
+	t.Cleanup(reset)
+
+	tmp := t.TempDir()
+
+	if err := Initialize(WithWorkingDir(tmp)); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+	// Second call should no-op and still return nil.
+	if err := Initialize(); err != nil {
+		t.Fatalf("Initialize should be idempotent: %v", err)
+	}
+}
+
+func TestDefaults(t *testing.T) {
 	reset()
 	t.Cleanup(reset)
 
@@ -41,7 +56,7 @@ func TestInitializeLoadsDefaults(t *testing.T) {
 	}
 }
 
-func TestProjectConfigOverridesUser(t *testing.T) {
+func TestConfigFile(t *testing.T) {
 	reset()
 	t.Cleanup(reset)
 
@@ -89,7 +104,27 @@ database:
 	}
 }
 
-func TestEnvironmentAndOverridesPrecedence(t *testing.T) {
+func TestEnvironmentBinding(t *testing.T) {
+	reset()
+	t.Cleanup(reset)
+
+	tmp := t.TempDir()
+	t.Setenv("AB_OUTPUT_FORMAT", "plain")
+	t.Setenv("AB_REFRESH_INTERVAL", "750ms")
+
+	if err := Initialize(WithWorkingDir(tmp)); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	if got := GetString(KeyOutputFormat); got != "plain" {
+		t.Fatalf("expected env override for %s, got %q", KeyOutputFormat, got)
+	}
+	if got := GetDuration(KeyRefreshInterval); got != 750*time.Millisecond {
+		t.Fatalf("expected env override for %s, got %v", KeyRefreshInterval, got)
+	}
+}
+
+func TestConfigPrecedence(t *testing.T) {
 	reset()
 	t.Cleanup(reset)
 
@@ -171,6 +206,34 @@ func TestSetUpdatesValue(t *testing.T) {
 
 	if got := GetDuration(KeyRefreshInterval); got != want {
 		t.Fatalf("expected Set to update %s to %v, got %v", KeyRefreshInterval, want, got)
+	}
+}
+
+func TestFindsAncestorProjectConfig(t *testing.T) {
+	reset()
+	t.Cleanup(reset)
+
+	tmp := t.TempDir()
+	repo := filepath.Join(tmp, "repo")
+	deep := filepath.Join(repo, "a", "b", "c")
+	mustMkdir(t, filepath.Join(repo, ".abacus"))
+	mustMkdir(t, deep)
+
+	projectCfg := filepath.Join(repo, ".abacus", "config.yaml")
+	writeFile(t, projectCfg, `
+output:
+  format: ancestor
+`)
+
+	if err := Initialize(
+		WithWorkingDir(deep),
+		WithUserConfig(filepath.Join(tmp, "user.yaml")),
+	); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	if got := GetString(KeyOutputFormat); got != "ancestor" {
+		t.Fatalf("expected ancestor config discovery, got %q", got)
 	}
 }
 
