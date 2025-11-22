@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 )
 
 func TestWrapWithHangingIndent(t *testing.T) {
@@ -434,6 +435,55 @@ func TestFindBeadsDBFallsBackToDefault(t *testing.T) {
 	}
 	if normalizePath(t, path) != normalizePath(t, defaultDB) {
 		t.Fatalf("expected fallback %s, got %s", defaultDB, path)
+	}
+}
+
+func TestBuildMarkdownRendererPlainStyle(t *testing.T) {
+	text := "alpha beta gamma delta"
+	width := 6
+	want := wordwrap.String(text, width)
+
+	render := buildMarkdownRenderer("plain", width)
+	if got := render(text); got != want {
+		t.Fatalf("expected plain renderer to match fallback %q, got %q", want, got)
+	}
+}
+
+func TestRecalcVisibleRowsMatchesIDs(t *testing.T) {
+	nodes := []*Node{
+		{Issue: FullIssue{ID: "ab-123", Title: "Alpha"}},
+		{Issue: FullIssue{ID: "ab-456", Title: "Beta"}},
+	}
+	m := model{
+		roots:      nodes,
+		filterText: "ab-123",
+	}
+	m.recalcVisibleRows()
+
+	if len(m.visibleRows) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(m.visibleRows))
+	}
+	if got := m.visibleRows[0].Issue.ID; got != "ab-123" {
+		t.Fatalf("expected ID ab-123, got %s", got)
+	}
+}
+
+func TestRecalcVisibleRowsMatchesPartialIDs(t *testing.T) {
+	nodes := []*Node{
+		{Issue: FullIssue{ID: "ab-123", Title: "Alpha"}},
+		{Issue: FullIssue{ID: "ab-456", Title: "Beta"}},
+	}
+	m := model{
+		roots:      nodes,
+		filterText: "456",
+	}
+	m.recalcVisibleRows()
+
+	if len(m.visibleRows) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(m.visibleRows))
+	}
+	if got := m.visibleRows[0].Issue.ID; got != "ab-456" {
+		t.Fatalf("expected ID ab-456, got %s", got)
 	}
 }
 

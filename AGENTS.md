@@ -1,0 +1,3 @@
+Write tests for any changes made in this codebase.
+We use beads for issue tracking and work planning. If you need more information, execute `bd quickstart`
+When working on a bead, set it to in progress when you start. Set it to closed when you are done. Add a comment indicating what you did. Don't set it closed until you know it builds, all the tests pass, and you have written tests for anything you added or changed.

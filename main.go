@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"abacus/internal/config"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -195,13 +197,13 @@ type Stats struct {
 }
 
 const (
-	minViewportWidth        = 20
-	minViewportHeight       = 5
-	minTreeWidth            = 18
-	minListHeight           = 5
-	maxErrorSnippetLen      = 200
-	defaultRefreshInterval  = 3 * time.Second
-	refreshFlashDuration    = 2 * time.Second
+	minViewportWidth       = 20
+	minViewportHeight      = 5
+	minTreeWidth           = 18
+	minListHeight          = 5
+	maxErrorSnippetLen     = 200
+	defaultRefreshInterval = 3 * time.Second
+	refreshFlashDuration   = 2 * time.Second
 )
 
 func clampDimension(value, minValue, maxValue int) int {
@@ -301,6 +303,8 @@ func findBeadsDBFromDir(startDir string) (string, time.Time, error) {
 type appConfig struct {
 	refreshInterval time.Duration
 	autoRefresh     bool
+	dbPathOverride  string
+	outputFormat    string
 }
 
 type model struct {
@@ -329,6 +333,7 @@ type model struct {
 	showRefreshFlash bool
 	refreshInFlight  bool
 	lastRefreshTime  time.Time
+	outputFormat     string
 }
 
 type viewState struct {
@@ -406,6 +411,35 @@ func trimGlamourOutput(s string) string {
 	return strings.TrimSpace(s)
 }
 
+func buildMarkdownRenderer(format string, width int) func(string) string {
+	fallback := func(input string) string {
+		return wordwrap.String(input, width)
+	}
+
+	style := strings.ToLower(strings.TrimSpace(format))
+	if style == "" || style == "rich" || style == "dark" {
+		style = "dark"
+	}
+	if style == "plain" {
+		return fallback
+	}
+
+	renderer, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle(style),
+		glamour.WithWordWrap(width),
+	)
+	if err != nil {
+		return fallback
+	}
+	return func(input string) string {
+		out, err := renderer.Render(input)
+		if err != nil {
+			return fallback(input)
+		}
+		return trimGlamourOutput(out)
+	}
+}
+
 func fetchCommentsForNode(n *Node) error {
 	if n.CommentsLoaded {
 		return nil
@@ -480,28 +514,12 @@ func preloadAllComments(roots []*Node) {
 // --- Data Loading & Graph Logic ---
 
 func loadData() ([]*Node, error) {
-	cmd := exec.Command("bd", "list", "--json")
-	out, err := cmd.Output()
+	fullIssues, err := fetchFullIssues()
 	if err != nil {
-		return nil, fmt.Errorf("failed to run bd list: %v", err)
-	}
-
-	var liteIssues []LiteIssue
-	if err := json.Unmarshal(out, &liteIssues); err != nil {
 		return nil, err
 	}
-	if len(liteIssues) == 0 {
+	if len(fullIssues) == 0 {
 		return []*Node{}, nil
-	}
-
-	var ids []string
-	for _, l := range liteIssues {
-		ids = append(ids, l.ID)
-	}
-
-	fullIssues, err := batchFetchIssues(ids)
-	if err != nil {
-		return nil, err
 	}
 
 	roots := buildDeepestParentGraph(fullIssues)
@@ -529,6 +547,29 @@ func loadData() ([]*Node, error) {
 	preloadAllComments(roots)
 
 	return roots, nil
+}
+
+func fetchFullIssues() ([]FullIssue, error) {
+	cmd := exec.Command("bd", "list", "--json")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to run bd list: %v", err)
+	}
+
+	var liteIssues []LiteIssue
+	if err := json.Unmarshal(out, &liteIssues); err != nil {
+		return nil, err
+	}
+	if len(liteIssues) == 0 {
+		return []FullIssue{}, nil
+	}
+
+	ids := make([]string, 0, len(liteIssues))
+	for _, l := range liteIssues {
+		ids = append(ids, l.ID)
+	}
+
+	return batchFetchIssues(ids)
 }
 
 func batchFetchIssues(ids []string) ([]FullIssue, error) {
@@ -562,6 +603,19 @@ func batchFetchIssues(ids []string) ([]FullIssue, error) {
 		results = append(results, batch...)
 	}
 	return results, nil
+}
+
+func outputIssuesJSON() error {
+	issues, err := fetchFullIssues()
+	if err != nil {
+		return err
+	}
+	if issues == nil {
+		issues = []FullIssue{}
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(issues)
 }
 
 func buildDeepestParentGraph(issues []FullIssue) []*Node {
@@ -694,7 +748,25 @@ func initialModel(cfg appConfig) model {
 		cfg.refreshInterval = defaultRefreshInterval
 	}
 
-	dbPath, dbModTime, dbErr := findBeadsDB()
+	var (
+		dbPath    string
+		dbModTime time.Time
+		dbErr     error
+	)
+	if trimmed := strings.TrimSpace(cfg.dbPathOverride); trimmed != "" {
+		info, err := os.Stat(trimmed)
+		if err != nil {
+			dbErr = fmt.Errorf("db override: %w", err)
+		} else if info.IsDir() {
+			dbErr = fmt.Errorf("db override must point to a file: %s", trimmed)
+		} else {
+			dbPath = trimmed
+			dbModTime = info.ModTime()
+		}
+	}
+	if dbPath == "" && dbErr == nil {
+		dbPath, dbModTime, dbErr = findBeadsDB()
+	}
 	roots, err := loadData()
 	ti := textinput.New()
 	ti.Placeholder = "Search..."
@@ -719,6 +791,7 @@ func initialModel(cfg appConfig) model {
 		focus:           FocusTree,
 		refreshInterval: cfg.refreshInterval,
 		autoRefresh:     autoRefresh,
+		outputFormat:    cfg.outputFormat,
 	}
 	if dbErr == nil {
 		m.dbPath = dbPath
@@ -736,11 +809,25 @@ func initialModel(cfg appConfig) model {
 
 func (m *model) recalcVisibleRows() {
 	m.visibleRows = []*Node{}
-	matches := func(n *Node) bool {
-		if m.filterText == "" {
+	filterLower := strings.ToLower(m.filterText)
+	filterMatches := func(haystack string) bool {
+		if filterLower == "" {
 			return true
 		}
-		return strings.Contains(strings.ToLower(n.Issue.Title), strings.ToLower(m.filterText))
+		return strings.Contains(strings.ToLower(haystack), filterLower)
+	}
+	matches := func(n *Node) bool {
+		if filterMatches(n.Issue.Title) {
+			return true
+		}
+		if filterMatches(n.Issue.ID) {
+			return true
+		}
+		if filterLower == "" {
+			return true
+		}
+		trimmed := strings.TrimPrefix(strings.ToLower(n.Issue.ID), "ab-")
+		return strings.Contains(trimmed, filterLower)
 	}
 
 	var traverse func(nodes []*Node)
@@ -1362,17 +1449,13 @@ func (m *model) updateViewportContent() {
 		safeWidth = 1
 	}
 
-	renderer, _ := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
-		glamour.WithWordWrap(safeWidth),
-	)
+	renderMarkdown := buildMarkdownRenderer(m.outputFormat, safeWidth)
 
 	descBuilder := strings.Builder{}
 	descBuilder.WriteString(styleSectionHeader.Render("Description") + "\n")
 	desc := strings.ReplaceAll(iss.Description, "• ", "- ")
 
-	renderedDesc, _ := renderer.Render(desc)
-	renderedDesc = trimGlamourOutput(renderedDesc)
+	renderedDesc := renderMarkdown(desc)
 	descBuilder.WriteString(indentBlock(renderedDesc, contentIndentSpaces))
 
 	if node.CommentError != "" {
@@ -1386,8 +1469,7 @@ func (m *model) updateViewportContent() {
 			header := fmt.Sprintf("  %s  %s", c.Author, formatTime(c.CreatedAt))
 			descBuilder.WriteString(styleCommentHeader.Render(header) + "\n")
 
-			renderedComment, _ := renderer.Render(c.Text)
-			renderedComment = trimGlamourOutput(renderedComment)
+			renderedComment := renderMarkdown(c.Text)
 			// The text is already wrapped to safeWidth (viewport width minus indent & safety).
 			// Adding the indent preserves alignment without causing another wrap.
 			descBuilder.WriteString(indentBlock(renderedComment, contentIndentSpaces) + "\n\n")
@@ -1601,13 +1683,55 @@ func (m model) View() string {
 }
 
 func main() {
+	if err := config.Initialize(); err != nil {
+		fmt.Printf("Error initializing config: %v\n", err)
+		os.Exit(1)
+	}
+
 	refreshIntervalFlag := flag.Duration("refresh-interval", defaultRefreshInterval, "Interval for automatic refresh polling (e.g. 2s, 500ms)")
-	noAutoRefreshFlag := flag.Bool("no-auto-refresh", false, "Disable automatic background refresh")
+	autoRefreshDefault := config.GetBool(config.KeySyncAuto)
+	autoRefreshFlag := flag.Bool("auto-refresh", autoRefreshDefault, "Enable automatic background refresh")
+	noAutoRefreshFlag := flag.Bool("no-auto-refresh", false, "Disable automatic background refresh (overrides --auto-refresh)")
+	jsonOutputFlag := flag.Bool("json-output", config.GetBool(config.KeyOutputJSON), "Print issue data as JSON and exit")
+	dbPathFlag := flag.String("db-path", config.GetString(config.KeyDatabasePath), "Path to the Beads database file")
+	outputFormatFlag := flag.String("output-format", config.GetString(config.KeyOutputFormat), "Detail panel markdown style (rich, light, plain)")
 	flag.Parse()
+
+	overrides := map[string]any{}
+	flag.CommandLine.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "json-output":
+			overrides[config.KeyOutputJSON] = *jsonOutputFlag
+		case "db-path":
+			overrides[config.KeyDatabasePath] = strings.TrimSpace(*dbPathFlag)
+		case "auto-refresh":
+			overrides[config.KeySyncAuto] = *autoRefreshFlag
+		case "no-auto-refresh":
+			overrides[config.KeySyncAuto] = !*noAutoRefreshFlag
+		case "output-format":
+			overrides[config.KeyOutputFormat] = strings.TrimSpace(*outputFormatFlag)
+		}
+	})
+	if len(overrides) > 0 {
+		if err := config.ApplyOverrides(overrides); err != nil {
+			fmt.Printf("Error applying config overrides: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	if config.GetBool(config.KeyOutputJSON) {
+		if err := outputIssuesJSON(); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	cfg := appConfig{
 		refreshInterval: *refreshIntervalFlag,
-		autoRefresh:     !*noAutoRefreshFlag,
+		autoRefresh:     config.GetBool(config.KeySyncAuto),
+		dbPathOverride:  strings.TrimSpace(config.GetString(config.KeyDatabasePath)),
+		outputFormat:    strings.TrimSpace(config.GetString(config.KeyOutputFormat)),
 	}
 
 	p := tea.NewProgram(initialModel(cfg), tea.WithAltScreen())

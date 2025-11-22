@@ -131,7 +131,7 @@ Contributions are welcome! Areas for improvement:
 
 ## License
 
-[Your chosen license here]
+This project is licensed under the [MIT License](./LICENSE).
 
 ## Acknowledgments
 
