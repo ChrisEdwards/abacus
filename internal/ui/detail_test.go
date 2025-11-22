@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -10,63 +11,142 @@ import (
 func TestRenderRefRow_HangingIndentForWrappedTitles(t *testing.T) {
 	id := "ab-ltb"
 	title := "Research Beads repository structure and CI/CD setup"
-	targetWidth := 34 // force wrapping with a modest viewport width
-
-	row := renderRefRow(
-		id,
-		title,
-		targetWidth,
-		lipgloss.NewStyle(),
-		lipgloss.NewStyle(),
-		lipgloss.Color(""),
-	)
-
-	lines := strings.Split(row, "\n")
-	if len(lines) < 2 {
-		t.Fatalf("expected wrapped output, got %q", row)
-	}
-
-	prefix := id + "  "
-	if !strings.HasPrefix(lines[0], prefix) {
-		t.Fatalf("expected id prefix on first line: %q", lines[0])
-	}
-
-	expectedIndent := strings.Repeat(" ", len(prefix))
-	if !strings.HasPrefix(lines[1], expectedIndent) {
-		t.Fatalf("wrapped line should start with indent %q:\n%s", expectedIndent, row)
-	}
-
-	if strings.Contains(lines[1], id) {
-		t.Fatalf("ID should not appear on wrapped lines: %q", lines[1])
-	}
-
-	if got := strings.TrimSpace(lines[1]); !strings.HasPrefix(got, "structure") {
-		t.Fatalf("wrapped line missing continuation text: %q", lines[1])
+	widths := []int{34, 40, 60}
+	for _, targetWidth := range widths {
+		row := renderRefRow(
+			id,
+			title,
+			targetWidth,
+			lipgloss.NewStyle(),
+			lipgloss.NewStyle(),
+			lipgloss.Color(""),
+		)
+		lines := splitAndTrim(row)
+		validateWrappedLines(t, lines, id)
 	}
 }
 
-func TestRenderRefRow_DetailHeaderDoesNotWrapID(t *testing.T) {
+func TestDetailHeaderWrappingAcrossWidths(t *testing.T) {
 	id := "ab-ltb"
 	title := "Research Beads repository structure and CI/CD setup"
-
-	for _, width := range []int{12, 16, 20, 24, 34, 50} {
+	widths := []int{34, 40, 50, 60, 80, 120}
+	for _, width := range widths {
+		headerWidth := width - styleDetailHeaderBlock.GetHorizontalFrameSize()
+		if headerWidth < 1 {
+			headerWidth = 1
+		}
 		headerContent := renderRefRow(
 			id,
 			title,
-			width,
+			headerWidth,
 			styleDetailHeaderCombined.Foreground(cGold),
 			styleDetailHeaderCombined.Foreground(cWhite),
 			cHighlight,
 		)
 		headerBlock := styleDetailHeaderBlock.Width(width).Render(headerContent)
+		lines := splitStripANSI(headerBlock)
+		validateWrappedLines(t, lines, id)
+	}
+}
 
-		lines := strings.Split(headerBlock, "\n")
-		if len(lines) < 2 {
-			continue
+func splitAndTrim(content string) []string {
+	raw := strings.Split(content, "\n")
+	lines := make([]string, 0, len(raw))
+	for _, line := range raw {
+		lines = append(lines, strings.TrimRight(line, " "))
+	}
+	return lines
+}
+
+var ansiRegexp = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func stripANSI(s string) string {
+	return ansiRegexp.ReplaceAllString(s, "")
+}
+
+func splitStripANSI(content string) []string {
+	raw := strings.Split(content, "\n")
+	lines := make([]string, 0, len(raw))
+	for _, line := range raw {
+		clean := strings.TrimRight(stripANSI(line), " ")
+		if strings.HasPrefix(clean, " ") {
+			clean = clean[1:]
 		}
+		lines = append(lines, clean)
+	}
+	return lines
+}
 
-		if strings.HasPrefix(strings.TrimSpace(lines[1]), "ltb") {
-			t.Fatalf("width %d caused ID to wrap into next line:\n%s", width, headerBlock)
+func validateWrappedLines(t *testing.T, lines []string, id string) {
+	t.Helper()
+	if len(lines) == 0 {
+		t.Fatalf("no lines to validate")
+	}
+
+	prefix := id + "  "
+	if !strings.HasPrefix(lines[0], prefix) {
+		t.Fatalf("line 1 missing prefix %q: %q", prefix, lines[0])
+	}
+
+	indentWidth := len(prefix)
+	expectedIndent := strings.Repeat(" ", indentWidth)
+
+	for i := 1; i < len(lines); i++ {
+		line := lines[i]
+		if strings.TrimSpace(line) == "" {
+			t.Fatalf("blank wrapped line at index %d", i)
+		}
+		if !strings.HasPrefix(line, expectedIndent) {
+			t.Fatalf("wrapped line %d missing indent %q: %q", i, expectedIndent, line)
+		}
+		if strings.Contains(line, id) {
+			t.Fatalf("ID should not appear on wrapped line %d: %q", i, line)
+		}
+		if strings.HasSuffix(strings.TrimRight(line, " "), "-") {
+			t.Fatalf("wrapped line %d should not end with hyphen: %q", i, line)
+		}
+	}
+}
+
+func TestDetailHeaderRegression_ab176(t *testing.T) {
+	id := "ab-176"
+	title := "Add incremental background refresh for real-time updates"
+	cases := map[int][]string{
+		40: {
+			"ab-176  Add incremental background",
+			"        refresh for real-time updates",
+		},
+		60: {
+			"ab-176  Add incremental background refresh for real-time",
+			"        updates",
+		},
+		120: {
+			"ab-176  Add incremental background refresh for real-time updates",
+		},
+	}
+
+	for width, want := range cases {
+		headerWidth := width - styleDetailHeaderBlock.GetHorizontalFrameSize()
+		if headerWidth < 1 {
+			headerWidth = 1
+		}
+		headerContent := renderRefRow(
+			id,
+			title,
+			headerWidth,
+			styleDetailHeaderCombined.Foreground(cGold),
+			styleDetailHeaderCombined.Foreground(cWhite),
+			cHighlight,
+		)
+		block := styleDetailHeaderBlock.Width(width).Render(headerContent)
+		lines := splitStripANSI(block)
+		if len(lines) != len(want) {
+			t.Fatalf("width %d: expected %d lines, got %d: %v", width, len(want), len(lines), lines)
+		}
+		for i := range want {
+			if lines[i] != want[i] {
+				t.Fatalf("width %d line %d mismatch:\nwant: %q\ngot:  %q", width, i, want[i], lines[i])
+			}
 		}
 	}
 }

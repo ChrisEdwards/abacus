@@ -27,10 +27,15 @@ func (m *App) updateViewportContent() {
 	iss := node.Issue
 	vpWidth := m.viewport.Width
 
+	headerContentWidth := vpWidth - styleDetailHeaderBlock.GetHorizontalFrameSize()
+	if headerContentWidth < 1 {
+		headerContentWidth = 1
+	}
+
 	headerContent := renderRefRow(
 		iss.ID,
 		iss.Title,
-		vpWidth,
+		headerContentWidth,
 		styleDetailHeaderCombined.Foreground(cGold),
 		styleDetailHeaderCombined.Foreground(cWhite),
 		cHighlight,
@@ -199,14 +204,17 @@ func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipglos
 	idWidth := lipgloss.Width(idRendered)
 	gapRendered := gapStyled.Render(gap)
 	gapWidth := lipgloss.Width(gapRendered)
+	prefixWidth := idWidth + gapWidth
 
-	titleWidth := targetWidth - idWidth - gapWidth
+	titleWidth := targetWidth - prefixWidth
 	if titleWidth < 1 {
 		titleWidth = 1
 	}
 
-	wrappedTitle := wordwrap.String(title, titleWidth)
-	titleLines := strings.Split(wrappedTitle, "\n")
+	titleLines := wrapTitleWithoutHyphenBreaks(title, titleWidth)
+	if len(titleLines) == 0 {
+		titleLines = []string{""}
+	}
 
 	idBlank := idStyled.Width(idWidth).Render("")
 	gapBlank := gapStyled.Width(gapWidth).Render("")
@@ -224,6 +232,60 @@ func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipglos
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// wrapTitleWithoutHyphenBreaks wraps the title text while treating the ID as a
+// fixed-width prefix so the ID never wraps and continuation lines align with
+// the start of the title. The wrapping only happens at whitespace boundaries
+// to avoid splitting hyphenated words like "real-time".
+func wrapTitleWithoutHyphenBreaks(title string, width int) []string {
+	if width < 1 {
+		width = 1
+	}
+	words := strings.Fields(title)
+	if len(words) == 0 {
+		return []string{""}
+	}
+
+	lines := make([]string, 0, len(words))
+	var current strings.Builder
+	currentWidth := 0
+
+	flush := func() {
+		if current.Len() == 0 {
+			return
+		}
+		lines = append(lines, current.String())
+		current.Reset()
+		currentWidth = 0
+	}
+
+	for _, word := range words {
+		wordWidth := lipgloss.Width(word)
+		if currentWidth == 0 {
+			current.WriteString(word)
+			currentWidth = wordWidth
+			continue
+		}
+
+		nextWidth := currentWidth + 1 + wordWidth
+		if nextWidth > width {
+			flush()
+			current.WriteString(word)
+			currentWidth = wordWidth
+			continue
+		}
+
+		current.WriteByte(' ')
+		current.WriteString(word)
+		currentWidth = nextWidth
+	}
+
+	flush()
+	if len(lines) == 0 {
+		return []string{""}
+	}
+	return lines
 }
 
 func indentBlock(text string, spaces int) string {
