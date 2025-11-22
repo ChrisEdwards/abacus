@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -194,11 +195,12 @@ type Stats struct {
 }
 
 const (
-	minViewportWidth   = 20
-	minViewportHeight  = 5
-	minTreeWidth       = 18
-	minListHeight      = 5
-	maxErrorSnippetLen = 200
+	minViewportWidth       = 20
+	minViewportHeight      = 5
+	minTreeWidth           = 18
+	minListHeight          = 5
+	maxErrorSnippetLen     = 200
+	defaultRefreshInterval = 3 * time.Second
 )
 
 func clampDimension(value, minValue, maxValue int) int {
@@ -295,6 +297,11 @@ func findBeadsDBFromDir(startDir string) (string, time.Time, error) {
 
 // --- Model ---
 
+type appConfig struct {
+	refreshInterval time.Duration
+	autoRefresh     bool
+}
+
 type model struct {
 	roots       []*Node
 	visibleRows []*Node
@@ -310,9 +317,11 @@ type model struct {
 	searching  bool
 	filterText string
 
-	width  int
-	height int
-	err    error
+	width           int
+	height          int
+	err             error
+	refreshInterval time.Duration
+	autoRefresh     bool
 }
 
 // --- Helpers ---
@@ -665,7 +674,10 @@ func computeStates(n *Node) {
 
 // --- UI Logic ---
 
-func initialModel() model {
+func initialModel(cfg appConfig) model {
+	if cfg.refreshInterval <= 0 {
+		cfg.refreshInterval = defaultRefreshInterval
+	}
 	roots, err := loadData()
 	ti := textinput.New()
 	ti.Placeholder = "Search..."
@@ -678,11 +690,13 @@ func initialModel() model {
 	}
 
 	m := model{
-		roots:     roots,
-		err:       err,
-		textInput: ti,
-		repoName:  repo,
-		focus:     FocusTree,
+		roots:           roots,
+		err:             err,
+		textInput:       ti,
+		repoName:        repo,
+		focus:           FocusTree,
+		refreshInterval: cfg.refreshInterval,
+		autoRefresh:     cfg.autoRefresh,
 	}
 	m.recalcVisibleRows()
 	return m
@@ -1310,7 +1324,16 @@ func (m model) View() string {
 }
 
 func main() {
-	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
+	refreshIntervalFlag := flag.Duration("refresh-interval", defaultRefreshInterval, "Interval for automatic refresh polling (e.g. 2s, 500ms)")
+	noAutoRefreshFlag := flag.Bool("no-auto-refresh", false, "Disable automatic background refresh")
+	flag.Parse()
+
+	cfg := appConfig{
+		refreshInterval: *refreshIntervalFlag,
+		autoRefresh:     !*noAutoRefreshFlag,
+	}
+
+	p := tea.NewProgram(initialModel(cfg), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
