@@ -27,6 +27,7 @@ type viewState struct {
 	filterText      string
 	viewportYOffset int
 	cursorIndex     int
+	focus           FocusArea
 }
 
 func clampDimension(value, minValue, maxValue int) int {
@@ -100,6 +101,7 @@ func (m *App) captureState() viewState {
 		filterText:  m.filterText,
 		cursorIndex: m.cursor,
 		expandedIDs: m.collectExpandedIDs(),
+		focus:       m.focus,
 	}
 
 	if m.ShowDetails && m.viewport.Height > 0 {

@@ -78,7 +78,9 @@ The application will automatically load all issues from your `.beads/` database.
 - `esc` - Clear search filter
 
 ### Detail Panel (when focused)
-- `j/k` - Scroll through issue details
+- `↑/↓` or `j/k` - Scroll through issue details
+- `PgUp/PgDn` or `ctrl+f`/`ctrl+b` - Page through details
+- `Home/End` or `g/G` - Jump to top or bottom of the detail pane
 
 ### General
 - `q` or `ctrl+c` - Quit

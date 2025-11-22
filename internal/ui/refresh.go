@@ -84,6 +84,12 @@ func (m *App) applyRefresh(newRoots []*graph.Node, newDigest map[string]string, 
 	}
 
 	if m.ShowDetails {
+		m.focus = state.focus
+	} else {
+		m.focus = FocusTree
+	}
+
+	if m.ShowDetails {
 		m.viewport.YOffset = state.viewportYOffset
 	}
 	m.updateViewportContent()

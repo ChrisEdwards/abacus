@@ -197,6 +197,10 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		if handled, detailCmd := m.handleDetailNavigationKey(msg); handled {
+			return m, detailCmd
+		}
+
 		switch msg.String() {
 		case "/":
 			if !m.searching {
@@ -230,6 +234,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			m.ShowDetails = !m.ShowDetails
+			m.focus = FocusTree
 			m.updateViewportContent()
 		case "r":
 			if refreshCmd := m.forceRefresh(); refreshCmd != nil {
@@ -307,6 +312,64 @@ func (m *App) clearSearchFilter() {
 	m.filterText = ""
 	m.recalcVisibleRows()
 	m.updateViewportContent()
+}
+
+func (m *App) detailFocusActive() bool {
+	return m.ShowDetails && m.focus == FocusDetails
+}
+
+func (m *App) handleDetailNavigationKey(msg tea.KeyMsg) (bool, tea.Cmd) {
+	if !m.detailFocusActive() {
+		return false, nil
+	}
+
+	switch msg.String() {
+	case "home", "g":
+		m.viewport.GotoTop()
+		return true, nil
+	case "end", "G":
+		m.viewport.GotoBottom()
+		return true, nil
+	case "ctrl+f":
+		return true, m.viewportPageDownCmd()
+	case "ctrl+b":
+		return true, m.viewportPageUpCmd()
+	}
+
+	if isDetailScrollKey(msg) {
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return true, cmd
+	}
+
+	return false, nil
+}
+
+func isDetailScrollKey(msg tea.KeyMsg) bool {
+	switch msg.String() {
+	case "j", "k", "down", "up", "pgdown", "pgup", "f", "b", "d", "u", "ctrl+d", "ctrl+u", "left", "right", "h", "l", "space", " ":
+		return true
+	}
+	if msg.Type == tea.KeySpace {
+		return true
+	}
+	return false
+}
+
+func (m *App) viewportPageDownCmd() tea.Cmd {
+	lines := m.viewport.PageDown()
+	if m.viewport.HighPerformanceRendering {
+		return viewport.ViewDown(m.viewport, lines)
+	}
+	return nil
+}
+
+func (m *App) viewportPageUpCmd() tea.Cmd {
+	lines := m.viewport.PageUp()
+	if m.viewport.HighPerformanceRendering {
+		return viewport.ViewUp(m.viewport, lines)
+	}
+	return nil
 }
 
 func (m *App) View() string {

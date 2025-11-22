@@ -286,6 +286,7 @@ func TestCaptureState(t *testing.T) {
 		cursor:      1,
 		filterText:  "alpha",
 		ShowDetails: true,
+		focus:       FocusDetails,
 		viewport: viewport.Model{
 			YOffset: 3,
 			Height:  10,
@@ -305,6 +306,9 @@ func TestCaptureState(t *testing.T) {
 	}
 	if !state.expandedIDs["ab-001"] || len(state.expandedIDs) != 1 {
 		t.Fatalf("expected only root to be remembered as expanded")
+	}
+	if state.focus != FocusDetails {
+		t.Fatalf("expected focus captured as details")
 	}
 }
 
@@ -373,6 +377,7 @@ func TestApplyRefreshRestoresState(t *testing.T) {
 		cursor:      1,
 		filterText:  "child",
 		ShowDetails: true,
+		focus:       FocusDetails,
 		viewport: viewport.Model{
 			Height:  5,
 			YOffset: 2,
@@ -405,6 +410,73 @@ func TestApplyRefreshRestoresState(t *testing.T) {
 	if !m.showRefreshFlash {
 		t.Fatalf("expected refresh flash flag to be set")
 	}
+	if m.focus != FocusDetails {
+		t.Fatalf("expected focus restored to details")
+	}
+}
+
+func TestUpdateTogglesFocusWithTab(t *testing.T) {
+	m := &App{ShowDetails: true, focus: FocusTree}
+	m.visibleRows = []*graph.Node{{Issue: beads.FullIssue{ID: "ab-001"}}}
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	if m.focus != FocusDetails {
+		t.Fatalf("expected tab to switch focus to details")
+	}
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	if m.focus != FocusTree {
+		t.Fatalf("expected tab to cycle focus back to tree")
+	}
+}
+
+func TestDetailFocusNavigation(t *testing.T) {
+	newDetailApp := func() *App {
+		vp := viewport.Model{Width: 40, Height: 3}
+		vp.SetContent("line1\nline2\nline3\nline4")
+		return &App{
+			ShowDetails: true,
+			focus:       FocusDetails,
+			viewport:    vp,
+			visibleRows: []*graph.Node{{Issue: beads.FullIssue{ID: "ab-001"}}},
+		}
+	}
+
+	t.Run("arrowKeysScrollViewport", func(t *testing.T) {
+		m := newDetailApp()
+		_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		if m.cursor != 0 {
+			t.Fatalf("expected cursor to remain unchanged when details focused")
+		}
+		if m.viewport.YOffset == 0 {
+			t.Fatalf("expected viewport offset to increase after scrolling")
+		}
+	})
+
+	t.Run("pageCommandsRespectCtrlKeys", func(t *testing.T) {
+		m := newDetailApp()
+		start := m.viewport.YOffset
+		_, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+		if m.viewport.YOffset <= start {
+			t.Fatalf("expected ctrl+f to page down in details")
+		}
+	})
+
+	t.Run("homeAndEndJump", func(t *testing.T) {
+		m := newDetailApp()
+		_, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+		if m.viewport.YOffset == 0 {
+			t.Fatalf("expected ctrl+f to move viewport before home test")
+		}
+		_, _ = m.Update(tea.KeyMsg{Type: tea.KeyHome})
+		if m.viewport.YOffset != 0 {
+			t.Fatalf("expected home to reset viewport to top, got %d", m.viewport.YOffset)
+		}
+		_, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnd})
+		if m.viewport.YOffset == 0 {
+			t.Fatalf("expected end to jump to bottom")
+		}
+	})
 }
 
 func TestUpdateClearsFilterWithEsc(t *testing.T) {
