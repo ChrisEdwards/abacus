@@ -9,15 +9,21 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/spf13/viper"
 )
 
 const (
+	KeyRefreshInterval = "refresh-interval"
+	KeyAutoRefresh     = "auto-refresh"
+
 	KeyOutputJSON   = "output.json"
 	KeyDatabasePath = "database.path"
-	KeySyncAuto     = "sync.auto"
 	KeyOutputFormat = "output.format"
+
+	// KeySyncAuto is a deprecated alias for auto-refresh retained for backward compatibility.
+	KeySyncAuto = KeyAutoRefresh
 )
 
 type initSettings struct {
@@ -114,6 +120,29 @@ func GetInt(key string) int {
 		return 0
 	}
 	return v.GetInt(key)
+}
+
+// GetDuration fetches a duration configuration value, initializing on demand.
+func GetDuration(key string) time.Duration {
+	v, err := getViper()
+	if err != nil {
+		return 0
+	}
+	return v.GetDuration(key)
+}
+
+// Set updates a configuration key at runtime, initializing on demand.
+func Set(key string, value any) error {
+	if err := Initialize(); err != nil {
+		return err
+	}
+	configMu.Lock()
+	defer configMu.Unlock()
+	if configInst == nil {
+		return fmt.Errorf("configuration not initialized")
+	}
+	configInst.Set(key, value)
+	return nil
 }
 
 func configure(settings *initSettings) error {
@@ -227,7 +256,8 @@ func findProjectConfig(startDir string) (string, error) {
 func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeyOutputJSON, false)
 	v.SetDefault(KeyDatabasePath, "")
-	v.SetDefault(KeySyncAuto, true)
+	v.SetDefault(KeyAutoRefresh, true)
+	v.SetDefault(KeyRefreshInterval, 3*time.Second)
 	v.SetDefault(KeyOutputFormat, "rich")
 }
 
