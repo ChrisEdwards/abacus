@@ -122,3 +122,96 @@ func TestTreePrefixWidth(t *testing.T) {
 		t.Fatalf("expected %d, got %d for multi-byte glyph", want, got)
 	}
 }
+
+func TestPreloadAllComments(t *testing.T) {
+	t.Run("marksAllNodesAsLoaded", func(t *testing.T) {
+		// Create a simple tree structure
+		root := &Node{
+			Issue: FullIssue{ID: "ab-001", Title: "Root Issue"},
+			Children: []*Node{
+				{Issue: FullIssue{ID: "ab-002", Title: "Child Issue"}},
+			},
+		}
+
+		preloadAllComments([]*Node{root})
+
+		// Verify root node
+		if !root.CommentsLoaded {
+			t.Errorf("expected root node CommentsLoaded to be true")
+		}
+		if root.Issue.Comments == nil {
+			t.Errorf("expected root node Comments to be initialized")
+		}
+
+		// Verify child node
+		if !root.Children[0].CommentsLoaded {
+			t.Errorf("expected child node CommentsLoaded to be true")
+		}
+		if root.Children[0].Issue.Comments == nil {
+			t.Errorf("expected child node Comments to be initialized")
+		}
+	})
+
+	t.Run("handlesMultipleRoots", func(t *testing.T) {
+		roots := []*Node{
+			{Issue: FullIssue{ID: "ab-010", Title: "First Root"}},
+			{Issue: FullIssue{ID: "ab-011", Title: "Second Root"}},
+			{Issue: FullIssue{ID: "ab-012", Title: "Third Root"}},
+		}
+
+		preloadAllComments(roots)
+
+		for i, root := range roots {
+			if !root.CommentsLoaded {
+				t.Errorf("root %d (%s) not marked as loaded", i, root.Issue.ID)
+			}
+		}
+	})
+
+	t.Run("handlesNestedChildren", func(t *testing.T) {
+		// Create a deeper tree structure
+		deepChild := &Node{Issue: FullIssue{ID: "ab-023", Title: "Deep Child"}}
+		midChild := &Node{
+			Issue:    FullIssue{ID: "ab-022", Title: "Mid Child"},
+			Children: []*Node{deepChild},
+		}
+		root := &Node{
+			Issue:    FullIssue{ID: "ab-021", Title: "Root"},
+			Children: []*Node{midChild},
+		}
+
+		preloadAllComments([]*Node{root})
+
+		// Verify all levels are loaded
+		if !root.CommentsLoaded {
+			t.Errorf("root not loaded")
+		}
+		if !midChild.CommentsLoaded {
+			t.Errorf("mid-level child not loaded")
+		}
+		if !deepChild.CommentsLoaded {
+			t.Errorf("deep child not loaded")
+		}
+	})
+
+	t.Run("handlesEmptyTree", func(t *testing.T) {
+		// Should not panic on empty input
+		preloadAllComments([]*Node{})
+		preloadAllComments(nil)
+	})
+
+	t.Run("initializesEmptyCommentsSlice", func(t *testing.T) {
+		node := &Node{Issue: FullIssue{ID: "ab-030", Title: "No Comments"}}
+		preloadAllComments([]*Node{node})
+
+		if !node.CommentsLoaded {
+			t.Errorf("expected node to be marked as loaded even with no comments")
+		}
+		if node.Issue.Comments == nil {
+			t.Errorf("expected Comments slice to be initialized")
+		}
+		if len(node.Issue.Comments) != 0 {
+			t.Errorf("expected empty Comments slice, got %d items", len(node.Issue.Comments))
+		}
+	})
+}

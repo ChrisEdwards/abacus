@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -338,6 +339,58 @@ func fetchCommentsForNode(n *Node) error {
 	return nil
 }
 
+// preloadAllComments fetches comments for all issues in parallel at startup
+// to avoid blocking the UI during navigation.
+func preloadAllComments(roots []*Node) {
+	// Collect all nodes in a flat map for quick lookup
+	nodeMap := make(map[string]*Node)
+	var collectNodes func([]*Node)
+	collectNodes = func(nodes []*Node) {
+		for _, n := range nodes {
+			nodeMap[n.Issue.ID] = n
+			collectNodes(n.Children)
+		}
+	}
+	collectNodes(roots)
+
+	// Fetch comments for all issues in parallel
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for issueID, node := range nodeMap {
+		wg.Add(1)
+		go func(id string, n *Node) {
+			defer wg.Done()
+
+			cmd := exec.Command("bd", "comments", id, "--json")
+			out, err := cmd.CombinedOutput()
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			if err != nil {
+				n.CommentError = fmt.Sprintf("failed: %s", summarizeCommandError(err, out))
+				return
+			}
+
+			var comments []Comment
+			if err := json.Unmarshal(out, &comments); err != nil {
+				n.CommentError = fmt.Sprintf("decode error: %v", err)
+				return
+			}
+
+			// Ensure Comments is never nil, even if no comments exist
+			if comments == nil {
+				comments = []Comment{}
+			}
+			n.Issue.Comments = comments
+			n.CommentsLoaded = true
+		}(issueID, node)
+	}
+
+	wg.Wait()
+}
+
 // --- Data Loading & Graph Logic ---
 
 func loadData() ([]*Node, error) {
@@ -385,6 +438,9 @@ func loadData() ([]*Node, error) {
 		}
 		return a.Issue.CreatedAt < b.Issue.CreatedAt
 	})
+
+	// Preload all comments in parallel to avoid blocking during navigation
+	preloadAllComments(roots)
 
 	return roots, nil
 }
