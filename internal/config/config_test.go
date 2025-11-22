@@ -30,6 +30,9 @@ func TestInitializeLoadsDefaults(t *testing.T) {
 	if !GetBool(KeyAutoRefresh) {
 		t.Fatalf("expected default %s to be true", KeyAutoRefresh)
 	}
+	if GetBool(KeyNoAutoRefresh) {
+		t.Fatalf("expected default %s to be false", KeyNoAutoRefresh)
+	}
 	if !GetBool(KeySyncAuto) {
 		t.Fatalf("expected alias %s to remain true", KeySyncAuto)
 	}
@@ -107,6 +110,7 @@ refresh-interval: 5s
 	t.Setenv("AB_DATABASE_PATH", "/env/beads.db")
 	t.Setenv("AB_REFRESH_INTERVAL", "250ms")
 	t.Setenv("AB_AUTO_REFRESH", "false")
+	t.Setenv("AB_NO_AUTO_REFRESH", "true")
 
 	if err := Initialize(
 		WithWorkingDir(projectDir),
@@ -126,6 +130,9 @@ refresh-interval: 5s
 	}
 	if GetBool(KeyAutoRefresh) {
 		t.Fatalf("expected env override to disable %s", KeyAutoRefresh)
+	}
+	if !GetBool(KeyNoAutoRefresh) {
+		t.Fatalf("expected env override to enable %s", KeyNoAutoRefresh)
 	}
 
 	overrides := map[string]any{

@@ -1,0 +1,121 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"abacus/internal/beads"
+	"abacus/internal/config"
+	"abacus/internal/ui"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+func main() {
+	if err := config.Initialize(); err != nil {
+		fmt.Printf("Error initializing config: %v\n", err)
+		os.Exit(1)
+	}
+
+	refreshDefault := config.GetDuration(config.KeyRefreshInterval)
+	if refreshDefault <= 0 {
+		refreshDefault = 3 * time.Second
+	}
+	autoRefreshDefault := config.GetBool(config.KeyAutoRefresh)
+	noAutoRefreshDefault := config.GetBool(config.KeyNoAutoRefresh)
+	jsonOutputDefault := config.GetBool(config.KeyOutputJSON)
+	dbPathDefault := config.GetString(config.KeyDatabasePath)
+	outputFormatDefault := config.GetString(config.KeyOutputFormat)
+
+	refreshIntervalFlag := flag.Duration("refresh-interval", refreshDefault, "Interval for automatic refresh polling (e.g. 2s, 500ms)")
+	autoRefreshFlag := flag.Bool("auto-refresh", autoRefreshDefault, "Enable automatic background refresh")
+	noAutoRefreshFlag := flag.Bool("no-auto-refresh", noAutoRefreshDefault, "Disable automatic background refresh (overrides --auto-refresh)")
+	jsonOutputFlag := flag.Bool("json-output", jsonOutputDefault, "Print issue data as JSON and exit")
+	dbPathFlag := flag.String("db-path", dbPathDefault, "Path to the Beads database file")
+	outputFormatFlag := flag.String("output-format", outputFormatDefault, "Detail panel markdown style (rich, light, plain)")
+	flag.Parse()
+
+	visited := map[string]struct{}{}
+	flag.CommandLine.Visit(func(f *flag.Flag) {
+		visited[f.Name] = struct{}{}
+	})
+
+	refreshInterval := refreshDefault
+	if flagWasExplicitlySet("refresh-interval", visited) {
+		refreshInterval = *refreshIntervalFlag
+	} else {
+		if cfgInterval := config.GetDuration(config.KeyRefreshInterval); cfgInterval > 0 {
+			refreshInterval = cfgInterval
+		}
+	}
+
+	autoRefresh := config.GetBool(config.KeyAutoRefresh)
+	if config.GetBool(config.KeyNoAutoRefresh) {
+		autoRefresh = false
+	}
+	if flagWasExplicitlySet("auto-refresh", visited) {
+		autoRefresh = *autoRefreshFlag
+	}
+	if flagWasExplicitlySet("no-auto-refresh", visited) {
+		autoRefresh = !*noAutoRefreshFlag
+	}
+
+	dbPath := strings.TrimSpace(config.GetString(config.KeyDatabasePath))
+	if flagWasExplicitlySet("db-path", visited) {
+		dbPath = strings.TrimSpace(*dbPathFlag)
+	}
+
+	outputFormat := strings.TrimSpace(config.GetString(config.KeyOutputFormat))
+	if flagWasExplicitlySet("output-format", visited) {
+		outputFormat = strings.TrimSpace(*outputFormatFlag)
+	}
+
+	jsonOutput := config.GetBool(config.KeyOutputJSON)
+	if flagWasExplicitlySet("json-output", visited) {
+		jsonOutput = *jsonOutputFlag
+	}
+
+	client := beads.NewCLIClient()
+	appCfg := ui.Config{
+		RefreshInterval: refreshInterval,
+		AutoRefresh:     autoRefresh,
+		DBPathOverride:  dbPath,
+		OutputFormat:    outputFormat,
+		Client:          client,
+	}
+
+	if jsonOutput {
+		if err := ui.OutputIssuesJSON(context.Background(), client); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	app, err := ui.NewApp(appCfg)
+	if err != nil {
+		fmt.Printf("Error initializing UI: %v\n", err)
+		os.Exit(1)
+	}
+
+	p := tea.NewProgram(app, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func flagWasExplicitlySet(name string, visited map[string]struct{}) bool {
+	if _, ok := visited[name]; ok {
+		return true
+	}
+	f := flag.CommandLine.Lookup(name)
+	if f == nil {
+		return false
+	}
+	return f.Value.String() != f.DefValue
+}

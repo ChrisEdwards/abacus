@@ -17,6 +17,7 @@ import (
 const (
 	KeyRefreshInterval = "refresh-interval"
 	KeyAutoRefresh     = "auto-refresh"
+	KeyNoAutoRefresh   = "no-auto-refresh"
 
 	KeyOutputJSON   = "output.json"
 	KeyDatabasePath = "database.path"
@@ -257,6 +258,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeyOutputJSON, false)
 	v.SetDefault(KeyDatabasePath, "")
 	v.SetDefault(KeyAutoRefresh, true)
+	v.SetDefault(KeyNoAutoRefresh, false)
 	v.SetDefault(KeyRefreshInterval, 3*time.Second)
 	v.SetDefault(KeyOutputFormat, "rich")
 }
