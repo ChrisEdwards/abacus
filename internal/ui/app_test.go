@@ -18,6 +18,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
 )
@@ -404,6 +405,57 @@ func TestApplyRefreshRestoresState(t *testing.T) {
 	if !m.showRefreshFlash {
 		t.Fatalf("expected refresh flash flag to be set")
 	}
+}
+
+func TestUpdateClearsFilterWithEsc(t *testing.T) {
+	buildApp := func(filter string, searching bool) *App {
+		m := &App{
+			roots: []*graph.Node{
+				{Issue: beads.FullIssue{ID: "ab-100", Title: "Alpha"}},
+				{Issue: beads.FullIssue{ID: "ab-200", Title: "Beta"}},
+			},
+			textInput:  textinput.New(),
+			filterText: filter,
+			searching:  searching,
+		}
+		m.textInput.SetValue(filter)
+		m.recalcVisibleRows()
+		return m
+	}
+
+	t.Run("whileSearching", func(t *testing.T) {
+		m := buildApp("beta", true)
+		if len(m.visibleRows) != 1 {
+			t.Fatalf("expected 1 visible row while filtered, got %d", len(m.visibleRows))
+		}
+		_, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		if m.searching {
+			t.Fatalf("expected searching to be disabled after esc")
+		}
+		if m.filterText != "" {
+			t.Fatalf("expected filter cleared after esc, got %s", m.filterText)
+		}
+		if len(m.visibleRows) != 2 {
+			t.Fatalf("expected all rows restored after esc, got %d", len(m.visibleRows))
+		}
+	})
+
+	t.Run("whileBrowsing", func(t *testing.T) {
+		m := buildApp("beta", false)
+		if len(m.visibleRows) != 1 {
+			t.Fatalf("expected filtered list before esc, got %d rows", len(m.visibleRows))
+		}
+		_, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		if m.filterText != "" {
+			t.Fatalf("expected filter cleared after esc, got %s", m.filterText)
+		}
+		if len(m.visibleRows) != 2 {
+			t.Fatalf("expected esc to restore all rows, got %d", len(m.visibleRows))
+		}
+		if m.textInput.Value() != "" {
+			t.Fatalf("expected input cleared, got %q", m.textInput.Value())
+		}
+	})
 }
 
 func TestFindBeadsDBPrefersEnv(t *testing.T) {

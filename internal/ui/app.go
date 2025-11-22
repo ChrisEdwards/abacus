@@ -187,12 +187,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textInput.Blur()
 				return m, nil
 			case "esc":
-				m.searching = false
-				m.textInput.Blur()
-				m.textInput.Reset()
-				m.filterText = ""
-				m.recalcVisibleRows()
-				m.updateViewportContent()
+				m.clearSearchFilter()
 				return m, nil
 			default:
 				m.textInput, cmd = m.textInput.Update(msg)
@@ -209,6 +204,11 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textInput.Focus()
 				m.textInput.SetValue(m.filterText)
 				m.textInput.SetCursor(len(m.filterText))
+			}
+		case "esc":
+			if m.filterText != "" {
+				m.clearSearchFilter()
+				return m, nil
 			}
 		case "tab":
 			if m.ShowDetails {
@@ -293,6 +293,20 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, cmd
+}
+
+// clearSearchFilter exits search mode and removes any applied filter.
+func (m *App) clearSearchFilter() {
+	prevFilter := m.filterText
+	m.searching = false
+	m.textInput.Blur()
+	m.textInput.Reset()
+	if prevFilter == "" {
+		return
+	}
+	m.filterText = ""
+	m.recalcVisibleRows()
+	m.updateViewportContent()
 }
 
 func (m *App) View() string {
