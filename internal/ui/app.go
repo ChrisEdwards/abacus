@@ -325,7 +325,8 @@ func (m *App) View() string {
 	}
 
 	if m.filterText != "" {
-		status += styleFilterInfo.Render(fmt.Sprintf(" Filter: %s", m.filterText))
+		filterLabel := fmt.Sprintf("Filter: %s", m.filterText)
+		status += " " + styleFilterInfo.Render(filterLabel)
 	}
 
 	if m.lastRefreshStats != "" {

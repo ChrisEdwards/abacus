@@ -51,36 +51,17 @@ func clampDimension(value, minValue, maxValue int) int {
 func (m *App) recalcVisibleRows() {
 	m.visibleRows = []*graph.Node{}
 	filterLower := strings.ToLower(m.filterText)
-	filterMatches := func(haystack string) bool {
-		if filterLower == "" {
-			return true
-		}
-		return strings.Contains(strings.ToLower(haystack), filterLower)
-	}
-	matches := func(n *graph.Node) bool {
-		if filterMatches(n.Issue.Title) {
-			return true
-		}
-		if filterMatches(n.Issue.ID) {
-			return true
-		}
-		if filterLower == "" {
-			return true
-		}
-		trimmed := strings.TrimPrefix(strings.ToLower(n.Issue.ID), "ab-")
-		return strings.Contains(trimmed, filterLower)
-	}
 
 	var traverse func(nodes []*graph.Node)
 	traverse = func(nodes []*graph.Node) {
 		for _, node := range nodes {
-			isMatch := matches(node)
+			isMatch := nodeMatchesFilter(filterLower, node)
 			hasMatchingChild := false
-			if m.filterText != "" {
+			if filterLower != "" {
 				var checkChildren func([]*graph.Node) bool
 				checkChildren = func(kids []*graph.Node) bool {
 					for _, k := range kids {
-						if matches(k) || checkChildren(k.Children) {
+						if nodeMatchesFilter(filterLower, k) || checkChildren(k.Children) {
 							return true
 						}
 					}
@@ -91,7 +72,7 @@ func (m *App) recalcVisibleRows() {
 
 			if isMatch || hasMatchingChild {
 				m.visibleRows = append(m.visibleRows, node)
-				if (m.filterText == "" && node.Expanded) || (m.filterText != "" && hasMatchingChild) {
+				if (filterLower == "" && node.Expanded) || (filterLower != "" && hasMatchingChild) {
 					traverse(node.Children)
 				}
 			}
@@ -144,6 +125,25 @@ func (m *App) collectExpandedIDs() map[string]bool {
 	}
 	walk(m.roots)
 	return expanded
+}
+
+func nodeMatchesFilter(filterLower string, node *graph.Node) bool {
+	if filterLower == "" {
+		return true
+	}
+
+	titleLower := strings.ToLower(node.Issue.Title)
+	if strings.Contains(titleLower, filterLower) {
+		return true
+	}
+
+	idLower := strings.ToLower(node.Issue.ID)
+	if strings.Contains(idLower, filterLower) {
+		return true
+	}
+
+	trimmed := strings.TrimPrefix(idLower, "ab-")
+	return strings.Contains(trimmed, filterLower)
 }
 
 func (m *App) restoreExpandedState(expanded map[string]bool) {

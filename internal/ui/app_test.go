@@ -114,6 +114,26 @@ func TestGetStats(t *testing.T) {
 			t.Fatalf("expected in-progress count 0, got %d", stats.InProgress)
 		}
 	})
+
+	t.Run("countsMatchesByIDFilter", func(t *testing.T) {
+		openNode := &graph.Node{Issue: beads.FullIssue{ID: "ab-100", Title: "Alpha Ready", Status: "open"}}
+		inProgress := &graph.Node{Issue: beads.FullIssue{ID: "ab-200", Title: "Beta Active", Status: "in_progress"}}
+		m := App{
+			roots:      []*graph.Node{openNode, inProgress},
+			filterText: "ab-200",
+		}
+
+		stats := m.getStats()
+		if stats.Total != 1 {
+			t.Fatalf("expected filtered count 1, got %d", stats.Total)
+		}
+		if stats.InProgress != 1 {
+			t.Fatalf("expected in-progress count 1, got %d", stats.InProgress)
+		}
+		if stats.Ready != 0 {
+			t.Fatalf("expected ready count 0, got %d", stats.Ready)
+		}
+	})
 }
 
 func TestTreePrefixWidth(t *testing.T) {

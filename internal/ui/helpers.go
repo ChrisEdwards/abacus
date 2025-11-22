@@ -23,11 +23,12 @@ func (m *App) retryCommentsForCurrentNode() {
 
 func (m *App) getStats() Stats {
 	s := Stats{}
+	filterLower := strings.ToLower(m.filterText)
 
 	var traverse func(nodes []*graph.Node)
 	traverse = func(nodes []*graph.Node) {
 		for _, n := range nodes {
-			matches := m.filterText == "" || strings.Contains(strings.ToLower(n.Issue.Title), strings.ToLower(m.filterText))
+			matches := nodeMatchesFilter(filterLower, n)
 
 			domainIssue, err := domain.NewIssueFromFull(n.Issue, n.IsBlocked)
 			if matches {
