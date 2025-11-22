@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -214,4 +216,113 @@ func TestPreloadAllComments(t *testing.T) {
 			t.Errorf("expected empty Comments slice, got %d items", len(node.Issue.Comments))
 		}
 	})
+}
+
+func TestFindBeadsDBPrefersEnv(t *testing.T) {
+	t.Setenv("BEADS_DB", "")
+	tmp := t.TempDir()
+	dbFile := filepath.Join(tmp, "custom.db")
+	if err := os.WriteFile(dbFile, []byte("test"), 0o644); err != nil {
+		t.Fatalf("write db file: %v", err)
+	}
+	t.Setenv("BEADS_DB", dbFile)
+
+	cleanup := changeWorkingDir(t, tmp)
+	defer cleanup()
+
+	path, modTime, err := findBeadsDB()
+	if err != nil {
+		t.Fatalf("findBeadsDB: %v", err)
+	}
+	if normalizePath(t, path) != normalizePath(t, dbFile) {
+		t.Fatalf("expected path %s, got %s", dbFile, path)
+	}
+	info, err := os.Stat(dbFile)
+	if err != nil {
+		t.Fatalf("stat db file: %v", err)
+	}
+	if !modTime.Equal(info.ModTime()) {
+		t.Fatalf("expected mod time %v, got %v", info.ModTime(), modTime)
+	}
+}
+
+func TestFindBeadsDBWalksUpDirectories(t *testing.T) {
+	t.Setenv("BEADS_DB", "")
+	root := t.TempDir()
+	beadsDir := filepath.Join(root, ".beads")
+	if err := os.MkdirAll(beadsDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	dbFile := filepath.Join(beadsDir, "beads.db")
+	if err := os.WriteFile(dbFile, []byte("db"), 0o644); err != nil {
+		t.Fatalf("write db: %v", err)
+	}
+	nested := filepath.Join(root, "nested", "deep")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatalf("mkdir nested: %v", err)
+	}
+	cleanup := changeWorkingDir(t, nested)
+	defer cleanup()
+
+	path, _, err := findBeadsDB()
+	if err != nil {
+		t.Fatalf("findBeadsDB: %v", err)
+	}
+	if normalizePath(t, path) != normalizePath(t, dbFile) {
+		t.Fatalf("expected %s, got %s", dbFile, path)
+	}
+}
+
+func TestFindBeadsDBFallsBackToDefault(t *testing.T) {
+	t.Setenv("BEADS_DB", "")
+	projectDir := t.TempDir()
+	cleanup := changeWorkingDir(t, projectDir)
+	defer cleanup()
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	defaultDir := filepath.Join(home, ".beads")
+	if err := os.MkdirAll(defaultDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	defaultDB := filepath.Join(defaultDir, "default.db")
+	if err := os.WriteFile(defaultDB, []byte("db"), 0o644); err != nil {
+		t.Fatalf("write db: %v", err)
+	}
+
+	path, _, err := findBeadsDB()
+	if err != nil {
+		t.Fatalf("findBeadsDB: %v", err)
+	}
+	if normalizePath(t, path) != normalizePath(t, defaultDB) {
+		t.Fatalf("expected fallback %s, got %s", defaultDB, path)
+	}
+}
+
+func changeWorkingDir(t *testing.T, dir string) func() {
+	t.Helper()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	return func() {
+		if err := os.Chdir(orig); err != nil {
+			t.Fatalf("restore cwd: %v", err)
+		}
+	}
+}
+
+func normalizePath(t *testing.T, path string) string {
+	t.Helper()
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatalf("abs path: %v", err)
+	}
+	return abs
 }

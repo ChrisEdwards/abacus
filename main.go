@@ -231,6 +231,68 @@ func summarizeCommandError(err error, out []byte) string {
 	return err.Error()
 }
 
+// findBeadsDB locates the beads SQLite database so the UI can monitor it for
+// background refresh triggers.
+//
+// Search order:
+//  1. The BEADS_DB environment variable (must point to an existing file)
+//  2. Walk up from the current working directory looking for .beads/beads.db
+//  3. Fallback to ~/.beads/default.db
+func findBeadsDB() (string, time.Time, error) {
+	if envPath := os.Getenv("BEADS_DB"); envPath != "" {
+		info, err := os.Stat(envPath)
+		if err != nil {
+			return "", time.Time{}, fmt.Errorf("BEADS_DB points to %s: %w", envPath, err)
+		}
+		if info.IsDir() {
+			return "", time.Time{}, fmt.Errorf("BEADS_DB must point to a file, got directory: %s", envPath)
+		}
+		return envPath, info.ModTime(), nil
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("get working directory: %w", err)
+	}
+	if dbPath, modTime, err := findBeadsDBFromDir(wd); err == nil {
+		return dbPath, modTime, nil
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("locate beads db: %w", err)
+	}
+	fallback := filepath.Join(homeDir, ".beads", "default.db")
+	info, err := os.Stat(fallback)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("locate beads db: %w", err)
+	}
+	if info.IsDir() {
+		return "", time.Time{}, fmt.Errorf("default beads db is a directory: %s", fallback)
+	}
+	return fallback, info.ModTime(), nil
+}
+
+func findBeadsDBFromDir(startDir string) (string, time.Time, error) {
+	if startDir == "" {
+		return "", time.Time{}, fmt.Errorf("start directory is required")
+	}
+	dir := startDir
+	for {
+		candidate := filepath.Join(dir, ".beads", "beads.db")
+		info, err := os.Stat(candidate)
+		if err == nil && !info.IsDir() {
+			return candidate, info.ModTime(), nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return "", time.Time{}, fmt.Errorf("no beads db found from %s", startDir)
+}
+
 // --- Model ---
 
 type model struct {
