@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -216,6 +217,93 @@ func TestPreloadAllComments(t *testing.T) {
 			t.Errorf("expected empty Comments slice, got %d items", len(node.Issue.Comments))
 		}
 	})
+}
+
+func TestCaptureState(t *testing.T) {
+	child := &Node{Issue: FullIssue{ID: "ab-002"}}
+	root := &Node{
+		Issue:    FullIssue{ID: "ab-001"},
+		Children: []*Node{child},
+		Expanded: true,
+	}
+
+	m := model{
+		roots:       []*Node{root},
+		visibleRows: []*Node{root, child},
+		cursor:      1,
+		filterText:  "alpha",
+		showDetails: true,
+		viewport: viewport.Model{
+			YOffset: 3,
+			Height:  10,
+		},
+	}
+
+	state := m.captureState()
+
+	if state.currentID != "ab-002" {
+		t.Fatalf("expected currentID ab-002, got %s", state.currentID)
+	}
+	if state.filterText != "alpha" {
+		t.Fatalf("expected filter alpha, got %s", state.filterText)
+	}
+	if state.viewportYOffset != 3 {
+		t.Fatalf("expected viewport offset 3, got %d", state.viewportYOffset)
+	}
+	if !state.expandedIDs["ab-001"] || len(state.expandedIDs) != 1 {
+		t.Fatalf("expected only root to be remembered as expanded")
+	}
+}
+
+func TestRestoreExpandedState(t *testing.T) {
+	child := &Node{Issue: FullIssue{ID: "ab-002"}}
+	root := &Node{Issue: FullIssue{ID: "ab-001"}, Children: []*Node{child}}
+	m := model{roots: []*Node{root}}
+
+	m.restoreExpandedState(map[string]bool{"ab-001": true})
+
+	if !root.Expanded {
+		t.Fatalf("expected root expanded")
+	}
+	if child.Expanded {
+		t.Fatalf("expected child collapsed")
+	}
+}
+
+func TestRestoreCursorToID(t *testing.T) {
+	n1 := &Node{Issue: FullIssue{ID: "ab-001"}}
+	n2 := &Node{Issue: FullIssue{ID: "ab-002"}}
+	m := model{
+		visibleRows: []*Node{n1, n2},
+		cursor:      0,
+	}
+
+	m.restoreCursorToID("ab-002")
+	if m.cursor != 1 {
+		t.Fatalf("expected cursor 1, got %d", m.cursor)
+	}
+
+	m.restoreCursorToID("missing")
+	if m.cursor != 1 {
+		t.Fatalf("expected cursor to remain 1 when id missing, got %d", m.cursor)
+	}
+}
+
+func TestComputeDiffStats(t *testing.T) {
+	oldSet := map[string]string{
+		"ab-1": "2024-01-01",
+		"ab-2": "2024-01-01",
+	}
+	newSet := map[string]string{
+		"ab-2": "2024-01-02",
+		"ab-3": "2024-01-01",
+	}
+
+	got := computeDiffStats(oldSet, newSet)
+	want := "+1 / Δ1 / -1"
+	if got != want {
+		t.Fatalf("expected %s, got %s", want, got)
+	}
 }
 
 func TestFindBeadsDBPrefersEnv(t *testing.T) {

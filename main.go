@@ -317,11 +317,23 @@ type model struct {
 	searching  bool
 	filterText string
 
-	width           int
-	height          int
-	err             error
-	refreshInterval time.Duration
-	autoRefresh     bool
+	width            int
+	height           int
+	err              error
+	refreshInterval  time.Duration
+	autoRefresh      bool
+	dbPath           string
+	lastDBModTime    time.Time
+	lastRefreshStats string
+	showRefreshFlash bool
+}
+
+type viewState struct {
+	currentID       string
+	expandedIDs     map[string]bool
+	filterText      string
+	viewportYOffset int
+	cursorIndex     int
 }
 
 // --- Helpers ---
@@ -678,6 +690,8 @@ func initialModel(cfg appConfig) model {
 	if cfg.refreshInterval <= 0 {
 		cfg.refreshInterval = defaultRefreshInterval
 	}
+
+	dbPath, dbModTime, dbErr := findBeadsDB()
 	roots, err := loadData()
 	ti := textinput.New()
 	ti.Placeholder = "Search..."
@@ -697,6 +711,11 @@ func initialModel(cfg appConfig) model {
 		focus:           FocusTree,
 		refreshInterval: cfg.refreshInterval,
 		autoRefresh:     cfg.autoRefresh,
+		dbPath:          dbPath,
+		lastDBModTime:   dbModTime,
+	}
+	if err == nil && dbErr != nil {
+		m.err = dbErr
 	}
 	m.recalcVisibleRows()
 	return m
@@ -739,6 +758,109 @@ func (m *model) recalcVisibleRows() {
 	}
 	traverse(m.roots)
 	m.clampCursor()
+}
+
+// captureState records the user's current UI context so it can be restored
+// after a refresh completes without jarring jumps.
+func (m *model) captureState() viewState {
+	state := viewState{
+		filterText:  m.filterText,
+		cursorIndex: m.cursor,
+		expandedIDs: m.collectExpandedIDs(),
+	}
+
+	if m.showDetails && m.viewport.Height > 0 {
+		state.viewportYOffset = m.viewport.YOffset
+	}
+
+	if len(m.visibleRows) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleRows) {
+		state.currentID = m.visibleRows[m.cursor].Issue.ID
+	}
+	return state
+}
+
+func (m *model) collectExpandedIDs() map[string]bool {
+	expanded := make(map[string]bool)
+	var walk func(nodes []*Node)
+	walk = func(nodes []*Node) {
+		for _, n := range nodes {
+			if n.Expanded {
+				expanded[n.Issue.ID] = true
+			}
+			walk(n.Children)
+		}
+	}
+	walk(m.roots)
+	return expanded
+}
+
+// restoreExpandedState reapplies expanded/collapsed state after the tree has
+// been rebuilt.
+func (m *model) restoreExpandedState(expanded map[string]bool) {
+	if expanded == nil {
+		expanded = map[string]bool{}
+	}
+	var walk func(nodes []*Node)
+	walk = func(nodes []*Node) {
+		for _, n := range nodes {
+			n.Expanded = expanded[n.Issue.ID]
+			walk(n.Children)
+		}
+	}
+	walk(m.roots)
+}
+
+// restoreCursorToID moves the cursor to the requested issue ID (when present)
+// so the user's focus is preserved across refresh cycles.
+func (m *model) restoreCursorToID(id string) {
+	prev := m.cursor
+	if id == "" {
+		m.clampCursor()
+		return
+	}
+	for idx, node := range m.visibleRows {
+		if node.Issue.ID == id {
+			m.cursor = idx
+			return
+		}
+	}
+	m.cursor = prev
+	m.clampCursor()
+}
+
+// computeDiffStats generates a concise summary of tree changes between two
+// snapshots. The map values should encode a digest (e.g. UpdatedAt) so that
+// overlapping IDs whose digest changed are counted as deltas.
+func computeDiffStats(oldIssues, newIssues map[string]string) string {
+	if oldIssues == nil {
+		oldIssues = map[string]string{}
+	}
+	if newIssues == nil {
+		newIssues = map[string]string{}
+	}
+
+	added := 0
+	removed := 0
+	changed := 0
+
+	for id, oldDigest := range oldIssues {
+		newDigest, exists := newIssues[id]
+		if !exists {
+			removed++
+			continue
+		}
+		if newDigest != oldDigest {
+			changed++
+		}
+	}
+
+	for id := range newIssues {
+		if _, exists := oldIssues[id]; !exists {
+			added++
+		}
+	}
+
+	return fmt.Sprintf("+%d / Δ%d / -%d", added, changed, removed)
 }
 
 func (m *model) getStats() Stats {
