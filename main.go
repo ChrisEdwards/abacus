@@ -348,10 +348,23 @@ func batchFetchIssues(ids []string) ([]FullIssue, error) {
 
 		args := append([]string{"show"}, ids[i:end]...)
 		args = append(args, "--json")
-		out, _ := exec.Command("bd", args...).Output()
+		out, err := exec.Command("bd", args...).CombinedOutput()
+		if err != nil {
+			snippet := strings.TrimSpace(string(out))
+			if len(snippet) > 200 {
+				snippet = snippet[:200] + "..."
+			}
+			return nil, fmt.Errorf("bd show %v failed: %w (output: %s)", ids[i:end], err, snippet)
+		}
 
 		var batch []FullIssue
-		json.Unmarshal(out, &batch)
+		if err := json.Unmarshal(out, &batch); err != nil {
+			snippet := string(out)
+			if len(snippet) > 200 {
+				snippet = snippet[:200] + "..."
+			}
+			return nil, fmt.Errorf("failed to decode bd show output for %v: %w (output: %s)", ids[i:end], err, snippet)
+		}
 		results = append(results, batch...)
 	}
 	return results, nil
