@@ -33,6 +33,7 @@ type FullIssue struct {
 	IssueType    string       `json:"issue_type"`
 	Priority     int          `json:"priority"`
 	Description  string       `json:"description"`
+	Design       string       `json:"design"`
 	CreatedAt    string       `json:"created_at"`
 	UpdatedAt    string       `json:"updated_at"`
 	ClosedAt     string       `json:"closed_at"`

@@ -167,6 +167,11 @@ func (m *App) updateViewportContent() {
 		descBuilder.WriteString(indentBlock(renderMarkdown(iss.Description), 2))
 	}
 
+	if strings.TrimSpace(iss.Design) != "" {
+		descBuilder.WriteString("\n" + styleSectionHeader.Render("Design") + "\n")
+		descBuilder.WriteString(indentBlock(renderMarkdown(iss.Design), 2))
+	}
+
 	if node.CommentError != "" {
 		descBuilder.WriteString("\n" + styleSectionHeader.Render("Comments") + "\n")
 		descBuilder.WriteString(styleBlockedText.Render("Failed to load comments. Press 'c' to retry.") + "\n")

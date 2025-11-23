@@ -922,6 +922,85 @@ func TestOutputIssuesJSONUsesMockClient(t *testing.T) {
 	}
 }
 
+func TestUpdateViewportContentDisplaysDesignSection(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:          "ab-101",
+			Title:       "Detail Layout",
+			Status:      "open",
+			IssueType:   "feature",
+			Priority:    2,
+			Description: "High-level summary.",
+			Design:      "## Architecture\n\nDocument component wiring.",
+			CreatedAt:   time.Date(2025, time.November, 21, 10, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			UpdatedAt:   time.Date(2025, time.November, 21, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			Comments: []beads.Comment{
+				{
+					Author:    "Reviewer",
+					Text:      "Looks good",
+					CreatedAt: time.Date(2025, time.November, 21, 13, 0, 0, 0, time.UTC).Format(time.RFC3339),
+				},
+			},
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	if !strings.Contains(content, "Design") {
+		t.Fatalf("expected Design header in viewport content:\n%s", content)
+	}
+
+	descIdx := strings.Index(content, "Description")
+	designIdx := strings.Index(content, "Design")
+	if descIdx == -1 || designIdx == -1 {
+		t.Fatalf("expected both Description and Design headers")
+	}
+	if !(descIdx < designIdx) {
+		t.Fatalf("expected Design to appear after Description: descIdx=%d, designIdx=%d\n%s", descIdx, designIdx, content)
+	}
+
+	if !strings.Contains(content, "## Architecture") {
+		t.Fatalf("expected markdown-rendered design content present, got:\n%s", content)
+	}
+}
+
+func TestUpdateViewportContentOmitsDesignWhenBlank(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:          "ab-102",
+			Title:       "Missing Section",
+			Status:      "open",
+			IssueType:   "feature",
+			Priority:    2,
+			Description: "Content exists.",
+			Design:      "   ",
+			CreatedAt:   time.Date(2025, time.November, 22, 9, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			UpdatedAt:   time.Date(2025, time.November, 22, 9, 15, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+	if strings.Contains(content, "Design") {
+		t.Fatalf("expected Design section omitted when empty, content:\n%s", content)
+	}
+}
+
 func loadFixtureIssues(t *testing.T, file string) []beads.FullIssue {
 	t.Helper()
 	candidates := []string{
