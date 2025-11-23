@@ -209,6 +209,7 @@ Contributions are welcome! Areas for improvement:
 - Bulk operations on selected issues
 - Integration with git for change tracking
 - Performance optimizations for very large issue sets
+- Automated dependency management improvements (Dependabot is configured via `.github/dependabot.yml` and PRs welcome for additional ecosystems)
 
 See the **[Architecture Documentation](docs/architecture.md)** for technical details about the codebase.
 
