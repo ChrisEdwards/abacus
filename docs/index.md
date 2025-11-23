@@ -1,6 +1,6 @@
 # Abacus Documentation
 
-Welcome to the Abacus documentation! Abacus is a powerful terminal UI for visualizing and navigating [Beads](https://github.com/beadscli/beads) issue tracking projects.
+Welcome to the Abacus documentation! Abacus is a powerful terminal UI for visualizing and navigating [Beads](https://github.com/steveyegge/beads) issue tracking projects.
 
 ## What is Abacus?
 
@@ -62,7 +62,7 @@ abacus
 ## System Requirements
 
 - Go 1.25.3 or later (for building from source)
-- [Beads CLI](https://github.com/beadscli/beads) installed and initialized in your project
+- [Beads CLI](https://github.com/steveyegge/beads) v0.24.0 or later installed and initialized in your project (`bd --version`)
 - Terminal with 256-color support recommended
 
 ## Getting Help

@@ -650,7 +650,7 @@ See contribution opportunities:
 
 - [Bubble Tea Documentation](https://github.com/charmbracelet/bubbletea)
 - [The Elm Architecture](https://guide.elm-lang.org/architecture/)
-- [Beads CLI](https://github.com/beadscli/beads)
+- [Beads CLI](https://github.com/steveyegge/beads)
 - [Go Project Layout](https://github.com/golang-standards/project-layout)
 
 ## Questions?

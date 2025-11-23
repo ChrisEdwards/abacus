@@ -7,7 +7,7 @@ This guide will help you get Abacus up and running in just a few minutes.
 Before you begin, make sure you have:
 
 1. **Go 1.25.3 or later** - Check your version with `go version`
-2. **Beads CLI installed** - Install from [github.com/beadscli/beads](https://github.com/beadscli/beads)
+2. **Beads CLI v0.24.0 or later installed** - Install/upgrade from [github.com/steveyegge/beads](https://github.com/steveyegge/beads) and verify with `bd --version`
 3. **A Beads project** - You need a directory with a `.beads/` folder containing your issue database
 
 ## Installation

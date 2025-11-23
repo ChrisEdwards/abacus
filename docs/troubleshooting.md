@@ -451,9 +451,9 @@ go install github.com/yourusername/abacus/cmd/abacus@latest
 
 **Solution:**
 
-1. Install Beads CLI:
+1. Install Beads CLI (v0.24.0+):
    ```bash
-   go install github.com/beadscli/beads/cmd/bd@latest
+   go install github.com/steveyegge/beads/cmd/bd@latest
    ```
 2. Add to PATH:
    ```bash

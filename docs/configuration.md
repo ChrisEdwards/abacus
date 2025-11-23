@@ -219,6 +219,27 @@ export AB_OUTPUT_JSON=true
 abacus --json-output
 ```
 
+### skip-version-check
+
+Skip the Beads CLI presence/version validation at startup. Useful for CI or environments where Beads is managed externally.
+
+**Type:** Boolean  
+**Default:** `false`  
+**Config file:**
+```yaml
+skip-version-check: true
+```
+
+**Environment variable:**
+```bash
+export AB_SKIP_VERSION_CHECK=true
+```
+
+**Command-line flag:**
+```bash
+abacus --skip-version-check
+```
+
 ## Environment Variables
 
 All configuration options can be set via environment variables using the `AB_` prefix.

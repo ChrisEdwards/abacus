@@ -15,6 +15,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+const versionCheckTimeout = 5 * time.Second
+
 func main() {
 	if err := config.Initialize(); err != nil {
 		fmt.Printf("Error initializing config: %v\n", err)
@@ -30,6 +32,7 @@ func main() {
 	jsonOutputDefault := config.GetBool(config.KeyOutputJSON)
 	dbPathDefault := config.GetString(config.KeyDatabasePath)
 	outputFormatDefault := config.GetString(config.KeyOutputFormat)
+	skipVersionCheckDefault := config.GetBool(config.KeySkipVersionCheck)
 
 	refreshIntervalFlag := flag.Duration("refresh-interval", refreshDefault, "Interval for automatic refresh polling (e.g. 2s, 500ms)")
 	autoRefreshFlag := flag.Bool("auto-refresh", autoRefreshDefault, "Enable automatic background refresh")
@@ -37,6 +40,7 @@ func main() {
 	jsonOutputFlag := flag.Bool("json-output", jsonOutputDefault, "Print issue data as JSON and exit")
 	dbPathFlag := flag.String("db-path", dbPathDefault, "Path to the Beads database file")
 	outputFormatFlag := flag.String("output-format", outputFormatDefault, "Detail panel markdown style (rich, light, plain)")
+	skipVersionCheckFlag := flag.Bool("skip-version-check", skipVersionCheckDefault, "Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)")
 	flag.Parse()
 
 	visited := map[string]struct{}{}
@@ -77,6 +81,20 @@ func main() {
 	jsonOutput := config.GetBool(config.KeyOutputJSON)
 	if flagWasExplicitlySet("json-output", visited) {
 		jsonOutput = *jsonOutputFlag
+	}
+
+	skipVersionCheck := config.GetBool(config.KeySkipVersionCheck)
+	if flagWasExplicitlySet("skip-version-check", visited) {
+		skipVersionCheck = *skipVersionCheckFlag
+	}
+
+	if !skipVersionCheck {
+		ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
+		info, err := beads.CheckVersion(ctx, beads.VersionCheckOptions{})
+		cancel()
+		if handleVersionCheckResult(os.Stderr, info, err) {
+			os.Exit(1)
+		}
 	}
 
 	client := beads.NewCLIClient()

@@ -1,6 +1,6 @@
 # Abacus
 
-A powerful terminal UI for visualizing and navigating [Beads](https://github.com/beadscli/beads) issue tracking projects.
+A powerful terminal UI for visualizing and navigating [Beads](https://github.com/steveyegge/beads) issue tracking projects.
 
 [![Go Version](https://img.shields.io/badge/go-1.25.3%2B-blue.svg)](https://golang.org/dl/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
@@ -42,7 +42,7 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 ### Prerequisites
 
 - Go 1.25.3 or later
-- [Beads CLI](https://github.com/beadscli/beads) installed and initialized in your project
+- [Beads CLI](https://github.com/steveyegge/beads) v0.24.0 or later installed and initialized in your project (`bd --version`)
 
 ### Installation
 
@@ -90,6 +90,7 @@ Options:
   --refresh-interval duration Interval for automatic refresh (default: 3s)
   --output-format string      Detail panel style: rich, light, plain (default: "rich")
   --json-output               Print issue data as JSON and exit
+  --skip-version-check        Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)
 ```
 
 **[📖 See the complete User Guide](docs/user-guide.md)** for detailed feature documentation.
@@ -128,6 +129,7 @@ output:
   format: rich
 database:
   path: .beads/beads.db
+skip-version-check: false
 ```
 
 **[⚙️ Configuration Guide](docs/configuration.md)** for complete options and precedence rules.

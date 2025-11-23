@@ -7,7 +7,7 @@ This guide covers various methods for installing Abacus on different platforms.
 ### Required
 
 - **Go 1.25.3 or later** - Required for building and installing
-- **Beads CLI** - Install from [github.com/beadscli/beads](https://github.com/beadscli/beads)
+- **Beads CLI v0.24.0 or later** - Install from [github.com/steveyegge/beads](https://github.com/steveyegge/beads) and verify with `bd --version`
 
 ### Recommended
 

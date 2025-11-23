@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	KeyRefreshInterval = "refresh-interval"
-	KeyAutoRefresh     = "auto-refresh"
-	KeyNoAutoRefresh   = "no-auto-refresh"
+	KeyRefreshInterval  = "refresh-interval"
+	KeyAutoRefresh      = "auto-refresh"
+	KeyNoAutoRefresh    = "no-auto-refresh"
+	KeySkipVersionCheck = "skip-version-check"
 
 	KeyOutputJSON   = "output.json"
 	KeyDatabasePath = "database.path"
@@ -259,6 +260,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeyDatabasePath, "")
 	v.SetDefault(KeyAutoRefresh, true)
 	v.SetDefault(KeyNoAutoRefresh, false)
+	v.SetDefault(KeySkipVersionCheck, false)
 	v.SetDefault(KeyRefreshInterval, 3*time.Second)
 	v.SetDefault(KeyOutputFormat, "rich")
 }
