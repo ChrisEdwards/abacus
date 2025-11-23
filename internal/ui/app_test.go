@@ -664,6 +664,83 @@ func TestFilteredTogglePersistsWhileEditing(t *testing.T) {
 	}
 }
 
+func TestSearchFilterKeepsParentsVisible(t *testing.T) {
+	grandchild := &graph.Node{Issue: beads.FullIssue{ID: "ab-401", Title: "Auth Login Flow"}}
+	child := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-400", Title: "UI Improvements"},
+		Children: []*graph.Node{grandchild},
+	}
+	root := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-399", Title: "Root Epic"},
+		Children: []*graph.Node{child},
+	}
+	m := &App{roots: []*graph.Node{root}}
+
+	m.setFilterText("auth")
+	m.recalcVisibleRows()
+
+	if len(m.visibleRows) != 3 {
+		t.Fatalf("expected parent chain kept when descendant matches, got %d rows", len(m.visibleRows))
+	}
+	if ids := []string{m.visibleRows[0].Issue.ID, m.visibleRows[1].Issue.ID, m.visibleRows[2].Issue.ID}; ids[0] != "ab-399" || ids[1] != "ab-400" || ids[2] != "ab-401" {
+		t.Fatalf("expected full parent chain visible, got %v", ids)
+	}
+}
+
+func TestSearchFilterAutoSelectsFirstMatch(t *testing.T) {
+	root := &graph.Node{Issue: beads.FullIssue{ID: "ab-500", Title: "Alpha"}}
+	match := &graph.Node{Issue: beads.FullIssue{ID: "ab-501", Title: "Auth Workflows"}}
+	m := &App{roots: []*graph.Node{root, match}}
+	m.recalcVisibleRows()
+	m.cursor = 1
+
+	m.setFilterText("auth")
+	m.recalcVisibleRows()
+
+	if len(m.visibleRows) != 1 {
+		t.Fatalf("expected single match, got %d", len(m.visibleRows))
+	}
+	if m.cursor != 0 {
+		t.Fatalf("expected cursor to jump to first match, got %d", m.cursor)
+	}
+	if m.visibleRows[m.cursor].Issue.ID != "ab-501" {
+		t.Fatalf("expected cursor on match, got %s", m.visibleRows[m.cursor].Issue.ID)
+	}
+}
+
+func TestSearchFilterCountsMatches(t *testing.T) {
+	nodes := []*graph.Node{
+		{Issue: beads.FullIssue{ID: "ab-600", Title: "Auth Login"}},
+		{Issue: beads.FullIssue{ID: "ab-601", Title: "User Profile"}},
+		{Issue: beads.FullIssue{ID: "ab-602", Title: "Auth Logout"}},
+	}
+	m := App{roots: nodes, filterText: "auth"}
+	m.recalcVisibleRows()
+	stats := m.getStats()
+	if stats.Total != 2 {
+		t.Fatalf("expected stats total 2 with filter, got %d", stats.Total)
+	}
+}
+
+func TestSearchFilterRequiresAllWords(t *testing.T) {
+	nodes := []*graph.Node{
+		{Issue: beads.FullIssue{ID: "ab-610", Title: "Auth Sync"}},
+		{Issue: beads.FullIssue{ID: "ab-611", Title: "User Provisioning"}},
+		{Issue: beads.FullIssue{ID: "ab-612", Title: "Auth User Sync"}},
+	}
+	m := App{roots: nodes}
+	m.setFilterText("auth user")
+	m.recalcVisibleRows()
+
+	var ids []string
+	for _, row := range m.visibleRows {
+		ids = append(ids, row.Issue.ID)
+	}
+	if len(ids) != 1 || ids[0] != "ab-612" {
+		t.Fatalf("expected only issues containing both words, got %v", ids)
+	}
+}
+
 func TestFindBeadsDBPrefersEnv(t *testing.T) {
 	t.Setenv("BEADS_DB", "")
 	tmp := t.TempDir()
