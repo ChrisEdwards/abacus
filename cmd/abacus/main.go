@@ -110,6 +110,7 @@ func main() {
 		DBPathOverride:  dbPath,
 		OutputFormat:    outputFormat,
 		Client:          client,
+		Version:         Version,
 	}
 
 	if jsonOutput {

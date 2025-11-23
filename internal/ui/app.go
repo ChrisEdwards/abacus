@@ -33,6 +33,7 @@ type Config struct {
 	DBPathOverride  string
 	OutputFormat    string
 	Client          beads.Client
+	Version         string // Version string to display in header
 }
 
 // App implements the Bubble Tea model for Abacus.
@@ -68,6 +69,7 @@ type App struct {
 	refreshInFlight  bool
 	lastRefreshTime  time.Time
 	outputFormat     string
+	version          string
 
 	client beads.Client
 }
@@ -125,6 +127,7 @@ func NewApp(cfg Config) (*App, error) {
 		refreshInterval: cfg.RefreshInterval,
 		autoRefresh:     autoRefresh,
 		outputFormat:    cfg.OutputFormat,
+		version:         cfg.Version,
 		client:          client,
 	}
 	if dbErr == nil {
@@ -445,7 +448,11 @@ func (m *App) View() string {
 		status += " " + refreshStr
 	}
 
-	header := styleAppHeader.Render("ABACUS") + " " + status
+	title := "ABACUS"
+	if m.version != "" {
+		title = fmt.Sprintf("ABACUS v%s", m.version)
+	}
+	header := styleAppHeader.Render(title) + " " + status
 	treeViewStr := m.renderTreeView()
 
 	var mainBody string
