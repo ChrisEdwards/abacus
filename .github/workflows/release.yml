@@ -43,12 +43,20 @@ jobs:
           go-version: '1.23'
           check-latest: true
 
+      - name: Extract changelog for release
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          VERSION_NUMBER=${VERSION#v}
+          ./scripts/extract-changelog.sh "$VERSION_NUMBER" > .release-notes.md
+          echo "Extracted changelog for version $VERSION_NUMBER:"
+          cat .release-notes.md
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean
+          args: release --clean --release-notes=.release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

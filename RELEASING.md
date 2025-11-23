@@ -54,62 +54,81 @@ Before starting a release, ensure:
 - [ ] All intended features/fixes are merged to `main`
 - [ ] All tests pass: `go test ./...`
 - [ ] All builds succeed: `make build`
-- [ ] CHANGELOG.md `[Unreleased]` section contains all changes
 - [ ] Working directory is clean (no uncommitted changes)
 - [ ] You have reviewed the changes since last release
-- [ ] You have determined the correct version number (following [Semantic Versioning](https://semver.org/))
+
+**Note**: You no longer need to manually determine version numbers or write changelog entries. The `/update-changelog` command will analyze changes and suggest the appropriate semantic version bump automatically.
 
 ## Step-by-Step Release Process
 
-### 1. Update CHANGELOG
+### 1. Generate Changelog and Determine Version (AI-Powered)
 
-Edit `CHANGELOG.md` to prepare for release:
+Use the `/update-changelog` Claude Code slash command to automatically analyze changes and prepare the release:
 
-```markdown
-## [Unreleased]
-
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added
-- New feature descriptions
-
-### Changed
-- Changed behavior descriptions
-
-### Fixed
-- Bug fix descriptions
+```bash
+# In Claude Code, run:
+/update-changelog
 ```
 
-**Important**: The bump-version script will handle moving the Unreleased header and updating version links, but you should ensure all changes are documented first.
+**What this does:**
+- Analyzes all commits since the last release
+- Reviews all closed beads (issues)
+- Examines code changes to understand scope
+- Considers existing manual entries in CHANGELOG.md
+- Uses AI to determine the appropriate semantic version bump (patch/minor/major)
+- Generates Keep a Changelog format entries
+- Updates `next-version.txt` with the suggested version
+- Updates the `[Unreleased]` section in CHANGELOG.md
 
-### 2. Run Version Bump Script
+**AI will present:**
+- Recommended version bump with rationale
+- Generated changelog entries organized by category
+- Request for your confirmation
 
-The version bump script automates version updates, commit creation, tagging, and pushing.
+**You review and then:**
+- If approved: commit the changes
+- If adjustments needed: ask for regeneration or manually edit
 
-**Preview changes (dry run - default):**
+### 2. Commit Changelog and Version
+
+After reviewing the AI-generated changelog:
+
 ```bash
-./scripts/bump-version.sh X.Y.Z
+git add CHANGELOG.md next-version.txt
+git commit -m "Prepare release v0.2.0"
+git push origin main
+```
+
+### 3. Execute the Release
+
+Run the automated release script:
+
+**Preview the release (dry run - default):**
+```bash
+./scripts/release.sh
 ```
 
 **Execute the release:**
 ```bash
-# Option 1: Just update files and commit
-./scripts/bump-version.sh X.Y.Z --execute --commit
-
-# Option 2: Update, commit, and tag
-./scripts/bump-version.sh X.Y.Z --execute --tag
-
-# Option 3: Full release (update, commit, tag, and push)
-./scripts/bump-version.sh X.Y.Z --execute --push
+./scripts/release.sh --execute
 ```
 
 **What the script does:**
-- Updates CHANGELOG.md with release date and version links
-- Creates a git commit with version changes
-- (Optional) Creates an annotated git tag `vX.Y.Z`
-- (Optional) Pushes commit and tag to GitHub
+1. Reads version from `next-version.txt`
+2. Runs pre-flight checks (tests, build, git status)
+3. Finalizes CHANGELOG.md (`[Unreleased]` → `[X.Y.Z] - YYYY-MM-DD`)
+4. Creates release commit and annotated tag `vX.Y.Z`
+5. Prompts for confirmation before pushing
+6. Pushes commit and tag to GitHub (triggers CI/CD)
+7. Auto-bumps `next-version.txt` to next patch version
+8. Commits and pushes the version bump
 
-### 3. Monitor GitHub Actions
+**Options:**
+- `--dry-run`: Show what would happen (default)
+- `--execute`: Actually perform the release
+- `--no-push`: Create commit/tag but don't push (for testing)
+
+### 4. Monitor GitHub Actions
 
 Once the tag is pushed, the release workflow automatically triggers:
 
@@ -137,7 +156,7 @@ After the workflow completes:
    - `abacus_X.Y.Z_windows_amd64.tar.gz`
    - `checksums.txt`
 
-3. **Verify release notes**: Should include CHANGELOG entries
+3. **Verify release notes**: Should include our curated CHANGELOG entries (extracted via `scripts/extract-changelog.sh`)
 
 ### 5. Verify Homebrew Formula
 
@@ -214,19 +233,7 @@ go test ./...
 make build
 ```
 
-### 3. Update CHANGELOG
-
-Add hotfix entry to CHANGELOG.md:
-```markdown
-## [Unreleased]
-
-## [X.Y.Z] - YYYY-MM-DD
-
-### Fixed
-- Critical bug description
-```
-
-### 4. Commit and Merge
+### 3. Merge to Main
 ```bash
 git add .
 git commit -m "Fix: critical bug description"
@@ -235,8 +242,28 @@ git merge hotfix/X.Y.Z
 git push origin main
 ```
 
-### 5. Release as Normal
-Follow the standard release process with the hotfix version number.
+### 4. Prepare Release
+
+**Option A: Use AI to generate changelog**
+```bash
+# In Claude Code:
+/update-changelog
+# AI will detect the bug fix and suggest a patch version
+```
+
+**Option B: Manually update files**
+```bash
+# Manually edit next-version.txt (increment patch)
+# Manually add entry to [Unreleased] in CHANGELOG.md
+git add next-version.txt CHANGELOG.md
+git commit -m "Prepare hotfix release vX.Y.Z"
+git push origin main
+```
+
+### 5. Execute Release
+```bash
+./scripts/release.sh --execute
+```
 
 ## Rollback Procedure
 
@@ -264,7 +291,11 @@ Instead of rolling back, publish a new patch release:
 
 ```bash
 # Example: If v0.2.0 has issues, release v0.2.1
-./scripts/bump-version.sh 0.2.1 --execute --push
+# 1. Make fixes and commit
+# 2. Update next-version.txt to 0.2.1
+# 3. Update CHANGELOG.md with fix notes
+# 4. Commit changes
+# 5. Run: ./scripts/release.sh --execute
 ```
 
 ### Revert Homebrew Formula (If Needed)

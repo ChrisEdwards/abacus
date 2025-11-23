@@ -43,23 +43,9 @@ checksum:
   algorithm: sha256
 
 changelog:
-  use: github
-  sort: asc
-  groups:
-    - title: Features
-      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
-      order: 0
-    - title: Bug Fixes
-      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
-      order: 1
-    - title: Others
-      order: 999
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
-      - typo
+  # Disable auto-generated changelog
+  # We use our curated CHANGELOG.md instead, extracted via scripts/extract-changelog.sh
+  disable: true
 
 release:
   github:
