@@ -2,9 +2,14 @@
 
 A powerful terminal UI for visualizing and navigating [Beads](https://github.com/beadscli/beads) issue tracking projects.
 
+[![Go Version](https://img.shields.io/badge/go-1.25.3%2B-blue.svg)](https://golang.org/dl/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+
 ## Overview
 
 Abacus transforms your Beads issue database into an interactive, hierarchical tree view right in your terminal. It provides an intuitive interface for exploring complex dependency graphs, viewing issue details, and understanding project structure at a glance.
+
+**[📚 Read the Full Documentation](docs/index.md)**
 
 ## Features
 
@@ -26,32 +31,36 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 - **Smart Layout**: Responsive design with text wrapping and viewport management
 - **Statistics Dashboard**: Real-time counts of total, in-progress, ready, blocked, and closed issues
 
-## Installation
+## Quick Start
 
 ### Prerequisites
 
 - Go 1.25.3 or later
 - [Beads CLI](https://github.com/beadscli/beads) installed and initialized in your project
 
-### Build from Source
+### Installation
 
+**Option 1: Install via Go (Recommended)**
+```bash
+go install github.com/yourusername/abacus/cmd/abacus@latest
+```
+
+**Option 2: Build from Source**
 ```bash
 git clone https://github.com/yourusername/abacus.git
 cd abacus
-go build
+make build
+# Or: go build -o abacus ./cmd/abacus
 ```
 
-This creates an `abacus` binary in the current directory.
-
-### Install
-
+**Option 3: Using Make**
 ```bash
-# Install to your Go bin directory
-go install
-
-# Or move the binary to your PATH
-sudo mv abacus /usr/local/bin/
+git clone https://github.com/yourusername/abacus.git
+cd abacus
+make install
 ```
+
+For detailed installation instructions, including platform-specific notes, see the **[Installation Guide](docs/installation.md)**.
 
 ## Usage
 
@@ -63,27 +72,71 @@ abacus
 
 The application will automatically load all issues from your `.beads/` database.
 
+### Command-Line Options
+
+```bash
+abacus [options]
+
+Options:
+  --db-path string            Path to the Beads database file
+  --auto-refresh              Enable automatic background refresh (default: true)
+  --no-auto-refresh           Disable automatic background refresh
+  --refresh-interval duration Interval for automatic refresh (default: 3s)
+  --output-format string      Detail panel style: rich, light, plain (default: "rich")
+  --json-output               Print issue data as JSON and exit
+```
+
+**[📖 See the complete User Guide](docs/user-guide.md)** for detailed feature documentation.
+
 ## Keyboard Shortcuts
 
-### Navigation
-- `↑/k` - Move cursor up
-- `↓/j` - Move cursor down
-- `←/h` - Collapse current node
-- `→/l` or `space` - Toggle expand/collapse current node
+| Action | Keys | Description |
+|--------|------|-------------|
+| **Navigate** | `↑/k` `↓/j` | Move cursor up/down |
+| **Expand/Collapse** | `→/l` `←/h` or `Space` | Expand/collapse nodes |
+| **Detail Panel** | `Enter` | Toggle detail panel |
+| **Switch Focus** | `Tab` | Switch between tree and detail |
+| **Search** | `/` | Enter search mode |
+| **Clear Search** | `Esc` | Clear search filter |
+| **Quit** | `q` or `Ctrl+C` | Exit application |
 
-### Views
-- `enter` - Toggle detail panel
-- `tab` - Switch focus between tree and detail panel
-- `/` - Enter search mode
-- `esc` - Clear search filter
+**Detail Panel Navigation (when focused):**
+- `↑/↓` or `j/k` - Scroll line by line
+- `Ctrl+F/B` or `PgDn/Up` - Page up/down
+- `g/G` or `Home/End` - Jump to top/bottom
 
-### Detail Panel (when focused)
-- `↑/↓` or `j/k` - Scroll through issue details
-- `PgUp/PgDn` or `ctrl+f`/`ctrl+b` - Page through details
-- `Home/End` or `g/G` - Jump to top or bottom of the detail pane
+**[⌨️ Complete Keyboard Reference](docs/keyboard-shortcuts.md)**
 
-### General
-- `q` or `ctrl+c` - Quit
+## Configuration
+
+Abacus can be configured via:
+- Configuration files (`~/.config/abacus/config.yaml` or `.abacus/config.yaml`)
+- Environment variables (prefixed with `AB_`)
+- Command-line flags
+
+**Example configuration:**
+```yaml
+auto-refresh: true
+refresh-interval: 3s
+output:
+  format: rich
+database:
+  path: .beads/beads.db
+```
+
+**[⚙️ Configuration Guide](docs/configuration.md)** for complete options and precedence rules.
+
+## Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+
+- **[Getting Started Guide](docs/getting-started.md)** - Your first steps with Abacus
+- **[Installation Guide](docs/installation.md)** - Detailed installation for all platforms
+- **[User Guide](docs/user-guide.md)** - Complete feature documentation
+- **[Keyboard Shortcuts](docs/keyboard-shortcuts.md)** - Full shortcut reference
+- **[Configuration Guide](docs/configuration.md)** - Customization options
+- **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and solutions
+- **[Architecture Documentation](docs/architecture.md)** - Technical overview
 
 ## How It Works
 
@@ -95,6 +148,8 @@ Abacus interfaces with the Beads CLI to:
 4. Render an interactive TUI using [Bubble Tea](https://github.com/charmbracelet/bubbletea)
 
 The graph automatically identifies root nodes (issues with no parents or deepest parents in the hierarchy) and organizes the tree to minimize visual depth while accurately representing all relationships.
+
+**[🏗️ Architecture Documentation](docs/architecture.md)** for technical details.
 
 ## Architecture
 
@@ -121,6 +176,16 @@ While the Beads CLI is powerful for managing issues, complex projects with many 
 - Providing context-aware navigation
 - Offering rich, formatted issue views without leaving the terminal
 
+## Troubleshooting
+
+Having issues? Check the **[Troubleshooting Guide](docs/troubleshooting.md)** for solutions to common problems:
+
+- Installation issues
+- Database connectivity
+- Display problems
+- Performance tuning
+- Terminal compatibility
+
 ## Contributing
 
 Contributions are welcome! Areas for improvement:
@@ -130,6 +195,25 @@ Contributions are welcome! Areas for improvement:
 - Bulk operations on selected issues
 - Integration with git for change tracking
 - Performance optimizations for very large issue sets
+
+See the **[Architecture Documentation](docs/architecture.md)** for technical details about the codebase.
+
+### Development
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/abacus.git
+cd abacus
+
+# Run tests
+make test
+
+# Run linter
+make lint
+
+# Build
+make build
+```
 
 ## License
 
