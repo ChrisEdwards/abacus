@@ -6,6 +6,9 @@ Write tests for any changes made in this codebase. All code must build successfu
 ## Issue Tracking with Beads
 We use beads for issue tracking and work planning. If you need more information, execute `bd quickstart`
 
+### Bead ID Format
+**IMPORTANT**: Always use standard bead IDs (e.g., `ab-xyz`, `ab-4aw`). Do NOT use dotted notation like `ab-4aw.1` or `ab-4aw.2` for bead names. Each bead should have its own unique ID from the beads system.
+
 ## Bead Workflow
 
 ### When Starting Work
