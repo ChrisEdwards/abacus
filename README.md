@@ -49,7 +49,8 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 
 **Option 1: Homebrew (macOS/Linux) - Recommended**
 ```bash
-brew install ChrisEdwards/tap/abacus
+brew tap ChrisEdwards/tap
+brew install abacus
 ```
 
 **Option 2: Install Script (Unix/macOS/Linux)**

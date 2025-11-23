@@ -33,13 +33,15 @@ go version
 The easiest way to install Abacus on macOS or Linux is using Homebrew:
 
 ```bash
-brew install ChrisEdwards/tap/abacus
+brew tap ChrisEdwards/tap
+brew install abacus
 ```
 
-This command:
-- Downloads the pre-built binary for your platform
-- Installs it to Homebrew's bin directory
-- Automatically adds it to your PATH
+This will:
+- Add the ChrisEdwards/tap to your Homebrew taps
+- Download the pre-built binary for your platform
+- Install it to Homebrew's bin directory
+- Automatically add it to your PATH
 
 **Verify installation:**
 ```bash
@@ -48,12 +50,12 @@ abacus --version
 
 **Update Abacus:**
 ```bash
-brew upgrade ChrisEdwards/tap/abacus
+brew upgrade abacus
 ```
 
 **Uninstall:**
 ```bash
-brew uninstall ChrisEdwards/tap/abacus
+brew uninstall abacus
 ```
 
 ### Method 2: Install Script
@@ -208,7 +210,8 @@ make help
 
 **Recommended:** Use Homebrew for the easiest installation:
 ```bash
-brew install ChrisEdwards/tap/abacus
+brew tap ChrisEdwards/tap
+brew install abacus
 ```
 
 If you downloaded the binary directly, you may need to allow it to run:
@@ -277,7 +280,7 @@ abacus
 ### If installed via Homebrew:
 
 ```bash
-brew upgrade ChrisEdwards/tap/abacus
+brew upgrade abacus
 ```
 
 ### If installed via install script:
@@ -307,7 +310,7 @@ sudo mv abacus /usr/local/bin/
 ### If installed via Homebrew:
 
 ```bash
-brew uninstall ChrisEdwards/tap/abacus
+brew uninstall abacus
 ```
 
 ### If installed via install script:
