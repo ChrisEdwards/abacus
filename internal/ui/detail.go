@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"abacus/internal/domain"
 	"abacus/internal/graph"
 
 	"github.com/charmbracelet/lipgloss"
@@ -131,13 +132,15 @@ func (m *App) updateViewportContent() {
 			rowWidth = 1
 		}
 		for _, item := range items {
-			row := renderRefRow(
+			icon, iconStyle, titleStyle := relatedStatusPresentation(item)
+			row := renderRefRowWithIcon(
+				icon,
+				iconStyle,
 				item.Issue.ID,
 				item.Issue.Title,
 				rowWidth,
 				styleID,
-				styleVal,
-				lipgloss.Color(""),
+				titleStyle,
 			)
 			relBuilder.WriteString(indentBlock(row, indentSpaces) + "\n")
 		}
@@ -246,6 +249,60 @@ func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipglos
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func renderRefRowWithIcon(icon string, iconStyle lipgloss.Style, id, title string, targetWidth int, idStyle, titleStyle lipgloss.Style) string {
+	const gap = "  "
+	iconRendered := iconStyle.Render(icon)
+	idRendered := idStyle.Render(id)
+	gapRendered := gap
+	iconWidth := lipgloss.Width(iconRendered)
+	idWidth := lipgloss.Width(idRendered)
+	gapWidth := lipgloss.Width(gapRendered)
+	prefixWidth := iconWidth + 1 + idWidth + gapWidth
+	titleWidth := targetWidth - prefixWidth
+	if titleWidth < 1 {
+		titleWidth = 1
+	}
+	titleLines := wrapTitleWithoutHyphenBreaks(title, titleWidth)
+	if len(titleLines) == 0 {
+		titleLines = []string{""}
+	}
+	prefixFirst := lipgloss.JoinHorizontal(lipgloss.Left,
+		iconRendered,
+		lipgloss.NewStyle().Render(" "),
+		idRendered,
+		gapRendered,
+	)
+	prefixBlank := strings.Repeat(" ", lipgloss.Width(prefixFirst))
+	lines := make([]string, len(titleLines))
+	for i, line := range titleLines {
+		prefix := prefixBlank
+		if i == 0 {
+			prefix = prefixFirst
+		}
+		lines[i] = lipgloss.JoinHorizontal(lipgloss.Left, prefix, titleStyle.Width(titleWidth).Render(line))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func relatedStatusPresentation(node *graph.Node) (string, lipgloss.Style, lipgloss.Style) {
+	domainIssue, err := domain.NewIssueFromFull(node.Issue, node.IsBlocked)
+	status := node.Issue.Status
+	if err == nil {
+		status = string(domainIssue.Status())
+	}
+	switch status {
+	case "in_progress":
+		return "◐", styleIconInProgress, styleInProgressText
+	case "closed":
+		return "✔", styleIconDone, styleDoneText
+	default:
+		if node.IsBlocked {
+			return "⛔", styleIconBlocked, styleBlockedText
+		}
+		return "○", styleIconOpen, styleNormalText
+	}
 }
 
 // wrapTitleWithoutHyphenBreaks wraps the title text while treating the ID as a

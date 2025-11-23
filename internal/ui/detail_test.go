@@ -5,6 +5,10 @@ import (
 	"strings"
 	"testing"
 
+	"abacus/internal/beads"
+	"abacus/internal/graph"
+
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -148,5 +152,48 @@ func TestDetailHeaderRegression_ab176(t *testing.T) {
 				t.Fatalf("width %d line %d mismatch:\nwant: %q\ngot:  %q", width, i, want[i], lines[i])
 			}
 		}
+	}
+}
+
+func TestDetailRelationshipsShowStatusIcons(t *testing.T) {
+	child := &graph.Node{Issue: beads.FullIssue{ID: "ab-601", Title: "Child Active", Status: "in_progress"}, CommentsLoaded: true}
+	parent := &graph.Node{Issue: beads.FullIssue{ID: "ab-600", Title: "Parent", Status: "open"}, Children: []*graph.Node{child}, CommentsLoaded: true}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{parent},
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+	if !strings.Contains(content, "Depends On") {
+		t.Fatalf("expected Depends On section in detail view:\n%s", content)
+	}
+	if !strings.Contains(content, "◐") || !strings.Contains(content, "ab-601") {
+		t.Fatalf("expected in-progress icon with child id, got:\n%s", content)
+	}
+}
+
+func TestDetailBlockedByShowsBlockedIcon(t *testing.T) {
+	blocker := &graph.Node{Issue: beads.FullIssue{ID: "ab-611", Title: "Blocker", Status: "open"}, IsBlocked: true, CommentsLoaded: true}
+	node := &graph.Node{
+		Issue:          beads.FullIssue{ID: "ab-612", Title: "Blocked Node", Status: "open"},
+		BlockedBy:      []*graph.Node{blocker},
+		IsBlocked:      true,
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+	if !strings.Contains(content, "Blocked By") {
+		t.Fatalf("expected Blocked By section in detail view:\n%s", content)
+	}
+	if !strings.Contains(content, "⛔") || !strings.Contains(content, "ab-611") {
+		t.Fatalf("expected blocked icon rendered for dependency:\n%s", content)
 	}
 }
