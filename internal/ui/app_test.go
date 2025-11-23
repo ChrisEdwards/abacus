@@ -1098,6 +1098,228 @@ func TestUpdateViewportContentDisplaysAcceptanceSection(t *testing.T) {
 	}
 }
 
+func TestDetailMetadataLayoutMatchesDocs(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:          "ab-210",
+			Title:       "Metadata Layout",
+			Status:      "in_progress",
+			IssueType:   "feature",
+			Priority:    2,
+			Labels:      []string{"auth", "security"},
+			Description: "Doc-aligned metadata block.",
+			CreatedAt:   time.Date(2025, time.November, 23, 7, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			UpdatedAt:   time.Date(2025, time.November, 23, 8, 30, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		CommentsLoaded: true,
+	}
+
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+	start := strings.Index(content, "Status:")
+	if start == -1 {
+		t.Fatalf("metadata block missing Status line:\n%s", content)
+	}
+	end := strings.Index(content[start:], "Description:")
+	if end == -1 {
+		t.Fatalf("metadata block missing Description delimiter:\n%s", content)
+	}
+	metaBlock := content[start : start+end]
+	var rows []string
+	for _, line := range strings.Split(metaBlock, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		rows = append(rows, trimmed)
+	}
+	if len(rows) < 4 {
+		t.Fatalf("expected metadata rows, got %d:\n%s", len(rows), metaBlock)
+	}
+	if !(strings.Contains(rows[0], "Status:") && strings.Contains(rows[0], "Priority:")) {
+		t.Fatalf("row 1 should contain Status and Priority, got %q", rows[0])
+	}
+	if !(strings.Contains(rows[1], "Type:") && strings.Contains(rows[1], "Labels:")) {
+		t.Fatalf("row 2 should contain Type and Labels, got %q", rows[1])
+	}
+	if !strings.HasPrefix(rows[2], "Created:") {
+		t.Fatalf("row 3 should begin with Created, got %q", rows[2])
+	}
+	if !strings.HasPrefix(rows[3], "Updated:") {
+		t.Fatalf("row 4 should begin with Updated, got %q", rows[3])
+	}
+}
+
+func TestDetailRelationshipSectionsFollowDocs(t *testing.T) {
+	parent := &graph.Node{Issue: beads.FullIssue{ID: "ab-300", Title: "Parent Node"}}
+	childA := &graph.Node{Issue: beads.FullIssue{ID: "ab-301", Title: "Child A"}}
+	childB := &graph.Node{Issue: beads.FullIssue{ID: "ab-302", Title: "Child B"}}
+	blocker := &graph.Node{Issue: beads.FullIssue{ID: "ab-303", Title: "Blocking Task"}}
+	blocked := &graph.Node{Issue: beads.FullIssue{ID: "ab-304", Title: "Blocked Task"}}
+
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:          "ab-305",
+			Title:       "Relationship Order",
+			Description: "Ensure sections match documentation order.",
+		},
+		Parent:         parent,
+		Children:       []*graph.Node{childA, childB},
+		BlockedBy:      []*graph.Node{blocker},
+		Blocks:         []*graph.Node{blocked},
+		IsBlocked:      true,
+		CommentsLoaded: true,
+	}
+
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(90, 40),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+	order := []string{"Parent", "Depends On", "Blocked By", "Blocks"}
+	var lastIdx int = -1
+	for _, section := range order {
+		idx := strings.Index(content, section)
+		if idx == -1 {
+			t.Fatalf("missing %s section in content:\n%s", section, content)
+		}
+		if idx <= lastIdx {
+			t.Fatalf("section %s appeared out of order", section)
+		}
+		lastIdx = idx
+	}
+	if !strings.Contains(content, "Depends On (2)") {
+		t.Fatalf("expected Depends On count header, got:\n%s", content)
+	}
+	if !strings.Contains(content, "ab-303") || !strings.Contains(content, "ab-304") {
+		t.Fatalf("expected related issue IDs rendered:\n%s", content)
+	}
+}
+
+func TestDetailLabelsWrapWhenViewportNarrow(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:          "ab-320",
+			Title:       "Label Wrapping",
+			Status:      "open",
+			IssueType:   "feature",
+			Priority:    2,
+			Labels:      []string{"alpha", "beta", "gamma"},
+			Description: "Verify label chips wrap across lines.",
+			CreatedAt:   time.Date(2025, time.November, 23, 6, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		CommentsLoaded: true,
+	}
+
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(42, 25),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+	lines := strings.Split(content, "\n")
+	labelsIdx := -1
+	for i, line := range lines {
+		if strings.Contains(line, "Labels:") {
+			labelsIdx = i
+			break
+		}
+	}
+	if labelsIdx == -1 {
+		t.Fatalf("no Labels row found:\n%s", content)
+	}
+	if strings.Contains(lines[labelsIdx], "beta") {
+		t.Fatalf("expected first labels row to wrap, got %q", lines[labelsIdx])
+	}
+	if labelsIdx+1 >= len(lines) {
+		t.Fatalf("expected additional label rows after wrap")
+	}
+	wrapped := strings.TrimSpace(lines[labelsIdx+1])
+	if !strings.Contains(wrapped, "beta") {
+		t.Fatalf("expected wrapped row to include beta label, got %q", wrapped)
+	}
+	if labelsIdx+2 >= len(lines) {
+		t.Fatalf("expected third line for gamma label")
+	}
+	wrapped2 := strings.TrimSpace(lines[labelsIdx+2])
+	if !strings.Contains(wrapped2, "gamma") {
+		t.Fatalf("expected second wrapped row to include gamma label, got %q", wrapped2)
+	}
+}
+
+func TestDetailCommentsRenderEntries(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:          "ab-330",
+			Title:       "Comment Rendering",
+			Description: "Doc sample comments.",
+			Comments: []beads.Comment{
+				{Author: "@alice", Text: "Let's use OAuth2.", CreatedAt: time.Date(2025, time.November, 20, 9, 15, 0, 0, time.UTC).Format(time.RFC3339)},
+				{Author: "@bob", Text: "Agreed, updating design.", CreatedAt: time.Date(2025, time.November, 20, 11, 30, 0, 0, time.UTC).Format(time.RFC3339)},
+			},
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(80, 30),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+	idx := strings.Index(content, "Comments:")
+	if idx == -1 {
+		t.Fatalf("missing Comments header:\n%s", content)
+	}
+	if !(strings.Contains(content, "@alice") && strings.Contains(content, "Let's use OAuth2.")) {
+		t.Fatalf("expected first comment rendered:\n%s", content)
+	}
+	if !(strings.Contains(content, "@bob") && strings.Contains(content, "Agreed, updating design.")) {
+		t.Fatalf("expected second comment rendered:\n%s", content)
+	}
+	if strings.Index(content, "@alice") > strings.Index(content, "@bob") {
+		t.Fatalf("comments should remain chronological")
+	}
+}
+
+func TestDetailCommentsErrorMessageMatchesDocs(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:          "ab-340",
+			Title:       "Comment Error",
+			Description: "Doc retry guidance.",
+		},
+		CommentError: "timeout fetching comments",
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(80, 30),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+	if !strings.Contains(content, "Failed to load comments. Press 'c' to retry.") {
+		t.Fatalf("expected retry guidance in error state:\n%s", content)
+	}
+	if !strings.Contains(content, "timeout fetching comments") {
+		t.Fatalf("expected underlying error rendered, content:\n%s", content)
+	}
+}
+
 func TestUpdateViewportContentOmitsAcceptanceWhenBlank(t *testing.T) {
 	node := &graph.Node{
 		Issue: beads.FullIssue{
