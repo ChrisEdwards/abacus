@@ -741,6 +741,90 @@ func TestSearchFilterRequiresAllWords(t *testing.T) {
 	}
 }
 
+func buildTreeTestApp(nodes ...*graph.Node) *App {
+	m := &App{
+		roots:  nodes,
+		width:  120,
+		height: 40,
+	}
+	m.recalcVisibleRows()
+	return m
+}
+
+func treeLineContaining(t *testing.T, view, id string) string {
+	t.Helper()
+	clean := stripANSI(view)
+	for _, line := range strings.Split(clean, "\n") {
+		if strings.Contains(line, id) {
+			return strings.TrimRight(line, " ")
+		}
+	}
+	t.Fatalf("tree output missing %s:\n%s", id, clean)
+	return ""
+}
+
+func TestTreeViewStatusIconsMatchDocs(t *testing.T) {
+	inProgress := &graph.Node{Issue: beads.FullIssue{ID: "ab-701", Title: "In Progress", Status: "in_progress"}}
+	ready := &graph.Node{Issue: beads.FullIssue{ID: "ab-702", Title: "Ready", Status: "open"}}
+	blocked := &graph.Node{Issue: beads.FullIssue{ID: "ab-703", Title: "Blocked", Status: "open"}, IsBlocked: true}
+	closed := &graph.Node{Issue: beads.FullIssue{ID: "ab-704", Title: "Closed", Status: "closed"}}
+	m := buildTreeTestApp(inProgress, ready, blocked, closed)
+	view := m.renderTreeView()
+	cases := []struct {
+		id   string
+		icon string
+	}{
+		{"ab-701", "◐"},
+		{"ab-702", "○"},
+		{"ab-703", "⛔"},
+		{"ab-704", "✔"},
+	}
+	for _, c := range cases {
+		line := treeLineContaining(t, view, c.id)
+		if !strings.Contains(line, c.icon) {
+			t.Fatalf("expected %s line to contain %s icon, got %q", c.id, c.icon, line)
+		}
+	}
+}
+
+func TestTreeViewMarkersTogglePerDocs(t *testing.T) {
+	child := &graph.Node{Issue: beads.FullIssue{ID: "ab-710", Title: "Child"}}
+	expanded := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-711", Title: "Expanded Parent"},
+		Children: []*graph.Node{child},
+		Expanded: true,
+	}
+	collapsed := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-712", Title: "Collapsed Parent"},
+		Children: []*graph.Node{{Issue: beads.FullIssue{ID: "ab-713", Title: "Hidden"}}},
+	}
+	m := buildTreeTestApp(expanded, collapsed)
+	view := m.renderTreeView()
+	expandedLine := treeLineContaining(t, view, "ab-711")
+	if !strings.Contains(expandedLine, "▼") {
+		t.Fatalf("expected expanded marker ▼, got %q", expandedLine)
+	}
+	collapsedLine := treeLineContaining(t, view, "ab-712")
+	if !strings.Contains(collapsedLine, "▶") {
+		t.Fatalf("expected collapsed marker ▶, got %q", collapsedLine)
+	}
+}
+
+func TestTreeViewCollapsedNodesShowCountBadge(t *testing.T) {
+	t.Skip("Docs specify [+N] counts for collapsed nodes; UI currently omits them.")
+	child := &graph.Node{Issue: beads.FullIssue{ID: "ab-720", Title: "Hidden"}}
+	collapsed := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-721", Title: "Collapsed With Count"},
+		Children: []*graph.Node{child},
+	}
+	m := buildTreeTestApp(collapsed)
+	view := m.renderTreeView()
+	line := treeLineContaining(t, view, "ab-721")
+	if !strings.Contains(line, "[+1]") {
+		t.Fatalf("expected collapsed node to show [+1] badge, got %q", line)
+	}
+}
+
 func TestFindBeadsDBPrefersEnv(t *testing.T) {
 	t.Setenv("BEADS_DB", "")
 	tmp := t.TempDir()
