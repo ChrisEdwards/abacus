@@ -125,8 +125,6 @@ Options:
 - `Ctrl+F/B` or `PgDn/Up` - Page up/down
 - `g/G` or `Home/End` - Jump to top/bottom
 
-**[⌨️ Complete Keyboard Reference](docs/keyboard-shortcuts.md)**
-
 ## Configuration
 
 Abacus can be configured via:
@@ -151,13 +149,12 @@ skip-version-check: false
 
 Comprehensive documentation is available in the [`docs/`](docs/) directory:
 
-- **[Getting Started Guide](docs/getting-started.md)** - Your first steps with Abacus
-- **[Installation Guide](docs/installation.md)** - Detailed installation for all platforms
-- **[User Guide](docs/user-guide.md)** - Complete feature documentation
-- **[Keyboard Shortcuts](docs/keyboard-shortcuts.md)** - Full shortcut reference
-- **[Configuration Guide](docs/configuration.md)** - Customization options
-- **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and solutions
-- **[Architecture Documentation](docs/architecture.md)** - Technical overview
+- **[Getting Started](docs/getting-started.md)** - Quick start guide
+- **[Installation](docs/installation.md)** - Platform-specific installation
+- **[User Guide](docs/user-guide.md)** - Complete feature reference
+- **[Configuration](docs/configuration.md)** - Customization options
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues
+- **[Architecture](docs/architecture.md)** - Technical overview
 
 ## How It Works
 
