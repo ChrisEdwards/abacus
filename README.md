@@ -2,6 +2,7 @@
 
 A powerful terminal UI for visualizing and navigating [Beads](https://github.com/steveyegge/beads) issue tracking projects.
 
+[![Latest Release](https://img.shields.io/github/v/release/ChrisEdwards/abacus)](https://github.com/ChrisEdwards/abacus/releases)
 [![Go Version](https://img.shields.io/badge/go-1.25.3%2B-blue.svg)](https://golang.org/dl/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
@@ -46,24 +47,35 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 
 ### Installation
 
-**Option 1: Install via Go (Recommended)**
+**Option 1: Homebrew (macOS/Linux) - Recommended**
 ```bash
-go install github.com/yourusername/abacus/cmd/abacus@latest
+brew install ChrisEdwards/tap/abacus
 ```
 
-**Option 2: Build from Source**
+**Option 2: Install Script (Unix/macOS/Linux)**
 ```bash
-git clone https://github.com/yourusername/abacus.git
+curl -fsSL https://raw.githubusercontent.com/ChrisEdwards/abacus/main/scripts/install.sh | bash
+```
+
+**Option 3: Install Script (Windows PowerShell)**
+```powershell
+irm https://raw.githubusercontent.com/ChrisEdwards/abacus/main/install.ps1 | iex
+```
+
+**Option 4: Go Install**
+```bash
+go install github.com/ChrisEdwards/abacus/cmd/abacus@latest
+```
+
+**Option 5: Download Binary**
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/ChrisEdwards/abacus/releases).
+
+**Option 6: Build from Source**
+```bash
+git clone https://github.com/ChrisEdwards/abacus.git
 cd abacus
 make build
-# Or: go build -o abacus ./cmd/abacus
-```
-
-**Option 3: Using Make**
-```bash
-git clone https://github.com/yourusername/abacus.git
-cd abacus
-make install
 ```
 
 For detailed installation instructions, including platform-specific notes, see the **[Installation Guide](docs/installation.md)**.
