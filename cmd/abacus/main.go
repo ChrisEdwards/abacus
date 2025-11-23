@@ -34,6 +34,7 @@ func main() {
 	outputFormatDefault := config.GetString(config.KeyOutputFormat)
 	skipVersionCheckDefault := config.GetBool(config.KeySkipVersionCheck)
 
+	versionFlag := flag.Bool("version", false, "Print version information and exit")
 	refreshIntervalFlag := flag.Duration("refresh-interval", refreshDefault, "Interval for automatic refresh polling (e.g. 2s, 500ms)")
 	autoRefreshFlag := flag.Bool("auto-refresh", autoRefreshDefault, "Enable automatic background refresh")
 	noAutoRefreshFlag := flag.Bool("no-auto-refresh", noAutoRefreshDefault, "Disable automatic background refresh (overrides --auto-refresh)")
@@ -42,6 +43,11 @@ func main() {
 	outputFormatFlag := flag.String("output-format", outputFormatDefault, "Detail panel markdown style (rich, light, plain)")
 	skipVersionCheckFlag := flag.Bool("skip-version-check", skipVersionCheckDefault, "Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)")
 	flag.Parse()
+
+	if *versionFlag {
+		printVersion()
+		os.Exit(0)
+	}
 
 	visited := map[string]struct{}{}
 	flag.CommandLine.Visit(func(f *flag.Flag) {
