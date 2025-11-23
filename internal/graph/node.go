@@ -1,6 +1,10 @@
 package graph
 
-import "abacus/internal/beads"
+import (
+	"time"
+
+	"abacus/internal/beads"
+)
 
 // Node represents a Beads issue within the dependency graph used by the UI.
 type Node struct {
@@ -21,4 +25,7 @@ type Node struct {
 	TreeDepth     int
 	HasInProgress bool
 	HasReady      bool
+
+	SortPriority  int
+	SortTimestamp time.Time
 }

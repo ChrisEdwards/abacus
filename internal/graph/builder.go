@@ -2,6 +2,8 @@ package graph
 
 import (
 	"sort"
+	"strings"
+	"time"
 
 	"abacus/internal/beads"
 )
@@ -106,9 +108,6 @@ func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
 	}
 
 	for _, node := range nodeMap {
-		sort.Slice(node.Children, func(i, j int) bool {
-			return node.Children[i].Issue.CreatedAt < node.Children[j].Issue.CreatedAt
-		})
 		sort.Slice(node.Blocks, func(i, j int) bool {
 			return node.Blocks[i].Issue.CreatedAt < node.Blocks[j].Issue.CreatedAt
 		})
@@ -119,7 +118,9 @@ func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
 		if root.HasInProgress {
 			root.Expanded = true
 		}
+		computeSortMetrics(root)
 	}
+	sortNodes(roots)
 
 	return roots, nil
 }
@@ -194,4 +195,64 @@ func computeStates(n *Node) {
 			n.HasReady = true
 		}
 	}
+}
+
+const (
+	sortPriorityInProgress = 1
+	sortPriorityReady      = 2
+	sortPriorityOpen       = 3
+	sortPriorityClosed     = 4
+)
+
+var distantFuture = time.Date(9999, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+func computeSortMetrics(node *Node) (int, time.Time) {
+	priority, ts := nodeSelfSortKey(node)
+	for _, child := range node.Children {
+		childPriority, childTime := computeSortMetrics(child)
+		if childPriority < priority || (childPriority == priority && childTime.Before(ts)) {
+			priority = childPriority
+			ts = childTime
+		}
+	}
+	node.SortPriority = priority
+	node.SortTimestamp = ts
+	sortNodes(node.Children)
+	return priority, ts
+}
+
+func nodeSelfSortKey(node *Node) (int, time.Time) {
+	status := strings.ToLower(strings.TrimSpace(node.Issue.Status))
+	switch status {
+	case "in_progress":
+		return sortPriorityInProgress, pickTimestamp(node.Issue.UpdatedAt, node.Issue.CreatedAt)
+	case "closed":
+		return sortPriorityClosed, pickTimestamp(node.Issue.ClosedAt, node.Issue.UpdatedAt, node.Issue.CreatedAt)
+	}
+	if status == "open" && !node.IsBlocked {
+		return sortPriorityReady, pickTimestamp(node.Issue.CreatedAt)
+	}
+	return sortPriorityOpen, pickTimestamp(node.Issue.CreatedAt)
+}
+
+func pickTimestamp(values ...string) time.Time {
+	for _, v := range values {
+		if ts, err := time.Parse(time.RFC3339, strings.TrimSpace(v)); err == nil {
+			return ts
+		}
+	}
+	return distantFuture
+}
+
+func sortNodes(nodes []*Node) {
+	sort.SliceStable(nodes, func(i, j int) bool {
+		a, b := nodes[i], nodes[j]
+		if a.SortPriority != b.SortPriority {
+			return a.SortPriority < b.SortPriority
+		}
+		if !a.SortTimestamp.Equal(b.SortTimestamp) {
+			return a.SortTimestamp.Before(b.SortTimestamp)
+		}
+		return a.Issue.ID < b.Issue.ID
+	})
 }
