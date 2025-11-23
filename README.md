@@ -10,8 +10,6 @@ A powerful terminal UI for visualizing and navigating [Beads](https://github.com
 
 Abacus transforms your Beads issue database into an interactive, hierarchical tree view right in your terminal. It provides an intuitive interface for exploring complex dependency graphs, viewing issue details, and understanding project structure at a glance.
 
-**[📚 Read the Full Documentation](docs/index.md)**
-
 ## Preview
 
 ![Abacus Terminal UI](assets/abacus-preview.png)
@@ -79,7 +77,7 @@ cd abacus
 make build
 ```
 
-For detailed installation instructions, including platform-specific notes, see the **[Installation Guide](docs/installation.md)**.
+Prefer prebuilt binaries? Use the release assets, Brew formula, or install script.
 
 ## Usage
 
@@ -103,24 +101,33 @@ Options:
   --skip-version-check        Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)
 ```
 
-**[📖 See the complete User Guide](docs/user-guide.md)** for detailed feature documentation.
+Key workflows are summarized below—run `abacus --help` anytime for the full flag list.
+
+### Search & Filtering
+
+- Press `/` to search; results update live while you type. `Esc` clears the filter.
+- Collapsed nodes show `[+N]` to indicate the number of hidden children.
+- The statistics bar (top row) always reflects the currently visible issues.
+
+### Auto-Refresh
+
+- Enabled by default at 3 seconds; change with `--auto-refresh-seconds N`.
+- Set `0` to disable background refresh if you want to control reloads manually.
+- Auto-refresh preserves cursor, expanded nodes, and search filters.
 
 ## Keyboard Shortcuts
 
 | Action | Keys | Description |
 |--------|------|-------------|
-| **Navigate** | `↑/k` `↓/j` | Move cursor up/down |
-| **Expand/Collapse** | `→/l` `←/h` or `Space` | Expand/collapse nodes |
-| **Detail Panel** | `Enter` | Toggle detail panel |
-| **Switch Focus** | `Tab` | Switch between tree and detail |
-| **Search** | `/` | Enter search mode |
-| **Clear Search** | `Esc` | Clear search filter |
-| **Quit** | `q` or `Ctrl+C` | Exit application |
+| Navigate | `↑/k` `↓/j` | Move cursor up/down |
+| Expand/Collapse | `→/l` `←/h` or `Space` | Expand/collapse nodes |
+| Detail Panel | `Enter` | Toggle detail panel |
+| Switch Focus | `Tab` | Switch between tree and detail |
+| Search | `/` | Enter search mode |
+| Clear Search | `Esc` | Clear search filter |
+| Quit | `q` or `Ctrl+C` | Exit application |
 
-**Detail Panel Navigation (when focused):**
-- `↑/↓` or `j/k` - Scroll line by line
-- `Ctrl+F/B` or `PgDn/Up` - Page up/down
-- `g/G` or `Home/End` - Jump to top/bottom
+Detail panel focused shortcuts: `↑/↓` or `j/k` scroll, `Ctrl+F/B` or `PgDn/Up` page, `g/G` or `Home/End` jump.
 
 ## Configuration
 
@@ -139,19 +146,6 @@ database:
 skip-version-check: false
 ```
 
-**[⚙️ Configuration Guide](docs/configuration.md)** for complete options and precedence rules.
-
-## Documentation
-
-Comprehensive documentation is available in the [`docs/`](docs/) directory:
-
-- **[Getting Started](docs/getting-started.md)** - Quick start guide
-- **[Installation](docs/installation.md)** - Platform-specific installation
-- **[User Guide](docs/user-guide.md)** - Complete feature reference
-- **[Configuration](docs/configuration.md)** - Customization options
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues
-- **[Architecture](docs/architecture.md)** - Technical overview
-
 ## How It Works
 
 Abacus interfaces with the Beads CLI to:
@@ -163,7 +157,7 @@ Abacus interfaces with the Beads CLI to:
 
 The graph automatically identifies root nodes (issues with no parents or deepest parents in the hierarchy) and organizes the tree to minimize visual depth while accurately representing all relationships.
 
-**[🏗️ Architecture Documentation](docs/architecture.md)** for technical details.
+Internally the app follows Bubble Tea's Elm-inspired update/view cycle with domain, graph, and config layers separated for testability.
 
 ## Architecture
 
@@ -192,7 +186,7 @@ While the Beads CLI is powerful for managing issues, complex projects with many 
 
 ## Troubleshooting
 
-Having issues? Check the **[Troubleshooting Guide](docs/troubleshooting.md)** for solutions to common problems:
+Having issues? See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for quick fixes.
 
 - Installation issues
 - Database connectivity
@@ -211,7 +205,7 @@ Contributions are welcome! Areas for improvement:
 - Performance optimizations for very large issue sets
 - Automated dependency management improvements (Dependabot is configured via `.github/dependabot.yml` and PRs welcome for additional ecosystems)
 
-See the **[Architecture Documentation](docs/architecture.md)** for technical details about the codebase.
+See the references below for a quick map of the codebase.
 
 ### Development
 
@@ -231,6 +225,14 @@ make build
 ```
 
 For information about creating releases, see **[RELEASING.md](RELEASING.md)**.
+
+## References
+
+- `cmd/abacus/`: CLI entrypoint and flag parsing
+- `internal/ui/`: Bubble Tea models, tree/detail rendering, search, auto-refresh
+- `internal/config/`: Viper-backed configuration (env, files, overrides)
+- `internal/graph/`: Dependency graph construction and sorting
+- `internal/beads/`: Thin wrapper over `bd list/show`
 
 ## License
 

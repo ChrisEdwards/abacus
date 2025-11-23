@@ -31,3 +31,6 @@ go.work
 # Environment variables
 .env
 .env.local
+
+# Local scripts
+wt.sh

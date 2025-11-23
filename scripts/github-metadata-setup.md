@@ -28,7 +28,7 @@ gh repo edit --add-topic tui --add-topic go --add-topic beads --add-topic termin
 ### Repository Features
 - ✅ Issues: Enabled
 - ❌ Discussions: Disabled (can enable if desired)
-- ❌ Wiki: Disabled (documentation is in `docs/`)
+- ❌ Wiki: Disabled (all docs live in README/TROUBLESHOOTING)
 
 To enable discussions:
 ```bash
