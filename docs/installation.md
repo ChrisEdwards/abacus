@@ -6,35 +6,111 @@ This guide covers various methods for installing Abacus on different platforms.
 
 ### Required
 
-- **Go 1.25.3 or later** - Required for building and installing
 - **Beads CLI v0.24.0 or later** - Install from [github.com/steveyegge/beads](https://github.com/steveyegge/beads) and verify with `bd --version`
 
 ### Recommended
 
 - Terminal with 256-color support
-- Git (for building from source)
+- Go 1.25.3 or later (only required for `go install` or building from source)
 
 ### Verify Prerequisites
 
 ```bash
-# Check Go version
-go version
-
 # Check Beads installation
 bd --version
 
 # Check terminal color support
 echo $TERM
+
+# Check Go version (if using go install or building from source)
+go version
 ```
 
 ## Installation Methods
 
-### Method 1: Go Install (Recommended)
+### Method 1: Homebrew (Recommended)
 
-The easiest way to install Abacus is using Go's built-in install command:
+The easiest way to install Abacus on macOS or Linux is using Homebrew:
 
 ```bash
-go install github.com/yourusername/abacus/cmd/abacus@latest
+brew install ChrisEdwards/tap/abacus
+```
+
+This command:
+- Downloads the pre-built binary for your platform
+- Installs it to Homebrew's bin directory
+- Automatically adds it to your PATH
+
+**Verify installation:**
+```bash
+abacus --version
+```
+
+**Update Abacus:**
+```bash
+brew upgrade ChrisEdwards/tap/abacus
+```
+
+**Uninstall:**
+```bash
+brew uninstall ChrisEdwards/tap/abacus
+```
+
+### Method 2: Install Script
+
+Use the automated install script for Unix/macOS/Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ChrisEdwards/abacus/main/scripts/install.sh | bash
+```
+
+This script will:
+- Detect your platform and architecture automatically
+- Download the latest release binary
+- Install to `~/.local/bin` (configurable via `INSTALL_DIR`)
+- Provide PATH setup instructions if needed
+
+**Alternative installation directory:**
+```bash
+INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/ChrisEdwards/abacus/main/scripts/install.sh | bash
+```
+
+### Method 3: Direct Download
+
+Download pre-built binaries from [GitHub Releases](https://github.com/ChrisEdwards/abacus/releases):
+
+1. Visit the [latest release page](https://github.com/ChrisEdwards/abacus/releases/latest)
+2. Download the appropriate archive for your platform:
+   - `abacus_X.Y.Z_darwin_amd64.tar.gz` - macOS Intel
+   - `abacus_X.Y.Z_darwin_arm64.tar.gz` - macOS Apple Silicon
+   - `abacus_X.Y.Z_linux_amd64.tar.gz` - Linux x64
+   - `abacus_X.Y.Z_linux_arm64.tar.gz` - Linux ARM64
+   - `abacus_X.Y.Z_windows_amd64.tar.gz` - Windows
+
+3. Extract and install:
+
+**macOS/Linux:**
+```bash
+tar -xzf abacus_*.tar.gz
+sudo mv abacus /usr/local/bin/
+chmod +x /usr/local/bin/abacus
+```
+
+**Windows:**
+```powershell
+# Extract the archive
+tar -xzf abacus_*.tar.gz
+
+# Move to a directory in PATH, e.g.:
+Move-Item abacus.exe "$env:LOCALAPPDATA\Programs\"
+```
+
+### Method 4: Go Install
+
+If you have Go installed, you can use `go install`:
+
+```bash
+go install github.com/ChrisEdwards/abacus/cmd/abacus@latest
 ```
 
 This command:
@@ -42,7 +118,7 @@ This command:
 - Compiles the binary
 - Installs it to `$GOPATH/bin` (typically `~/go/bin`)
 
-#### Add to PATH
+**Add to PATH:**
 
 If `abacus` command is not found, add Go's bin directory to your PATH:
 
@@ -66,23 +142,23 @@ After editing, reload your shell configuration:
 source ~/.bashrc  # or ~/.zshrc, etc.
 ```
 
-### Method 2: Build from Source
+### Method 5: Build from Source
 
-For the latest development version or to contribute:
+For the latest development version or to contribute (requires Go 1.25.3+):
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/abacus.git
+git clone https://github.com/ChrisEdwards/abacus.git
 cd abacus
 
-# Build the binary
-go build -o abacus ./cmd/abacus
+# Build the binary with version info
+make build
 
 # Verify the build
-./abacus --help
+./abacus --version
 ```
 
-#### Install System-Wide
+**Install system-wide:**
 
 **Linux and macOS:**
 ```bash
@@ -96,15 +172,20 @@ mv abacus ~/.local/bin/
 # Add ~/.local/bin to PATH if not already there
 ```
 
-### Method 3: Using Make
+**Install using Make:**
+```bash
+make install  # Installs to $GOPATH/bin
+```
 
-If you prefer using Make:
+### Method 6: Using Make
+
+If you prefer using Make (requires Go 1.25.3+):
 
 ```bash
-git clone https://github.com/yourusername/abacus.git
+git clone https://github.com/ChrisEdwards/abacus.git
 cd abacus
 
-# Build
+# Build with version injection
 make build
 
 # Install to GOPATH/bin
@@ -114,7 +195,7 @@ make install
 make help
 ```
 
-Available make targets:
+**Available make targets:**
 - `make build` - Compile the binary to `./abacus`
 - `make install` - Install to `$GOPATH/bin`
 - `make test` - Run tests
@@ -125,7 +206,12 @@ Available make targets:
 
 ### macOS
 
-On macOS, you may need to allow the binary to run:
+**Recommended:** Use Homebrew for the easiest installation:
+```bash
+brew install ChrisEdwards/tap/abacus
+```
+
+If you downloaded the binary directly, you may need to allow it to run:
 
 ```bash
 # If you get a security warning
@@ -153,15 +239,17 @@ sudo pacman -S go
 
 ### Windows
 
-While Abacus is primarily designed for Unix-like systems, it can work on Windows with appropriate terminal emulators:
+Abacus works on Windows with appropriate terminal emulators:
 
-1. **Install Go** from [golang.org/dl](https://golang.org/dl)
-2. **Use Windows Terminal** or another modern terminal emulator
-3. **Install via Go:**
-   ```powershell
-   go install github.com/yourusername/abacus/cmd/abacus@latest
-   ```
-4. Add `%USERPROFILE%\go\bin` to your PATH
+**Recommended: Use the install script (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/ChrisEdwards/abacus/main/install.ps1 | iex
+```
+
+**Alternative: Manual installation:**
+1. Download the Windows binary from [GitHub Releases](https://github.com/ChrisEdwards/abacus/releases/latest)
+2. Extract `abacus.exe` to a directory in your PATH
+3. Or use Go: `go install github.com/ChrisEdwards/abacus/cmd/abacus@latest`
 
 **Recommended Windows Terminals:**
 - Windows Terminal (best support for colors and Unicode)
@@ -173,43 +261,67 @@ While Abacus is primarily designed for Unix-like systems, it can work on Windows
 After installation, verify Abacus is working:
 
 ```bash
-# Check version and help
+# Check version
+abacus --version
+
+# View help
 abacus --help
 
-# Try running in a test directory
+# Try running in a Beads project directory
 cd /path/to/beads/project
 abacus
 ```
 
 ## Updating Abacus
 
+### If installed via Homebrew:
+
+```bash
+brew upgrade ChrisEdwards/tap/abacus
+```
+
+### If installed via install script:
+
+Re-run the install script:
+```bash
+curl -fsSL https://raw.githubusercontent.com/ChrisEdwards/abacus/main/scripts/install.sh | bash
+```
+
 ### If installed via go install:
 
 ```bash
-go install github.com/yourusername/abacus/cmd/abacus@latest
+go install github.com/ChrisEdwards/abacus/cmd/abacus@latest
 ```
 
 ### If built from source:
 
 ```bash
 cd /path/to/abacus/source
-git pull
-go build -o abacus ./cmd/abacus
+git pull origin main
+make build
 sudo mv abacus /usr/local/bin/
 ```
 
 ## Uninstalling
 
+### If installed via Homebrew:
+
+```bash
+brew uninstall ChrisEdwards/tap/abacus
+```
+
+### If installed via install script:
+
+```bash
+rm ~/.local/bin/abacus
+# Or if installed elsewhere:
+rm /usr/local/bin/abacus
+```
+
 ### If installed via go install:
 
 ```bash
 rm $(go env GOPATH)/bin/abacus
-```
-
-### If installed system-wide:
-
-```bash
-sudo rm /usr/local/bin/abacus
 ```
 
 ### Remove configuration (optional):

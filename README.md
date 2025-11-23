@@ -42,8 +42,8 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 
 ### Prerequisites
 
-- Go 1.25.3 or later
 - [Beads CLI](https://github.com/steveyegge/beads) v0.24.0 or later installed and initialized in your project (`bd --version`)
+- Go 1.25.3 or later (only required for `go install` or building from source)
 
 ### Installation
 
