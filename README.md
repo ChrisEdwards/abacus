@@ -11,6 +11,12 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 
 **[📚 Read the Full Documentation](docs/index.md)**
 
+## Preview
+
+![Abacus Terminal UI](assets/abacus-preview.png)
+
+*Abacus showing a hierarchical tree view of Beads issues with the detail panel displaying comprehensive issue information.*
+
 ## Features
 
 - **Hierarchical Tree View**: Visualize parent-child relationships and dependencies in an expandable tree structure
