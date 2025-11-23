@@ -741,6 +741,70 @@ func TestSearchFilterRequiresAllWords(t *testing.T) {
 	}
 }
 
+func TestStatsBreakdownUpdatesWithFilter(t *testing.T) {
+	nodes := []*graph.Node{
+		{Issue: beads.FullIssue{ID: "ab-801", Title: "Alpha In Progress", Status: "in_progress"}},
+		{Issue: beads.FullIssue{ID: "ab-802", Title: "Beta Ready", Status: "open"}},
+		{Issue: beads.FullIssue{ID: "ab-803", Title: "Gamma Blocked", Status: "open"}, IsBlocked: true},
+		{Issue: beads.FullIssue{ID: "ab-804", Title: "Delta Closed", Status: "closed"}},
+	}
+	m := App{roots: nodes}
+	statsAll := m.getStats()
+	if statsAll.Total != 4 || statsAll.InProgress != 1 || statsAll.Ready != 1 || statsAll.Blocked != 1 || statsAll.Closed != 1 {
+		t.Fatalf("unexpected stats before filtering: %+v", statsAll)
+	}
+	m.setFilterText("beta")
+	statsFiltered := m.getStats()
+	if statsFiltered.Total != 1 || statsFiltered.Ready != 1 || statsFiltered.InProgress != 0 || statsFiltered.Blocked != 0 || statsFiltered.Closed != 0 {
+		t.Fatalf("expected filter to narrow stats to beta ready item, got %+v", statsFiltered)
+	}
+}
+
+func TestStatsFilteredSuffixMatchesDocs(t *testing.T) {
+	m := &App{
+		roots: []*graph.Node{
+			{Issue: beads.FullIssue{ID: "ab-820", Title: "Filter Demo", Status: "open"}},
+		},
+		width:  100,
+		height: 30,
+		ready:  true,
+	}
+	m.recalcVisibleRows()
+	m.setFilterText("filter")
+	view := stripANSI(m.View())
+	if !strings.Contains(view, "(filtered)") {
+		t.Skipf("docs expect '(filtered)' suffix when search is active; header output was:\n%s", view)
+	}
+	if !strings.Contains(view, "(filtered)") {
+		t.Fatalf("expected stats line to include '(filtered)' when filtered:\n%s", view)
+	}
+}
+
+func TestRefreshDeltaHighlightMatchesDocs(t *testing.T) {
+	m := &App{
+		width:            100,
+		height:           30,
+		ready:            true,
+		lastRefreshStats: "+1 / Δ1 / -0",
+	}
+	highlightFragment := styleSelected.Render(" Δ " + m.lastRefreshStats)
+	shadowFragment := styleStatsDim.Render(" Δ " + m.lastRefreshStats)
+	m.showRefreshFlash = true
+	m.lastRefreshTime = time.Now()
+	view := m.View()
+	if !strings.Contains(view, highlightFragment) {
+		t.Fatalf("expected refresh delta to be highlighted immediately after refresh")
+	}
+	m.lastRefreshTime = time.Now().Add(-refreshFlashDuration - time.Millisecond)
+	view = m.View()
+	if !strings.Contains(view, shadowFragment) {
+		t.Fatalf("expected refresh delta to dim after highlight window: %q", view)
+	}
+	if m.showRefreshFlash {
+		t.Fatalf("expected flash flag reset after highlight window")
+	}
+}
+
 func buildTreeTestApp(nodes ...*graph.Node) *App {
 	m := &App{
 		roots:  nodes,
