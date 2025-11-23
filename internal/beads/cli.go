@@ -13,7 +13,8 @@ import (
 const maxErrorSnippetLen = 200
 
 type cliClient struct {
-	bin string
+	bin    string
+	dbArgs []string
 }
 
 // CLIOption configures the CLI client implementation.
@@ -24,6 +25,15 @@ func WithBinaryPath(path string) CLIOption {
 	return func(c *cliClient) {
 		if strings.TrimSpace(path) != "" {
 			c.bin = path
+		}
+	}
+}
+
+// WithDatabasePath sets the Beads database path for all CLI invocations.
+func WithDatabasePath(path string) CLIOption {
+	return func(c *cliClient) {
+		if trimmed := strings.TrimSpace(path); trimmed != "" {
+			c.dbArgs = []string{"--db", trimmed}
 		}
 	}
 }
@@ -95,10 +105,13 @@ func (c *cliClient) Comments(ctx context.Context, issueID string) ([]Comment, er
 }
 
 func (c *cliClient) run(ctx context.Context, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, c.bin, args...)
+	finalArgs := make([]string, 0, len(c.dbArgs)+len(args))
+	finalArgs = append(finalArgs, c.dbArgs...)
+	finalArgs = append(finalArgs, args...)
+	cmd := exec.CommandContext(ctx, c.bin, finalArgs...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, formatCommandError(c.bin, args, err, out)
+		return nil, formatCommandError(c.bin, finalArgs, err, out)
 	}
 	return out, nil
 }

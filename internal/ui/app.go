@@ -80,11 +80,6 @@ func NewApp(cfg Config) (*App, error) {
 	if cfg.RefreshInterval <= 0 {
 		cfg.RefreshInterval = defaultRefreshInterval
 	}
-	client := cfg.Client
-	if client == nil {
-		client = beads.NewCLIClient()
-	}
-
 	var (
 		dbPath    string
 		dbModTime time.Time
@@ -104,6 +99,12 @@ func NewApp(cfg Config) (*App, error) {
 	if dbPath == "" && dbErr == nil {
 		dbPath, dbModTime, dbErr = findBeadsDB()
 	}
+
+	client := cfg.Client
+	if client == nil {
+		client = beads.NewCLIClient(beads.WithDatabasePath(dbPath))
+	}
+
 	roots, err := loadData(context.Background(), client)
 	if err != nil {
 		return nil, err
