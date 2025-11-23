@@ -1,0 +1,101 @@
+version: 2
+
+project_name: abacus
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: abacus
+    main: ./cmd/abacus
+    binary: abacus
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Windows doesn't support arm64 in our build
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.Build={{.ShortCommit}}
+      - -X main.BuildTime={{.Date}}
+
+archives:
+  - id: abacus
+    name_template: "abacus_{{.Version}}_{{.Os}}_{{.Arch}}"
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - typo
+
+release:
+  github:
+    owner: ChrisEdwards
+    name: abacus
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Installation
+
+    ### Homebrew (macOS/Linux)
+    ```bash
+    brew install ChrisEdwards/tap/abacus
+    ```
+
+    ### Install Script (Unix/macOS/Linux)
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/ChrisEdwards/abacus/main/scripts/install.sh | bash
+    ```
+
+    ### Install Script (Windows PowerShell)
+    ```powershell
+    irm https://raw.githubusercontent.com/ChrisEdwards/abacus/main/install.ps1 | iex
+    ```
+
+    ### Direct Download
+    Download the appropriate binary for your platform from the assets below.
+
+  footer: |
+    **Full Changelog**: https://github.com/ChrisEdwards/abacus/compare/{{.PreviousTag}}...{{.Tag}}
+
+# Don't create source archives
+source:
+  enabled: false
+
+# Announce configuration (optional for future)
+announce:
+  skip: true
