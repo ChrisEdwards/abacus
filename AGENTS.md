@@ -34,3 +34,5 @@ You must complete ALL of the following steps before marking a bead as closed:
 
 ### Parent Beads (Epics)
 **IMPORTANT**: Do not mark parent beads as closed until ALL child beads are closed. Parent beads represent collections of work and can only be considered complete when all subtasks are finished.
+
+Other AI's may be working in this codebase in parallel on other files. Do not revert those files. Ignore them. Only stage and commit the files you changed or added.
