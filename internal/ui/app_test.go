@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -1187,35 +1186,6 @@ func TestRefreshHandlesClientError(t *testing.T) {
 	app.Update(refreshMsg)
 	if !strings.Contains(app.lastRefreshStats, "refresh failed") {
 		t.Fatalf("expected refresh failure message, got %s", app.lastRefreshStats)
-	}
-}
-
-func TestOutputIssuesJSONUsesMockClient(t *testing.T) {
-	fixture := loadFixtureIssues(t, "issues_basic.json")
-	mock := beads.NewMockClient()
-	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
-		return liteIssuesFromFixture(fixture), nil
-	}
-	mock.ShowFn = func(ctx context.Context, ids []string) ([]beads.FullIssue, error) {
-		return filterIssuesByID(fixture, ids), nil
-	}
-
-	origStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	os.Stdout = w
-	if err := OutputIssuesJSON(context.Background(), mock); err != nil {
-		t.Fatalf("OutputIssuesJSON: %v", err)
-	}
-	w.Close()
-	os.Stdout = origStdout
-	if _, err := io.ReadAll(r); err != nil {
-		t.Fatalf("read stdout: %v", err)
-	}
-	if mock.ShowCallCount == 0 {
-		t.Fatalf("expected show to be called")
 	}
 }
 

@@ -35,9 +35,6 @@ func TestDefaults(t *testing.T) {
 	if got := GetInt(KeyAutoRefreshSeconds); got != defaultAutoRefreshSeconds {
 		t.Fatalf("expected default %s to be %ds, got %d", KeyAutoRefreshSeconds, defaultAutoRefreshSeconds, got)
 	}
-	if GetBool(KeyOutputJSON) {
-		t.Fatalf("expected default %s to be false", KeyOutputJSON)
-	}
 	if got := GetString(KeyDatabasePath); got != "" {
 		t.Fatalf("expected default %s to be empty, got %q", KeyDatabasePath, got)
 	}
@@ -175,9 +172,6 @@ auto-refresh-seconds: 5
 		t.Fatalf("Initialize returned error: %v", err)
 	}
 
-	if !GetBool(KeyOutputJSON) {
-		t.Fatalf("expected environment variable to override %s", KeyOutputJSON)
-	}
 	if got := GetString(KeyDatabasePath); got != "/env/beads.db" {
 		t.Fatalf("expected env override for %s, got %q", KeyDatabasePath, got)
 	}
@@ -186,20 +180,12 @@ auto-refresh-seconds: 5
 	}
 
 	overrides := map[string]any{
-		KeyOutputJSON:         false,
 		KeyAutoRefreshSeconds: 11,
-		"output.json_indent":  4,
 	}
 	if err := ApplyOverrides(overrides); err != nil {
 		t.Fatalf("ApplyOverrides returned error: %v", err)
 	}
 
-	if GetBool(KeyOutputJSON) {
-		t.Fatalf("expected CLI override to set %s=false", KeyOutputJSON)
-	}
-	if got := GetInt("output.json_indent"); got != 4 {
-		t.Fatalf("expected override for output.json_indent = 4, got %d", got)
-	}
 	if got := GetInt(KeyAutoRefreshSeconds); got != 11 {
 		t.Fatalf("expected CLI override to update %s to 11, got %d", KeyAutoRefreshSeconds, got)
 	}

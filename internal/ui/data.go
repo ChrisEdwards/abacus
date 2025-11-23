@@ -202,8 +202,3 @@ func computeDiffStats(oldIssues, newIssues map[string]string) string {
 
 	return fmt.Sprintf("+%d / Δ%d / -%d", added, changed, removed)
 }
-
-// OutputIssuesJSON is a helper exposed for the CLI to print issues as JSON.
-func OutputIssuesJSON(ctx context.Context, client beads.Client) error {
-	return outputIssuesJSON(ctx, client)
-}

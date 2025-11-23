@@ -21,7 +21,6 @@ const (
 	KeyNoAutoRefresh      = "no-auto-refresh"  // Deprecated: use KeyAutoRefreshSeconds.
 	KeySkipVersionCheck   = "skip-version-check"
 
-	KeyOutputJSON   = "output.json"
 	KeyDatabasePath = "database.path"
 	KeyOutputFormat = "output.format"
 )
@@ -260,7 +259,6 @@ func findProjectConfig(startDir string) (string, error) {
 }
 
 func setDefaults(v *viper.Viper) {
-	v.SetDefault(KeyOutputJSON, false)
 	v.SetDefault(KeyDatabasePath, "")
 	v.SetDefault(KeySkipVersionCheck, false)
 	v.SetDefault(KeyOutputFormat, "rich")

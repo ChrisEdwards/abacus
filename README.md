@@ -100,7 +100,6 @@ Options:
   --db-path string            Path to the Beads database file
   --auto-refresh-seconds int  Auto-refresh interval in seconds (0 disables; default: 3)
   --output-format string      Detail panel style: rich, light, plain (default: "rich")
-  --json-output               Print issue data as JSON and exit
   --skip-version-check        Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)
 ```
 

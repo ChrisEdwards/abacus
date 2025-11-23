@@ -25,7 +25,6 @@ func ensureTestConfig(t *testing.T) {
 	})
 	overrides := map[string]any{
 		config.KeyAutoRefreshSeconds: 3,
-		config.KeyOutputJSON:         false,
 		config.KeyDatabasePath:       "",
 		config.KeyOutputFormat:       "",
 		config.KeySkipVersionCheck:   false,
@@ -45,14 +44,12 @@ func buildRuntimeOptionsForArgs(t *testing.T, args []string, overrides ...map[st
 	}
 
 	autoRefreshSecondsDefault := config.GetInt(config.KeyAutoRefreshSeconds)
-	jsonOutputDefault := config.GetBool(config.KeyOutputJSON)
 	dbPathDefault := config.GetString(config.KeyDatabasePath)
 	outputFormatDefault := config.GetString(config.KeyOutputFormat)
 	skipVersionCheckDefault := config.GetBool(config.KeySkipVersionCheck)
 
 	fs := flag.NewFlagSet("abacus-test", flag.ContinueOnError)
 	autoRefreshSecondsFlag := fs.Int("auto-refresh-seconds", autoRefreshSecondsDefault, "test auto refresh seconds")
-	jsonOutputFlag := fs.Bool("json-output", jsonOutputDefault, "test json output")
 	dbPathFlag := fs.String("db-path", dbPathDefault, "db path")
 	outputFormatFlag := fs.String("output-format", outputFormatDefault, "output format")
 	skipVersionCheckFlag := fs.Bool("skip-version-check", skipVersionCheckDefault, "skip version")
@@ -69,7 +66,6 @@ func buildRuntimeOptionsForArgs(t *testing.T, args []string, overrides ...map[st
 		autoRefreshSeconds: autoRefreshSecondsFlag,
 		dbPath:             dbPathFlag,
 		outputFormat:       outputFormatFlag,
-		jsonOutput:         jsonOutputFlag,
 		skipVersionCheck:   skipVersionCheckFlag,
 	}
 	return computeRuntimeOptions(flags, visited)
@@ -119,13 +115,6 @@ func TestComputeRuntimeOptions_DBPathOverride(t *testing.T) {
 	opts := buildRuntimeOptionsForArgs(t, []string{"--db-path", " /tmp/custom.db "})
 	if opts.dbPath != "/tmp/custom.db" {
 		t.Fatalf("expected db path trimmed, got %q", opts.dbPath)
-	}
-}
-
-func TestComputeRuntimeOptions_JSONOutputFlag(t *testing.T) {
-	opts := buildRuntimeOptionsForArgs(t, []string{"--json-output"})
-	if !opts.jsonOutput {
-		t.Fatalf("expected json output flag to be respected")
 	}
 }
 

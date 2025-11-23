@@ -131,7 +131,6 @@ abacus [options]
 | `--db-path` | Custom database path |
 | `--auto-refresh-seconds` | Interval in seconds (0 disables; default: 3) |
 | `--output-format` | Detail style: rich, light, plain |
-| `--json-output` | Print JSON and exit |
 | `--skip-version-check` | Skip Beads version check |
 
 ## Working with Issues

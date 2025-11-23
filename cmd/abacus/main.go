@@ -27,14 +27,12 @@ func main() {
 	if autoRefreshSecondsDefault < 0 {
 		autoRefreshSecondsDefault = 0
 	}
-	jsonOutputDefault := config.GetBool(config.KeyOutputJSON)
 	dbPathDefault := config.GetString(config.KeyDatabasePath)
 	outputFormatDefault := config.GetString(config.KeyOutputFormat)
 	skipVersionCheckDefault := config.GetBool(config.KeySkipVersionCheck)
 
 	versionFlag := flag.Bool("version", false, "Print version information and exit")
 	autoRefreshSecondsFlag := flag.Int("auto-refresh-seconds", autoRefreshSecondsDefault, "Auto-refresh interval in seconds (0 disables auto refresh)")
-	jsonOutputFlag := flag.Bool("json-output", jsonOutputDefault, "Print issue data as JSON and exit")
 	dbPathFlag := flag.String("db-path", dbPathDefault, "Path to the Beads database file")
 	outputFormatFlag := flag.String("output-format", outputFormatDefault, "Detail panel markdown style (rich, light, plain)")
 	skipVersionCheckFlag := flag.Bool("skip-version-check", skipVersionCheckDefault, "Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)")
@@ -54,7 +52,6 @@ func main() {
 		autoRefreshSeconds: autoRefreshSecondsFlag,
 		dbPath:             dbPathFlag,
 		outputFormat:       outputFormatFlag,
-		jsonOutput:         jsonOutputFlag,
 		skipVersionCheck:   skipVersionCheckFlag,
 	}, visited)
 
@@ -62,7 +59,6 @@ func main() {
 	autoRefresh := runtime.autoRefresh
 	dbPath := runtime.dbPath
 	outputFormat := runtime.outputFormat
-	jsonOutput := runtime.jsonOutput
 	skipVersionCheck := runtime.skipVersionCheck
 
 	if !skipVersionCheck {
@@ -84,14 +80,6 @@ func main() {
 		Version:         Version,
 	}
 
-	if jsonOutput {
-		if err := ui.OutputIssuesJSON(context.Background(), client); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-		return
-	}
-
 	app, err := ui.NewApp(appCfg)
 	if err != nil {
 		fmt.Printf("Error initializing UI: %v\n", err)
@@ -109,7 +97,6 @@ type runtimeFlags struct {
 	autoRefreshSeconds *int
 	dbPath             *string
 	outputFormat       *string
-	jsonOutput         *bool
 	skipVersionCheck   *bool
 }
 
@@ -118,7 +105,6 @@ type runtimeOptions struct {
 	autoRefresh      bool
 	dbPath           string
 	outputFormat     string
-	jsonOutput       bool
 	skipVersionCheck bool
 }
 
@@ -140,11 +126,6 @@ func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runt
 		outputFormat = strings.TrimSpace(*flags.outputFormat)
 	}
 
-	jsonOutput := config.GetBool(config.KeyOutputJSON)
-	if flagWasExplicitlySet("json-output", visited) {
-		jsonOutput = *flags.jsonOutput
-	}
-
 	skipVersionCheck := config.GetBool(config.KeySkipVersionCheck)
 	if flagWasExplicitlySet("skip-version-check", visited) {
 		skipVersionCheck = *flags.skipVersionCheck
@@ -155,7 +136,6 @@ func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runt
 		autoRefresh:      autoRefresh,
 		dbPath:           dbPath,
 		outputFormat:     outputFormat,
-		jsonOutput:       jsonOutput,
 		skipVersionCheck: skipVersionCheck,
 	}
 }

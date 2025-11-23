@@ -153,27 +153,6 @@ abacus --output-format rich
 - `light` - Simplified styling for readability
 - `plain` - Plain text with no styling
 
-#### output.json
-
-Print issue data as JSON and exit (for scripting).
-
-**Type:** Boolean
-**Default:** `false`
-**Config file:**
-```yaml
-output:
-  json: true
-```
-
-**Environment variable:**
-```bash
-export AB_OUTPUT_JSON=true
-```
-
-**Command-line flag:**
-```bash
-abacus --json-output
-```
 
 ### skip-version-check
 
@@ -214,7 +193,6 @@ Convert config keys to environment variables:
 | `auto-refresh-seconds` | `AB_AUTO_REFRESH_SECONDS` |
 | `database.path` | `AB_DATABASE_PATH` |
 | `output.format` | `AB_OUTPUT_FORMAT` |
-| `output.json` | `AB_OUTPUT_JSON` |
 
 Legacy variables (`AB_AUTO_REFRESH`, `AB_NO_AUTO_REFRESH`, `AB_REFRESH_INTERVAL`) are still read for backward compatibility but will be removed in a future release.
 
@@ -285,28 +263,7 @@ auto-refresh-seconds: 10
 
 For scripts and automation:
 
-```bash
-#!/bin/bash
-# Export issues as JSON for processing
-abacus --json-output --db-path .beads/beads.db > issues.json
-
-# Process JSON with jq
-cat issues.json | jq '.[] | select(.status == "blocked")'
-```
-
-Or with config:
-
-```yaml
-# .abacus/config.yaml
-output:
-  json: true
-database:
-  path: .beads/beads.db
-```
-
-```bash
-abacus > issues.json
-```
+Use `bd list --json` directly for JSON exports when scripting.
 
 ## Verifying Configuration
 
