@@ -415,6 +415,33 @@ func TestApplyRefreshRestoresState(t *testing.T) {
 	}
 }
 
+func TestApplyRefreshPreservesCollapsedStatePerDocs(t *testing.T) {
+	childOld := &graph.Node{Issue: beads.FullIssue{ID: "ab-012", Title: "Child Hidden", Status: "open"}}
+	rootOld := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-011", Title: "Root", Status: "open"},
+		Children: []*graph.Node{childOld},
+	}
+	m := App{
+		roots:           []*graph.Node{rootOld},
+		visibleRows:     []*graph.Node{rootOld},
+		filterText:      "root",
+		filterCollapsed: map[string]bool{rootOld.Issue.ID: true},
+		textInput:       textinput.New(),
+	}
+	m.textInput.SetValue("root")
+	m.recalcVisibleRows()
+	m.collapseNodeForView(rootOld)
+	childNew := &graph.Node{Issue: beads.FullIssue{ID: "ab-012", Title: "Child Updated", Status: "open"}}
+	rootNew := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-011", Title: "Root", Status: "open"},
+		Children: []*graph.Node{childNew},
+	}
+	m.applyRefresh([]*graph.Node{rootNew}, buildIssueDigest([]*graph.Node{rootNew}), time.Now())
+	if m.isNodeExpandedInView(rootNew) {
+		t.Fatalf("expected collapsed state preserved after refresh per docs")
+	}
+}
+
 func TestUpdateTogglesFocusWithTab(t *testing.T) {
 	m := &App{ShowDetails: true, focus: FocusTree}
 	m.visibleRows = []*graph.Node{{Issue: beads.FullIssue{ID: "ab-001"}}}
