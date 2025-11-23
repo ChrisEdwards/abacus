@@ -25,6 +25,9 @@ func (m *App) updateViewportContent() {
 	}
 
 	iss := node.Issue
+	if m.detailIssueID != iss.ID {
+		m.viewport.GotoTop()
+	}
 	vpWidth := m.viewport.Width
 
 	headerContentWidth := vpWidth - styleDetailHeaderBlock.GetHorizontalFrameSize()
@@ -201,6 +204,7 @@ func (m *App) updateViewportContent() {
 	)
 
 	m.viewport.SetContent(finalContent)
+	m.detailIssueID = iss.ID
 }
 
 func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipgloss.Style, bgColor lipgloss.Color) string {

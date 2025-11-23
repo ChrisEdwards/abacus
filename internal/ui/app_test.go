@@ -479,6 +479,51 @@ func TestDetailFocusNavigation(t *testing.T) {
 	})
 }
 
+func TestUpdateViewportContentResetsScrollOnNewSelection(t *testing.T) {
+	m := &App{
+		ShowDetails: true,
+		visibleRows: []*graph.Node{
+			{Issue: beads.FullIssue{ID: "ab-100", Title: "First"}, CommentsLoaded: true},
+			{Issue: beads.FullIssue{ID: "ab-200", Title: "Second"}, CommentsLoaded: true},
+		},
+		viewport: viewport.Model{Width: 60, Height: 10},
+		cursor:   0,
+	}
+
+	m.updateViewportContent()
+	m.viewport.YOffset = 4
+	m.cursor = 1
+	m.updateViewportContent()
+
+	if m.viewport.YOffset != 0 {
+		t.Fatalf("expected viewport offset reset to 0 on new selection, got %d", m.viewport.YOffset)
+	}
+	if m.detailIssueID != "ab-200" {
+		t.Fatalf("expected detailIssueID updated to new selection, got %s", m.detailIssueID)
+	}
+}
+
+func TestUpdateViewportContentPreservesScrollForSameSelection(t *testing.T) {
+	m := &App{
+		ShowDetails: true,
+		visibleRows: []*graph.Node{
+			{Issue: beads.FullIssue{ID: "ab-100", Title: "Same"}, CommentsLoaded: true},
+		},
+		viewport: viewport.Model{Width: 60, Height: 10},
+	}
+
+	m.updateViewportContent()
+	m.viewport.YOffset = 5
+	m.updateViewportContent()
+
+	if m.viewport.YOffset != 5 {
+		t.Fatalf("expected viewport offset preserved for same selection, got %d", m.viewport.YOffset)
+	}
+	if m.detailIssueID != "ab-100" {
+		t.Fatalf("expected detailIssueID to remain unchanged, got %s", m.detailIssueID)
+	}
+}
+
 func TestUpdateClearsFilterWithEsc(t *testing.T) {
 	buildApp := func(filter string, searching bool) *App {
 		m := &App{

@@ -85,6 +85,12 @@ func (m *App) applyRefresh(newRoots []*graph.Node, newDigest map[string]string, 
 		m.clampCursor()
 	}
 
+	if state.currentID != "" {
+		m.detailIssueID = state.currentID
+	} else {
+		m.detailIssueID = ""
+	}
+
 	if m.ShowDetails {
 		m.focus = state.focus
 	} else {

@@ -43,10 +43,11 @@ type App struct {
 	cursor      int
 	repoName    string
 
-	viewport    viewport.Model
-	ShowDetails bool
-	focus       FocusArea
-	ready       bool
+	viewport      viewport.Model
+	ShowDetails   bool
+	focus         FocusArea
+	ready         bool
+	detailIssueID string
 
 	textInput  textinput.Model
 	searching  bool
