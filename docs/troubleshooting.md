@@ -236,7 +236,7 @@ go install github.com/yourusername/abacus/cmd/abacus@latest
 2. Restart Abacus
 3. Disable auto-refresh:
    ```bash
-   abacus --no-auto-refresh
+   abacus --auto-refresh-seconds 0
    ```
 4. Check terminal emulator settings
 
@@ -250,7 +250,7 @@ go install github.com/yourusername/abacus/cmd/abacus@latest
 
 1. Disable auto-refresh:
    ```bash
-   abacus --no-auto-refresh
+   abacus --auto-refresh-seconds 0
    ```
 2. Use simpler output:
    ```bash
@@ -258,7 +258,7 @@ go install github.com/yourusername/abacus/cmd/abacus@latest
    ```
 3. Increase refresh interval:
    ```bash
-   abacus --refresh-interval 10s
+   abacus --auto-refresh-seconds 10
    ```
 
 ### High CPU usage
@@ -269,11 +269,11 @@ go install github.com/yourusername/abacus/cmd/abacus@latest
 
 1. Increase refresh interval:
    ```bash
-   abacus --refresh-interval 5s
+   abacus --auto-refresh-seconds 5
    ```
 2. Disable auto-refresh:
    ```bash
-   abacus --no-auto-refresh
+   abacus --auto-refresh-seconds 0
    ```
 3. Use plain output:
    ```bash
@@ -293,7 +293,7 @@ go install github.com/yourusername/abacus/cmd/abacus@latest
    ```
 3. Disable auto-refresh:
    ```bash
-   abacus --no-auto-refresh
+   abacus --auto-refresh-seconds 0
    ```
 
 ### Memory usage grows over time
@@ -338,8 +338,7 @@ go install github.com/yourusername/abacus/cmd/abacus@latest
    ```
 2. Use correct prefix and format:
    ```bash
-   export AB_AUTO_REFRESH=true
-   export AB_REFRESH_INTERVAL=5s
+   export AB_AUTO_REFRESH_SECONDS=5
    ```
 3. Remember: CLI flags override env vars
 
@@ -355,8 +354,8 @@ go install github.com/yourusername/abacus/cmd/abacus@latest
    ```
 2. Ensure no typos:
    ```bash
-   abacus --refresh-interval 5s  # Correct
-   abacus --refresh_interval 5s   # Wrong (underscore)
+   abacus --auto-refresh-seconds 5  # Correct
+   abacus --auto_refresh_seconds 5   # Wrong (underscore)
    ```
 3. Quote values with spaces:
    ```bash
@@ -437,11 +436,11 @@ go install github.com/yourusername/abacus/cmd/abacus@latest
 
 1. Enable auto-refresh:
    ```bash
-   abacus --auto-refresh
+   abacus --auto-refresh-seconds 3
    ```
 2. Reduce refresh interval:
    ```bash
-   abacus --refresh-interval 1s
+   abacus --auto-refresh-seconds 1
    ```
 3. Or manually restart Abacus
 
@@ -584,8 +583,7 @@ For best performance:
 
 ```yaml
 # ~/.config/abacus/config.yaml
-auto-refresh: false        # Or increase interval
-refresh-interval: 5s       # Reduce refresh frequency
+auto-refresh-seconds: 0    # Or set a higher number to reduce refreshes
 output:
   format: plain            # Simplify rendering
 ```
@@ -593,7 +591,7 @@ output:
 Or command-line:
 
 ```bash
-abacus --no-auto-refresh --output-format plain
+abacus --auto-refresh-seconds 0 --output-format plain
 ```
 
 ## Still Having Issues?

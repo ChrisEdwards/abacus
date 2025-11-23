@@ -23,21 +23,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	refreshDefault := config.GetDuration(config.KeyRefreshInterval)
-	if refreshDefault <= 0 {
-		refreshDefault = 3 * time.Second
+	autoRefreshSecondsDefault := config.GetInt(config.KeyAutoRefreshSeconds)
+	if autoRefreshSecondsDefault < 0 {
+		autoRefreshSecondsDefault = 0
 	}
-	autoRefreshDefault := config.GetBool(config.KeyAutoRefresh)
-	noAutoRefreshDefault := config.GetBool(config.KeyNoAutoRefresh)
 	jsonOutputDefault := config.GetBool(config.KeyOutputJSON)
 	dbPathDefault := config.GetString(config.KeyDatabasePath)
 	outputFormatDefault := config.GetString(config.KeyOutputFormat)
 	skipVersionCheckDefault := config.GetBool(config.KeySkipVersionCheck)
 
 	versionFlag := flag.Bool("version", false, "Print version information and exit")
-	refreshIntervalFlag := flag.Duration("refresh-interval", refreshDefault, "Interval for automatic refresh polling (e.g. 2s, 500ms)")
-	autoRefreshFlag := flag.Bool("auto-refresh", autoRefreshDefault, "Enable automatic background refresh")
-	noAutoRefreshFlag := flag.Bool("no-auto-refresh", noAutoRefreshDefault, "Disable automatic background refresh (overrides --auto-refresh)")
+	autoRefreshSecondsFlag := flag.Int("auto-refresh-seconds", autoRefreshSecondsDefault, "Auto-refresh interval in seconds (0 disables auto refresh)")
 	jsonOutputFlag := flag.Bool("json-output", jsonOutputDefault, "Print issue data as JSON and exit")
 	dbPathFlag := flag.String("db-path", dbPathDefault, "Path to the Beads database file")
 	outputFormatFlag := flag.String("output-format", outputFormatDefault, "Detail panel markdown style (rich, light, plain)")
@@ -55,14 +51,11 @@ func main() {
 	})
 
 	runtime := computeRuntimeOptions(runtimeFlags{
-		refreshInterval:  refreshIntervalFlag,
-		autoRefresh:      autoRefreshFlag,
-		noAutoRefresh:    noAutoRefreshFlag,
-		dbPath:           dbPathFlag,
-		outputFormat:     outputFormatFlag,
-		jsonOutput:       jsonOutputFlag,
-		skipVersionCheck: skipVersionCheckFlag,
-		refreshDefault:   refreshDefault,
+		autoRefreshSeconds: autoRefreshSecondsFlag,
+		dbPath:             dbPathFlag,
+		outputFormat:       outputFormatFlag,
+		jsonOutput:         jsonOutputFlag,
+		skipVersionCheck:   skipVersionCheckFlag,
 	}, visited)
 
 	refreshInterval := runtime.refreshInterval
@@ -113,14 +106,11 @@ func main() {
 }
 
 type runtimeFlags struct {
-	refreshInterval  *time.Duration
-	autoRefresh      *bool
-	noAutoRefresh    *bool
-	dbPath           *string
-	outputFormat     *string
-	jsonOutput       *bool
-	skipVersionCheck *bool
-	refreshDefault   time.Duration
+	autoRefreshSeconds *int
+	dbPath             *string
+	outputFormat       *string
+	jsonOutput         *bool
+	skipVersionCheck   *bool
 }
 
 type runtimeOptions struct {
@@ -133,25 +123,12 @@ type runtimeOptions struct {
 }
 
 func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runtimeOptions {
-	refreshInterval := flags.refreshDefault
-	if flagWasExplicitlySet("refresh-interval", visited) {
-		refreshInterval = *flags.refreshInterval
-	} else {
-		if cfgInterval := config.GetDuration(config.KeyRefreshInterval); cfgInterval > 0 {
-			refreshInterval = cfgInterval
-		}
+	seconds := sanitizeAutoRefreshSeconds(config.GetInt(config.KeyAutoRefreshSeconds))
+	if flagWasExplicitlySet("auto-refresh-seconds", visited) {
+		seconds = sanitizeAutoRefreshSeconds(*flags.autoRefreshSeconds)
 	}
-
-	autoRefresh := config.GetBool(config.KeyAutoRefresh)
-	if config.GetBool(config.KeyNoAutoRefresh) {
-		autoRefresh = false
-	}
-	if flagWasExplicitlySet("auto-refresh", visited) {
-		autoRefresh = *flags.autoRefresh
-	}
-	if flagWasExplicitlySet("no-auto-refresh", visited) {
-		autoRefresh = !*flags.noAutoRefresh
-	}
+	refreshInterval := time.Duration(seconds) * time.Second
+	autoRefresh := seconds > 0
 
 	dbPath := strings.TrimSpace(config.GetString(config.KeyDatabasePath))
 	if flagWasExplicitlySet("db-path", visited) {
@@ -192,4 +169,11 @@ func flagWasExplicitlySet(name string, visited map[string]struct{}) bool {
 		return false
 	}
 	return f.Value.String() != f.DefValue
+}
+
+func sanitizeAutoRefreshSeconds(seconds int) int {
+	if seconds < 0 {
+		return 0
+	}
+	return seconds
 }

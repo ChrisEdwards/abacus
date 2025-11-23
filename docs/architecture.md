@@ -453,12 +453,12 @@ return &newApp, nil
 ### Precedence Example
 
 ```
-Default:     refresh-interval = 3s
-User config: refresh-interval = 5s
-Env var:     AB_REFRESH_INTERVAL = 2s
-CLI flag:    --refresh-interval 1s
+Default:     auto-refresh-seconds = 3
+User config: auto-refresh-seconds = 5
+Env var:     AB_AUTO_REFRESH_SECONDS = 2
+CLI flag:    --auto-refresh-seconds 1
 
-Result:      1s (CLI wins)
+Result:      1 second (CLI wins)
 ```
 
 ### Implementation

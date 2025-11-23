@@ -15,17 +15,20 @@ import (
 )
 
 const (
-	KeyRefreshInterval  = "refresh-interval"
-	KeyAutoRefresh      = "auto-refresh"
-	KeyNoAutoRefresh    = "no-auto-refresh"
-	KeySkipVersionCheck = "skip-version-check"
+	KeyAutoRefreshSeconds = "auto-refresh-seconds"
+	KeyRefreshInterval    = "refresh-interval" // Deprecated: use KeyAutoRefreshSeconds.
+	KeyAutoRefresh        = "auto-refresh"     // Deprecated: use KeyAutoRefreshSeconds.
+	KeyNoAutoRefresh      = "no-auto-refresh"  // Deprecated: use KeyAutoRefreshSeconds.
+	KeySkipVersionCheck   = "skip-version-check"
 
 	KeyOutputJSON   = "output.json"
 	KeyDatabasePath = "database.path"
 	KeyOutputFormat = "output.format"
+)
 
-	// KeySyncAuto is a deprecated alias for auto-refresh retained for backward compatibility.
-	KeySyncAuto = KeyAutoRefresh
+const (
+	defaultAutoRefreshSeconds = 3
+	envPrefix                 = "AB"
 )
 
 type initSettings struct {
@@ -178,7 +181,7 @@ func configure(settings *initSettings) error {
 	v := viper.New()
 	v.SetConfigType("yaml")
 	setDefaults(v)
-	v.SetEnvPrefix("AB")
+	v.SetEnvPrefix(envPrefix)
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	v.AutomaticEnv()
 
@@ -188,6 +191,7 @@ func configure(settings *initSettings) error {
 	if err := mergeConfigFile(v, projectConfigPath); err != nil {
 		return fmt.Errorf("load project config: %w", err)
 	}
+	applyLegacyAutoRefreshConfig(v)
 
 	configMu.Lock()
 	configInst = v
@@ -258,11 +262,9 @@ func findProjectConfig(startDir string) (string, error) {
 func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeyOutputJSON, false)
 	v.SetDefault(KeyDatabasePath, "")
-	v.SetDefault(KeyAutoRefresh, true)
-	v.SetDefault(KeyNoAutoRefresh, false)
 	v.SetDefault(KeySkipVersionCheck, false)
-	v.SetDefault(KeyRefreshInterval, 3*time.Second)
 	v.SetDefault(KeyOutputFormat, "rich")
+	v.SetDefault(KeyAutoRefreshSeconds, defaultAutoRefreshSeconds)
 }
 
 func getViper() (*viper.Viper, error) {
@@ -284,4 +286,55 @@ func reset() {
 	configInst = nil
 	initErr = nil
 	configOnce = sync.Once{}
+}
+
+func applyLegacyAutoRefreshConfig(v *viper.Viper) {
+	if v == nil {
+		return
+	}
+	if hasExplicitAutoRefreshSeconds(v) {
+		return
+	}
+	if v.IsSet(KeyNoAutoRefresh) && v.GetBool(KeyNoAutoRefresh) {
+		v.Set(KeyAutoRefreshSeconds, 0)
+		return
+	}
+	if v.IsSet(KeyAutoRefresh) && !v.GetBool(KeyAutoRefresh) {
+		v.Set(KeyAutoRefreshSeconds, 0)
+		return
+	}
+	if v.IsSet(KeyRefreshInterval) {
+		seconds := durationToSeconds(v.GetDuration(KeyRefreshInterval))
+		v.Set(KeyAutoRefreshSeconds, seconds)
+	}
+}
+
+func hasExplicitAutoRefreshSeconds(v *viper.Viper) bool {
+	if v.InConfig(KeyAutoRefreshSeconds) {
+		return true
+	}
+	envKey := autoRefreshSecondsEnvKey()
+	if _, ok := os.LookupEnv(envKey); ok {
+		return true
+	}
+	return false
+}
+
+func autoRefreshSecondsEnvKey() string {
+	replacer := strings.NewReplacer(".", "_", "-", "_")
+	return strings.ToUpper(envPrefix) + "_" + strings.ToUpper(replacer.Replace(KeyAutoRefreshSeconds))
+}
+
+func durationToSeconds(d time.Duration) int {
+	if d <= 0 {
+		return 0
+	}
+	seconds := int(d / time.Second)
+	if d%time.Second != 0 {
+		seconds++
+	}
+	if seconds <= 0 {
+		seconds = 1
+	}
+	return seconds
 }

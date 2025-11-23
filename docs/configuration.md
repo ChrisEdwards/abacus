@@ -23,8 +23,7 @@ Global settings that apply to all projects.
 **Example:**
 ```yaml
 # Global user preferences
-auto-refresh: true
-refresh-interval: 3s
+auto-refresh-seconds: 3
 output:
   format: rich
 ```
@@ -38,8 +37,7 @@ Project-specific settings that override user configuration.
 **Example:**
 ```yaml
 # Project-specific settings
-auto-refresh: false  # This project changes rarely
-refresh-interval: 10s
+auto-refresh-seconds: 0  # This project changes rarely
 database:
   path: .beads/beads.db
 ```
@@ -54,8 +52,7 @@ mkdir -p ~/.config/abacus
 
 # Create the config file
 cat > ~/.config/abacus/config.yaml << EOF
-auto-refresh: true
-refresh-interval: 3s
+auto-refresh-seconds: 3
 output:
   format: rich
 EOF
@@ -69,7 +66,7 @@ mkdir -p .abacus
 
 # Create the config file
 cat > .abacus/config.yaml << EOF
-auto-refresh: true
+auto-refresh-seconds: 3
 database:
   path: .beads/beads.db
 EOF
@@ -79,69 +76,28 @@ EOF
 
 ### Auto-Refresh Settings
 
-#### auto-refresh
+#### auto-refresh-seconds
 
-Enable or disable automatic background refresh.
+Control how often Abacus refreshes data. Values greater than `0` enable auto-refresh with that interval. A value of `0` disables auto-refresh entirely.
 
-**Type:** Boolean
-**Default:** `true`
+**Type:** Integer (seconds)
+**Default:** `3`
 **Config file:**
 ```yaml
-auto-refresh: true
+auto-refresh-seconds: 5
 ```
 
 **Environment variable:**
 ```bash
-export AB_AUTO_REFRESH=true
+export AB_AUTO_REFRESH_SECONDS=5
 ```
 
 **Command-line flag:**
 ```bash
-abacus --auto-refresh
+abacus --auto-refresh-seconds 5
 ```
 
-#### no-auto-refresh
-
-Explicitly disable auto-refresh (overrides `auto-refresh`).
-
-**Type:** Boolean
-**Default:** `false`
-**Config file:**
-```yaml
-no-auto-refresh: true
-```
-
-**Environment variable:**
-```bash
-export AB_NO_AUTO_REFRESH=true
-```
-
-**Command-line flag:**
-```bash
-abacus --no-auto-refresh
-```
-
-#### refresh-interval
-
-Set the interval between automatic refreshes.
-
-**Type:** Duration
-**Default:** `3s`
-**Formats:** `500ms`, `2s`, `1m`, etc.
-**Config file:**
-```yaml
-refresh-interval: 5s
-```
-
-**Environment variable:**
-```bash
-export AB_REFRESH_INTERVAL=5s
-```
-
-**Command-line flag:**
-```bash
-abacus --refresh-interval 5s
-```
+**Compatibility note:** Older keys/flags (`auto-refresh`, `no-auto-refresh`, and `refresh-interval`) still load for backward compatibility, but they are deprecated and will be removed in a future release. Update scripts and configs to use `auto-refresh-seconds` instead.
 
 ### Database Settings
 
@@ -255,29 +211,28 @@ Convert config keys to environment variables:
 
 | Config Key | Environment Variable |
 |------------|---------------------|
-| `auto-refresh` | `AB_AUTO_REFRESH` |
-| `refresh-interval` | `AB_REFRESH_INTERVAL` |
+| `auto-refresh-seconds` | `AB_AUTO_REFRESH_SECONDS` |
 | `database.path` | `AB_DATABASE_PATH` |
 | `output.format` | `AB_OUTPUT_FORMAT` |
 | `output.json` | `AB_OUTPUT_JSON` |
+
+Legacy variables (`AB_AUTO_REFRESH`, `AB_NO_AUTO_REFRESH`, `AB_REFRESH_INTERVAL`) are still read for backward compatibility but will be removed in a future release.
 
 ### Setting Environment Variables
 
 **Bash/Zsh:**
 ```bash
-export AB_AUTO_REFRESH=true
-export AB_REFRESH_INTERVAL=5s
+export AB_AUTO_REFRESH_SECONDS=5
 ```
 
 **Fish:**
 ```fish
-set -gx AB_AUTO_REFRESH true
-set -gx AB_REFRESH_INTERVAL 5s
+set -gx AB_AUTO_REFRESH_SECONDS 5
 ```
 
 **Per-command:**
 ```bash
-AB_AUTO_REFRESH=false abacus
+AB_AUTO_REFRESH_SECONDS=0 abacus
 ```
 
 ## Configuration Examples
@@ -288,8 +243,7 @@ For active development with frequent changes:
 
 ```yaml
 # ~/.config/abacus/config.yaml
-auto-refresh: true
-refresh-interval: 1s
+auto-refresh-seconds: 1
 output:
   format: rich
 ```
@@ -300,7 +254,7 @@ For systems with limited resources:
 
 ```yaml
 # ~/.config/abacus/config.yaml
-auto-refresh: false
+auto-refresh-seconds: 0
 output:
   format: plain
 ```
@@ -310,8 +264,7 @@ output:
 **User config:** `~/.config/abacus/config.yaml`
 ```yaml
 # Defaults for all projects
-auto-refresh: true
-refresh-interval: 3s
+auto-refresh-seconds: 3
 output:
   format: rich
 ```
@@ -319,13 +272,13 @@ output:
 **Project A:** `~/projects/projectA/.abacus/config.yaml`
 ```yaml
 # Fast refresh for active project
-refresh-interval: 1s
+auto-refresh-seconds: 1
 ```
 
 **Project B:** `~/projects/projectB/.abacus/config.yaml`
 ```yaml
 # Slow refresh for stable project
-refresh-interval: 10s
+auto-refresh-seconds: 10
 ```
 
 ### Example 4: CI/CD Integration
@@ -373,10 +326,10 @@ Create a test config and verify behavior:
 
 ```bash
 # Test with explicit flags
-abacus --refresh-interval 10s --no-auto-refresh
+abacus --auto-refresh-seconds 0
 
 # Test with environment variables
-AB_REFRESH_INTERVAL=10s AB_NO_AUTO_REFRESH=true abacus
+AB_AUTO_REFRESH_SECONDS=10 abacus
 
 # Test with config file (after creating .abacus/config.yaml)
 abacus

@@ -24,13 +24,11 @@ func ensureTestConfig(t *testing.T) {
 		}
 	})
 	overrides := map[string]any{
-		config.KeyRefreshInterval:  3 * time.Second,
-		config.KeyAutoRefresh:      true,
-		config.KeyNoAutoRefresh:    false,
-		config.KeyOutputJSON:       false,
-		config.KeyDatabasePath:     "",
-		config.KeyOutputFormat:     "",
-		config.KeySkipVersionCheck: false,
+		config.KeyAutoRefreshSeconds: 3,
+		config.KeyOutputJSON:         false,
+		config.KeyDatabasePath:       "",
+		config.KeyOutputFormat:       "",
+		config.KeySkipVersionCheck:   false,
 	}
 	if err := config.ApplyOverrides(overrides); err != nil {
 		t.Fatalf("apply overrides: %v", err)
@@ -46,22 +44,14 @@ func buildRuntimeOptionsForArgs(t *testing.T, args []string, overrides ...map[st
 		}
 	}
 
-	refreshDefault := config.GetDuration(config.KeyRefreshInterval)
-	if refreshDefault <= 0 {
-		refreshDefault = 3 * time.Second
-	}
-
-	autoRefreshDefault := config.GetBool(config.KeyAutoRefresh)
-	noAutoRefreshDefault := config.GetBool(config.KeyNoAutoRefresh)
+	autoRefreshSecondsDefault := config.GetInt(config.KeyAutoRefreshSeconds)
 	jsonOutputDefault := config.GetBool(config.KeyOutputJSON)
 	dbPathDefault := config.GetString(config.KeyDatabasePath)
 	outputFormatDefault := config.GetString(config.KeyOutputFormat)
 	skipVersionCheckDefault := config.GetBool(config.KeySkipVersionCheck)
 
 	fs := flag.NewFlagSet("abacus-test", flag.ContinueOnError)
-	refreshIntervalFlag := fs.Duration("refresh-interval", refreshDefault, "test interval")
-	autoRefreshFlag := fs.Bool("auto-refresh", autoRefreshDefault, "test auto refresh")
-	noAutoRefreshFlag := fs.Bool("no-auto-refresh", noAutoRefreshDefault, "test no auto refresh")
+	autoRefreshSecondsFlag := fs.Int("auto-refresh-seconds", autoRefreshSecondsDefault, "test auto refresh seconds")
 	jsonOutputFlag := fs.Bool("json-output", jsonOutputDefault, "test json output")
 	dbPathFlag := fs.String("db-path", dbPathDefault, "db path")
 	outputFormatFlag := fs.String("output-format", outputFormatDefault, "output format")
@@ -76,43 +66,52 @@ func buildRuntimeOptionsForArgs(t *testing.T, args []string, overrides ...map[st
 	})
 
 	flags := runtimeFlags{
-		refreshInterval:  refreshIntervalFlag,
-		autoRefresh:      autoRefreshFlag,
-		noAutoRefresh:    noAutoRefreshFlag,
-		dbPath:           dbPathFlag,
-		outputFormat:     outputFormatFlag,
-		jsonOutput:       jsonOutputFlag,
-		skipVersionCheck: skipVersionCheckFlag,
-		refreshDefault:   refreshDefault,
+		autoRefreshSeconds: autoRefreshSecondsFlag,
+		dbPath:             dbPathFlag,
+		outputFormat:       outputFormatFlag,
+		jsonOutput:         jsonOutputFlag,
+		skipVersionCheck:   skipVersionCheckFlag,
 	}
 	return computeRuntimeOptions(flags, visited)
 }
 
-func TestComputeRuntimeOptions_NoAutoRefreshOverrides(t *testing.T) {
-	opts := buildRuntimeOptionsForArgs(t, []string{"--no-auto-refresh"})
-	if opts.autoRefresh {
-		t.Fatalf("expected auto refresh disabled when --no-auto-refresh supplied")
-	}
-}
-
-func TestComputeRuntimeOptions_AutoRefreshOverridesConfig(t *testing.T) {
-	opts := buildRuntimeOptionsForArgs(t, []string{"--auto-refresh"}, map[string]any{config.KeyAutoRefresh: false})
-	if !opts.autoRefresh {
-		t.Fatalf("expected --auto-refresh to enable auto refresh even if config disabled")
-	}
-}
-
-func TestComputeRuntimeOptions_RefreshIntervalFromFlag(t *testing.T) {
-	opts := buildRuntimeOptionsForArgs(t, []string{"--refresh-interval=5s"})
+func TestComputeRuntimeOptions_AutoRefreshSecondsFlagOverridesConfig(t *testing.T) {
+	opts := buildRuntimeOptionsForArgs(t, []string{"--auto-refresh-seconds=5"}, map[string]any{config.KeyAutoRefreshSeconds: 9})
 	if opts.refreshInterval != 5*time.Second {
 		t.Fatalf("expected refresh interval 5s, got %v", opts.refreshInterval)
 	}
+	if !opts.autoRefresh {
+		t.Fatalf("expected positive seconds to enable auto refresh")
+	}
 }
 
-func TestComputeRuntimeOptions_RefreshIntervalFromConfig(t *testing.T) {
-	opts := buildRuntimeOptionsForArgs(t, []string{}, map[string]any{config.KeyRefreshInterval: 9 * time.Second})
-	if opts.refreshInterval != 9*time.Second {
-		t.Fatalf("expected refresh interval from config 9s, got %v", opts.refreshInterval)
+func TestComputeRuntimeOptions_AutoRefreshSecondsZeroDisables(t *testing.T) {
+	opts := buildRuntimeOptionsForArgs(t, []string{"--auto-refresh-seconds=0"})
+	if opts.autoRefresh {
+		t.Fatalf("expected zero seconds to disable auto refresh")
+	}
+	if opts.refreshInterval != 0 {
+		t.Fatalf("expected refresh interval 0 when disabled, got %v", opts.refreshInterval)
+	}
+}
+
+func TestComputeRuntimeOptions_ConfigSecondsUsed(t *testing.T) {
+	opts := buildRuntimeOptionsForArgs(t, []string{}, map[string]any{config.KeyAutoRefreshSeconds: 7})
+	if opts.refreshInterval != 7*time.Second {
+		t.Fatalf("expected config auto refresh seconds to drive interval, got %v", opts.refreshInterval)
+	}
+	if !opts.autoRefresh {
+		t.Fatalf("expected positive config seconds to enable auto refresh")
+	}
+}
+
+func TestComputeRuntimeOptions_NegativeSecondsDisable(t *testing.T) {
+	opts := buildRuntimeOptionsForArgs(t, []string{"--auto-refresh-seconds=-5"})
+	if opts.autoRefresh {
+		t.Fatalf("expected negative seconds to disable auto refresh")
+	}
+	if opts.refreshInterval != 0 {
+		t.Fatalf("expected refresh interval 0 for negative seconds, got %v", opts.refreshInterval)
 	}
 }
 

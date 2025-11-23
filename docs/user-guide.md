@@ -116,8 +116,8 @@ The top bar shows: Total, In Progress, Ready (unblocked), Blocked, and Closed co
 Enabled by default, reloads issues every 3 seconds while preserving cursor position and tree state.
 
 ```bash
-abacus --no-auto-refresh              # Disable
-abacus --refresh-interval 5s          # Change interval
+abacus --auto-refresh-seconds 0       # Disable
+abacus --auto-refresh-seconds 5       # Change interval
 ```
 
 ## Command-Line Options
@@ -129,9 +129,7 @@ abacus [options]
 | Option | Description |
 |--------|-------------|
 | `--db-path` | Custom database path |
-| `--auto-refresh` | Enable auto-refresh (default) |
-| `--no-auto-refresh` | Disable auto-refresh |
-| `--refresh-interval` | Refresh interval (default: 3s) |
+| `--auto-refresh-seconds` | Interval in seconds (0 disables; default: 3) |
 | `--output-format` | Detail style: rich, light, plain |
 | `--json-output` | Print JSON and exit |
 | `--skip-version-check` | Skip Beads version check |

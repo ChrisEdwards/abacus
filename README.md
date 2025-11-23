@@ -98,9 +98,7 @@ abacus [options]
 
 Options:
   --db-path string            Path to the Beads database file
-  --auto-refresh              Enable automatic background refresh (default: true)
-  --no-auto-refresh           Disable automatic background refresh
-  --refresh-interval duration Interval for automatic refresh (default: 3s)
+  --auto-refresh-seconds int  Auto-refresh interval in seconds (0 disables; default: 3)
   --output-format string      Detail panel style: rich, light, plain (default: "rich")
   --json-output               Print issue data as JSON and exit
   --skip-version-check        Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)
@@ -134,8 +132,7 @@ Abacus can be configured via:
 
 **Example configuration:**
 ```yaml
-auto-refresh: true
-refresh-interval: 3s
+auto-refresh-seconds: 3
 output:
   format: rich
 database:
