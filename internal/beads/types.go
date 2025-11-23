@@ -27,19 +27,20 @@ type Dependent struct {
 
 // FullIssue models the expanded issue data used by the UI.
 type FullIssue struct {
-	ID           string       `json:"id"`
-	Title        string       `json:"title"`
-	Status       string       `json:"status"`
-	IssueType    string       `json:"issue_type"`
-	Priority     int          `json:"priority"`
-	Description  string       `json:"description"`
-	Design       string       `json:"design"`
-	CreatedAt    string       `json:"created_at"`
-	UpdatedAt    string       `json:"updated_at"`
-	ClosedAt     string       `json:"closed_at"`
-	ExternalRef  string       `json:"external_ref"`
-	Labels       []string     `json:"labels"`
-	Comments     []Comment    `json:"comments"`
-	Dependencies []Dependency `json:"dependencies"`
-	Dependents   []Dependent  `json:"dependents"`
+	ID                 string       `json:"id"`
+	Title              string       `json:"title"`
+	Status             string       `json:"status"`
+	IssueType          string       `json:"issue_type"`
+	Priority           int          `json:"priority"`
+	Description        string       `json:"description"`
+	Design             string       `json:"design"`
+	AcceptanceCriteria string       `json:"acceptance_criteria"`
+	CreatedAt          string       `json:"created_at"`
+	UpdatedAt          string       `json:"updated_at"`
+	ClosedAt           string       `json:"closed_at"`
+	ExternalRef        string       `json:"external_ref"`
+	Labels             []string     `json:"labels"`
+	Comments           []Comment    `json:"comments"`
+	Dependencies       []Dependency `json:"dependencies"`
+	Dependents         []Dependent  `json:"dependents"`
 }

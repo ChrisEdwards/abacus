@@ -159,7 +159,7 @@ func (m *App) updateViewportContent() {
 	}
 
 	descBuilder := strings.Builder{}
-	descBuilder.WriteString(styleSectionHeader.Render("Description") + "\n")
+	descBuilder.WriteString(styleSectionHeader.Render("Description:") + "\n")
 	renderMarkdown := buildMarkdownRenderer(m.outputFormat, vpWidth-2)
 	if iss.Description == "" {
 		descBuilder.WriteString(indentBlock("(no description)", 2))
@@ -168,17 +168,22 @@ func (m *App) updateViewportContent() {
 	}
 
 	if strings.TrimSpace(iss.Design) != "" {
-		descBuilder.WriteString("\n" + styleSectionHeader.Render("Design") + "\n")
+		descBuilder.WriteString("\n" + styleSectionHeader.Render("Design:") + "\n")
 		descBuilder.WriteString(indentBlock(renderMarkdown(iss.Design), 2))
 	}
 
+	if strings.TrimSpace(iss.AcceptanceCriteria) != "" {
+		descBuilder.WriteString("\n" + styleSectionHeader.Render("Acceptance:") + "\n")
+		descBuilder.WriteString(indentBlock(renderMarkdown(iss.AcceptanceCriteria), 2))
+	}
+
 	if node.CommentError != "" {
-		descBuilder.WriteString("\n" + styleSectionHeader.Render("Comments") + "\n")
+		descBuilder.WriteString("\n" + styleSectionHeader.Render("Comments:") + "\n")
 		descBuilder.WriteString(styleBlockedText.Render("Failed to load comments. Press 'c' to retry.") + "\n")
 		wrappedErr := wordwrap.String(node.CommentError, vpWidth-4)
 		descBuilder.WriteString(indentBlock(wrappedErr, 2) + "\n")
 	} else if len(iss.Comments) > 0 {
-		descBuilder.WriteString("\n" + styleSectionHeader.Render("Comments") + "\n")
+		descBuilder.WriteString("\n" + styleSectionHeader.Render("Comments:") + "\n")
 		for _, c := range iss.Comments {
 			header := fmt.Sprintf("  %s  %s", c.Author, formatTime(c.CreatedAt))
 			descBuilder.WriteString(styleCommentHeader.Render(header) + "\n")

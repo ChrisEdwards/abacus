@@ -1001,6 +1001,88 @@ func TestUpdateViewportContentOmitsDesignWhenBlank(t *testing.T) {
 	}
 }
 
+func TestUpdateViewportContentDisplaysAcceptanceSection(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:                 "ab-103",
+			Title:              "Version Checks",
+			Status:             "open",
+			IssueType:          "feature",
+			Priority:           2,
+			Description:        "Ensure CLI presence",
+			Design:             "## Flow\n\n1. Detect CLI\n2. Compare version",
+			AcceptanceCriteria: "## Acceptance\n\n- Clear error when missing\n- Friendly instructions",
+			CreatedAt:          time.Date(2025, time.November, 22, 8, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			UpdatedAt:          time.Date(2025, time.November, 22, 10, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			Comments: []beads.Comment{
+				{
+					Author:    "QA",
+					Text:      "Need docs link",
+					CreatedAt: time.Date(2025, time.November, 22, 11, 0, 0, 0, time.UTC).Format(time.RFC3339),
+				},
+			},
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	if !strings.Contains(content, "Acceptance:") {
+		t.Fatalf("expected Acceptance header present:\n%s", content)
+	}
+	if !strings.Contains(content, "## Acceptance") {
+		t.Fatalf("expected markdown acceptance content present:\n%s", content)
+	}
+
+	designIdx := strings.Index(content, "Design:")
+	acceptIdx := strings.Index(content, "Acceptance:")
+	commentsIdx := strings.Index(content, "Comments:")
+	if designIdx == -1 || acceptIdx == -1 || commentsIdx == -1 {
+		t.Fatalf("expected Design, Acceptance, and Comments headers present")
+	}
+	if !(designIdx < acceptIdx && acceptIdx < commentsIdx) {
+		t.Fatalf("expected Acceptance to appear between Design and Comments: design=%d acceptance=%d comments=%d\n%s",
+			designIdx, acceptIdx, commentsIdx, content)
+	}
+}
+
+func TestUpdateViewportContentOmitsAcceptanceWhenBlank(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:                 "ab-104",
+			Title:              "Whitespace Acceptance",
+			Status:             "open",
+			IssueType:          "feature",
+			Priority:           2,
+			Description:        "Has description.",
+			Design:             "## Design\n\n- present",
+			AcceptanceCriteria: "   \n",
+			CreatedAt:          time.Date(2025, time.November, 22, 9, 30, 0, 0, time.UTC).Format(time.RFC3339),
+			UpdatedAt:          time.Date(2025, time.November, 22, 9, 45, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+	if strings.Contains(content, "Acceptance:") {
+		t.Fatalf("expected Acceptance section omitted when whitespace, content:\n%s", content)
+	}
+}
+
 func loadFixtureIssues(t *testing.T, file string) []beads.FullIssue {
 	t.Helper()
 	candidates := []string{
