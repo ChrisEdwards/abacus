@@ -236,6 +236,8 @@ make lint
 make build
 ```
 
+For information about creating releases, see **[RELEASING.md](RELEASING.md)**.
+
 ## License
 
 This project is licensed under the [MIT License](./LICENSE).
