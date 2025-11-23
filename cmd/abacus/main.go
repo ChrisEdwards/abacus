@@ -54,45 +54,23 @@ func main() {
 		visited[f.Name] = struct{}{}
 	})
 
-	refreshInterval := refreshDefault
-	if flagWasExplicitlySet("refresh-interval", visited) {
-		refreshInterval = *refreshIntervalFlag
-	} else {
-		if cfgInterval := config.GetDuration(config.KeyRefreshInterval); cfgInterval > 0 {
-			refreshInterval = cfgInterval
-		}
-	}
+	runtime := computeRuntimeOptions(runtimeFlags{
+		refreshInterval:  refreshIntervalFlag,
+		autoRefresh:      autoRefreshFlag,
+		noAutoRefresh:    noAutoRefreshFlag,
+		dbPath:           dbPathFlag,
+		outputFormat:     outputFormatFlag,
+		jsonOutput:       jsonOutputFlag,
+		skipVersionCheck: skipVersionCheckFlag,
+		refreshDefault:   refreshDefault,
+	}, visited)
 
-	autoRefresh := config.GetBool(config.KeyAutoRefresh)
-	if config.GetBool(config.KeyNoAutoRefresh) {
-		autoRefresh = false
-	}
-	if flagWasExplicitlySet("auto-refresh", visited) {
-		autoRefresh = *autoRefreshFlag
-	}
-	if flagWasExplicitlySet("no-auto-refresh", visited) {
-		autoRefresh = !*noAutoRefreshFlag
-	}
-
-	dbPath := strings.TrimSpace(config.GetString(config.KeyDatabasePath))
-	if flagWasExplicitlySet("db-path", visited) {
-		dbPath = strings.TrimSpace(*dbPathFlag)
-	}
-
-	outputFormat := strings.TrimSpace(config.GetString(config.KeyOutputFormat))
-	if flagWasExplicitlySet("output-format", visited) {
-		outputFormat = strings.TrimSpace(*outputFormatFlag)
-	}
-
-	jsonOutput := config.GetBool(config.KeyOutputJSON)
-	if flagWasExplicitlySet("json-output", visited) {
-		jsonOutput = *jsonOutputFlag
-	}
-
-	skipVersionCheck := config.GetBool(config.KeySkipVersionCheck)
-	if flagWasExplicitlySet("skip-version-check", visited) {
-		skipVersionCheck = *skipVersionCheckFlag
-	}
+	refreshInterval := runtime.refreshInterval
+	autoRefresh := runtime.autoRefresh
+	dbPath := runtime.dbPath
+	outputFormat := runtime.outputFormat
+	jsonOutput := runtime.jsonOutput
+	skipVersionCheck := runtime.skipVersionCheck
 
 	if !skipVersionCheck {
 		ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
@@ -131,6 +109,77 @@ func main() {
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+type runtimeFlags struct {
+	refreshInterval  *time.Duration
+	autoRefresh      *bool
+	noAutoRefresh    *bool
+	dbPath           *string
+	outputFormat     *string
+	jsonOutput       *bool
+	skipVersionCheck *bool
+	refreshDefault   time.Duration
+}
+
+type runtimeOptions struct {
+	refreshInterval  time.Duration
+	autoRefresh      bool
+	dbPath           string
+	outputFormat     string
+	jsonOutput       bool
+	skipVersionCheck bool
+}
+
+func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runtimeOptions {
+	refreshInterval := flags.refreshDefault
+	if flagWasExplicitlySet("refresh-interval", visited) {
+		refreshInterval = *flags.refreshInterval
+	} else {
+		if cfgInterval := config.GetDuration(config.KeyRefreshInterval); cfgInterval > 0 {
+			refreshInterval = cfgInterval
+		}
+	}
+
+	autoRefresh := config.GetBool(config.KeyAutoRefresh)
+	if config.GetBool(config.KeyNoAutoRefresh) {
+		autoRefresh = false
+	}
+	if flagWasExplicitlySet("auto-refresh", visited) {
+		autoRefresh = *flags.autoRefresh
+	}
+	if flagWasExplicitlySet("no-auto-refresh", visited) {
+		autoRefresh = !*flags.noAutoRefresh
+	}
+
+	dbPath := strings.TrimSpace(config.GetString(config.KeyDatabasePath))
+	if flagWasExplicitlySet("db-path", visited) {
+		dbPath = strings.TrimSpace(*flags.dbPath)
+	}
+
+	outputFormat := strings.TrimSpace(config.GetString(config.KeyOutputFormat))
+	if flagWasExplicitlySet("output-format", visited) {
+		outputFormat = strings.TrimSpace(*flags.outputFormat)
+	}
+
+	jsonOutput := config.GetBool(config.KeyOutputJSON)
+	if flagWasExplicitlySet("json-output", visited) {
+		jsonOutput = *flags.jsonOutput
+	}
+
+	skipVersionCheck := config.GetBool(config.KeySkipVersionCheck)
+	if flagWasExplicitlySet("skip-version-check", visited) {
+		skipVersionCheck = *flags.skipVersionCheck
+	}
+
+	return runtimeOptions{
+		refreshInterval:  refreshInterval,
+		autoRefresh:      autoRefresh,
+		dbPath:           dbPath,
+		outputFormat:     outputFormat,
+		jsonOutput:       jsonOutput,
+		skipVersionCheck: skipVersionCheck,
 	}
 }
 
