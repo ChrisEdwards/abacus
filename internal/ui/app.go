@@ -41,6 +41,7 @@ type App struct {
 	roots       []*graph.Node
 	visibleRows []*graph.Node
 	cursor      int
+	treeTopLine int
 	repoName    string
 
 	viewport      viewport.Model
@@ -60,7 +61,6 @@ type App struct {
 
 	width            int
 	height           int
-	err              error
 	refreshInterval  time.Duration
 	autoRefresh      bool
 	dbPath           string
@@ -105,6 +105,9 @@ func NewApp(cfg Config) (*App, error) {
 		dbPath, dbModTime, dbErr = findBeadsDB()
 	}
 	roots, err := loadData(context.Background(), client)
+	if err != nil {
+		return nil, err
+	}
 	ti := textinput.New()
 	ti.Placeholder = "Search..."
 	ti.Prompt = "/"
@@ -121,7 +124,6 @@ func NewApp(cfg Config) (*App, error) {
 
 	app := &App{
 		roots:           roots,
-		err:             err,
 		textInput:       ti,
 		repoName:        repo,
 		focus:           FocusTree,
@@ -130,12 +132,8 @@ func NewApp(cfg Config) (*App, error) {
 		outputFormat:    cfg.OutputFormat,
 		version:         cfg.Version,
 		client:          client,
-	}
-	if dbErr == nil {
-		app.dbPath = dbPath
-		app.lastDBModTime = dbModTime
-	} else if autoRefresh {
-		app.autoRefresh = false
+		dbPath:          dbPath,
+		lastDBModTime:   dbModTime,
 	}
 	if dbErr != nil {
 		app.lastRefreshStats = fmt.Sprintf("refresh unavailable: %v", dbErr)
@@ -259,9 +257,11 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateViewportContent()
 		case "home", "g":
 			m.cursor = 0
+			m.clampCursor()
 			m.updateViewportContent()
 		case "end", "G":
 			m.cursor = len(m.visibleRows) - 1
+			m.clampCursor()
 			m.updateViewportContent()
 		case "pgdown", "ctrl+f":
 			m.cursor += clampDimension(m.viewport.Height, 1, len(m.visibleRows))
@@ -405,9 +405,6 @@ func (m *App) viewportPageUpCmd() tea.Cmd {
 }
 
 func (m *App) View() string {
-	if m.err != nil {
-		return fmt.Sprintf("Error: %v", m.err)
-	}
 	if !m.ready {
 		return "Initializing..."
 	}

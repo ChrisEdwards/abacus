@@ -14,7 +14,11 @@ import (
 )
 
 func (m *App) updateViewportContent() {
-	if !m.ShowDetails || m.cursor >= len(m.visibleRows) {
+	if !m.ShowDetails {
+		return
+	}
+	if len(m.visibleRows) == 0 || m.cursor < 0 || m.cursor >= len(m.visibleRows) {
+		m.viewport.SetContent("")
 		return
 	}
 	node := m.visibleRows[m.cursor]

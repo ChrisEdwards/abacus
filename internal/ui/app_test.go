@@ -915,6 +915,25 @@ func TestTreeViewCollapsedNodesShowCountBadge(t *testing.T) {
 	}
 }
 
+func TestTreeEndKeySafeWhenNoVisibleRows(t *testing.T) {
+	app := &App{
+		visibleRows: []*graph.Node{},
+		viewport:    viewport.New(80, 20),
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("End key should not panic on empty list: %v", r)
+		}
+	}()
+	app.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	if app.cursor != 0 {
+		t.Fatalf("expected cursor to remain at 0, got %d", app.cursor)
+	}
+	// Should also tolerate detail toggles without crashing.
+	app.ShowDetails = true
+	app.updateViewportContent()
+}
+
 func TestFindBeadsDBPrefersEnv(t *testing.T) {
 	t.Setenv("BEADS_DB", "")
 	tmp := t.TempDir()
@@ -1071,9 +1090,6 @@ func TestNewAppWithMockClientLoadsIssues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewApp returned error: %v", err)
 	}
-	if app.err != nil {
-		t.Fatalf("expected app.err nil, got %v", app.err)
-	}
 	if len(app.roots) != 1 {
 		t.Fatalf("expected a single root, got %d", len(app.roots))
 	}
@@ -1124,16 +1140,13 @@ func TestNewAppCapturesClientError(t *testing.T) {
 		return nil, errors.New("boom")
 	}
 	dbFile := createTempDBFile(t)
-	app, err := NewApp(Config{
+	_, err := NewApp(Config{
 		RefreshInterval: time.Second,
 		DBPathOverride:  dbFile,
 		Client:          mock,
 	})
-	if err != nil {
-		t.Fatalf("NewApp returned error: %v", err)
-	}
-	if app.err == nil {
-		t.Fatalf("expected app.err to capture client failure")
+	if err == nil {
+		t.Fatalf("expected error when client list fails")
 	}
 }
 

@@ -155,6 +155,18 @@ func TestDetailHeaderRegression_ab176(t *testing.T) {
 	}
 }
 
+func TestUpdateViewportContentSkipsWhenNoSelection(t *testing.T) {
+	app := &App{
+		ShowDetails: true,
+		viewport:    viewport.New(80, 20),
+	}
+	app.updateViewportContent()
+	content := strings.TrimSpace(stripANSI(app.viewport.View()))
+	if content != "" {
+		t.Fatalf("expected blank viewport when no selection, got %q", content)
+	}
+}
+
 func TestDetailRelationshipsShowStatusIcons(t *testing.T) {
 	child := &graph.Node{Issue: beads.FullIssue{ID: "ab-601", Title: "Child Active", Status: "in_progress"}, CommentsLoaded: true}
 	parent := &graph.Node{Issue: beads.FullIssue{ID: "ab-600", Title: "Parent", Status: "open"}, Children: []*graph.Node{child}, CommentsLoaded: true}
