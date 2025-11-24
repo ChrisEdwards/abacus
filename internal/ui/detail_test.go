@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -294,6 +295,63 @@ func TestDetailPaneLimitsBlankLinesBetweenSections(t *testing.T) {
 	}
 }
 
+func TestDetailSectionsUseConsistentIndentation(t *testing.T) {
+	now := time.Now().Format(time.RFC3339)
+	parent := &graph.Node{Issue: beads.FullIssue{ID: "ab-par", Title: "Parent", Status: "open"}}
+	child := &graph.Node{Issue: beads.FullIssue{ID: "ab-chd", Title: "Child", Status: "open"}}
+	blocker := &graph.Node{Issue: beads.FullIssue{ID: "ab-blk", Title: "Blocker", Status: "open"}}
+	blocks := &graph.Node{Issue: beads.FullIssue{ID: "ab-bls", Title: "Blocks", Status: "open"}}
+
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:                 "ab-701",
+			Title:              "Indentation audit",
+			Status:             "open",
+			IssueType:          "bug",
+			Priority:           1,
+			Description:        "Paragraph one\n\nParagraph two",
+			Design:             "High level design",
+			AcceptanceCriteria: "- first item",
+			ExternalRef:        "jira-701",
+			CreatedAt:          now,
+			UpdatedAt:          now,
+			Comments: []beads.Comment{
+				{Author: "qa", Text: "Looks good", CreatedAt: now},
+			},
+		},
+		Parent:         parent,
+		Children:       []*graph.Node{child},
+		BlockedBy:      []*graph.Node{blocker},
+		Blocks:         []*graph.Node{blocks},
+		IsBlocked:      true,
+		CommentsLoaded: true,
+	}
+
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(100, 50),
+		outputFormat: "rich",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	labels := []string{
+		"Description:",
+		"Design:",
+		"Acceptance:",
+		"Comments:",
+		"External Reference",
+		"Parent",
+		fmt.Sprintf("Depends On (%d)", len(node.Children)),
+		"Blocked By",
+		fmt.Sprintf("Blocks (%d)", len(node.Blocks)),
+	}
+	for _, label := range labels {
+		assertSectionIndentSpacing(t, content, label, detailSectionLabelIndent, detailSectionContentIndent)
+	}
+}
+
 func assertNoWhitespaceLineAfterLabel(t *testing.T, content, label string) {
 	t.Helper()
 	idx := strings.Index(content, label)
@@ -318,6 +376,50 @@ func assertNoWhitespaceLineAfterLabel(t *testing.T, content, label string) {
 	if strings.TrimSpace(stripANSI(nextLine)) == "" {
 		t.Fatalf("blank line detected immediately after label %s:\n%s", label, content)
 	}
+}
+
+func assertSectionIndentSpacing(t *testing.T, content, label string, wantLabel, wantContent int) {
+	t.Helper()
+	lines := strings.Split(content, "\n")
+	labelIdx := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == label {
+			labelIdx = i
+			break
+		}
+	}
+	if labelIdx == -1 {
+		t.Fatalf("label %q not found in content", label)
+	}
+	labelLine := lines[labelIdx]
+	if got := leadingSpaces(labelLine); got != wantLabel {
+		t.Fatalf("label %q indent=%d, want %d (line=%q)", label, got, wantLabel, labelLine)
+	}
+	contentLine := ""
+	for i := labelIdx + 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "" {
+			continue
+		}
+		contentLine = lines[i]
+		break
+	}
+	if contentLine == "" {
+		t.Fatalf("no content line found after label %q", label)
+	}
+	if got := leadingSpaces(contentLine); got != wantContent {
+		t.Fatalf("content indent for %q=%d, want %d (line=%q)", label, got, wantContent, contentLine)
+	}
+}
+
+func leadingSpaces(line string) int {
+	count := 0
+	for _, ch := range line {
+		if ch != ' ' {
+			break
+		}
+		count++
+	}
+	return count
 }
 
 func TestDetailRelationshipsShowStatusIcons(t *testing.T) {

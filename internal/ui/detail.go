@@ -13,6 +13,11 @@ import (
 	"github.com/muesli/reflow/wordwrap"
 )
 
+const (
+	detailSectionLabelIndent   = 1
+	detailSectionContentIndent = detailSectionLabelIndent + 1
+)
+
 func (m *App) updateViewportContent() {
 	if !m.ShowDetails {
 		return
@@ -123,24 +128,20 @@ func (m *App) updateViewportContent() {
 
 	relSections := make([]string, 0, 5)
 	if iss.ExternalRef != "" {
-		externalRef := strings.Join([]string{
-			styleSectionHeader.Render("External Reference"),
-			indentBlock(fmt.Sprintf("🔗 %s", iss.ExternalRef), 2),
-		}, "\n")
-		relSections = append(relSections, externalRef)
+		externalBody := fmt.Sprintf("🔗 %s", iss.ExternalRef)
+		relSections = append(relSections, renderContentSection("External Reference", externalBody))
 	}
 
 	renderRelSection := func(title string, items []*graph.Node) string {
 		if len(items) == 0 {
 			return ""
 		}
-		const indentSpaces = 2
-		rowWidth := vpWidth - indentSpaces - 2
+		const extraPadding = 2
+		rowWidth := vpWidth - detailSectionContentIndent - extraPadding
 		if rowWidth < 1 {
 			rowWidth = 1
 		}
-		lines := make([]string, 0, len(items)+1)
-		lines = append(lines, styleSectionHeader.Render(title))
+		rows := make([]string, 0, len(items))
 		for _, item := range items {
 			icon, iconStyle, titleStyle := relatedStatusPresentation(item)
 			row := renderRefRowWithIcon(
@@ -152,9 +153,9 @@ func (m *App) updateViewportContent() {
 				styleID,
 				titleStyle,
 			)
-			lines = append(lines, indentBlock(row, indentSpaces))
+			rows = append(rows, row)
 		}
-		return strings.Join(lines, "\n")
+		return renderContentSection(title, strings.Join(rows, "\n"))
 	}
 
 	if node.Parent != nil {
@@ -217,10 +218,11 @@ func (m *App) updateViewportContent() {
 
 func renderContentSection(label, body string) string {
 	cleanBody := normalizeSectionBody(body)
+	indentedBody := alignSectionBody(cleanBody, detailSectionContentIndent)
 	var sb strings.Builder
 	sb.WriteString(styleSectionHeader.Render(label))
 	sb.WriteString("\n")
-	sb.WriteString(cleanBody)
+	sb.WriteString(indentedBody)
 	return sb.String()
 }
 
@@ -256,6 +258,98 @@ func trimLeadingWhitespaceLines(body string) string {
 		body = strings.TrimLeft(body[nextStart:], "\r\n")
 	}
 	return body
+}
+
+func alignSectionBody(body string, indent int) string {
+	lines := strings.Split(body, "\n")
+	if len(lines) == 0 {
+		return ""
+	}
+	padding := strings.Repeat(" ", indent)
+	common := commonLeadingSpaces(lines)
+	for i, line := range lines {
+		if strings.TrimSpace(stripANSI(line)) == "" {
+			lines[i] = ""
+			continue
+		}
+		trimmed := trimANSIIndent(line, common)
+		lines[i] = padding + trimmed
+	}
+	return strings.Join(lines, "\n")
+}
+
+func commonLeadingSpaces(lines []string) int {
+	minIndent := -1
+	for _, line := range lines {
+		if strings.TrimSpace(stripANSI(line)) == "" {
+			continue
+		}
+		count := countLeadingSpacesANSI(line)
+		if minIndent == -1 || count < minIndent {
+			minIndent = count
+		}
+	}
+	if minIndent < 0 {
+		return 0
+	}
+	return minIndent
+}
+
+func countLeadingSpacesANSI(line string) int {
+	count := 0
+	i := 0
+	for i < len(line) {
+		if line[i] == '\x1b' {
+			end := i + 1
+			for end < len(line) && line[end-1] != 'm' {
+				end++
+			}
+			if end >= len(line) {
+				i = len(line)
+				break
+			}
+			i = end
+			continue
+		}
+		if line[i] == ' ' {
+			count++
+			i++
+			continue
+		}
+		break
+	}
+	return count
+}
+
+func trimANSIIndent(line string, spaces int) string {
+	if spaces <= 0 {
+		return line
+	}
+	var b strings.Builder
+	remaining := spaces
+	i := 0
+	for i < len(line) {
+		if line[i] == '\x1b' {
+			end := i + 1
+			for end < len(line) && line[end-1] != 'm' {
+				end++
+			}
+			if end > len(line) {
+				end = len(line)
+			}
+			b.WriteString(line[i:end])
+			i = end
+			continue
+		}
+		if line[i] == ' ' && remaining > 0 {
+			remaining--
+			i++
+			continue
+		}
+		break
+	}
+	b.WriteString(line[i:])
+	return b.String()
 }
 
 func isVisualBlankLine(line string) bool {

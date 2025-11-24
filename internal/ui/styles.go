@@ -78,7 +78,7 @@ var (
 	styleSectionHeader = lipgloss.NewStyle().
 				Foreground(cGold).
 				Bold(true).
-				MarginLeft(1)
+				MarginLeft(detailSectionLabelIndent)
 
 	styleLabel = lipgloss.NewStyle().
 			Foreground(cWhite).
