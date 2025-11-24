@@ -42,7 +42,7 @@ func TestSuggestionsForFieldAppliesFormatter(t *testing.T) {
 			"status": strings.ToUpper,
 		},
 	}
-	entries := app.suggestionsForField("status")
+	entries := app.suggestionsForField("status", "")
 	if len(entries) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(entries))
 	}

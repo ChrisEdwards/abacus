@@ -392,7 +392,8 @@ func (m *App) setFilterText(value string) {
 	if m.overlay.SuggestionMode() == SuggestionModeValue {
 		field := m.overlay.PendingField()
 		if field != "" {
-			m.overlay.SetSuggestions(m.suggestionsForField(field))
+			query := strings.TrimSpace(m.overlay.PendingText())
+			m.overlay.SetSuggestions(m.suggestionsForField(field, query))
 		}
 	} else {
 		m.overlay.SetSuggestions(nil)
@@ -417,13 +418,17 @@ func (m *App) applySuggestion(suggestion string) {
 	if entry, ok := m.overlay.SelectedEntry(); ok && entry.Value != "" {
 		value = entry.Value
 	}
-	current := strings.TrimSpace(m.textInput.Value())
-	if current != "" && !strings.HasSuffix(current, " ") {
-		current += " "
+	raw := strings.TrimSpace(m.textInput.Value())
+	base := raw
+	if pending := strings.TrimSpace(m.overlay.PendingText()); pending != "" {
+		base = strings.TrimSuffix(raw, pending)
 	}
+	base = strings.TrimSpace(base)
 	replacement := fmt.Sprintf("%s:%s", field, value)
-	remaining := strings.TrimPrefix(current, m.overlay.PendingText())
-	m.textInput.SetValue(strings.TrimSpace(remaining+replacement) + " ")
+	if base != "" {
+		base += " "
+	}
+	m.textInput.SetValue(strings.TrimSpace(base+replacement) + " ")
 	m.textInput.SetCursor(len(m.textInput.Value()))
 	m.setFilterText(m.textInput.Value())
 }
@@ -484,7 +489,7 @@ func sortedValues(set map[string]struct{}) []string {
 	return values
 }
 
-func (m *App) suggestionsForField(field string) []suggestionEntry {
+func (m *App) suggestionsForField(field, query string) []suggestionEntry {
 	field = strings.ToLower(strings.TrimSpace(field))
 	if field == "" {
 		return nil
@@ -502,7 +507,7 @@ func (m *App) suggestionsForField(field string) []suggestionEntry {
 		}
 		entries = append(entries, suggestionEntry{Display: display, Value: v})
 	}
-	return entries
+	return rankSuggestions(entries, query)
 }
 
 func formatStatusSuggestion(value string) string {
