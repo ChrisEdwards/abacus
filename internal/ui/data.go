@@ -76,13 +76,20 @@ func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph
 	wg.Wait()
 }
 
-func loadData(ctx context.Context, client beads.Client) ([]*graph.Node, error) {
-	fullIssues, err := fetchFullIssues(ctx, client)
+func loadData(ctx context.Context, client beads.Client, reporter StartupReporter) ([]*graph.Node, error) {
+	if reporter != nil {
+		reporter.Stage(StartupStageLoadingIssues, "Loading issues...")
+	}
+	fullIssues, totalIssues, err := fetchFullIssues(ctx, client)
 	if err != nil {
 		return nil, err
 	}
 	if len(fullIssues) == 0 {
 		return nil, ErrNoIssues
+	}
+	if reporter != nil {
+		reporter.Stage(StartupStageLoadingIssues, fmt.Sprintf("Loaded %d issues", totalIssues))
+		reporter.Stage(StartupStageBuildingGraph, "Building dependency graph...")
 	}
 
 	roots, err := graph.NewBuilder().Build(fullIssues)
@@ -107,18 +114,21 @@ func loadData(ctx context.Context, client beads.Client) ([]*graph.Node, error) {
 		}
 		return a.Issue.CreatedAt < b.Issue.CreatedAt
 	})
+	if reporter != nil {
+		reporter.Stage(StartupStageOrganizingTree, "Organizing tree...")
+	}
 
 	preloadAllComments(ctx, client, roots)
 	return roots, nil
 }
 
-func fetchFullIssues(ctx context.Context, client beads.Client) ([]beads.FullIssue, error) {
+func fetchFullIssues(ctx context.Context, client beads.Client) ([]beads.FullIssue, int, error) {
 	liteIssues, err := client.List(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("list issues: %w", err)
+		return nil, 0, fmt.Errorf("list issues: %w", err)
 	}
 	if len(liteIssues) == 0 {
-		return []beads.FullIssue{}, nil
+		return []beads.FullIssue{}, 0, nil
 	}
 
 	ids := make([]string, 0, len(liteIssues))
@@ -126,7 +136,8 @@ func fetchFullIssues(ctx context.Context, client beads.Client) ([]beads.FullIssu
 		ids = append(ids, l.ID)
 	}
 
-	return batchFetchIssues(ctx, client, ids)
+	full, err := batchFetchIssues(ctx, client, ids)
+	return full, len(liteIssues), err
 }
 
 func batchFetchIssues(ctx context.Context, client beads.Client, ids []string) ([]beads.FullIssue, error) {
@@ -147,8 +158,9 @@ func batchFetchIssues(ctx context.Context, client beads.Client, ids []string) ([
 	return results, nil
 }
 
-func outputIssuesJSON(ctx context.Context, client beads.Client) error {
-	issues, err := fetchFullIssues(ctx, client)
+// OutputIssuesJSON writes all issues to stdout as formatted JSON.
+func OutputIssuesJSON(ctx context.Context, client beads.Client) error {
+	issues, _, err := fetchFullIssues(ctx, client)
 	if err != nil {
 		return err
 	}

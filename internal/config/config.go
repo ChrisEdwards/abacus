@@ -23,6 +23,7 @@ const (
 
 	KeyDatabasePath = "database.path"
 	KeyOutputFormat = "output.format"
+	KeyOutputJSON   = "output.json"
 )
 
 const (
@@ -262,6 +263,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeyDatabasePath, "")
 	v.SetDefault(KeySkipVersionCheck, false)
 	v.SetDefault(KeyOutputFormat, "rich")
+	v.SetDefault(KeyOutputJSON, false)
 	v.SetDefault(KeyAutoRefreshSeconds, defaultAutoRefreshSeconds)
 }
 

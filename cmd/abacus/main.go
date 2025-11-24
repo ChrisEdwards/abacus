@@ -37,6 +37,7 @@ func main() {
 	dbPathFlag := flag.String("db-path", dbPathDefault, "Path to the Beads database file")
 	outputFormatFlag := flag.String("output-format", outputFormatDefault, "Detail panel markdown style (rich, light, plain)")
 	skipVersionCheckFlag := flag.Bool("skip-version-check", skipVersionCheckDefault, "Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)")
+	jsonOutputFlag := flag.Bool("json-output", config.GetBool(config.KeyOutputJSON), "Print all issues as JSON and exit")
 	flag.Parse()
 
 	if *versionFlag {
@@ -54,12 +55,9 @@ func main() {
 		dbPath:             dbPathFlag,
 		outputFormat:       outputFormatFlag,
 		skipVersionCheck:   skipVersionCheckFlag,
+		jsonOutput:         jsonOutputFlag,
 	}, visited)
 
-	refreshInterval := runtime.refreshInterval
-	autoRefresh := runtime.autoRefresh
-	dbPath := runtime.dbPath
-	outputFormat := runtime.outputFormat
 	skipVersionCheck := runtime.skipVersionCheck
 
 	if !skipVersionCheck {
@@ -71,16 +69,12 @@ func main() {
 		}
 	}
 
-	appCfg := ui.Config{
-		RefreshInterval: refreshInterval,
-		AutoRefresh:     autoRefresh,
-		DBPathOverride:  dbPath,
-		OutputFormat:    outputFormat,
-		Version:         Version,
-	}
-
-	if err := runProgram(appCfg, ui.NewApp, func(app *ui.App) programRunner {
+	if err := runWithRuntime(runtime, ui.NewApp, func(app *ui.App) programRunner {
 		return tea.NewProgram(app, tea.WithAltScreen())
+	}, func() startupAnimator {
+		return newStartupSpinner(os.Stderr, 500*time.Millisecond)
+	}, ui.OutputIssuesJSON, func(path string) beads.Client {
+		return beads.NewCLIClient(beads.WithDatabasePath(path))
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -92,6 +86,11 @@ type programRunner interface {
 }
 
 type programFactory func(*ui.App) programRunner
+
+type startupAnimator interface {
+	ui.StartupReporter
+	Stop()
+}
 
 func runProgram(cfg ui.Config, builder func(ui.Config) (*ui.App, error), factory programFactory) error {
 	app, err := builder(cfg)
@@ -119,6 +118,7 @@ type runtimeFlags struct {
 	dbPath             *string
 	outputFormat       *string
 	skipVersionCheck   *bool
+	jsonOutput         *bool
 }
 
 type runtimeOptions struct {
@@ -127,6 +127,7 @@ type runtimeOptions struct {
 	dbPath           string
 	outputFormat     string
 	skipVersionCheck bool
+	jsonOutput       bool
 }
 
 func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runtimeOptions {
@@ -152,12 +153,18 @@ func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runt
 		skipVersionCheck = *flags.skipVersionCheck
 	}
 
+	jsonOutput := config.GetBool(config.KeyOutputJSON)
+	if flagWasExplicitlySet("json-output", visited) {
+		jsonOutput = *flags.jsonOutput
+	}
+
 	return runtimeOptions{
 		refreshInterval:  refreshInterval,
 		autoRefresh:      autoRefresh,
 		dbPath:           dbPath,
 		outputFormat:     outputFormat,
 		skipVersionCheck: skipVersionCheck,
+		jsonOutput:       jsonOutput,
 	}
 }
 
@@ -177,4 +184,61 @@ func sanitizeAutoRefreshSeconds(seconds int) int {
 		return 0
 	}
 	return seconds
+}
+
+func runWithRuntime(
+	runtime runtimeOptions,
+	builder func(ui.Config) (*ui.App, error),
+	factory programFactory,
+	spinnerFactory func() startupAnimator,
+	jsonPrinter func(context.Context, beads.Client) error,
+	clientFactory func(string) beads.Client,
+) error {
+	if runtime.jsonOutput {
+		if clientFactory == nil {
+			clientFactory = func(path string) beads.Client {
+				return beads.NewCLIClient(beads.WithDatabasePath(path))
+			}
+		}
+		client := clientFactory(runtime.dbPath)
+		if jsonPrinter == nil {
+			jsonPrinter = ui.OutputIssuesJSON
+		}
+		return jsonPrinter(context.Background(), client)
+	}
+
+	var spinner startupAnimator
+	if spinnerFactory != nil {
+		spinner = spinnerFactory()
+	}
+
+	cfg := ui.Config{
+		RefreshInterval: runtime.refreshInterval,
+		AutoRefresh:     runtime.autoRefresh,
+		DBPathOverride:  runtime.dbPath,
+		OutputFormat:    runtime.outputFormat,
+		Version:         Version,
+	}
+	if spinner != nil {
+		cfg.StartupReporter = spinner
+	}
+
+	spinnerStopped := false
+	wrappedFactory := func(app *ui.App) programRunner {
+		if spinner != nil && !spinnerStopped {
+			spinner.Stop()
+			spinnerStopped = true
+		}
+		if factory == nil {
+			return nil
+		}
+		return factory(app)
+	}
+
+	err := runProgram(cfg, builder, wrappedFactory)
+	if spinner != nil && !spinnerStopped {
+		spinner.Stop()
+		spinnerStopped = true
+	}
+	return err
 }

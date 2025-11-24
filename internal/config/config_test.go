@@ -178,6 +178,9 @@ auto-refresh-seconds: 5
 	if got := GetInt(KeyAutoRefreshSeconds); got != 7 {
 		t.Fatalf("expected env override for %s=7, got %d", KeyAutoRefreshSeconds, got)
 	}
+	if got := GetBool(KeyOutputJSON); !got {
+		t.Fatalf("expected env override to set %s true", KeyOutputJSON)
+	}
 
 	overrides := map[string]any{
 		KeyAutoRefreshSeconds: 11,

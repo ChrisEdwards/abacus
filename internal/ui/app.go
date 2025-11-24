@@ -32,6 +32,7 @@ type Config struct {
 	AutoRefresh     bool
 	DBPathOverride  string
 	OutputFormat    string
+	StartupReporter StartupReporter
 	Client          beads.Client
 	Version         string // Version string to display in header
 }
@@ -81,6 +82,11 @@ func NewApp(cfg Config) (*App, error) {
 		cfg.RefreshInterval = defaultRefreshInterval
 	}
 
+	reporter := cfg.StartupReporter
+	if reporter != nil {
+		reporter.Stage(StartupStageFindingDatabase, "Finding Beads database...")
+	}
+
 	var (
 		dbPath    string
 		dbModTime time.Time
@@ -100,13 +106,16 @@ func NewApp(cfg Config) (*App, error) {
 	if dbPath == "" && dbErr == nil {
 		dbPath, dbModTime, dbErr = findBeadsDB()
 	}
+	if reporter != nil && dbPath != "" && dbErr == nil {
+		reporter.Stage(StartupStageFindingDatabase, fmt.Sprintf("Using database at %s", dbPath))
+	}
 
 	client := cfg.Client
 	if client == nil {
 		client = beads.NewCLIClient(beads.WithDatabasePath(dbPath))
 	}
 
-	roots, err := loadData(context.Background(), client)
+	roots, err := loadData(context.Background(), client, reporter)
 	if err != nil {
 		return nil, err
 	}
@@ -141,6 +150,9 @@ func NewApp(cfg Config) (*App, error) {
 		app.lastRefreshStats = fmt.Sprintf("refresh unavailable: %v", dbErr)
 	}
 	app.recalcVisibleRows()
+	if reporter != nil {
+		reporter.Stage(StartupStageReady, "Ready!")
+	}
 	return app, nil
 }
 

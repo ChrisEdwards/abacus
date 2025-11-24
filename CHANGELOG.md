@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Version management infrastructure with `--version` flag
 - GoReleaser configuration for multi-platform builds
 - Release automation pipeline
+- Pre-TUI loading spinner with witty status messaging and JSON-mode safeguards
 
 ## [0.1.0] - TBD
 

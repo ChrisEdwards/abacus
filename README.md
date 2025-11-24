@@ -140,11 +140,14 @@ Abacus can be configured via:
 ```yaml
 auto-refresh-seconds: 3
 output:
+  json: false
   format: rich
 database:
   path: .beads/beads.db
 skip-version-check: false
 ```
+
+Set `output.json: true`, `AB_OUTPUT_JSON=true`, or pass `--json-output` to print all issues as JSON (useful for scripting) and skip the TUI entirely. In JSON mode, startup animations are disabled so output stays machine-friendly.
 
 ## How It Works
 
@@ -154,6 +157,7 @@ Abacus interfaces with the Beads CLI to:
 2. Fetch full details for each issue with `bd show`
 3. Build a dependency graph based on parent-child and blocking relationships
 4. Render an interactive TUI using [Bubble Tea](https://github.com/charmbracelet/bubbletea)
+5. Display a short-lived, witty spinner summarizing progress while the data loads
 
 The graph automatically identifies root nodes (issues with no parents or deepest parents in the hierarchy) and organizes the tree to minimize visual depth while accurately representing all relationships.
 

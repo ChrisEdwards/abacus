@@ -14,7 +14,7 @@ import (
 
 func refreshDataCmd(client beads.Client, targetModTime time.Time) tea.Cmd {
 	return func() tea.Msg {
-		newRoots, err := loadData(context.Background(), client)
+		newRoots, err := loadData(context.Background(), client, nil)
 		if err != nil {
 			return refreshCompleteMsg{err: err}
 		}
