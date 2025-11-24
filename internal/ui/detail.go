@@ -168,40 +168,31 @@ func (m *App) updateViewportContent() {
 		relBlock = relBuilder.String()
 	}
 
-	descBuilder := strings.Builder{}
-	descBuilder.WriteString(styleSectionHeader.Render("Description:") + "\n")
 	renderMarkdown := buildMarkdownRenderer(m.outputFormat, vpWidth-2)
-	if iss.Description == "" {
-		descBuilder.WriteString(indentBlock("(no description)", 2))
-	} else {
-		descBuilder.WriteString(indentBlock(renderMarkdown(iss.Description), 2))
+	descSections := []string{
+		renderContentSection("Description:", renderMarkdown(iss.Description), true),
 	}
-
 	if strings.TrimSpace(iss.Design) != "" {
-		descBuilder.WriteString("\n" + styleSectionHeader.Render("Design:") + "\n")
-		descBuilder.WriteString(indentBlock(renderMarkdown(iss.Design), 2))
+		descSections = append(descSections, renderContentSection("Design:", renderMarkdown(iss.Design), false))
 	}
-
 	if strings.TrimSpace(iss.AcceptanceCriteria) != "" {
-		descBuilder.WriteString("\n" + styleSectionHeader.Render("Acceptance:") + "\n")
-		descBuilder.WriteString(indentBlock(renderMarkdown(iss.AcceptanceCriteria), 2))
+		descSections = append(descSections, renderContentSection("Acceptance:", renderMarkdown(iss.AcceptanceCriteria), false))
 	}
-
 	if node.CommentError != "" {
-		descBuilder.WriteString("\n" + styleSectionHeader.Render("Comments:") + "\n")
-		descBuilder.WriteString(styleBlockedText.Render("Failed to load comments. Press 'c' to retry.") + "\n")
-		wrappedErr := wordwrap.String(node.CommentError, vpWidth-4)
-		descBuilder.WriteString(indentBlock(wrappedErr, 2) + "\n")
+		errorBody := styleBlockedText.Render("Failed to load comments. Press 'c' to retry.") + "\n" +
+			indentBlock(wordwrap.String(node.CommentError, vpWidth-4), 2)
+		descSections = append(descSections, renderContentSection("Comments:", errorBody, false))
 	} else if len(iss.Comments) > 0 {
-		descBuilder.WriteString("\n" + styleSectionHeader.Render("Comments:") + "\n")
+		var commentBlocks []string
 		for _, c := range iss.Comments {
 			header := fmt.Sprintf("  %s  %s", c.Author, formatTime(c.CreatedAt))
-			descBuilder.WriteString(styleCommentHeader.Render(header) + "\n")
-
-			renderedComment := renderMarkdown(c.Text)
-			descBuilder.WriteString(indentBlock(renderedComment, 2) + "\n\n")
+			body := styleCommentHeader.Render(header) + "\n" + indentBlock(renderMarkdown(c.Text), 2)
+			commentBlocks = append(commentBlocks, body)
 		}
+		descSections = append(descSections, renderContentSection("Comments:", strings.Join(commentBlocks, "\n\n"), false))
 	}
+	descBuilder := strings.Builder{}
+	descBuilder.WriteString(strings.Join(descSections, "\n"))
 
 	finalContent := lipgloss.JoinVertical(lipgloss.Left,
 		headerBlock,
@@ -212,6 +203,17 @@ func (m *App) updateViewportContent() {
 
 	m.viewport.SetContent(finalContent)
 	m.detailIssueID = iss.ID
+}
+
+func renderContentSection(label, body string, first bool) string {
+	var sb strings.Builder
+	if !first {
+		sb.WriteString("\n")
+	}
+	sb.WriteString(styleSectionHeader.Render(label))
+	sb.WriteString("\n")
+	sb.WriteString(strings.TrimRight(body, "\n"))
+	return sb.String()
 }
 
 func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipgloss.Style, bgColor lipgloss.Color) string {

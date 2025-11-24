@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"abacus/internal/beads"
 	"abacus/internal/graph"
@@ -164,6 +165,36 @@ func TestUpdateViewportContentSkipsWhenNoSelection(t *testing.T) {
 	content := strings.TrimSpace(stripANSI(app.viewport.View()))
 	if content != "" {
 		t.Fatalf("expected blank viewport when no selection, got %q", content)
+	}
+}
+
+func TestDetailSectionsHaveNoBlankLineBetweenLabelAndContent(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:                 "ab-200",
+			Title:              "Spacing Check",
+			Description:        "Line one\n\nLine two",
+			Design:             "Design body",
+			AcceptanceCriteria: "Acceptance body",
+			Comments: []beads.Comment{
+				{Author: "qa", Text: "Looks good", CreatedAt: time.Now().Format(time.RFC3339)},
+			},
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(80, 30),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+	for _, label := range []string{"Description:", "Design:", "Acceptance:", "Comments:"} {
+		pattern := label + "\n\n"
+		if strings.Contains(content, pattern) {
+			t.Fatalf("expected no blank line between %s and content:\n%s", label, content)
+		}
 	}
 }
 
