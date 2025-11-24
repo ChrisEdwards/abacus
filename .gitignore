@@ -34,3 +34,6 @@ go.work
 
 # Local scripts
 wt.sh
+
+# Release artifacts
+.release-notes.md
