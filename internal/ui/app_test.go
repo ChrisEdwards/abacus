@@ -841,6 +841,26 @@ func buildTreeTestApp(nodes ...*graph.Node) *App {
 	return m
 }
 
+func buildWrappedTreeApp(count int) *App {
+	nodes := make([]*graph.Node, count)
+	for i := 0; i < count; i++ {
+		nodes[i] = &graph.Node{
+			Issue: beads.FullIssue{
+				ID:     fmt.Sprintf("ab-%02d", i+1),
+				Title:  "Ensure selection stays visible even when this title wraps onto multiple lines within the viewport.",
+				Status: "open",
+			},
+		}
+	}
+	app := &App{
+		roots:  nodes,
+		width:  50,
+		height: 12,
+	}
+	app.recalcVisibleRows()
+	return app
+}
+
 func treeLineContaining(t *testing.T, view, id string) string {
 	t.Helper()
 	clean := stripANSI(view)
@@ -912,6 +932,18 @@ func TestTreeViewCollapsedNodesShowCountBadge(t *testing.T) {
 	line := treeLineContaining(t, view, "ab-721")
 	if !strings.Contains(line, "[+1]") {
 		t.Fatalf("expected collapsed node to show [+1] badge, got %q", line)
+	}
+}
+
+func TestTreeScrollKeepsWrappedSelectionVisible(t *testing.T) {
+	app := buildWrappedTreeApp(12)
+	for i := range app.visibleRows {
+		app.cursor = i
+		view := stripANSI(app.renderTreeView())
+		id := fmt.Sprintf("ab-%02d", i+1)
+		if !strings.Contains(view, id) {
+			t.Fatalf("expected view to include %s at cursor %d:\n%s", id, i, view)
+		}
 	}
 }
 

@@ -10,26 +10,13 @@ import (
 	"github.com/muesli/reflow/wordwrap"
 )
 
+const treeScrollMargin = 1
+
 func (m *App) renderTreeView() string {
 	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
 	if len(m.visibleRows) == 0 {
+		m.treeTopLine = 0
 		return ""
-	}
-
-	var treeLines []string
-	start, end := 0, len(m.visibleRows)
-	if end > listHeight {
-		if m.cursor > listHeight/2 {
-			start = m.cursor - listHeight/2
-		}
-		if start+listHeight < end {
-			end = start + listHeight
-		} else {
-			start = end - listHeight
-			if start < 0 {
-				start = 0
-			}
-		}
 	}
 
 	treeWidth := m.width - 2
@@ -38,13 +25,42 @@ func (m *App) renderTreeView() string {
 	}
 	treeWidth = clampDimension(treeWidth, minTreeWidth, m.width-2)
 
-	visualLinesCount := 0
-	for i := start; i < end; i++ {
-		if visualLinesCount >= listHeight {
-			break
-		}
-		node := m.visibleRows[i]
+	lines, cursorStart, cursorEnd := m.buildTreeLines(treeWidth)
+	totalLines := len(lines)
+	if totalLines == 0 {
+		return ""
+	}
 
+	m.ensureTreeSelectionVisible(listHeight, totalLines, cursorStart, cursorEnd)
+
+	maxTop := totalLines - listHeight
+	if maxTop < 0 {
+		maxTop = 0
+	}
+	start := m.treeTopLine
+	if start < 0 {
+		start = 0
+	} else if start > maxTop {
+		start = maxTop
+	}
+	end := start + listHeight
+	if end > totalLines {
+		end = totalLines
+	}
+
+	visible := append([]string{}, lines[start:end]...)
+	for len(visible) < listHeight {
+		visible = append(visible, "")
+	}
+
+	return strings.Join(visible, "\n")
+}
+
+func (m *App) buildTreeLines(treeWidth int) ([]string, int, int) {
+	lines := make([]string, 0, len(m.visibleRows))
+	cursorStart, cursorEnd := -1, -1
+
+	for i, node := range m.visibleRows {
 		indent := strings.Repeat("  ", node.Depth)
 		marker := " •"
 		if len(node.Children) > 0 {
@@ -79,34 +95,73 @@ func (m *App) renderTreeView() string {
 		totalPrefixWidth := treePrefixWidth(indent, marker, iconStr, node.Issue.ID)
 		wrappedTitle := wrapWithHangingIndent(totalPrefixWidth, node.Issue.Title, wrapWidth)
 		titleLines := strings.Split(wrappedTitle, "\n")
+		if len(titleLines) == 0 {
+			titleLines = []string{""}
+		}
 
 		if i == m.cursor {
+			cursorStart = len(lines)
 			highlightedPrefix := styleSelected.Render(fmt.Sprintf(" %s%s", indent, marker))
 			line1Rest := fmt.Sprintf(" %s %s %s", iconStyle.Render(iconStr), styleID.Render(node.Issue.ID), textStyle.Render(titleLines[0]))
-			treeLines = append(treeLines, highlightedPrefix+line1Rest)
-			visualLinesCount++
+			lines = append(lines, highlightedPrefix+line1Rest)
 		} else {
 			line1Prefix := fmt.Sprintf(" %s%s %s ", indent, iconStyle.Render(marker), iconStyle.Render(iconStr))
 			line1 := fmt.Sprintf("%s%s %s", line1Prefix, styleID.Render(node.Issue.ID), textStyle.Render(titleLines[0]))
-			treeLines = append(treeLines, line1)
-			visualLinesCount++
+			lines = append(lines, line1)
 		}
 
 		for k := 1; k < len(titleLines); k++ {
-			if visualLinesCount >= listHeight {
-				break
-			}
-			treeLines = append(treeLines, " "+textStyle.Render(titleLines[k]))
-			visualLinesCount++
+			lines = append(lines, " "+textStyle.Render(titleLines[k]))
+		}
+
+		if i == m.cursor {
+			cursorEnd = len(lines)
 		}
 	}
+	return lines, cursorStart, cursorEnd
+}
 
-	for visualLinesCount < listHeight {
-		treeLines = append(treeLines, "")
-		visualLinesCount++
+func (m *App) ensureTreeSelectionVisible(listHeight, totalLines, cursorStart, cursorEnd int) {
+	if listHeight < 1 {
+		listHeight = 1
+	}
+	maxTop := totalLines - listHeight
+	if maxTop < 0 {
+		maxTop = 0
+	}
+	if m.treeTopLine < 0 {
+		m.treeTopLine = 0
+	} else if m.treeTopLine > maxTop {
+		m.treeTopLine = maxTop
+	}
+	if cursorStart < 0 {
+		return
 	}
 
-	return strings.Join(treeLines, "\n")
+	margin := treeScrollMargin
+	if margin > listHeight/2 {
+		margin = listHeight / 2
+	}
+	top := m.treeTopLine
+	if cursorStart < top+margin {
+		top = cursorStart - margin
+	}
+
+	cursorBottom := cursorEnd - 1
+	if cursorBottom < cursorStart {
+		cursorBottom = cursorStart
+	}
+	maxVisible := top + listHeight - 1 - margin
+	if cursorBottom > maxVisible {
+		top = cursorBottom - (listHeight - 1 - margin)
+	}
+
+	if top < 0 {
+		top = 0
+	} else if top > maxTop {
+		top = maxTop
+	}
+	m.treeTopLine = top
 }
 
 func wrapWithHangingIndent(prefixWidth int, text string, maxWidth int) string {
