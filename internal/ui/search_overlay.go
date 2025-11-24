@@ -1,9 +1,9 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -16,24 +16,38 @@ const (
 
 // SearchOverlay renders the modal search UI with a dimmed scrim background.
 type SearchOverlay struct {
-	Title       string
-	Suggestions []string
-	emptyHint   string
+	Title     string
+	emptyHint string
 
 	tokens       []SearchToken
 	mode         SuggestionMode
 	pendingField string
 	pendingText  string
+
+	listModel *suggestionList
 }
 
 // NewSearchOverlay builds a modal with sensible defaults.
 func NewSearchOverlay() SearchOverlay {
-	overlay := SearchOverlay{
+	items := []list.Item{}
+	delegate := newSuggestionDelegate()
+	model := list.New(items, delegate, overlayMaxWidth, suggestionListMaxHeight)
+	model.DisableQuitKeybindings()
+	model.SetShowTitle(false)
+	model.SetShowStatusBar(false)
+	model.SetShowHelp(false)
+	model.SetShowPagination(false)
+	model.SetShowFilter(false)
+	model.SetFilteringEnabled(false)
+	model.SetHeight(suggestionListMaxHeight)
+	listWrapper := &suggestionList{model: &model}
+	m := SearchOverlay{
 		Title:     "Smart Filter Search",
 		emptyHint: "Type to search by title or bead id",
+		listModel: listWrapper,
 	}
-	overlay.UpdateInput("")
-	return overlay
+	m.UpdateInput("")
+	return m
 }
 
 // SetSuggestions replaces the current suggestion list.
@@ -41,7 +55,13 @@ func (o *SearchOverlay) SetSuggestions(items []string) {
 	if o == nil {
 		return
 	}
-	o.Suggestions = append([]string(nil), items...)
+	converted := make([]list.Item, len(items))
+	for i, suggestion := range items {
+		converted[i] = textSuggestion{Text: suggestion}
+	}
+	if o.listModel != nil {
+		o.listModel.SetItems(converted)
+	}
 }
 
 // UpdateInput parses the raw input and updates tokens/mode metadata.
@@ -118,6 +138,7 @@ func (o SearchOverlay) modalSections(inputView string, modalWidth int) []string 
 		sections = append(sections, styleSearchOverlayTitle.Render(title))
 	}
 	sections = append(sections, inputView)
+	sections = append(sections, renderOverlayDivider(modalWidth))
 	if suggestions := o.renderSuggestions(modalWidth); suggestions != "" {
 		sections = append(sections, suggestions)
 	}
@@ -125,14 +146,10 @@ func (o SearchOverlay) modalSections(inputView string, modalWidth int) []string 
 }
 
 func (o SearchOverlay) renderSuggestions(modalWidth int) string {
-	if len(o.Suggestions) == 0 {
+	if o.listModel == nil || o.listModel.ItemCount() == 0 {
 		return styleSearchOverlayHint.Render(o.emptyHint)
 	}
-	lines := make([]string, len(o.Suggestions))
-	for i, suggestion := range o.Suggestions {
-		lines[i] = styleSearchOverlaySuggestion.Render(fmt.Sprintf("• %s", suggestion))
-	}
-	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+	return o.listModel.ViewWithWidth(modalWidth)
 }
 
 func (o SearchOverlay) modalWidth(containerWidth int) int {
@@ -149,4 +166,37 @@ func (o SearchOverlay) modalWidth(containerWidth int) int {
 		width = clampDimension(maxAllowed, overlayMinWidth, overlayMaxWidth)
 	}
 	return width
+}
+
+func renderOverlayDivider(width int) string {
+	if width < 1 {
+		width = 1
+	}
+	line := strings.Repeat("─", clampDimension(width-4, 1, width))
+	return styleSearchOverlayDivider.Width(width).Render(line)
+}
+
+func (o SearchOverlay) HasSuggestions() bool {
+	return o.listModel != nil && o.listModel.ItemCount() > 0
+}
+
+func (o *SearchOverlay) CursorUp() {
+	if o == nil || o.listModel == nil {
+		return
+	}
+	o.listModel.CursorUp()
+}
+
+func (o *SearchOverlay) CursorDown() {
+	if o == nil || o.listModel == nil {
+		return
+	}
+	o.listModel.CursorDown()
+}
+
+func (o SearchOverlay) SelectedSuggestion() string {
+	if o.listModel == nil {
+		return ""
+	}
+	return o.listModel.SelectedText()
 }

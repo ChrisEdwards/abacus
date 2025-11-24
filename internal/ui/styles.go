@@ -114,6 +114,20 @@ var (
 
 	styleSearchOverlaySuggestion = lipgloss.NewStyle().
 					Foreground(cWhite)
+
+	styleSearchOverlayDivider = lipgloss.NewStyle().
+					Foreground(cGray)
+
+	styleSuggestionBullet = lipgloss.NewStyle().
+				Foreground(cPurple)
+
+	styleSuggestionItem = lipgloss.NewStyle().
+				Foreground(cWhite).
+				Padding(0, 1)
+
+	styleSuggestionItemSelected = lipgloss.NewStyle().
+					Background(cHighlight).
+					Foreground(cWhite)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {

@@ -8,6 +8,7 @@ import (
 	"abacus/internal/graph"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestSearchOverlayInputWidthRespectsBounds(t *testing.T) {
@@ -27,10 +28,26 @@ func TestSearchOverlayViewRendersSuggestions(t *testing.T) {
 	overlay.SetSuggestions([]string{"status:open", "assignee:me"})
 
 	output := overlay.View("/ status:", 100, 30)
-	for _, snippet := range []string{"Smart Filter Search", "• status:open", "/ status:"} {
+	for _, snippet := range []string{"Smart Filter Search", "status:open", "/ status:"} {
 		if !strings.Contains(output, snippet) {
 			t.Fatalf("expected overlay output to contain %q\n%s", snippet, output)
 		}
+	}
+}
+
+func TestSearchOverlayCursorMovement(t *testing.T) {
+	overlay := NewSearchOverlay()
+	overlay.SetSuggestions([]string{"status:open", "status:closed"})
+	if got := overlay.SelectedSuggestion(); got != "status:open" {
+		t.Fatalf("expected initial selection status:open, got %q", got)
+	}
+	overlay.CursorDown()
+	if got := overlay.SelectedSuggestion(); got != "status:closed" {
+		t.Fatalf("expected cursor down to select status:closed, got %q", got)
+	}
+	overlay.CursorUp()
+	if got := overlay.SelectedSuggestion(); got != "status:open" {
+		t.Fatalf("expected cursor up to return to status:open, got %q", got)
 	}
 }
 
@@ -56,5 +73,31 @@ func TestAppViewShowsOverlayWhileSearching(t *testing.T) {
 	}
 	if strings.Contains(view, "ABACUS") {
 		t.Fatalf("expected base UI hidden behind overlay, got:\n%s", view)
+	}
+}
+
+func TestAppSearchNavigationUsesSuggestionList(t *testing.T) {
+	ti := textinput.New()
+	ti.SetValue("status:")
+	root := &graph.Node{Issue: beads.FullIssue{ID: "ab-010", Title: "Root"}}
+	app := &App{
+		roots:       []*graph.Node{root},
+		visibleRows: []*graph.Node{root},
+		textInput:   ti,
+		searching:   true,
+		overlay:     NewSearchOverlay(),
+		ready:       true,
+		width:       80,
+		height:      25,
+	}
+	app.overlay.SetSuggestions([]string{"status:open", "status:closed"})
+
+	app.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if got := app.overlay.SelectedSuggestion(); got != "status:closed" {
+		t.Fatalf("expected down key to advance selection, got %q", got)
+	}
+	app.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if got := app.overlay.SelectedSuggestion(); got != "status:open" {
+		t.Fatalf("expected up key to move selection back, got %q", got)
 	}
 }

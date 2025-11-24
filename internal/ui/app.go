@@ -213,6 +213,16 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "esc":
 				m.clearSearchFilter()
 				return m, nil
+			case "up", "k":
+				if m.overlay.HasSuggestions() {
+					m.overlay.CursorUp()
+					return m, nil
+				}
+			case "down", "j", "tab":
+				if m.overlay.HasSuggestions() {
+					m.overlay.CursorDown()
+					return m, nil
+				}
 			default:
 				m.textInput, cmd = m.textInput.Update(msg)
 				m.setFilterText(m.textInput.Value())
