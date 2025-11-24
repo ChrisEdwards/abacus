@@ -60,6 +60,7 @@ type App struct {
 	filterFreeText      []string
 	valueCache          map[string][]string
 	suggestionFormatter map[string]func(string) string
+	fieldSuggestions    []suggestionEntry
 	overlay             SearchOverlay
 	// filterCollapsed tracks nodes explicitly collapsed while a search filter is active.
 	filterCollapsed map[string]bool
@@ -142,10 +143,11 @@ func NewApp(cfg Config) (*App, error) {
 	}
 
 	app := &App{
-		roots:      roots,
-		textInput:  ti,
-		overlay:    overlay,
-		valueCache: make(map[string][]string),
+		roots:            roots,
+		textInput:        ti,
+		overlay:          overlay,
+		valueCache:       make(map[string][]string),
+		fieldSuggestions: buildFieldSuggestions(),
 		suggestionFormatter: map[string]func(string) string{
 			"status":   formatStatusSuggestion,
 			"priority": formatPrioritySuggestion,
@@ -552,6 +554,17 @@ func titleCase(value string) string {
 	runes := []rune(value)
 	runes[0] = []rune(strings.ToUpper(string(runes[0])))[0]
 	return string(runes)
+}
+
+func buildFieldSuggestions() []suggestionEntry {
+	fields := []suggestionEntry{
+		{Display: "Status", Value: "status"},
+		{Display: "Priority", Value: "priority"},
+		{Display: "Type", Value: "type"},
+		{Display: "Labels", Value: "labels"},
+		{Display: "ID", Value: "id"},
+	}
+	return fields
 }
 
 func (m *App) detailFocusActive() bool {
