@@ -119,22 +119,28 @@ func (m *App) updateViewportContent() {
 	} else {
 		metaBlock = lipgloss.JoinHorizontal(lipgloss.Top, leftStack, "    ", rightStack)
 	}
-	metaBlock = lipgloss.NewStyle().MarginLeft(1).PaddingTop(1).PaddingBottom(1).Render(metaBlock)
+	metaBlock = lipgloss.NewStyle().MarginLeft(1).Render(metaBlock)
 
-	relBuilder := strings.Builder{}
-
+	relSections := make([]string, 0, 5)
 	if iss.ExternalRef != "" {
-		relBuilder.WriteString(styleSectionHeader.Render("External Reference") + "\n")
-		relBuilder.WriteString(fmt.Sprintf("  🔗 %s\n\n", iss.ExternalRef))
+		externalRef := strings.Join([]string{
+			styleSectionHeader.Render("External Reference"),
+			indentBlock(fmt.Sprintf("🔗 %s", iss.ExternalRef), 2),
+		}, "\n")
+		relSections = append(relSections, externalRef)
 	}
 
-	renderRelSection := func(title string, items []*graph.Node) {
-		relBuilder.WriteString(styleSectionHeader.Render(title) + "\n")
+	renderRelSection := func(title string, items []*graph.Node) string {
+		if len(items) == 0 {
+			return ""
+		}
 		const indentSpaces = 2
 		rowWidth := vpWidth - indentSpaces - 2
 		if rowWidth < 1 {
 			rowWidth = 1
 		}
+		lines := make([]string, 0, len(items)+1)
+		lines = append(lines, styleSectionHeader.Render(title))
 		for _, item := range items {
 			icon, iconStyle, titleStyle := relatedStatusPresentation(item)
 			row := renderRefRowWithIcon(
@@ -146,42 +152,47 @@ func (m *App) updateViewportContent() {
 				styleID,
 				titleStyle,
 			)
-			relBuilder.WriteString(indentBlock(row, indentSpaces) + "\n")
+			lines = append(lines, indentBlock(row, indentSpaces))
 		}
+		return strings.Join(lines, "\n")
 	}
 
 	if node.Parent != nil {
-		renderRelSection("Parent", []*graph.Node{node.Parent})
+		if section := renderRelSection("Parent", []*graph.Node{node.Parent}); section != "" {
+			relSections = append(relSections, section)
+		}
 	}
 	if len(node.Children) > 0 {
-		renderRelSection(fmt.Sprintf("Depends On (%d)", len(node.Children)), node.Children)
+		if section := renderRelSection(fmt.Sprintf("Depends On (%d)", len(node.Children)), node.Children); section != "" {
+			relSections = append(relSections, section)
+		}
 	}
-	if node.IsBlocked {
-		renderRelSection("Blocked By", node.BlockedBy)
+	if node.IsBlocked && len(node.BlockedBy) > 0 {
+		if section := renderRelSection("Blocked By", node.BlockedBy); section != "" {
+			relSections = append(relSections, section)
+		}
 	}
 	if len(node.Blocks) > 0 {
-		renderRelSection(fmt.Sprintf("Blocks (%d)", len(node.Blocks)), node.Blocks)
+		if section := renderRelSection(fmt.Sprintf("Blocks (%d)", len(node.Blocks)), node.Blocks); section != "" {
+			relSections = append(relSections, section)
+		}
 	}
-
-	relBlock := ""
-	if relBuilder.Len() > 0 {
-		relBlock = relBuilder.String()
-	}
+	relBlock := joinDetailSections(relSections...)
 
 	renderMarkdown := buildMarkdownRenderer(m.outputFormat, vpWidth-2)
 	descSections := []string{
-		renderContentSection("Description:", renderMarkdown(iss.Description), true),
+		renderContentSection("Description:", renderMarkdown(iss.Description)),
 	}
 	if strings.TrimSpace(iss.Design) != "" {
-		descSections = append(descSections, renderContentSection("Design:", renderMarkdown(iss.Design), false))
+		descSections = append(descSections, renderContentSection("Design:", renderMarkdown(iss.Design)))
 	}
 	if strings.TrimSpace(iss.AcceptanceCriteria) != "" {
-		descSections = append(descSections, renderContentSection("Acceptance:", renderMarkdown(iss.AcceptanceCriteria), false))
+		descSections = append(descSections, renderContentSection("Acceptance:", renderMarkdown(iss.AcceptanceCriteria)))
 	}
 	if node.CommentError != "" {
 		errorBody := styleBlockedText.Render("Failed to load comments. Press 'c' to retry.") + "\n" +
 			indentBlock(wordwrap.String(node.CommentError, vpWidth-4), 2)
-		descSections = append(descSections, renderContentSection("Comments:", errorBody, false))
+		descSections = append(descSections, renderContentSection("Comments:", errorBody))
 	} else if len(iss.Comments) > 0 {
 		var commentBlocks []string
 		for _, c := range iss.Comments {
@@ -189,31 +200,66 @@ func (m *App) updateViewportContent() {
 			body := styleCommentHeader.Render(header) + "\n" + indentBlock(renderMarkdown(c.Text), 2)
 			commentBlocks = append(commentBlocks, body)
 		}
-		descSections = append(descSections, renderContentSection("Comments:", strings.Join(commentBlocks, "\n\n"), false))
+		descSections = append(descSections, renderContentSection("Comments:", strings.Join(commentBlocks, "\n\n")))
 	}
-	descBuilder := strings.Builder{}
-	descBuilder.WriteString(strings.Join(descSections, "\n"))
+	descBlock := joinDetailSections(descSections...)
 
-	finalContent := lipgloss.JoinVertical(lipgloss.Left,
+	finalContent := joinDetailSections(
 		headerBlock,
 		metaBlock,
 		relBlock,
-		descBuilder.String(),
+		descBlock,
 	)
 
 	m.viewport.SetContent(finalContent)
 	m.detailIssueID = iss.ID
 }
 
-func renderContentSection(label, body string, first bool) string {
+func renderContentSection(label, body string) string {
+	cleanBody := normalizeSectionBody(body)
 	var sb strings.Builder
-	if !first {
-		sb.WriteString("\n")
-	}
 	sb.WriteString(styleSectionHeader.Render(label))
 	sb.WriteString("\n")
-	sb.WriteString(strings.TrimRight(body, "\n"))
+	sb.WriteString(cleanBody)
 	return sb.String()
+}
+
+func normalizeSectionBody(body string) string {
+	body = strings.TrimRight(body, "\r\n")
+	return trimLeadingWhitespaceLines(body)
+}
+
+func joinDetailSections(sections ...string) string {
+	cleaned := make([]string, 0, len(sections))
+	for _, section := range sections {
+		if strings.TrimSpace(section) == "" {
+			continue
+		}
+		cleaned = append(cleaned, strings.Trim(section, "\n\r"))
+	}
+	return strings.Join(cleaned, "\n\n")
+}
+
+func trimLeadingWhitespaceLines(body string) string {
+	body = strings.TrimLeft(body, "\r\n")
+	for len(body) > 0 {
+		lineEnd := strings.IndexByte(body, '\n')
+		line := body
+		nextStart := len(body)
+		if lineEnd != -1 {
+			line = body[:lineEnd]
+			nextStart = lineEnd + 1
+		}
+		if !isVisualBlankLine(line) {
+			break
+		}
+		body = strings.TrimLeft(body[nextStart:], "\r\n")
+	}
+	return body
+}
+
+func isVisualBlankLine(line string) bool {
+	return strings.TrimSpace(stripANSI(line)) == ""
 }
 
 func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipgloss.Style, bgColor lipgloss.Color) string {

@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -61,12 +60,6 @@ func splitAndTrim(content string) []string {
 		lines = append(lines, strings.TrimRight(line, " "))
 	}
 	return lines
-}
-
-var ansiRegexp = regexp.MustCompile(`\x1b\[[0-9;]*m`)
-
-func stripANSI(s string) string {
-	return ansiRegexp.ReplaceAllString(s, "")
 }
 
 func splitStripANSI(content string) []string {
@@ -174,8 +167,8 @@ func TestDetailSectionsHaveNoBlankLineBetweenLabelAndContent(t *testing.T) {
 			ID:                 "ab-200",
 			Title:              "Spacing Check",
 			Description:        "Line one\n\nLine two",
-			Design:             "Design body",
-			AcceptanceCriteria: "Acceptance body",
+			Design:             "\nDesign body",
+			AcceptanceCriteria: " \n- Acceptance item",
 			Comments: []beads.Comment{
 				{Author: "qa", Text: "Looks good", CreatedAt: time.Now().Format(time.RFC3339)},
 			},
@@ -191,10 +184,139 @@ func TestDetailSectionsHaveNoBlankLineBetweenLabelAndContent(t *testing.T) {
 	app.updateViewportContent()
 	content := stripANSI(app.viewport.View())
 	for _, label := range []string{"Description:", "Design:", "Acceptance:", "Comments:"} {
-		pattern := label + "\n\n"
-		if strings.Contains(content, pattern) {
-			t.Fatalf("expected no blank line between %s and content:\n%s", label, content)
-		}
+		assertNoWhitespaceLineAfterLabel(t, content, label)
+	}
+}
+
+func TestDetailSectionsWithRichMarkdownHaveNoLeadingBlankLine(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:          "ab-201",
+			Title:       "Rich markdown spacing",
+			Description: "- Bullet item\n- Second item",
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(80, 30),
+		outputFormat: "rich",
+	}
+	app.updateViewportContent()
+	content := app.viewport.View()
+	assertNoWhitespaceLineAfterLabel(t, content, "Description:")
+}
+
+func TestDetailPaneLimitsBlankLinesBetweenSections(t *testing.T) {
+	now := time.Now().Format(time.RFC3339)
+	parent := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-prt",
+			Title:     "Parent work",
+			Status:    "open",
+			IssueType: "task",
+			Priority:  2,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+	}
+	child := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-chl",
+			Title:     "Child work",
+			Status:    "open",
+			IssueType: "task",
+			Priority:  2,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+	}
+	blockedBy := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-blk",
+			Title:     "Blocking issue",
+			Status:    "open",
+			IssueType: "bug",
+			Priority:  1,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+	}
+	blocks := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-blo",
+			Title:     "Blocked issue",
+			Status:    "open",
+			IssueType: "task",
+			Priority:  3,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+	}
+
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:                 "ab-210",
+			Title:              "Ensure consistent spacing",
+			Status:             "open",
+			IssueType:          "bug",
+			Priority:           2,
+			Description:        "Description content",
+			Design:             "Design details",
+			AcceptanceCriteria: "Acceptance details",
+			CreatedAt:          now,
+			UpdatedAt:          now,
+			ExternalRef:        "jira-210",
+			Labels:             []string{"ui", "spacing"},
+			Comments: []beads.Comment{
+				{Author: "qa", Text: "Looks good to me", CreatedAt: now},
+			},
+		},
+		Parent:         parent,
+		Children:       []*graph.Node{child},
+		BlockedBy:      []*graph.Node{blockedBy},
+		Blocks:         []*graph.Node{blocks},
+		IsBlocked:      true,
+		CommentsLoaded: true,
+	}
+
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []*graph.Node{node},
+		viewport:     viewport.New(120, 60),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+	if strings.Contains(content, "\n\n\n") {
+		t.Fatalf("expected at most one blank line between sections:\n%s", content)
+	}
+}
+
+func assertNoWhitespaceLineAfterLabel(t *testing.T, content, label string) {
+	t.Helper()
+	idx := strings.Index(content, label)
+	if idx == -1 {
+		t.Fatalf("label %q not found in content:\n%s", label, content)
+	}
+	afterLabel := content[idx+len(label):]
+	lineBreak := strings.Index(afterLabel, "\n")
+	if lineBreak == -1 {
+		t.Fatalf("no newline found after label %s", label)
+	}
+	nextStart := idx + len(label) + lineBreak + 1
+	if nextStart >= len(content) {
+		t.Fatalf("no content after label %s", label)
+	}
+	rest := content[nextStart:]
+	nextLineEnd := strings.Index(rest, "\n")
+	if nextLineEnd == -1 {
+		nextLineEnd = len(rest)
+	}
+	nextLine := rest[:nextLineEnd]
+	if strings.TrimSpace(stripANSI(nextLine)) == "" {
+		t.Fatalf("blank line detected immediately after label %s:\n%s", label, content)
 	}
 }
 

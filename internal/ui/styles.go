@@ -78,8 +78,6 @@ var (
 	styleSectionHeader = lipgloss.NewStyle().
 				Foreground(cGold).
 				Bold(true).
-				MarginTop(1).
-				MarginBottom(0).
 				MarginLeft(1)
 
 	styleLabel = lipgloss.NewStyle().
