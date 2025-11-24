@@ -108,6 +108,7 @@ func (c *cliClient) run(ctx context.Context, args ...string) ([]byte, error) {
 	finalArgs := make([]string, 0, len(c.dbArgs)+len(args))
 	finalArgs = append(finalArgs, c.dbArgs...)
 	finalArgs = append(finalArgs, args...)
+	//nolint:gosec // G204: CLI wrapper intentionally shells out to bd command
 	cmd := exec.CommandContext(ctx, c.bin, finalArgs...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

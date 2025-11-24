@@ -127,11 +127,11 @@ func (s *startupSpinner) loop() {
 func (s *startupSpinner) render(ev spinnerEvent) {
 	frame := s.nextFrame()
 	message := formatStageMessage(ev.stage, ev.detail)
-	fmt.Fprintf(s.writer, "\r\033[2K%c %s", frame, message)
+	_, _ = fmt.Fprintf(s.writer, "\r\033[2K%c %s", frame, message)
 }
 
 func (s *startupSpinner) clearLine() {
-	fmt.Fprint(s.writer, "\r\033[2K")
+	_, _ = fmt.Fprint(s.writer, "\r\033[2K")
 }
 
 func (s *startupSpinner) nextFrame() rune {

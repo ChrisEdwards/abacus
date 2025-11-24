@@ -213,6 +213,7 @@ func mergeConfigFile(v *viper.Viper, path string) error {
 	if info.IsDir() {
 		return fmt.Errorf("config path %s is a directory", path)
 	}
+	//nolint:gosec // G304: Config loader intentionally reads user and project config files
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", path, err)
@@ -280,6 +281,8 @@ func getViper() (*viper.Viper, error) {
 }
 
 // reset clears package state for tests.
+//
+//nolint:unused // Used in config_test.go
 func reset() {
 	configMu.Lock()
 	defer configMu.Unlock()

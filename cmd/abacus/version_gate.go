@@ -20,21 +20,21 @@ func handleVersionCheckResult(w io.Writer, info beads.VersionInfo, err error) bo
 	if errors.As(err, &vErr) {
 		switch vErr.Kind {
 		case beads.VersionErrorNotInstalled:
-			fmt.Fprint(w, formatBeadsNotInstalledMessage(info.Bin))
+			_, _ = fmt.Fprint(w, formatBeadsNotInstalledMessage(info.Bin))
 			return true
 		case beads.VersionErrorTooOld:
-			fmt.Fprint(w, formatBeadsVersionTooOldMessage(info))
+			_, _ = fmt.Fprint(w, formatBeadsVersionTooOldMessage(info))
 			return true
 		case beads.VersionErrorCommandFailed, beads.VersionErrorParse:
-			fmt.Fprint(w, formatBeadsVersionWarning(info, err))
+			_, _ = fmt.Fprint(w, formatBeadsVersionWarning(info, err))
 			return false
 		default:
-			fmt.Fprintf(w, "Warning: Beads version check failed: %v\n", err)
+			_, _ = fmt.Fprintf(w, "Warning: Beads version check failed: %v\n", err)
 			return false
 		}
 	}
 
-	fmt.Fprintf(w, "Warning: Beads version check failed: %v\n", err)
+	_, _ = fmt.Fprintf(w, "Warning: Beads version check failed: %v\n", err)
 	return false
 }
 

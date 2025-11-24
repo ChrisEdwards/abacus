@@ -32,22 +32,27 @@ linters-settings:
 issues:
   uniq-by-line: true
   exclude-rules:
-    - path: '_test\\.go'
+    - source: '_test\\.go'
       linters:
         - gosec
       text: G304
       reason: Test fixtures load from local paths
-    - path: '_test\\.go'
+    - source: '_test\\.go'
       linters:
         - gosec
       text: G306
       reason: Test-only file permissions are acceptable
-    - path: 'internal/beads/cli\\.go'
+    - source: 'internal/beads/cli\\.go'
       linters:
         - gosec
       text: G204
       reason: CLI wrapper intentionally shells out to bd
-    - path: '_test\\.go'
+    - source: 'internal/config/config\\.go'
+      linters:
+        - gosec
+      text: G304
+      reason: Config loader intentionally reads user and project config files
+    - source: '_test\\.go'
       linters:
         - errcheck
       text: "Error return value of .*(Close|Rollback|RemoveAll|Setenv|Unsetenv|Chdir|MkdirAll|Remove|Write).* is not checked"

@@ -377,9 +377,11 @@ func (m *App) handleDetailNavigationKey(msg tea.KeyMsg) (bool, tea.Cmd) {
 		m.viewport.GotoBottom()
 		return true, nil
 	case "ctrl+f":
-		return true, m.viewportPageDownCmd()
+		_ = m.viewport.PageDown()
+		return true, nil
 	case "ctrl+b":
-		return true, m.viewportPageUpCmd()
+		_ = m.viewport.PageUp()
+		return true, nil
 	}
 
 	if isDetailScrollKey(msg) {
@@ -396,26 +398,7 @@ func isDetailScrollKey(msg tea.KeyMsg) bool {
 	case "j", "k", "down", "up", "pgdown", "pgup", "f", "b", "d", "u", "ctrl+d", "ctrl+u", "left", "right", "h", "l", "space", " ":
 		return true
 	}
-	if msg.Type == tea.KeySpace {
-		return true
-	}
-	return false
-}
-
-func (m *App) viewportPageDownCmd() tea.Cmd {
-	lines := m.viewport.PageDown()
-	if m.viewport.HighPerformanceRendering {
-		return viewport.ViewDown(m.viewport, lines)
-	}
-	return nil
-}
-
-func (m *App) viewportPageUpCmd() tea.Cmd {
-	lines := m.viewport.PageUp()
-	if m.viewport.HighPerformanceRendering {
-		return viewport.ViewUp(m.viewport, lines)
-	}
-	return nil
+	return msg.Type == tea.KeySpace
 }
 
 func (m *App) View() string {

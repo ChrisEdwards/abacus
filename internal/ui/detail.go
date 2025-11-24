@@ -305,7 +305,6 @@ func countLeadingSpacesANSI(line string) int {
 				end++
 			}
 			if end >= len(line) {
-				i = len(line)
 				break
 			}
 			i = end
