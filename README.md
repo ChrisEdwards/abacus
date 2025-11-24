@@ -1,6 +1,6 @@
 # Abacus
 
-A powerful terminal UI for visualizing and navigating [Beads](https://github.com/steveyegge/beads) issue tracking projects.
+A powerful terminal UI for visualizing and navigating Steve Yegge's awesome [Beads](https://github.com/steveyegge/beads) issue tracking project.
 
 [![Latest Release](https://img.shields.io/github/v/release/ChrisEdwards/abacus)](https://github.com/ChrisEdwards/abacus/releases)
 [![Go Version](https://img.shields.io/badge/go-1.25.3%2B-blue.svg)](https://golang.org/dl/)
