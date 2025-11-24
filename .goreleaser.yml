@@ -54,7 +54,10 @@ release:
   draft: false
   prerelease: auto
   mode: replace
-  header: |
+  footer: |
+
+    ---
+
     ## Installation
 
     ### Homebrew (macOS/Linux)
@@ -75,7 +78,8 @@ release:
     ### Direct Download
     Download the appropriate binary for your platform from the assets below.
 
-  footer: |
+    ---
+
     **Full Changelog**: https://github.com/ChrisEdwards/abacus/compare/{{.PreviousTag}}...{{.Tag}}
 
 # Don't create source archives
