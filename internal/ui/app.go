@@ -80,6 +80,7 @@ func NewApp(cfg Config) (*App, error) {
 	if cfg.RefreshInterval <= 0 {
 		cfg.RefreshInterval = defaultRefreshInterval
 	}
+
 	var (
 		dbPath    string
 		dbModTime time.Time

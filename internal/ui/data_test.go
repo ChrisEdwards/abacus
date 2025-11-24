@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -103,4 +104,14 @@ func TestLoadDataPreloadsComments(t *testing.T) {
 		}
 	}
 	check(roots)
+}
+
+func TestLoadDataReturnsErrorWhenNoIssues(t *testing.T) {
+	mock := beads.NewMockClient()
+	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
+		return nil, nil
+	}
+	if _, err := loadData(context.Background(), mock); !errors.Is(err, ErrNoIssues) {
+		t.Fatalf("expected ErrNoIssues, got %v", err)
+	}
 }

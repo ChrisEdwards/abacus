@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -70,27 +71,47 @@ func main() {
 		}
 	}
 
-	client := beads.NewCLIClient()
 	appCfg := ui.Config{
 		RefreshInterval: refreshInterval,
 		AutoRefresh:     autoRefresh,
 		DBPathOverride:  dbPath,
 		OutputFormat:    outputFormat,
-		Client:          client,
 		Version:         Version,
 	}
 
-	app, err := ui.NewApp(appCfg)
-	if err != nil {
-		fmt.Printf("Error initializing UI: %v\n", err)
+	if err := runProgram(appCfg, ui.NewApp, func(app *ui.App) programRunner {
+		return tea.NewProgram(app, tea.WithAltScreen())
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
 
-	p := tea.NewProgram(app, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+type programRunner interface {
+	Run() (tea.Model, error)
+}
+
+type programFactory func(*ui.App) programRunner
+
+func runProgram(cfg ui.Config, builder func(ui.Config) (*ui.App, error), factory programFactory) error {
+	app, err := builder(cfg)
+	if err != nil {
+		if errors.Is(err, ui.ErrNoIssues) {
+			return err
+		}
+		return fmt.Errorf("initialize UI: %w", err)
 	}
+	if factory == nil {
+		return fmt.Errorf("program factory is nil")
+	}
+	prog := factory(app)
+	if prog == nil {
+		return fmt.Errorf("program is nil")
+	}
+	if _, err := prog.Run(); err != nil {
+		return fmt.Errorf("run UI: %w", err)
+	}
+	return nil
 }
 
 type runtimeFlags struct {

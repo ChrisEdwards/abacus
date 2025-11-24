@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -11,6 +12,8 @@ import (
 	"abacus/internal/beads"
 	"abacus/internal/graph"
 )
+
+var ErrNoIssues = errors.New("no issues found in beads database")
 
 func fetchCommentsForNode(ctx context.Context, client beads.Client, n *graph.Node) error {
 	if n.CommentsLoaded {
@@ -79,7 +82,7 @@ func loadData(ctx context.Context, client beads.Client) ([]*graph.Node, error) {
 		return nil, err
 	}
 	if len(fullIssues) == 0 {
-		return []*graph.Node{}, nil
+		return nil, ErrNoIssues
 	}
 
 	roots, err := graph.NewBuilder().Build(fullIssues)

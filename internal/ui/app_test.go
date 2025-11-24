@@ -1150,6 +1150,20 @@ func TestNewAppCapturesClientError(t *testing.T) {
 	}
 }
 
+func TestNewAppReturnsErrorWhenNoIssues(t *testing.T) {
+	mock := beads.NewMockClient()
+	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
+		return []beads.LiteIssue{}, nil
+	}
+	dbFile := createTempDBFile(t)
+	if _, err := NewApp(Config{
+		DBPathOverride: dbFile,
+		Client:         mock,
+	}); !errors.Is(err, ErrNoIssues) {
+		t.Fatalf("expected ErrNoIssues, got %v", err)
+	}
+}
+
 func TestCheckDBForChangesDetectsModification(t *testing.T) {
 	dbFile := createTempDBFile(t)
 	app := &App{
