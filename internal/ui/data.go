@@ -15,6 +15,8 @@ import (
 
 var ErrNoIssues = errors.New("no issues found in beads database")
 
+const maxConcurrentCommentFetches = 8
+
 func fetchCommentsForNode(ctx context.Context, client beads.Client, n *graph.Node) error {
 	if n.CommentsLoaded {
 		return nil
@@ -47,6 +49,20 @@ func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph
 	}
 	collectNodes(roots)
 
+	if len(nodeMap) == 0 {
+		return
+	}
+
+	workerLimit := maxConcurrentCommentFetches
+	if len(nodeMap) < workerLimit {
+		workerLimit = len(nodeMap)
+	}
+	if workerLimit <= 0 {
+		workerLimit = 1
+	}
+
+	sem := make(chan struct{}, workerLimit)
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
@@ -54,6 +70,9 @@ func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph
 		wg.Add(1)
 		go func(id string, n *graph.Node) {
 			defer wg.Done()
+
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
 			comments, err := client.Comments(ctx, id)
 

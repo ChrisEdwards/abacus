@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -267,6 +268,41 @@ func TestPreloadAllComments(t *testing.T) {
 		}
 		if len(node.Issue.Comments) != 0 {
 			t.Errorf("expected empty Comments slice, got %d items", len(node.Issue.Comments))
+		}
+	})
+
+	t.Run("limitsConcurrentFetches", func(t *testing.T) {
+		const totalRoots = 24
+		roots := make([]*graph.Node, 0, totalRoots)
+		for i := 0; i < totalRoots; i++ {
+			roots = append(roots, &graph.Node{Issue: beads.FullIssue{ID: fmt.Sprintf("ab-%03d", i)}})
+		}
+
+		client := beads.NewMockClient()
+		var mu sync.Mutex
+		inFlight := 0
+		maxInFlight := 0
+		client.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
+			mu.Lock()
+			inFlight++
+			if inFlight > maxInFlight {
+				maxInFlight = inFlight
+			}
+			mu.Unlock()
+
+			time.Sleep(5 * time.Millisecond)
+
+			mu.Lock()
+			inFlight--
+			mu.Unlock()
+
+			return []beads.Comment{}, nil
+		}
+
+		preloadAllComments(ctx, client, roots)
+
+		if maxInFlight > maxConcurrentCommentFetches {
+			t.Fatalf("expected at most %d concurrent fetches, saw %d", maxConcurrentCommentFetches, maxInFlight)
 		}
 	})
 }
