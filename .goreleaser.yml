@@ -62,7 +62,8 @@ release:
 
     ### Homebrew (macOS/Linux)
     ```bash
-    brew install ChrisEdwards/tap/abacus
+    brew tap ChrisEdwards/tap
+    brew install abacus
     ```
 
     ### Install Script (Unix/macOS/Linux)
