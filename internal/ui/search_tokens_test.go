@@ -1,6 +1,11 @@
 package ui
 
-import "testing"
+import (
+	"testing"
+
+	"abacus/internal/beads"
+	"abacus/internal/graph"
+)
 
 func TestParseSearchInputSimpleTokens(t *testing.T) {
 	result := parseSearchInput("status:open priority:1")
@@ -69,5 +74,38 @@ func TestSearchOverlayUpdateInputStoresTokens(t *testing.T) {
 	}
 	if overlay.SuggestionMode() != SuggestionModeField {
 		t.Fatalf("expected overlay back in field mode after full tokens")
+	}
+}
+
+func TestParseSearchInputCollectsFreeText(t *testing.T) {
+	result := parseSearchInput("auth status:open login")
+	if len(result.tokens) != 1 {
+		t.Fatalf("expected one token, got %d", len(result.tokens))
+	}
+	if len(result.freeText) != 2 {
+		t.Fatalf("expected two free-text terms, got %v", result.freeText)
+	}
+	if result.freeText[0] != "auth" || result.freeText[1] != "login" {
+		t.Fatalf("unexpected free-text terms: %v", result.freeText)
+	}
+}
+
+func TestParseSearchInputSetsErrorForUnterminatedQuote(t *testing.T) {
+	result := parseSearchInput(`status:"open`)
+	if result.err == "" {
+		t.Fatalf("expected parse error for unterminated quote")
+	}
+}
+
+func TestMatchesTokensEvaluatesNodes(t *testing.T) {
+	node := &graph.Node{Issue: beads.FullIssue{ID: "ab-1", Title: "Auth Login", Status: "open", Labels: []string{"beta"}}}
+	if !nodeMatchesTokenFilter(nil, []SearchToken{{Key: "status", Operator: ":", Value: "open"}}, node) {
+		t.Fatalf("expected status token to match node")
+	}
+	if nodeMatchesTokenFilter(nil, []SearchToken{{Key: "status", Operator: ":", Value: "closed"}}, node) {
+		t.Fatalf("expected status mismatch to fail")
+	}
+	if !nodeMatchesTokenFilter([]string{"auth"}, nil, node) {
+		t.Fatalf("expected free-text term to match title")
 	}
 }

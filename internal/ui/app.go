@@ -54,6 +54,8 @@ type App struct {
 	textInput  textinput.Model
 	searching  bool
 	filterText string
+	filterTokens []SearchToken
+	filterFreeText []string
 	overlay    SearchOverlay
 	// filterCollapsed tracks nodes explicitly collapsed while a search filter is active.
 	filterCollapsed map[string]bool
@@ -350,6 +352,8 @@ func (m *App) clearSearchFilter() {
 		return
 	}
 	m.setFilterText("")
+	m.filterTokens = nil
+	m.filterFreeText = nil
 	m.recalcVisibleRows()
 	m.updateViewportContent()
 }
@@ -363,6 +367,8 @@ func (m *App) setFilterText(value string) {
 	m.filterText = value
 	m.filterEval = nil
 	m.overlay.UpdateInput(value)
+	m.filterTokens = m.overlay.Tokens()
+	m.filterFreeText = m.overlay.FreeTextTerms()
 	if newEmpty {
 		m.filterCollapsed = nil
 		m.filterForcedExpanded = nil

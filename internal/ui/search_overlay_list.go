@@ -21,6 +21,9 @@ func (s *suggestionList) SetItems(items []list.Item) {
 	if s == nil || s.model == nil {
 		return
 	}
+	if len(items) > suggestionListMaxItems {
+		items = items[:suggestionListMaxItems]
+	}
 	_ = s.model.SetItems(items)
 	s.model.SetHeight(clampDimension(len(items), 1, suggestionListMaxHeight))
 	s.model.ResetSelected()

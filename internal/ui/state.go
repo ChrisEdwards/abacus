@@ -58,11 +58,10 @@ func clampDimension(value, minValue, maxValue int) int {
 
 func (m *App) recalcVisibleRows() {
 	m.visibleRows = []*graph.Node{}
-	filterLower := strings.ToLower(m.filterText)
-	filterActive := filterLower != ""
+	filterActive := strings.TrimSpace(m.filterText) != "" || len(m.filterTokens) > 0
 
 	if filterActive {
-		m.filterEval = m.computeFilterEval(filterLower)
+		m.filterEval = m.computeFilterEval()
 	} else {
 		m.filterEval = nil
 	}
@@ -143,25 +142,6 @@ func (m *App) collectExpandedIDs() map[string]bool {
 	return expanded
 }
 
-func nodeMatchesFilter(filterLower string, node *graph.Node) bool {
-	if filterLower == "" {
-		return true
-	}
-
-	titleLower := strings.ToLower(node.Issue.Title)
-	if strings.Contains(titleLower, filterLower) {
-		return true
-	}
-
-	idLower := strings.ToLower(node.Issue.ID)
-	if strings.Contains(idLower, filterLower) {
-		return true
-	}
-
-	trimmed := strings.TrimPrefix(idLower, "ab-")
-	return strings.Contains(trimmed, filterLower)
-}
-
 func (m *App) restoreExpandedState(expanded map[string]bool) {
 	if expanded == nil {
 		expanded = map[string]bool{}
@@ -192,11 +172,19 @@ func (m *App) restoreCursorToID(id string) {
 	m.clampCursor()
 }
 
-func (m *App) computeFilterEval(filterLower string) map[string]filterEvaluation {
+func (m *App) computeFilterEval() map[string]filterEvaluation {
+	words := append([]string{}, m.filterFreeText...)
+	if len(words) == 0 && len(m.filterTokens) == 0 {
+		trimmed := strings.TrimSpace(strings.ToLower(m.filterText))
+		if trimmed != "" {
+			words = strings.Fields(trimmed)
+		}
+	}
+	tokens := append([]SearchToken{}, m.filterTokens...)
 	evals := make(map[string]filterEvaluation)
 	var walk func(node *graph.Node) bool
 	walk = func(node *graph.Node) bool {
-		matches := nodeMatchesFilter(filterLower, node)
+		matches := nodeMatchesTokenFilter(words, tokens, node)
 		hasChildMatch := false
 		for _, child := range node.Children {
 			if walk(child) {

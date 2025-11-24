@@ -23,12 +23,11 @@ func (m *App) retryCommentsForCurrentNode() {
 
 func (m *App) getStats() Stats {
 	s := Stats{}
-	filterLower := strings.ToLower(m.filterText)
 
 	var traverse func(nodes []*graph.Node)
 	traverse = func(nodes []*graph.Node) {
 		for _, n := range nodes {
-			matches := nodeMatchesFilter(filterLower, n)
+			matches := m.matchesFilter(n)
 
 			domainIssue, err := domain.NewIssueFromFull(n.Issue, n.IsBlocked)
 			if matches {
@@ -63,4 +62,41 @@ func (m *App) getStats() Stats {
 	}
 	traverse(m.roots)
 	return s
+}
+
+func (m *App) matchesFilter(node *graph.Node) bool {
+	textActive := strings.TrimSpace(m.filterText) != ""
+	if !textActive && len(m.filterTokens) == 0 {
+		return true
+	}
+	words := append([]string{}, m.filterFreeText...)
+	if len(words) == 0 && len(m.filterTokens) == 0 && textActive {
+		words = strings.Fields(strings.ToLower(m.filterText))
+	}
+	tokens := append([]SearchToken{}, m.filterTokens...)
+	return nodeMatchesTokenFilter(words, tokens, node)
+}
+
+func nodeMatchesTokenFilter(words []string, tokens []SearchToken, node *graph.Node) bool {
+	if len(words) == 0 && len(tokens) == 0 {
+		return true
+	}
+	if len(tokens) > 0 && !matchesTokens(tokens, node) {
+		return false
+	}
+	if len(words) == 0 {
+		return true
+	}
+	title := strings.ToLower(node.Issue.Title)
+	id := strings.ToLower(node.Issue.ID)
+	for _, word := range words {
+		word = strings.TrimSpace(strings.ToLower(word))
+		if word == "" {
+			continue
+		}
+		if !strings.Contains(title, word) && !strings.Contains(id, word) {
+			return false
+		}
+	}
+	return true
 }

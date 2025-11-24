@@ -803,6 +803,23 @@ func TestSearchFilterRequiresAllWords(t *testing.T) {
 	}
 }
 
+func TestTokenFilterNarrowVisibleRows(t *testing.T) {
+	nodes := []*graph.Node{
+		{Issue: beads.FullIssue{ID: "ab-900", Title: "Alpha", Status: "open"}},
+		{Issue: beads.FullIssue{ID: "ab-901", Title: "Beta", Status: "closed"}},
+	}
+	m := &App{roots: nodes, overlay: NewSearchOverlay()}
+	m.recalcVisibleRows()
+	m.setFilterText("status:closed")
+	m.recalcVisibleRows()
+	if len(m.visibleRows) != 1 {
+		t.Fatalf("expected token filter to narrow rows to 1, got %d", len(m.visibleRows))
+	}
+	if m.visibleRows[0].Issue.ID != "ab-901" {
+		t.Fatalf("expected closed issue to remain visible, got %s", m.visibleRows[0].Issue.ID)
+	}
+}
+
 func TestStatsBreakdownUpdatesWithFilter(t *testing.T) {
 	nodes := []*graph.Node{
 		{Issue: beads.FullIssue{ID: "ab-801", Title: "Alpha In Progress", Status: "in_progress"}},

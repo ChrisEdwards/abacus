@@ -109,25 +109,43 @@ var (
 				Bold(true)
 
 	styleSearchOverlayHint = lipgloss.NewStyle().
-				Foreground(cLightGray).
-				MarginTop(1)
+			Foreground(cLightGray).
+			MarginTop(1)
 
 	styleSearchOverlaySuggestion = lipgloss.NewStyle().
-					Foreground(cWhite)
+				Foreground(cWhite)
 
 	styleSearchOverlayDivider = lipgloss.NewStyle().
-					Foreground(cGray)
+			Foreground(cGray)
+
+	styleSearchOverlayError = lipgloss.NewStyle().
+			Foreground(cRed).
+			Bold(true)
 
 	styleSuggestionBullet = lipgloss.NewStyle().
-				Foreground(cPurple)
+			Foreground(cPurple)
 
 	styleSuggestionItem = lipgloss.NewStyle().
 				Foreground(cWhite).
 				Padding(0, 1)
 
 	styleSuggestionItemSelected = lipgloss.NewStyle().
-					Background(cHighlight).
-					Foreground(cWhite)
+			Background(cHighlight).
+			Foreground(cWhite)
+
+	styleSearchChip = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(cPurple).
+			Padding(0, 1).
+			MarginRight(1)
+
+	styleSearchChipField = lipgloss.NewStyle().
+			Foreground(cLightGray).
+			Bold(true).
+			MarginRight(1)
+
+	styleSearchChipValue = lipgloss.NewStyle().
+			Foreground(cWhite)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {

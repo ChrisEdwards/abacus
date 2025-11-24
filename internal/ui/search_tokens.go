@@ -1,9 +1,13 @@
 package ui
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"abacus/internal/graph"
 )
 
 // SearchToken represents a parsed field/operator/value triple.
@@ -32,9 +36,11 @@ func (m SuggestionMode) String() string {
 
 type searchParseResult struct {
 	tokens       []SearchToken
+	freeText     []string
 	mode         SuggestionMode
 	pendingField string
 	pendingText  string
+	err          string
 }
 
 func parseSearchInput(input string) searchParseResult {
@@ -44,32 +50,27 @@ func parseSearchInput(input string) searchParseResult {
 	for {
 		parser.skipWhitespace()
 		if parser.eof() {
-			result.pendingText = ""
-			result.mode = SuggestionModeField
 			return result
 		}
 
-		keyStart := parser.pos
 		key := parser.readKey()
 		if key == "" {
-			result.pendingText = trimLeadingWhitespace(parser.input[keyStart:])
-			result.mode = SuggestionModeField
-			return result
+			parser.advance()
+			continue
 		}
 
 		parser.skipWhitespace()
 		if parser.eof() {
 			result.pendingText = key
+			result.freeText = appendWord(result.freeText, key)
 			result.mode = SuggestionModeField
 			return result
 		}
 
 		op := parser.peek()
 		if op != ':' && op != '=' {
-			parser.pos = keyStart
-			result.pendingText = trimLeadingWhitespace(parser.input[keyStart:])
-			result.mode = SuggestionModeField
-			return result
+			result.freeText = appendWord(result.freeText, key)
+			continue
 		}
 		operator := string(op)
 		parser.advance()
@@ -88,6 +89,9 @@ func parseSearchInput(input string) searchParseResult {
 			result.pendingField = key
 			result.pendingText = parser.input[valueStart:]
 			result.mode = SuggestionModeValue
+			if value != "" {
+				result.err = "unterminated quote"
+			}
 			return result
 		}
 
@@ -202,4 +206,53 @@ func (p *tokenParser) readUnquotedValue() (string, bool) {
 
 func trimLeadingWhitespace(s string) string {
 	return strings.TrimLeftFunc(s, unicode.IsSpace)
+}
+
+func appendWord(words []string, word string) []string {
+	word = strings.TrimSpace(word)
+	if word == "" {
+		return words
+	}
+	return append(words, strings.ToLower(word))
+}
+
+func matchesTokens(tokens []SearchToken, node *graph.Node) bool {
+	if len(tokens) == 0 {
+		return true
+	}
+	for _, token := range tokens {
+		if !matchesToken(token, node) {
+			return false
+		}
+	}
+	return true
+}
+
+func matchesToken(token SearchToken, node *graph.Node) bool {
+	issue := node.Issue
+	value := strings.ToLower(token.Value)
+	switch strings.ToLower(token.Key) {
+	case "status":
+		return strings.EqualFold(issue.Status, value)
+	case "id":
+		return strings.Contains(strings.ToLower(issue.ID), value)
+	case "title":
+		return strings.Contains(strings.ToLower(issue.Title), value)
+	case "label", "labels":
+		for _, label := range issue.Labels {
+			if strings.EqualFold(label, token.Value) {
+				return true
+			}
+		}
+		return false
+	case "priority", "prio":
+		return fmt.Sprintf("%v", issue.Priority) == token.Value
+	case "type", "issue_type":
+		return strings.EqualFold(issue.IssueType, token.Value)
+	case "blocked":
+		boolVal, _ := strconv.ParseBool(value)
+		return node.IsBlocked == boolVal
+	default:
+		return strings.Contains(strings.ToLower(issue.Title), value) || strings.Contains(strings.ToLower(issue.ID), value)
+	}
 }

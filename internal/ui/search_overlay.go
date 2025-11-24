@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -20,9 +21,11 @@ type SearchOverlay struct {
 	emptyHint string
 
 	tokens       []SearchToken
+	freeText     []string
 	mode         SuggestionMode
 	pendingField string
 	pendingText  string
+	parseError   string
 
 	listModel *suggestionList
 }
@@ -71,9 +74,11 @@ func (o *SearchOverlay) UpdateInput(input string) {
 	}
 	result := parseSearchInput(input)
 	o.tokens = result.tokens
+	o.freeText = result.freeText
 	o.mode = result.mode
 	o.pendingField = result.pendingField
 	o.pendingText = result.pendingText
+	o.parseError = result.err
 }
 
 // Tokens returns a copy of the parsed tokens slice.
@@ -137,8 +142,14 @@ func (o SearchOverlay) modalSections(inputView string, modalWidth int) []string 
 	if title := strings.TrimSpace(o.Title); title != "" {
 		sections = append(sections, styleSearchOverlayTitle.Render(title))
 	}
+	if chips := o.renderTokenChips(modalWidth); chips != "" {
+		sections = append(sections, chips)
+	}
 	sections = append(sections, inputView)
 	sections = append(sections, renderOverlayDivider(modalWidth))
+	if errLine := o.renderError(); errLine != "" {
+		sections = append(sections, errLine)
+	}
 	if suggestions := o.renderSuggestions(modalWidth); suggestions != "" {
 		sections = append(sections, suggestions)
 	}
@@ -150,6 +161,28 @@ func (o SearchOverlay) renderSuggestions(modalWidth int) string {
 		return styleSearchOverlayHint.Render(o.emptyHint)
 	}
 	return o.listModel.ViewWithWidth(modalWidth)
+}
+
+func (o SearchOverlay) renderTokenChips(modalWidth int) string {
+	if len(o.tokens) == 0 {
+		return ""
+	}
+	chips := make([]string, len(o.tokens))
+	for i, token := range o.tokens {
+		chip := styleSearchChip.Render(
+			styleSearchChipField.Render(strings.ToUpper(token.Key)) +
+				styleSearchChipValue.Render(token.Value),
+		)
+		chips[i] = chip
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Left, chips...)
+}
+
+func (o SearchOverlay) renderError() string {
+	if strings.TrimSpace(o.parseError) == "" {
+		return ""
+	}
+	return styleSearchOverlayError.Render(fmt.Sprintf("! %s", o.parseError))
 }
 
 func (o SearchOverlay) modalWidth(containerWidth int) int {
@@ -199,4 +232,17 @@ func (o SearchOverlay) SelectedSuggestion() string {
 		return ""
 	}
 	return o.listModel.SelectedText()
+}
+
+func (o SearchOverlay) FreeTextTerms() []string {
+	if len(o.freeText) == 0 {
+		return nil
+	}
+	terms := make([]string, len(o.freeText))
+	copy(terms, o.freeText)
+	return terms
+}
+
+func (o SearchOverlay) ParseError() string {
+	return o.parseError
 }

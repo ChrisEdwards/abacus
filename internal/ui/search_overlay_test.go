@@ -26,9 +26,10 @@ func TestSearchOverlayInputWidthRespectsBounds(t *testing.T) {
 func TestSearchOverlayViewRendersSuggestions(t *testing.T) {
 	overlay := NewSearchOverlay()
 	overlay.SetSuggestions([]string{"status:open", "assignee:me"})
+	overlay.UpdateInput("status:open")
 
 	output := overlay.View("/ status:", 100, 30)
-	for _, snippet := range []string{"Smart Filter Search", "status:open", "/ status:"} {
+	for _, snippet := range []string{"Smart Filter Search", "STATUS", "open", "status:open", "/ status:"} {
 		if !strings.Contains(output, snippet) {
 			t.Fatalf("expected overlay output to contain %q\n%s", snippet, output)
 		}
@@ -99,5 +100,14 @@ func TestAppSearchNavigationUsesSuggestionList(t *testing.T) {
 	app.Update(tea.KeyMsg{Type: tea.KeyUp})
 	if got := app.overlay.SelectedSuggestion(); got != "status:open" {
 		t.Fatalf("expected up key to move selection back, got %q", got)
+	}
+}
+
+func TestSearchOverlayShowsParseError(t *testing.T) {
+	overlay := NewSearchOverlay()
+	overlay.UpdateInput(`status:"open`)
+	view := overlay.View("/ status:", 80, 24)
+	if !strings.Contains(view, "unterminated quote") {
+		t.Fatalf("expected parse error rendered in overlay:\n%s", view)
 	}
 }
