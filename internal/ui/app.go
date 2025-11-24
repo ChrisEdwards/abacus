@@ -54,6 +54,7 @@ type App struct {
 	textInput  textinput.Model
 	searching  bool
 	filterText string
+	overlay    SearchOverlay
 	// filterCollapsed tracks nodes explicitly collapsed while a search filter is active.
 	filterCollapsed map[string]bool
 	// filterForcedExpanded tracks nodes temporarily expanded to surface filter matches.
@@ -122,6 +123,7 @@ func NewApp(cfg Config) (*App, error) {
 	ti := textinput.New()
 	ti.Placeholder = "Search..."
 	ti.Prompt = "/"
+	overlay := NewSearchOverlay()
 
 	repo := "abacus"
 	if wd, err := os.Getwd(); err == nil && wd != "" {
@@ -136,6 +138,7 @@ func NewApp(cfg Config) (*App, error) {
 	app := &App{
 		roots:           roots,
 		textInput:       ti,
+		overlay:         overlay,
 		repoName:        repo,
 		focus:           FocusTree,
 		refreshInterval: cfg.RefreshInterval,
@@ -349,6 +352,7 @@ func (m *App) setFilterText(value string) {
 	newEmpty := value == ""
 	m.filterText = value
 	m.filterEval = nil
+	m.overlay.UpdateInput(value)
 	if newEmpty {
 		m.filterCollapsed = nil
 		m.filterForcedExpanded = nil
@@ -481,21 +485,31 @@ func (m *App) View() string {
 		mainBody = stylePane.Width(singleWidth).Height(listHeight).Render(treeViewStr)
 	}
 
-	var bottomBar string
-	if m.searching {
-		bottomBar = m.textInput.View()
+	footerStr := " [ / ] Search  [ enter ] Detail  [ tab ] Switch Focus  [ q ] Quit"
+	if m.ShowDetails && m.focus == FocusDetails {
+		footerStr += "  [ j/k ] Scroll Details"
 	} else {
-		footerStr := " [ / ] Search  [ enter ] Detail  [ tab ] Switch Focus  [ q ] Quit"
-		if m.ShowDetails && m.focus == FocusDetails {
-			footerStr += "  [ j/k ] Scroll Details"
-		} else {
-			footerStr += "  [ space ] Expand"
-		}
-		footerStr += "  [ r ] Refresh"
-		bottomBar = lipgloss.NewStyle().Foreground(cLightGray).Render(
-			fmt.Sprintf("%s   %s", footerStr,
-				lipgloss.PlaceHorizontal(m.width-len(footerStr)-5, lipgloss.Right, "Repo: "+m.repoName)))
+		footerStr += "  [ space ] Expand"
 	}
+	footerStr += "  [ r ] Refresh"
+	bottomBar := lipgloss.NewStyle().Foreground(cLightGray).Render(
+		fmt.Sprintf("%s   %s", footerStr,
+			lipgloss.PlaceHorizontal(m.width-len(footerStr)-5, lipgloss.Right, "Repo: "+m.repoName)))
 
-	return fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
+	view := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
+	if m.searching {
+		inputWidth := m.overlay.InputWidth(m.width)
+		m.textInput.Width = inputWidth
+		overlayInput := m.textInput.View()
+		containerWidth := m.width
+		if containerWidth < overlayMinWidth {
+			containerWidth = overlayMinWidth
+		}
+		containerHeight := m.height
+		if containerHeight < listHeight+4 {
+			containerHeight = listHeight + 4
+		}
+		return m.overlay.View(overlayInput, containerWidth, containerHeight)
+	}
+	return view
 }

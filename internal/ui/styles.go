@@ -21,6 +21,7 @@ var (
 	cWhite      = lipgloss.Color("255")
 	cHighlight  = lipgloss.Color("57")
 	cField      = lipgloss.Color("63")
+	cScrim      = lipgloss.Color("236")
 
 	styleInProgressText = lipgloss.NewStyle().Foreground(cCyan).Bold(true)
 	styleNormalText     = lipgloss.NewStyle().Foreground(cWhite)
@@ -96,6 +97,23 @@ var (
 	styleCommentHeader = lipgloss.NewStyle().
 				Foreground(cBrightGray).
 				Bold(true)
+
+	styleSearchOverlayModal = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(cPurple).
+				Background(lipgloss.Color("0")).
+				Padding(1, 2)
+
+	styleSearchOverlayTitle = lipgloss.NewStyle().
+				Foreground(cWhite).
+				Bold(true)
+
+	styleSearchOverlayHint = lipgloss.NewStyle().
+				Foreground(cLightGray).
+				MarginTop(1)
+
+	styleSearchOverlaySuggestion = lipgloss.NewStyle().
+					Foreground(cWhite)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {
