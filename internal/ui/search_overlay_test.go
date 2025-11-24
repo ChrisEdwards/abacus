@@ -25,7 +25,7 @@ func TestSearchOverlayInputWidthRespectsBounds(t *testing.T) {
 
 func TestSearchOverlayViewRendersSuggestions(t *testing.T) {
 	overlay := NewSearchOverlay()
-	overlay.SetSuggestions([]string{"status:open", "assignee:me"})
+	overlay.SetSuggestions([]suggestionEntry{{Display: "status:open", Value: "open"}, {Display: "assignee:me", Value: "me"}})
 	overlay.UpdateInput("status:open")
 
 	output := overlay.View("/ status:", 100, 30)
@@ -38,7 +38,7 @@ func TestSearchOverlayViewRendersSuggestions(t *testing.T) {
 
 func TestSearchOverlayCursorMovement(t *testing.T) {
 	overlay := NewSearchOverlay()
-	overlay.SetSuggestions([]string{"status:open", "status:closed"})
+	overlay.SetSuggestions([]suggestionEntry{{Display: "status:open", Value: "open"}, {Display: "status:closed", Value: "closed"}})
 	if got := overlay.SelectedSuggestion(); got != "status:open" {
 		t.Fatalf("expected initial selection status:open, got %q", got)
 	}
@@ -91,7 +91,7 @@ func TestAppSearchNavigationUsesSuggestionList(t *testing.T) {
 		width:       80,
 		height:      25,
 	}
-	app.overlay.SetSuggestions([]string{"status:open", "status:closed"})
+	app.overlay.SetSuggestions([]suggestionEntry{{Display: "status:open", Value: "open"}, {Display: "status:closed", Value: "closed"}})
 
 	app.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if got := app.overlay.SelectedSuggestion(); got != "status:closed" {

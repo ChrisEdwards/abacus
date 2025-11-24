@@ -54,16 +54,12 @@ func NewSearchOverlay() SearchOverlay {
 }
 
 // SetSuggestions replaces the current suggestion list.
-func (o *SearchOverlay) SetSuggestions(items []string) {
+func (o *SearchOverlay) SetSuggestions(entries []suggestionEntry) {
 	if o == nil {
 		return
 	}
-	converted := make([]list.Item, len(items))
-	for i, suggestion := range items {
-		converted[i] = textSuggestion{Text: suggestion}
-	}
 	if o.listModel != nil {
-		o.listModel.SetItems(converted)
+		o.listModel.SetItems(entries)
 	}
 }
 
@@ -228,10 +224,18 @@ func (o *SearchOverlay) CursorDown() {
 }
 
 func (o SearchOverlay) SelectedSuggestion() string {
-	if o.listModel == nil {
+	entry, ok := o.SelectedEntry()
+	if !ok {
 		return ""
 	}
-	return o.listModel.SelectedText()
+	return entry.Display
+}
+
+func (o SearchOverlay) SelectedEntry() (suggestionEntry, bool) {
+	if o.listModel == nil {
+		return suggestionEntry{}, false
+	}
+	return o.listModel.SelectedEntry()
 }
 
 func (o SearchOverlay) FreeTextTerms() []string {

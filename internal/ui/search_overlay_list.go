@@ -13,17 +13,28 @@ const (
 	suggestionListMaxHeight = suggestionListMaxItems
 )
 
-type suggestionList struct {
-	model *list.Model
+type suggestionEntry struct {
+	Display string
+	Value   string
 }
 
-func (s *suggestionList) SetItems(items []list.Item) {
+type suggestionList struct {
+	model *list.Model
+	items []suggestionEntry
+}
+
+func (s *suggestionList) SetItems(entries []suggestionEntry) {
 	if s == nil || s.model == nil {
 		return
 	}
-	if len(items) > suggestionListMaxItems {
-		items = items[:suggestionListMaxItems]
+	if len(entries) > suggestionListMaxItems {
+		entries = entries[:suggestionListMaxItems]
 	}
+	items := make([]list.Item, len(entries))
+	for i, entry := range entries {
+		items[i] = textSuggestion{entry: entry}
+	}
+	s.items = append([]suggestionEntry(nil), entries...)
 	_ = s.model.SetItems(items)
 	s.model.SetHeight(clampDimension(len(items), 1, suggestionListMaxHeight))
 	s.model.ResetSelected()
@@ -62,22 +73,30 @@ func (s *suggestionList) CursorDown() {
 }
 
 func (s *suggestionList) SelectedText() string {
-	if s == nil || s.model == nil {
-		return ""
-	}
-	item, ok := s.model.SelectedItem().(textSuggestion)
+	entry, ok := s.SelectedEntry()
 	if !ok {
 		return ""
 	}
-	return item.Text
+	return entry.Display
+}
+
+func (s *suggestionList) SelectedEntry() (suggestionEntry, bool) {
+	if s == nil || s.model == nil {
+		return suggestionEntry{}, false
+	}
+	index := s.model.Index()
+	if index < 0 || index >= len(s.items) {
+		return suggestionEntry{}, false
+	}
+	return s.items[index], true
 }
 
 type textSuggestion struct {
-	Text string
+	entry suggestionEntry
 }
 
 func (t textSuggestion) FilterValue() string {
-	return t.Text
+	return t.entry.Display
 }
 
 type suggestionDelegate struct{}
@@ -94,7 +113,7 @@ func (d suggestionDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd { return 
 
 func (d suggestionDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	suggestion, _ := item.(textSuggestion)
-	content := suggestion.Text
+	content := suggestion.entry.Display
 	row := styleSuggestionBullet.Render("• ") + styleSuggestionItem.Render(content)
 	if index == m.Index() {
 		row = styleSuggestionItemSelected.Render(row)

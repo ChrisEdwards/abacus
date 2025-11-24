@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,12 +53,14 @@ type App struct {
 	ready         bool
 	detailIssueID string
 
-	textInput  textinput.Model
-	searching  bool
-	filterText string
-	filterTokens []SearchToken
-	filterFreeText []string
-	overlay    SearchOverlay
+	textInput           textinput.Model
+	searching           bool
+	filterText          string
+	filterTokens        []SearchToken
+	filterFreeText      []string
+	valueCache          map[string][]string
+	suggestionFormatter map[string]func(string) string
+	overlay             SearchOverlay
 	// filterCollapsed tracks nodes explicitly collapsed while a search filter is active.
 	filterCollapsed map[string]bool
 	// filterForcedExpanded tracks nodes temporarily expanded to surface filter matches.
@@ -138,9 +142,17 @@ func NewApp(cfg Config) (*App, error) {
 	}
 
 	app := &App{
-		roots:           roots,
-		textInput:       ti,
-		overlay:         overlay,
+		roots:      roots,
+		textInput:  ti,
+		overlay:    overlay,
+		valueCache: make(map[string][]string),
+		suggestionFormatter: map[string]func(string) string{
+			"status":   formatStatusSuggestion,
+			"priority": formatPrioritySuggestion,
+			"labels":   func(v string) string { return v },
+			"label":    func(v string) string { return v },
+			"type":     strings.Title,
+		},
 		repoName:        repo,
 		focus:           FocusTree,
 		refreshInterval: cfg.RefreshInterval,
@@ -155,6 +167,7 @@ func NewApp(cfg Config) (*App, error) {
 		app.lastRefreshStats = fmt.Sprintf("refresh unavailable: %v", dbErr)
 	}
 	app.recalcVisibleRows()
+	app.buildValueCache()
 	if reporter != nil {
 		reporter.Stage(StartupStageReady, "Ready!")
 	}
@@ -191,6 +204,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.applyRefresh(msg.roots, msg.digest, msg.dbModTime)
+		m.buildValueCache()
 		return m, nil
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -209,6 +223,12 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.searching {
 			switch msg.String() {
 			case "enter":
+				if m.overlay.HasSuggestions() {
+					if suggestion := m.overlay.SelectedSuggestion(); suggestion != "" {
+						m.applySuggestion(suggestion)
+						return m, nil
+					}
+				}
 				m.searching = false
 				m.textInput.Blur()
 				return m, nil
@@ -369,6 +389,14 @@ func (m *App) setFilterText(value string) {
 	m.overlay.UpdateInput(value)
 	m.filterTokens = m.overlay.Tokens()
 	m.filterFreeText = m.overlay.FreeTextTerms()
+	if m.overlay.SuggestionMode() == SuggestionModeValue {
+		field := m.overlay.PendingField()
+		if field != "" {
+			m.overlay.SetSuggestions(m.suggestionsForField(field))
+		}
+	} else {
+		m.overlay.SetSuggestions(nil)
+	}
 	if newEmpty {
 		m.filterCollapsed = nil
 		m.filterForcedExpanded = nil
@@ -378,6 +406,147 @@ func (m *App) setFilterText(value string) {
 		m.filterCollapsed = nil
 		m.filterForcedExpanded = nil
 	}
+}
+
+func (m *App) applySuggestion(suggestion string) {
+	field := m.overlay.PendingField()
+	if field == "" {
+		return
+	}
+	value := suggestion
+	if entry, ok := m.overlay.SelectedEntry(); ok && entry.Value != "" {
+		value = entry.Value
+	}
+	current := strings.TrimSpace(m.textInput.Value())
+	if current != "" && !strings.HasSuffix(current, " ") {
+		current += " "
+	}
+	replacement := fmt.Sprintf("%s:%s", field, value)
+	remaining := strings.TrimPrefix(current, m.overlay.PendingText())
+	m.textInput.SetValue(strings.TrimSpace(remaining+replacement) + " ")
+	m.textInput.SetCursor(len(m.textInput.Value()))
+	m.setFilterText(m.textInput.Value())
+}
+
+func (m *App) buildValueCache() {
+	if m == nil {
+		return
+	}
+	sets := map[string]map[string]struct{}{
+		"status":   {},
+		"priority": {},
+		"type":     {},
+		"labels":   {},
+	}
+	var walk func(nodes []*graph.Node)
+	walk = func(nodes []*graph.Node) {
+		for _, node := range nodes {
+			issue := node.Issue
+			addValueToSet(sets["status"], strings.ToLower(strings.TrimSpace(issue.Status)))
+			addValueToSet(sets["priority"], fmt.Sprintf("%d", issue.Priority))
+			addValueToSet(sets["type"], strings.ToLower(strings.TrimSpace(issue.IssueType)))
+			for _, label := range issue.Labels {
+				addValueToSet(sets["labels"], strings.ToLower(strings.TrimSpace(label)))
+			}
+			walk(node.Children)
+		}
+	}
+	walk(m.roots)
+	m.valueCache = make(map[string][]string, len(sets)+1)
+	for field, set := range sets {
+		m.valueCache[field] = sortedValues(set)
+	}
+	if labels := m.valueCache["labels"]; len(labels) > 0 {
+		m.valueCache["label"] = labels
+	}
+}
+
+func addValueToSet(set map[string]struct{}, value string) {
+	if set == nil {
+		return
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	set[value] = struct{}{}
+}
+
+func sortedValues(set map[string]struct{}) []string {
+	if len(set) == 0 {
+		return nil
+	}
+	values := make([]string, 0, len(set))
+	for v := range set {
+		values = append(values, v)
+	}
+	sort.Strings(values)
+	return values
+}
+
+func (m *App) suggestionsForField(field string) []suggestionEntry {
+	field = strings.ToLower(strings.TrimSpace(field))
+	if field == "" {
+		return nil
+	}
+	values := m.valueCache[field]
+	if len(values) == 0 {
+		return nil
+	}
+	formatter := m.suggestionFormatter[field]
+	entries := make([]suggestionEntry, 0, len(values))
+	for _, v := range values {
+		display := v
+		if formatter != nil {
+			display = formatter(v)
+		}
+		entries = append(entries, suggestionEntry{Display: display, Value: v})
+	}
+	return entries
+}
+
+func formatStatusSuggestion(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "open":
+		return "🟢 Open"
+	case "in_progress", "in-progress":
+		return "🟡 In Progress"
+	case "blocked":
+		return "⛔ Blocked"
+	case "closed":
+		return "✔ Closed"
+	default:
+		return titleCase(value)
+	}
+}
+
+func formatPrioritySuggestion(value string) string {
+	value = strings.TrimSpace(value)
+	if p, err := strconv.Atoi(value); err == nil {
+		switch p {
+		case 0:
+			return "P0 (Critical)"
+		case 1:
+			return "P1 (High)"
+		case 2:
+			return "P2 (Medium)"
+		case 3:
+			return "P3 (Low)"
+		default:
+			return fmt.Sprintf("P%d", p)
+		}
+	}
+	return strings.ToUpper(value)
+}
+
+func titleCase(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return value
+	}
+	runes := []rune(value)
+	runes[0] = []rune(strings.ToUpper(string(runes[0])))[0]
+	return string(runes)
 }
 
 func (m *App) detailFocusActive() bool {

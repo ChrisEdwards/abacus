@@ -101,6 +101,7 @@ func (m *App) applyRefresh(newRoots []*graph.Node, newDigest map[string]string, 
 		m.viewport.YOffset = state.viewportYOffset
 	}
 	m.updateViewportContent()
+	m.buildValueCache()
 
 	m.lastRefreshStats = computeDiffStats(oldDigest, newDigest)
 	m.showRefreshFlash = true
