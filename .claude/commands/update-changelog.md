@@ -23,7 +23,7 @@ You are tasked with preparing a release by analyzing changes since the last rele
    Consider ALL of the following factors:
 
    - **Commit message patterns:**
-     - `BREAKING CHANGE:` or `!` → MAJOR
+     - `BREAKING CHANGE:` or '!' → MAJOR
      - `feat:` or new features → MINOR
      - `fix:` or bug fixes → PATCH
      - `chore:`, `docs:`, `refactor:` → typically PATCH

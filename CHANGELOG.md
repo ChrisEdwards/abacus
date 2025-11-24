@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - TBD
-
 Initial release of abacus - a TUI viewer for Beads issue tracking.
 
 ### Added
@@ -64,6 +62,3 @@ Initial release of abacus - a TUI viewer for Beads issue tracking.
 ### Removed
 - Unused `--json-output` CLI flag (consolidated into main JSON mode)
 - docs/ folder (consolidated into README)
-
-[Unreleased]: https://github.com/ChrisEdwards/abacus/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/ChrisEdwards/abacus/releases/tag/v0.1.0
