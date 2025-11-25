@@ -16,7 +16,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const versionCheckTimeout = 5 * time.Second
+const versionCheckTimeout = 10 * time.Second
 
 func main() {
 	if err := config.Initialize(); err != nil {
@@ -60,19 +60,37 @@ func main() {
 
 	skipVersionCheck := runtime.skipVersionCheck
 
+	// Start the startup display immediately - don't let users stare at nothing
+	var startup *StartupDisplay
+	if !runtime.jsonOutput {
+		startup = NewStartupDisplay(os.Stderr)
+		startup.Stage(ui.StartupStageInit, "Starting up...")
+	}
+
+	// Version check with visual feedback
 	if !skipVersionCheck {
+		if startup != nil {
+			startup.Stage(ui.StartupStageVersionCheck, "Checking beads CLI...")
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
 		info, err := beads.CheckVersion(ctx, beads.VersionCheckOptions{})
 		cancel()
 		if handleVersionCheckResult(os.Stderr, info, err) {
+			if startup != nil {
+				startup.Stop()
+			}
 			os.Exit(1)
 		}
 	}
 
+	// Pass the existing startup display to runWithRuntime
 	if err := runWithRuntime(runtime, ui.NewApp, func(app *ui.App) programRunner {
 		return tea.NewProgram(app, tea.WithAltScreen())
 	}, func() startupAnimator {
-		return newStartupSpinner(os.Stderr, 500*time.Millisecond)
+		if startup != nil {
+			return startup
+		}
+		return NewStartupDisplay(os.Stderr)
 	}, ui.OutputIssuesJSON, func(path string) beads.Client {
 		return beads.NewCLIClient(beads.WithDatabasePath(path))
 	}); err != nil {

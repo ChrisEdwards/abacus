@@ -32,7 +32,7 @@ func TestFetchFullIssuesBatchesCalls(t *testing.T) {
 		return batch, nil
 	}
 
-	issues, total, err := fetchFullIssues(context.Background(), mock)
+	issues, total, err := fetchFullIssues(context.Background(), mock, nil)
 	if err != nil {
 		t.Fatalf("fetchFullIssues returned error: %v", err)
 	}
@@ -147,10 +147,13 @@ func TestLoadDataReportsStartupStages(t *testing.T) {
 	}
 
 	want := []StartupStage{
-		StartupStageLoadingIssues,
-		StartupStageLoadingIssues,
-		StartupStageBuildingGraph,
-		StartupStageOrganizingTree,
+		StartupStageLoadingIssues,  // "Fetching issue list..."
+		StartupStageLoadingIssues,  // "Found X issues, loading details..."
+		StartupStageLoadingIssues,  // "Loading issues... X/Y"
+		StartupStageLoadingIssues,  // "Loaded X issues"
+		StartupStageBuildingGraph,  // "Building dependency graph..."
+		StartupStageOrganizingTree, // "Loading comments..."
+		StartupStageOrganizingTree, // "Loading comments... X/Y" (progress)
 	}
 	if len(reporter.stages) != len(want) {
 		t.Fatalf("expected %d stage events, got %d: %#v", len(want), len(reporter.stages), reporter.stages)

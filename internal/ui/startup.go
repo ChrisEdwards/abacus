@@ -4,7 +4,9 @@ package ui
 type StartupStage int
 
 const (
-	StartupStageFindingDatabase StartupStage = iota
+	StartupStageInit StartupStage = iota
+	StartupStageVersionCheck
+	StartupStageFindingDatabase
 	StartupStageLoadingIssues
 	StartupStageBuildingGraph
 	StartupStageOrganizingTree

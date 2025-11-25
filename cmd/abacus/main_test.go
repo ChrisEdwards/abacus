@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -97,32 +96,6 @@ func TestRunWithRuntimeStopsSpinnerOnBuilderError(t *testing.T) {
 	}
 	if spinner.stopCount != 1 {
 		t.Fatalf("expected spinner stop count 1, got %d", spinner.stopCount)
-	}
-}
-
-func TestStartupSpinnerRendersAfterDelay(t *testing.T) {
-	var buf bytes.Buffer
-	spinner := newCustomStartupSpinner(&buf, 0, time.Millisecond)
-	spinner.Stage(ui.StartupStageLoadingIssues, "buffering tests")
-	time.Sleep(10 * time.Millisecond)
-	spinner.Stop()
-	if buf.Len() == 0 {
-		t.Fatal("expected spinner output")
-	}
-}
-
-func TestStartupSpinnerRespectsDelay(t *testing.T) {
-	var buf bytes.Buffer
-	spinner := newCustomStartupSpinner(&buf, 30*time.Millisecond, time.Millisecond)
-	spinner.Stage(ui.StartupStageLoadingIssues, "delayed")
-	time.Sleep(10 * time.Millisecond)
-	if buf.Len() != 0 {
-		t.Fatalf("expected no output before delay, got %q", buf.String())
-	}
-	time.Sleep(30 * time.Millisecond)
-	spinner.Stop()
-	if buf.Len() == 0 {
-		t.Fatal("expected spinner output after delay")
 	}
 }
 

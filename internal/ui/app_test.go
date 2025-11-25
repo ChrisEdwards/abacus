@@ -176,7 +176,7 @@ func TestPreloadAllComments(t *testing.T) {
 			}, nil
 		}
 
-		preloadAllComments(ctx, client, []*graph.Node{root})
+		preloadAllComments(ctx, client, []*graph.Node{root}, nil)
 
 		if !root.CommentsLoaded {
 			t.Errorf("expected root node CommentsLoaded to be true")
@@ -205,7 +205,7 @@ func TestPreloadAllComments(t *testing.T) {
 			return []beads.Comment{}, nil
 		}
 
-		preloadAllComments(ctx, client, roots)
+		preloadAllComments(ctx, client, roots, nil)
 
 		for i, root := range roots {
 			if !root.CommentsLoaded {
@@ -230,7 +230,7 @@ func TestPreloadAllComments(t *testing.T) {
 			return []beads.Comment{}, nil
 		}
 
-		preloadAllComments(ctx, client, []*graph.Node{root})
+		preloadAllComments(ctx, client, []*graph.Node{root}, nil)
 
 		if !root.CommentsLoaded {
 			t.Errorf("root not loaded")
@@ -248,8 +248,8 @@ func TestPreloadAllComments(t *testing.T) {
 		client.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
 			return []beads.Comment{}, nil
 		}
-		preloadAllComments(ctx, client, []*graph.Node{})
-		preloadAllComments(ctx, client, nil)
+		preloadAllComments(ctx, client, []*graph.Node{}, nil)
+		preloadAllComments(ctx, client, nil, nil)
 	})
 
 	t.Run("initializesEmptyCommentsSlice", func(t *testing.T) {
@@ -258,7 +258,7 @@ func TestPreloadAllComments(t *testing.T) {
 		client.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
 			return nil, nil
 		}
-		preloadAllComments(ctx, client, []*graph.Node{node})
+		preloadAllComments(ctx, client, []*graph.Node{node}, nil)
 
 		if !node.CommentsLoaded {
 			t.Errorf("expected node to be marked as loaded even with no comments")
@@ -299,7 +299,7 @@ func TestPreloadAllComments(t *testing.T) {
 			return []beads.Comment{}, nil
 		}
 
-		preloadAllComments(ctx, client, roots)
+		preloadAllComments(ctx, client, roots, nil)
 
 		if maxInFlight > maxConcurrentCommentFetches {
 			t.Fatalf("expected at most %d concurrent fetches, saw %d", maxConcurrentCommentFetches, maxInFlight)

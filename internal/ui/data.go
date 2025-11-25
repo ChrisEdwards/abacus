@@ -35,7 +35,7 @@ func fetchCommentsForNode(ctx context.Context, client beads.Client, n *graph.Nod
 	return nil
 }
 
-func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph.Node) {
+func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph.Node, reporter StartupReporter) {
 	if client == nil {
 		return
 	}
@@ -49,13 +49,14 @@ func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph
 	}
 	collectNodes(roots)
 
-	if len(nodeMap) == 0 {
+	total := len(nodeMap)
+	if total == 0 {
 		return
 	}
 
 	workerLimit := maxConcurrentCommentFetches
-	if len(nodeMap) < workerLimit {
-		workerLimit = len(nodeMap)
+	if total < workerLimit {
+		workerLimit = total
 	}
 	if workerLimit <= 0 {
 		workerLimit = 1
@@ -65,6 +66,7 @@ func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	completed := 0
 
 	for issueID, node := range nodeMap {
 		wg.Add(1)
@@ -81,14 +83,18 @@ func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph
 
 			if err != nil {
 				n.CommentError = fmt.Sprintf("failed: %v", err)
-				return
+			} else {
+				if comments == nil {
+					comments = []beads.Comment{}
+				}
+				n.Issue.Comments = comments
+				n.CommentsLoaded = true
 			}
 
-			if comments == nil {
-				comments = []beads.Comment{}
+			completed++
+			if reporter != nil {
+				reporter.Stage(StartupStageOrganizingTree, fmt.Sprintf("Loading comments... %d/%d", completed, total))
 			}
-			n.Issue.Comments = comments
-			n.CommentsLoaded = true
 		}(issueID, node)
 	}
 
@@ -97,9 +103,9 @@ func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph
 
 func loadData(ctx context.Context, client beads.Client, reporter StartupReporter) ([]*graph.Node, error) {
 	if reporter != nil {
-		reporter.Stage(StartupStageLoadingIssues, "Loading issues...")
+		reporter.Stage(StartupStageLoadingIssues, "Fetching issue list...")
 	}
-	fullIssues, totalIssues, err := fetchFullIssues(ctx, client)
+	fullIssues, totalIssues, err := fetchFullIssues(ctx, client, reporter)
 	if err != nil {
 		return nil, err
 	}
@@ -134,14 +140,14 @@ func loadData(ctx context.Context, client beads.Client, reporter StartupReporter
 		return a.Issue.CreatedAt < b.Issue.CreatedAt
 	})
 	if reporter != nil {
-		reporter.Stage(StartupStageOrganizingTree, "Organizing tree...")
+		reporter.Stage(StartupStageOrganizingTree, "Loading comments...")
 	}
 
-	preloadAllComments(ctx, client, roots)
+	preloadAllComments(ctx, client, roots, reporter)
 	return roots, nil
 }
 
-func fetchFullIssues(ctx context.Context, client beads.Client) ([]beads.FullIssue, int, error) {
+func fetchFullIssues(ctx context.Context, client beads.Client, reporter StartupReporter) ([]beads.FullIssue, int, error) {
 	liteIssues, err := client.List(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list issues: %w", err)
@@ -150,16 +156,20 @@ func fetchFullIssues(ctx context.Context, client beads.Client) ([]beads.FullIssu
 		return []beads.FullIssue{}, 0, nil
 	}
 
+	if reporter != nil {
+		reporter.Stage(StartupStageLoadingIssues, fmt.Sprintf("Found %d issues, loading details...", len(liteIssues)))
+	}
+
 	ids := make([]string, 0, len(liteIssues))
 	for _, l := range liteIssues {
 		ids = append(ids, l.ID)
 	}
 
-	full, err := batchFetchIssues(ctx, client, ids)
+	full, err := batchFetchIssues(ctx, client, ids, len(liteIssues), reporter)
 	return full, len(liteIssues), err
 }
 
-func batchFetchIssues(ctx context.Context, client beads.Client, ids []string) ([]beads.FullIssue, error) {
+func batchFetchIssues(ctx context.Context, client beads.Client, ids []string, total int, reporter StartupReporter) ([]beads.FullIssue, error) {
 	var results []beads.FullIssue
 	chunkSize := 20
 	for i := 0; i < len(ids); i += chunkSize {
@@ -173,13 +183,17 @@ func batchFetchIssues(ctx context.Context, client beads.Client, ids []string) ([
 			return nil, fmt.Errorf("show issues %v: %w", ids[i:end], err)
 		}
 		results = append(results, batch...)
+
+		if reporter != nil {
+			reporter.Stage(StartupStageLoadingIssues, fmt.Sprintf("Loading issues... %d/%d", len(results), total))
+		}
 	}
 	return results, nil
 }
 
 // OutputIssuesJSON writes all issues to stdout as formatted JSON.
 func OutputIssuesJSON(ctx context.Context, client beads.Client) error {
-	issues, _, err := fetchFullIssues(ctx, client)
+	issues, _, err := fetchFullIssues(ctx, client, nil)
 	if err != nil {
 		return err
 	}
