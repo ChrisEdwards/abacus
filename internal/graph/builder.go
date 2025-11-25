@@ -37,11 +37,11 @@ func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
 				}
 			case "blocks":
 				if blocker, ok := nodeMap[dep.TargetID]; ok {
+					node.BlockedBy = append(node.BlockedBy, blocker)
 					if blocker.Issue.Status != "closed" {
-						node.BlockedBy = append(node.BlockedBy, blocker)
 						node.IsBlocked = true
-						blocker.Blocks = append(blocker.Blocks, node)
 					}
+					blocker.Blocks = append(blocker.Blocks, node)
 				}
 			case "related":
 				if related, ok := nodeMap[dep.TargetID]; ok {
