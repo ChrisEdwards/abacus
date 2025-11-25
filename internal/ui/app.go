@@ -493,7 +493,7 @@ func (m *App) View() string {
 	leftContent := styleAppHeader.Render(title) + " " + status
 	var header string
 	if m.lastError != "" {
-		rightContent := styleErrorIndicator.Render("⚠ error (e)")
+		rightContent := styleErrorIndicator.Render("⚠ refresh error (e)")
 		availableWidth := m.width - lipgloss.Width(leftContent) - lipgloss.Width(rightContent) - 2
 		if availableWidth > 0 {
 			header = leftContent + strings.Repeat(" ", availableWidth) + rightContent
@@ -576,18 +576,25 @@ func (m *App) renderErrorToast() string {
 	// Extract a short, user-friendly error message
 	errMsg := extractShortError(m.lastError, 80)
 
-	// Build content: error message + countdown right-aligned
+	// Build content: title + bd error message + countdown right-aligned
+	titleLine := "⚠ Refresh Error"
+	bdErrLine := fmt.Sprintf("bd: %s", errMsg)
 	countdownStr := fmt.Sprintf("[%ds]", remaining)
-	errWidth := lipgloss.Width(errMsg)
+
+	// Calculate toast width based on longest line
 	toastWidth := 50
-	if errWidth > toastWidth {
-		toastWidth = errWidth
+	if w := lipgloss.Width(titleLine); w > toastWidth {
+		toastWidth = w
 	}
+	if w := lipgloss.Width(bdErrLine); w > toastWidth {
+		toastWidth = w
+	}
+
 	padding := toastWidth - len(countdownStr)
 	if padding < 0 {
 		padding = 0
 	}
-	content := fmt.Sprintf("⚠ %s\n%s%s", errMsg, strings.Repeat(" ", padding), countdownStr)
+	content := fmt.Sprintf("%s\n%s\n%s%s", titleLine, bdErrLine, strings.Repeat(" ", padding), countdownStr)
 
 	return styleErrorToast.Render(content)
 }
