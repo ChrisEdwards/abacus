@@ -275,6 +275,7 @@ func TestDetailPaneLimitsBlankLinesBetweenSections(t *testing.T) {
 			},
 		},
 		Parent:         parent,
+		Parents:        []*graph.Node{parent},
 		Children:       []*graph.Node{child},
 		BlockedBy:      []*graph.Node{blockedBy},
 		Blocks:         []*graph.Node{blocks},
@@ -320,6 +321,7 @@ func TestDetailSectionsUseConsistentIndentation(t *testing.T) {
 			},
 		},
 		Parent:         parent,
+		Parents:        []*graph.Node{parent},
 		Children:       []*graph.Node{child},
 		BlockedBy:      []*graph.Node{blocker},
 		Blocks:         []*graph.Node{blocks},
@@ -341,11 +343,10 @@ func TestDetailSectionsUseConsistentIndentation(t *testing.T) {
 		"Design:",
 		"Acceptance:",
 		"Comments:",
-		"External Reference",
-		"Parent",
-		fmt.Sprintf("Depends On (%d)", len(node.Children)),
-		"Blocked By",
-		fmt.Sprintf("Blocks (%d)", len(node.Blocks)),
+		"Part Of",
+		fmt.Sprintf("Subtasks (%d)", len(node.Children)),
+		"Must Complete First",
+		fmt.Sprintf("Will Unblock (%d)", len(node.Blocks)),
 	}
 	for _, label := range labels {
 		assertSectionIndentSpacing(t, content, label, detailSectionLabelIndent, detailSectionContentIndent)
@@ -433,8 +434,8 @@ func TestDetailRelationshipsShowStatusIcons(t *testing.T) {
 	}
 	app.updateViewportContent()
 	content := stripANSI(app.viewport.View())
-	if !strings.Contains(content, "Depends On") {
-		t.Fatalf("expected Depends On section in detail view:\n%s", content)
+	if !strings.Contains(content, "Subtasks") {
+		t.Fatalf("expected Subtasks section in detail view:\n%s", content)
 	}
 	if !strings.Contains(content, "◐") || !strings.Contains(content, "ab-601") {
 		t.Fatalf("expected in-progress icon with child id, got:\n%s", content)
@@ -457,8 +458,8 @@ func TestDetailBlockedByShowsBlockedIcon(t *testing.T) {
 	}
 	app.updateViewportContent()
 	content := stripANSI(app.viewport.View())
-	if !strings.Contains(content, "Blocked By") {
-		t.Fatalf("expected Blocked By section in detail view:\n%s", content)
+	if !strings.Contains(content, "Must Complete First") {
+		t.Fatalf("expected Must Complete First section in detail view:\n%s", content)
 	}
 	if !strings.Contains(content, "⛔") || !strings.Contains(content, "ab-611") {
 		t.Fatalf("expected blocked icon rendered for dependency:\n%s", content)

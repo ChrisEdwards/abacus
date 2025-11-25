@@ -126,11 +126,7 @@ func (m *App) updateViewportContent() {
 	}
 	metaBlock = lipgloss.NewStyle().MarginLeft(1).Render(metaBlock)
 
-	relSections := make([]string, 0, 5)
-	if iss.ExternalRef != "" {
-		externalBody := fmt.Sprintf("🔗 %s", iss.ExternalRef)
-		relSections = append(relSections, renderContentSection("External Reference", externalBody))
-	}
+	relSections := make([]string, 0, 6)
 
 	renderRelSection := func(title string, items []*graph.Node) string {
 		if len(items) == 0 {
@@ -158,23 +154,27 @@ func (m *App) updateViewportContent() {
 		return renderContentSection(title, strings.Join(rows, "\n"))
 	}
 
-	if node.Parent != nil {
-		if section := renderRelSection("Parent", []*graph.Node{node.Parent}); section != "" {
+	// Part Of - show ALL parents (parent-child relationships)
+	if len(node.Parents) > 0 {
+		if section := renderRelSection("Part Of", node.Parents); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
+	// Subtasks - children of this node
 	if len(node.Children) > 0 {
-		if section := renderRelSection(fmt.Sprintf("Depends On (%d)", len(node.Children)), node.Children); section != "" {
+		if section := renderRelSection(fmt.Sprintf("Subtasks (%d)", len(node.Children)), node.Children); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
-	if node.IsBlocked && len(node.BlockedBy) > 0 {
-		if section := renderRelSection("Blocked By", node.BlockedBy); section != "" {
+	// Must Complete First - blockers (blocks relationships)
+	if len(node.BlockedBy) > 0 {
+		if section := renderRelSection("Must Complete First", node.BlockedBy); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
+	// Will Unblock - what this issue blocks
 	if len(node.Blocks) > 0 {
-		if section := renderRelSection(fmt.Sprintf("Blocks (%d)", len(node.Blocks)), node.Blocks); section != "" {
+		if section := renderRelSection(fmt.Sprintf("Will Unblock (%d)", len(node.Blocks)), node.Blocks); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
