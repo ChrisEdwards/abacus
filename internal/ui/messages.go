@@ -23,3 +23,11 @@ func scheduleTick(interval time.Duration) tea.Cmd {
 	}
 	return tea.Tick(interval, func(time.Time) tea.Msg { return tickMsg{} })
 }
+
+type errorToastTickMsg struct{}
+
+func scheduleErrorToastTick() tea.Cmd {
+	return tea.Tick(time.Second, func(time.Time) tea.Msg {
+		return errorToastTickMsg{}
+	})
+}

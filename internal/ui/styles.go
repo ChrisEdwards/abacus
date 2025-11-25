@@ -101,6 +101,16 @@ var (
 	styleCommentHeader = lipgloss.NewStyle().
 				Foreground(cBrightGray).
 				Bold(true)
+
+	styleErrorToast = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(cRed).
+			Foreground(cWhite).
+			Padding(0, 1)
+
+	styleErrorIndicator = lipgloss.NewStyle().
+				Foreground(cRed).
+				Bold(true)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {

@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 )
 
 const (
@@ -77,6 +78,12 @@ type App struct {
 	version          string
 
 	client beads.Client
+
+	// Error toast state
+	lastError       string    // Full error message (separate from stats)
+	errorShownOnce  bool      // True after first toast display
+	showErrorToast  bool      // Currently showing toast
+	errorToastStart time.Time // When toast was shown (for countdown)
 }
 
 // NewApp creates a new UI app instance based on configuration and current working directory.
@@ -183,13 +190,32 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case refreshCompleteMsg:
 		m.refreshInFlight = false
 		if msg.err != nil {
-			m.lastRefreshStats = fmt.Sprintf("refresh failed: %v", msg.err)
-			m.showRefreshFlash = true
-			m.lastRefreshTime = time.Now()
+			m.lastError = msg.err.Error()
+			m.lastRefreshStats = "" // Clear stats when we have an error
+			if !m.errorShownOnce {
+				m.showErrorToast = true
+				m.errorToastStart = time.Now()
+				m.errorShownOnce = true
+				return m, scheduleErrorToastTick()
+			}
 			return m, nil
 		}
+		// On success, clear error state
+		m.lastError = ""
+		m.errorShownOnce = false
+		m.showErrorToast = false
 		m.applyRefresh(msg.roots, msg.digest, msg.dbModTime)
 		return m, nil
+	case errorToastTickMsg:
+		if !m.showErrorToast {
+			return m, nil
+		}
+		elapsed := time.Since(m.errorToastStart)
+		if elapsed >= 10*time.Second {
+			m.showErrorToast = false
+			return m, nil
+		}
+		return m, scheduleErrorToastTick()
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -234,6 +260,11 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textInput.SetCursor(len(m.filterText))
 			}
 		case "esc":
+			// ESC dismisses error toast first, then clears search filter
+			if m.showErrorToast {
+				m.showErrorToast = false
+				return m, nil
+			}
 			if m.filterText != "" {
 				m.clearSearchFilter()
 				return m, nil
@@ -319,6 +350,13 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "c":
 			if m.ShowDetails && m.focus == FocusDetails {
 				m.retryCommentsForCurrentNode()
+			}
+		case "e":
+			// Show error toast if there's an error and toast isn't already visible
+			if m.lastError != "" && !m.showErrorToast {
+				m.showErrorToast = true
+				m.errorToastStart = time.Now()
+				return m, scheduleErrorToastTick()
 			}
 		}
 	default:
@@ -450,7 +488,21 @@ func (m *App) View() string {
 	if m.version != "" {
 		title = fmt.Sprintf("ABACUS v%s", m.version)
 	}
-	header := styleAppHeader.Render(title) + " " + status
+
+	// Build header with right-aligned error indicator if present
+	leftContent := styleAppHeader.Render(title) + " " + status
+	var header string
+	if m.lastError != "" {
+		rightContent := styleErrorIndicator.Render("⚠ error (e)")
+		availableWidth := m.width - lipgloss.Width(leftContent) - lipgloss.Width(rightContent) - 2
+		if availableWidth > 0 {
+			header = leftContent + strings.Repeat(" ", availableWidth) + rightContent
+		} else {
+			header = leftContent + " " + rightContent
+		}
+	} else {
+		header = leftContent
+	}
 	treeViewStr := m.renderTreeView()
 
 	var mainBody string
@@ -500,5 +552,98 @@ func (m *App) View() string {
 				lipgloss.PlaceHorizontal(m.width-len(footerStr)-5, lipgloss.Right, "Repo: "+m.repoName)))
 	}
 
+	// Overlay error toast on mainBody if visible
+	if toast := m.renderErrorToast(); toast != "" {
+		mainBody = overlayBottomRight(mainBody, toast, 2)
+	}
+
 	return fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
+}
+
+// renderErrorToast renders the error toast content if visible.
+func (m *App) renderErrorToast() string {
+	if !m.showErrorToast || m.lastError == "" {
+		return ""
+	}
+	elapsed := time.Since(m.errorToastStart)
+	remaining := 10 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Word-wrap error message if needed (max 46 chars wide)
+	errMsg := wordwrap.String(m.lastError, 46)
+
+	// Build content: error message on first line(s), countdown right-aligned on last line
+	countdownStr := fmt.Sprintf("[%ds]", remaining)
+	padding := 46 - len(countdownStr)
+	if padding < 0 {
+		padding = 0
+	}
+	content := fmt.Sprintf("⚠ %s\n%s%s", errMsg, strings.Repeat(" ", padding), countdownStr)
+
+	return styleErrorToast.Render(content)
+}
+
+// overlayBottomRight overlays the toast on top of the background content
+// at the bottom-right corner.
+func overlayBottomRight(background, overlay string, padding int) string {
+	if overlay == "" {
+		return background
+	}
+
+	bgLines := strings.Split(background, "\n")
+	overlayLines := strings.Split(overlay, "\n")
+
+	bgHeight := len(bgLines)
+	overlayHeight := len(overlayLines)
+	overlayWidth := lipgloss.Width(overlay)
+
+	// Calculate starting row position (from bottom)
+	startRow := bgHeight - overlayHeight - padding
+	if startRow < 0 {
+		startRow = 0
+	}
+
+	// Overlay each line
+	for i, overlayLine := range overlayLines {
+		bgRow := startRow + i
+		if bgRow >= bgHeight {
+			break
+		}
+
+		bgLine := bgLines[bgRow]
+		bgLineWidth := lipgloss.Width(bgLine)
+
+		// Calculate where to insert overlay (right-aligned with padding)
+		insertPos := bgLineWidth - overlayWidth - padding
+		if insertPos < 0 {
+			insertPos = 0
+		}
+
+		// Build new line with overlay
+		bgLines[bgRow] = spliceString(bgLine, overlayLine, insertPos)
+	}
+
+	return strings.Join(bgLines, "\n")
+}
+
+// spliceString inserts overlay into base at the given rune position.
+func spliceString(base, overlay string, pos int) string {
+	baseRunes := []rune(base)
+	overlayRunes := []rune(overlay)
+
+	// Pad base if needed
+	for len(baseRunes) < pos+len(overlayRunes) {
+		baseRunes = append(baseRunes, ' ')
+	}
+
+	// Copy overlay runes into base
+	for i, r := range overlayRunes {
+		if pos+i < len(baseRunes) {
+			baseRunes[pos+i] = r
+		}
+	}
+
+	return string(baseRunes)
 }

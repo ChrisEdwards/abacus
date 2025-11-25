@@ -1612,8 +1612,166 @@ func TestRefreshHandlesClientError(t *testing.T) {
 		t.Fatalf("expected refreshCompleteMsg, got %T", msg)
 	}
 	app.Update(refreshMsg)
-	if !strings.Contains(app.lastRefreshStats, "refresh failed") {
-		t.Fatalf("expected refresh failure message, got %s", app.lastRefreshStats)
+	// Errors are now stored in lastError, not lastRefreshStats
+	if app.lastError == "" {
+		t.Fatalf("expected error to be stored in lastError")
+	}
+	if !strings.Contains(app.lastError, "show failed") {
+		t.Fatalf("expected error message to contain 'show failed', got %s", app.lastError)
+	}
+}
+
+func TestErrorToastShowsOnFirstError(t *testing.T) {
+	fixtureInitial := loadFixtureIssues(t, "issues_basic.json")
+	mock := beads.NewMockClient()
+	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
+		return liteIssuesFromFixture(fixtureInitial), nil
+	}
+	var showCalls int
+	mock.ShowFn = func(ctx context.Context, ids []string) ([]beads.FullIssue, error) {
+		if showCalls == 0 {
+			showCalls++
+			return filterIssuesByID(fixtureInitial, ids), nil
+		}
+		return nil, errors.New("connection failed")
+	}
+	mock.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) { return nil, nil }
+
+	app := mustNewTestApp(t, mock)
+
+	// Trigger refresh error
+	cmd := app.forceRefresh()
+	if cmd == nil {
+		t.Fatalf("expected refresh cmd")
+	}
+	msg := cmd()
+	refreshMsg := msg.(refreshCompleteMsg)
+	_, nextCmd := app.Update(refreshMsg)
+
+	// Toast should be shown on first error
+	if !app.showErrorToast {
+		t.Error("expected showErrorToast to be true on first error")
+	}
+	if !app.errorShownOnce {
+		t.Error("expected errorShownOnce to be true")
+	}
+	if nextCmd == nil {
+		t.Error("expected tick command to be returned for toast countdown")
+	}
+}
+
+func TestErrorToastEscDismisses(t *testing.T) {
+	app := &App{
+		lastError:      "test error",
+		showErrorToast: true,
+		errorShownOnce: true,
+		ready:          true,
+	}
+
+	// Press ESC
+	_, _ = app.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+	if app.showErrorToast {
+		t.Error("expected showErrorToast to be false after ESC")
+	}
+	// Error should still be stored
+	if app.lastError == "" {
+		t.Error("expected lastError to remain after dismissing toast")
+	}
+}
+
+func TestErrorToastEKeyRecalls(t *testing.T) {
+	app := &App{
+		lastError:      "test error",
+		showErrorToast: false,
+		errorShownOnce: true,
+		ready:          true,
+	}
+
+	// Press 'e'
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+
+	if !app.showErrorToast {
+		t.Error("expected showErrorToast to be true after pressing 'e'")
+	}
+	if cmd == nil {
+		t.Error("expected tick command to be returned")
+	}
+}
+
+func TestErrorToastDoesNotReappearOnSubsequentErrors(t *testing.T) {
+	app := &App{
+		lastError:      "first error",
+		showErrorToast: false,
+		errorShownOnce: true, // Already shown once
+		ready:          true,
+	}
+
+	// Simulate another refresh error
+	msg := refreshCompleteMsg{err: errors.New("second error")}
+	_, cmd := app.Update(msg)
+
+	// Toast should NOT show again
+	if app.showErrorToast {
+		t.Error("expected showErrorToast to remain false for subsequent errors")
+	}
+	if cmd != nil {
+		t.Error("expected no tick command since toast is not shown")
+	}
+	// But error should be updated
+	if !strings.Contains(app.lastError, "second error") {
+		t.Errorf("expected lastError to be updated, got %s", app.lastError)
+	}
+}
+
+func TestErrorToastClearedOnSuccessfulRefresh(t *testing.T) {
+	app := &App{
+		lastError:      "previous error",
+		showErrorToast: true,
+		errorShownOnce: true,
+		ready:          true,
+	}
+
+	// Simulate successful refresh
+	msg := refreshCompleteMsg{
+		roots:  []*graph.Node{},
+		digest: map[string]string{},
+	}
+	app.Update(msg)
+
+	if app.lastError != "" {
+		t.Errorf("expected lastError to be cleared, got %s", app.lastError)
+	}
+	if app.showErrorToast {
+		t.Error("expected showErrorToast to be false")
+	}
+	if app.errorShownOnce {
+		t.Error("expected errorShownOnce to be reset")
+	}
+}
+
+func TestErrorToastCountdown(t *testing.T) {
+	app := &App{
+		lastError:       "test error",
+		showErrorToast:  true,
+		errorToastStart: time.Now().Add(-5 * time.Second), // Started 5 seconds ago
+		ready:           true,
+	}
+
+	// Process tick - should continue countdown
+	_, cmd := app.Update(errorToastTickMsg{})
+	if !app.showErrorToast {
+		t.Error("toast should still be visible before 10 seconds")
+	}
+	if cmd == nil {
+		t.Error("expected another tick to be scheduled")
+	}
+
+	// Simulate 10+ seconds elapsed
+	app.errorToastStart = time.Now().Add(-11 * time.Second)
+	_, cmd = app.Update(errorToastTickMsg{})
+	if app.showErrorToast {
+		t.Error("toast should auto-dismiss after 10 seconds")
 	}
 }
 
