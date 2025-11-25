@@ -553,7 +553,7 @@ func (m *App) View() string {
 
 	// Overlay error toast on mainBody if visible
 	if toast := m.renderErrorToast(); toast != "" {
-		mainBody = overlayBottomRight(mainBody, toast, 2)
+		mainBody = overlayBottomRight(mainBody, toast, 4) // More padding from edges
 	}
 
 	return fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
@@ -628,60 +628,73 @@ func extractShortError(fullError string, maxLen int) string {
 }
 
 // overlayBottomRight positions the overlay at bottom-right of the background.
-// Uses lipgloss.Place for proper ANSI-aware positioning.
 func overlayBottomRight(background, overlay string, padding int) string {
 	if overlay == "" {
 		return background
 	}
 
-	bgWidth := lipgloss.Width(background)
-	bgHeight := lipgloss.Height(background)
-
-	// Position toast at bottom-right with padding
-	positioned := lipgloss.Place(
-		bgWidth-padding,
-		bgHeight,
-		lipgloss.Right,
-		lipgloss.Bottom,
-		overlay,
-	)
-
-	// Merge: take background lines but replace bottom-right area with toast
 	bgLines := strings.Split(background, "\n")
-	overlayLines := strings.Split(positioned, "\n")
+	overlayLines := strings.Split(overlay, "\n")
 
-	// The positioned overlay has the same height as bgHeight
-	// We need to merge them, preferring overlay content where it exists
-	for i := 0; i < len(bgLines) && i < len(overlayLines); i++ {
-		overlayLine := overlayLines[i]
-		bgLine := bgLines[i]
+	bgHeight := len(bgLines)
+	overlayHeight := len(overlayLines)
+	overlayWidth := lipgloss.Width(overlay)
 
-		// Check if overlay line has content (not just spaces)
-		trimmed := strings.TrimRight(overlayLine, " ")
-		if trimmed != "" {
-			// Find where the overlay content starts
-			overlayStart := len(overlayLine) - len(strings.TrimLeft(overlayLine, " "))
-			if overlayStart > 0 && overlayStart < len(bgLine) {
-				// Keep background up to overlay start, then use overlay
-				bgLines[i] = truncateToWidth(bgLine, overlayStart) + overlayLine[overlayStart:]
-			} else {
-				bgLines[i] = overlayLine
-			}
+	// Calculate position: bottom-right with padding
+	// startRow is where overlay begins (from top), with padding from bottom
+	startRow := bgHeight - overlayHeight - padding
+	if startRow < 0 {
+		startRow = 0
+	}
+
+	// For each overlay line, merge it with background
+	for i, overlayLine := range overlayLines {
+		bgRow := startRow + i
+		if bgRow >= bgHeight {
+			break
 		}
+
+		bgLine := bgLines[bgRow]
+		bgLineWidth := lipgloss.Width(bgLine)
+
+		// Position overlay at right edge with padding
+		insertCol := bgLineWidth - overlayWidth - padding
+		if insertCol < 0 {
+			insertCol = 0
+		}
+
+		// Build merged line: background left + overlay
+		// Pad background to reach insert position if needed
+		for lipgloss.Width(bgLine) < insertCol {
+			bgLine += " "
+		}
+
+		// Truncate background at insert position and append overlay
+		bgLines[bgRow] = truncateVisualWidth(bgLine, insertCol) + overlayLine
 	}
 
 	return strings.Join(bgLines, "\n")
 }
 
-// truncateToWidth truncates a string to the specified visual width.
-func truncateToWidth(s string, width int) string {
+// truncateVisualWidth truncates a string to the specified visual width.
+// For strings with ANSI codes, this is approximate but works for most cases.
+func truncateVisualWidth(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
 	if lipgloss.Width(s) <= width {
 		return s
 	}
-	// Simple truncation - for ANSI strings this is approximate
-	runes := []rune(s)
-	if len(runes) > width {
-		return string(runes[:width])
+	// Build string character by character until we reach target width
+	var result strings.Builder
+	currentWidth := 0
+	for _, r := range s {
+		runeWidth := lipgloss.Width(string(r))
+		if currentWidth+runeWidth > width {
+			break
+		}
+		result.WriteRune(r)
+		currentWidth += runeWidth
 	}
-	return s
+	return result.String()
 }
