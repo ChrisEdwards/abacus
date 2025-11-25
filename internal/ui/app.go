@@ -556,8 +556,7 @@ func (m *App) View() string {
 	if toast := m.renderErrorToast(); toast != "" {
 		// Measure actual rendered width for proper right-alignment
 		containerWidth := lipgloss.Width(mainBody)
-		// Padding of 2: 1 for the pane border + 1 for visual spacing inside
-		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 2)
+		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
 	}
 
 	return fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
