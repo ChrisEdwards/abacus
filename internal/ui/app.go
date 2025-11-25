@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const (
@@ -553,7 +554,9 @@ func (m *App) View() string {
 
 	// Overlay error toast on mainBody if visible
 	if toast := m.renderErrorToast(); toast != "" {
-		mainBody = overlayBottomRight(mainBody, toast, 1) // Minimal padding - bottom-right corner
+		// Measure actual rendered width for proper right-alignment
+		containerWidth := lipgloss.Width(mainBody)
+		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
 	}
 
 	return fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
@@ -628,7 +631,8 @@ func extractShortError(fullError string, maxLen int) string {
 }
 
 // overlayBottomRight positions the overlay at bottom-right of the background.
-func overlayBottomRight(background, overlay string, padding int) string {
+// containerWidth specifies the known width of the container for proper right-alignment.
+func overlayBottomRight(background, overlay string, containerWidth, padding int) string {
 	if overlay == "" {
 		return background
 	}
@@ -640,23 +644,14 @@ func overlayBottomRight(background, overlay string, padding int) string {
 	overlayHeight := len(overlayLines)
 	overlayWidth := lipgloss.Width(overlay)
 
-	// Get the maximum width of the background (container width)
-	bgWidth := 0
-	for _, line := range bgLines {
-		w := lipgloss.Width(line)
-		if w > bgWidth {
-			bgWidth = w
-		}
-	}
-
 	// Calculate position: bottom-right with padding
 	startRow := bgHeight - overlayHeight - padding
 	if startRow < 0 {
 		startRow = 0
 	}
 
-	// Insert column is fixed based on container width
-	insertCol := bgWidth - overlayWidth - padding
+	// Insert column is fixed based on container width (not content width)
+	insertCol := containerWidth - overlayWidth - padding
 	if insertCol < 0 {
 		insertCol = 0
 	}
@@ -682,8 +677,8 @@ func overlayBottomRight(background, overlay string, padding int) string {
 	return strings.Join(bgLines, "\n")
 }
 
-// truncateVisualWidth truncates a string to the specified visual width.
-// For strings with ANSI codes, this is approximate but works for most cases.
+// truncateVisualWidth truncates a string to the specified visual width,
+// properly handling ANSI escape sequences.
 func truncateVisualWidth(s string, width int) string {
 	if width <= 0 {
 		return ""
@@ -691,16 +686,6 @@ func truncateVisualWidth(s string, width int) string {
 	if lipgloss.Width(s) <= width {
 		return s
 	}
-	// Build string character by character until we reach target width
-	var result strings.Builder
-	currentWidth := 0
-	for _, r := range s {
-		runeWidth := lipgloss.Width(string(r))
-		if currentWidth+runeWidth > width {
-			break
-		}
-		result.WriteRune(r)
-		currentWidth += runeWidth
-	}
-	return result.String()
+	// Use proper ANSI-aware truncation
+	return ansi.Truncate(s, width, "")
 }
