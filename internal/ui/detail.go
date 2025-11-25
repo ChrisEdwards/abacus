@@ -205,6 +205,9 @@ func (m *App) updateViewportContent() {
 	if strings.TrimSpace(iss.AcceptanceCriteria) != "" {
 		descSections = append(descSections, renderContentSection("Acceptance:", renderMarkdown(iss.AcceptanceCriteria)))
 	}
+	if strings.TrimSpace(iss.Notes) != "" {
+		descSections = append(descSections, renderContentSection("Notes:", renderMarkdown(iss.Notes)))
+	}
 	if node.CommentError != "" {
 		errorBody := styleBlockedText.Render("Failed to load comments. Press 'c' to retry.") + "\n" +
 			indentBlock(wordwrap.String(node.CommentError, vpWidth-4), 2)

@@ -170,6 +170,7 @@ func TestDetailSectionsHaveNoBlankLineBetweenLabelAndContent(t *testing.T) {
 			Description:        "Line one\n\nLine two",
 			Design:             "\nDesign body",
 			AcceptanceCriteria: " \n- Acceptance item",
+			Notes:              "Some notes here",
 			Comments: []beads.Comment{
 				{Author: "qa", Text: "Looks good", CreatedAt: time.Now().Format(time.RFC3339)},
 			},
@@ -184,7 +185,7 @@ func TestDetailSectionsHaveNoBlankLineBetweenLabelAndContent(t *testing.T) {
 	}
 	app.updateViewportContent()
 	content := stripANSI(app.viewport.View())
-	for _, label := range []string{"Description:", "Design:", "Acceptance:", "Comments:"} {
+	for _, label := range []string{"Description:", "Design:", "Acceptance:", "Notes:", "Comments:"} {
 		assertNoWhitespaceLineAfterLabel(t, content, label)
 	}
 }
@@ -313,6 +314,7 @@ func TestDetailSectionsUseConsistentIndentation(t *testing.T) {
 			Description:        "Paragraph one\n\nParagraph two",
 			Design:             "High level design",
 			AcceptanceCriteria: "- first item",
+			Notes:              "Implementation notes",
 			ExternalRef:        "jira-701",
 			CreatedAt:          now,
 			UpdatedAt:          now,
@@ -342,6 +344,7 @@ func TestDetailSectionsUseConsistentIndentation(t *testing.T) {
 		"Description:",
 		"Design:",
 		"Acceptance:",
+		"Notes:",
 		"Comments:",
 		fmt.Sprintf("Part Of: (%d)", len(node.Parents)),
 		fmt.Sprintf("Subtasks: (%d)", len(node.Children)),

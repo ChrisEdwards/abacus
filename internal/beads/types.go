@@ -36,6 +36,7 @@ type FullIssue struct {
 	Description        string       `json:"description"`
 	Design             string       `json:"design"`
 	AcceptanceCriteria string       `json:"acceptance_criteria"`
+	Notes              string       `json:"notes"`
 	CreatedAt          string       `json:"created_at"`
 	UpdatedAt          string       `json:"updated_at"`
 	ClosedAt           string       `json:"closed_at"`
