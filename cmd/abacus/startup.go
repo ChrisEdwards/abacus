@@ -21,7 +21,6 @@ var (
 	secondaryColor = lipgloss.Color("#FF79C6")
 	dimColor       = lipgloss.Color("#6272A4")
 	textColor      = lipgloss.Color("#F8F8F2")
-	successColor   = lipgloss.Color("#50FA7B")
 )
 
 // Styles
@@ -31,18 +30,11 @@ var (
 			Foreground(primaryColor).
 			MarginBottom(1)
 
-	subtitleStyle = lipgloss.NewStyle().
-			Foreground(dimColor).
-			Italic(true)
-
 	spinnerStyle = lipgloss.NewStyle().
 			Foreground(secondaryColor)
 
 	statusStyle = lipgloss.NewStyle().
 			Foreground(textColor)
-
-	progressStyle = lipgloss.NewStyle().
-			Foreground(primaryColor)
 
 	countStyle = lipgloss.NewStyle().
 			Foreground(dimColor)
@@ -89,7 +81,6 @@ type startupUpdate struct {
 }
 
 type updateMsg startupUpdate
-type tickMsg struct{}
 
 func newStartupModel() *startupModel {
 	// Create spinner with a nice style

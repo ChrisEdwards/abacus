@@ -1,7 +1,7 @@
 # Agent Development Guidelines
 
 ## Testing Requirements
-Write tests for any changes made in this codebase. All code must build successfully and all tests must pass before marking a bead as closed.
+Write tests for any changes made in this codebase. All code must build successfully, pass linting, and all tests must pass before marking a bead as closed.
 
 ## Issue Tracking with Beads
 We use beads for issue tracking and work planning. If you need more information, execute `bd quickstart`
@@ -24,16 +24,17 @@ You must complete ALL of the following steps before marking a bead as closed:
 
 1. **Write Tests**: Write comprehensive tests for any code you added or changed
 2. **Verify Build**: Ensure the code builds successfully (`go build`)
-3. **Run Tests**: Ensure all tests pass (`go test ./...`)
-4. **Commit Changes**: Commit your changes with a detailed commit message explaining:
+3. **Run Linter**: Run `make lint` and fix all issues before committing
+4. **Run Tests**: Ensure all tests pass (`go test ./...`)
+5. **Commit Changes**: Commit your changes with a detailed commit message explaining:
    - What was changed and why
    - Any architectural decisions made
    - How the changes relate to the bead requirements
-5. **Comment on Bead**: Add a comment to the bead (`bd comments <bead-id> --add`) with:
+6. **Comment on Bead**: Add a comment to the bead (`bd comments <bead-id> --add`) with:
    - Summary of what you did
    - The commit hash
    - Any relevant notes or considerations
-6. **Close Bead**: Only after completing steps 1-5, mark the bead as closed
+7. **Close Bead**: Only after completing steps 1-6, mark the bead as closed
 
 ### Parent Beads (Epics)
 **IMPORTANT**: Do not mark parent beads as closed until ALL child beads are closed. Parent beads represent collections of work and can only be considered complete when all subtasks are finished.
