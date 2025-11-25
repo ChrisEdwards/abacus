@@ -12,7 +12,7 @@ var (
 	cPurple     = lipgloss.Color("99")
 	cCyan       = lipgloss.Color("39")
 	cNeonGreen  = lipgloss.Color("118")
-	cRed        = lipgloss.Color("196")
+	cRed        = lipgloss.Color("203")
 	cOrange     = lipgloss.Color("208")
 	cGold       = lipgloss.Color("220")
 	cGray       = lipgloss.Color("240")
