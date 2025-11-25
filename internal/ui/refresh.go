@@ -72,6 +72,7 @@ func (m *App) applyRefresh(newRoots []*graph.Node, newDigest map[string]string, 
 	}
 
 	m.restoreExpandedState(state.expandedIDs)
+	m.expandedInstances = copyBoolMapAll(state.expandedInstances)
 	m.setFilterText(state.filterText)
 	m.filterCollapsed = copyBoolMap(state.filterCollapsed)
 	m.filterForcedExpanded = copyBoolMap(state.filterForcedExpanded)

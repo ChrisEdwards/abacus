@@ -71,7 +71,7 @@ func (m *App) buildTreeLines(treeWidth int) ([]string, int, int) {
 		indent := strings.Repeat("  ", row.Depth)
 		marker := " •"
 		if len(node.Children) > 0 {
-			if m.isNodeExpandedInView(node) {
+			if m.isNodeExpandedInView(row) {
 				marker = " ▼"
 			} else {
 				marker = " ▶"

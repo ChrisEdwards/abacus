@@ -32,6 +32,11 @@ func nodesToRows(nodes ...*graph.Node) []graph.TreeRow {
 	return rows
 }
 
+// nodeToRow creates a TreeRow from a Node for testing expand/collapse methods.
+func nodeToRow(node *graph.Node) graph.TreeRow {
+	return graph.TreeRow{Node: node, Depth: 0}
+}
+
 func TestWrapWithHangingIndent(t *testing.T) {
 	t.Run("appliesIndentToWrappedLines", func(t *testing.T) {
 		text := "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
@@ -266,6 +271,204 @@ func TestVisibleRowsMultiParentCorrectParentContext(t *testing.T) {
 	}
 	if !hasEpic1 || !hasEpic2 {
 		t.Fatalf("expected both epic1 and epic2 as parent contexts, got %v", taskParents)
+	}
+}
+
+func TestMultiParentExpandCollapseIndependent(t *testing.T) {
+	// A shared task under two epics should have independent expand/collapse states per instance
+	sharedTask := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-task", Title: "Shared Task", Status: "open"},
+		Children: []*graph.Node{{Issue: beads.FullIssue{ID: "ab-subtask", Title: "Subtask", Status: "open"}}},
+		Expanded: true,
+	}
+	epic1 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic1", Title: "Epic 1", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	epic2 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic2", Title: "Epic 2", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	sharedTask.Parents = []*graph.Node{epic1, epic2}
+
+	m := App{
+		roots: []*graph.Node{epic1, epic2},
+	}
+	m.recalcVisibleRows()
+
+	// Initial: all expanded, should see 6 rows:
+	// epic1, task (under epic1), subtask, epic2, task (under epic2), subtask
+	if len(m.visibleRows) != 6 {
+		t.Fatalf("expected 6 visible rows initially, got %d", len(m.visibleRows))
+	}
+
+	// Find task row under epic1 (should be at index 1)
+	taskUnderEpic1 := m.visibleRows[1]
+	if taskUnderEpic1.Node.Issue.ID != "ab-task" || taskUnderEpic1.Parent.Issue.ID != "ab-epic1" {
+		t.Fatalf("expected task under epic1 at index 1, got %s under %v",
+			taskUnderEpic1.Node.Issue.ID, taskUnderEpic1.Parent)
+	}
+
+	// Collapse task under epic1
+	m.collapseNodeForView(taskUnderEpic1)
+	m.recalcVisibleRows()
+
+	// Should now see 5 rows: epic1, task (collapsed), epic2, task, subtask
+	if len(m.visibleRows) != 5 {
+		t.Fatalf("expected 5 visible rows after collapsing task under epic1, got %d", len(m.visibleRows))
+	}
+
+	// Verify task under epic2 is still expanded (subtask should be visible)
+	subtaskCount := 0
+	for _, row := range m.visibleRows {
+		if row.Node.Issue.ID == "ab-subtask" {
+			subtaskCount++
+		}
+	}
+	if subtaskCount != 1 {
+		t.Fatalf("expected exactly 1 subtask visible (under epic2), got %d", subtaskCount)
+	}
+}
+
+func TestMultiParentCursorStable(t *testing.T) {
+	// Cursor should stay on the same row after expand/collapse
+	sharedTask := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-task", Title: "Shared Task", Status: "open"},
+		Children: []*graph.Node{{Issue: beads.FullIssue{ID: "ab-subtask", Title: "Subtask", Status: "open"}}},
+		Expanded: true,
+	}
+	epic1 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic1", Title: "Epic 1", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	epic2 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic2", Title: "Epic 2", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	sharedTask.Parents = []*graph.Node{epic1, epic2}
+
+	m := App{
+		roots: []*graph.Node{epic1, epic2},
+	}
+	m.recalcVisibleRows()
+
+	// Position cursor on task under epic2 (index 4: epic1, task, subtask, epic2, task)
+	m.cursor = 4
+	if m.visibleRows[m.cursor].Node.Issue.ID != "ab-task" {
+		t.Fatalf("expected cursor on task, got %s", m.visibleRows[m.cursor].Node.Issue.ID)
+	}
+	cursorParent := m.visibleRows[m.cursor].Parent
+	if cursorParent == nil || cursorParent.Issue.ID != "ab-epic2" {
+		t.Fatalf("expected cursor on task under epic2")
+	}
+
+	// Collapse the task under epic2
+	m.collapseNodeForView(m.visibleRows[m.cursor])
+	m.recalcVisibleRows()
+
+	// Cursor should still be on task, but now at different index due to collapse
+	if m.visibleRows[m.cursor].Node.Issue.ID != "ab-task" {
+		// Cursor was clamped - find the task row
+		found := false
+		for i, row := range m.visibleRows {
+			if row.Node.Issue.ID == "ab-task" && row.Parent != nil && row.Parent.Issue.ID == "ab-epic2" {
+				found = true
+				m.cursor = i
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("task under epic2 should still be visible")
+		}
+	}
+
+	// Verify the collapsed row is still present
+	taskUnderEpic2 := m.visibleRows[m.cursor]
+	if taskUnderEpic2.Node.Issue.ID != "ab-task" {
+		t.Fatalf("expected cursor on task, got %s", taskUnderEpic2.Node.Issue.ID)
+	}
+}
+
+func TestMultiParentExpandStatePreservedOnRefresh(t *testing.T) {
+	// Per-instance expand state should survive a data refresh
+	sharedTask := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-task", Title: "Shared Task", Status: "open"},
+		Children: []*graph.Node{{Issue: beads.FullIssue{ID: "ab-subtask", Title: "Subtask", Status: "open"}}},
+		Expanded: true,
+	}
+	epic1 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic1", Title: "Epic 1", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	epic2 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic2", Title: "Epic 2", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	sharedTask.Parents = []*graph.Node{epic1, epic2}
+
+	m := App{
+		roots:     []*graph.Node{epic1, epic2},
+		textInput: textinput.New(),
+	}
+	m.recalcVisibleRows()
+
+	// Collapse task under epic1
+	taskUnderEpic1 := m.visibleRows[1]
+	m.collapseNodeForView(taskUnderEpic1)
+	m.recalcVisibleRows()
+
+	// Verify collapse worked
+	initialRowCount := len(m.visibleRows)
+	if initialRowCount != 5 {
+		t.Fatalf("expected 5 rows after collapse, got %d", initialRowCount)
+	}
+
+	// Simulate refresh with new (but structurally identical) nodes
+	newSubtask := &graph.Node{Issue: beads.FullIssue{ID: "ab-subtask", Title: "Subtask Updated", Status: "open"}}
+	newSharedTask := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-task", Title: "Shared Task Updated", Status: "open"},
+		Children: []*graph.Node{newSubtask},
+		Expanded: true, // Default expanded on new load
+	}
+	newEpic1 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic1", Title: "Epic 1", Status: "open"},
+		Children: []*graph.Node{newSharedTask},
+		Expanded: true,
+	}
+	newEpic2 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic2", Title: "Epic 2", Status: "open"},
+		Children: []*graph.Node{newSharedTask},
+		Expanded: true,
+	}
+	newSharedTask.Parents = []*graph.Node{newEpic1, newEpic2}
+
+	newRoots := []*graph.Node{newEpic1, newEpic2}
+	m.applyRefresh(newRoots, buildIssueDigest(newRoots), time.Now())
+
+	// Verify per-instance state was preserved
+	// Task under epic1 should still be collapsed, task under epic2 expanded
+	if len(m.visibleRows) != 5 {
+		t.Fatalf("expected 5 rows after refresh (collapse state preserved), got %d", len(m.visibleRows))
+	}
+
+	// Find and verify task under epic1 is collapsed
+	for _, row := range m.visibleRows {
+		if row.Node.Issue.ID == "ab-task" && row.Parent != nil && row.Parent.Issue.ID == "ab-epic1" {
+			if m.isNodeExpandedInView(row) {
+				t.Fatalf("task under epic1 should remain collapsed after refresh")
+			}
+		}
+		if row.Node.Issue.ID == "ab-task" && row.Parent != nil && row.Parent.Issue.ID == "ab-epic2" {
+			if !m.isNodeExpandedInView(row) {
+				t.Fatalf("task under epic2 should remain expanded after refresh")
+			}
+		}
 	}
 }
 
@@ -597,14 +800,14 @@ func TestApplyRefreshPreservesCollapsedStatePerDocs(t *testing.T) {
 	}
 	m.textInput.SetValue("root")
 	m.recalcVisibleRows()
-	m.collapseNodeForView(rootOld)
+	m.collapseNodeForView(nodeToRow(rootOld))
 	childNew := &graph.Node{Issue: beads.FullIssue{ID: "ab-012", Title: "Child Updated", Status: "open"}}
 	rootNew := &graph.Node{
 		Issue:    beads.FullIssue{ID: "ab-011", Title: "Root", Status: "open"},
 		Children: []*graph.Node{childNew},
 	}
 	m.applyRefresh([]*graph.Node{rootNew}, buildIssueDigest([]*graph.Node{rootNew}), time.Now())
-	if m.isNodeExpandedInView(rootNew) {
+	if m.isNodeExpandedInView(nodeToRow(rootNew)) {
 		t.Fatalf("expected collapsed state preserved after refresh per docs")
 	}
 }
@@ -794,10 +997,10 @@ func TestFilteredTreeManualToggle(t *testing.T) {
 		m.recalcVisibleRows()
 		assertVisible(t, m, 3)
 
-		m.collapseNodeForView(root)
+		m.collapseNodeForView(nodeToRow(root))
 		m.recalcVisibleRows()
 		assertVisible(t, m, 1)
-		if m.isNodeExpandedInView(root) {
+		if m.isNodeExpandedInView(nodeToRow(root)) {
 			t.Fatalf("expected root to appear collapsed in filtered view")
 		}
 	})
@@ -806,14 +1009,14 @@ func TestFilteredTreeManualToggle(t *testing.T) {
 		m, root := buildApp()
 		m.setFilterText("leaf")
 		m.recalcVisibleRows()
-		m.collapseNodeForView(root)
+		m.collapseNodeForView(nodeToRow(root))
 		m.recalcVisibleRows()
 		assertVisible(t, m, 1)
 
-		m.expandNodeForView(root)
+		m.expandNodeForView(nodeToRow(root))
 		m.recalcVisibleRows()
 		assertVisible(t, m, 3)
-		if !m.isNodeExpandedInView(root) {
+		if !m.isNodeExpandedInView(nodeToRow(root)) {
 			t.Fatalf("expected root to appear expanded in filtered view")
 		}
 	})
@@ -837,7 +1040,7 @@ func TestFilteredTogglePersistsWhileEditing(t *testing.T) {
 		t.Fatalf("expected initial filtered rows, got %d", len(m.visibleRows))
 	}
 
-	m.collapseNodeForView(root)
+	m.collapseNodeForView(nodeToRow(root))
 	m.recalcVisibleRows()
 	if len(m.visibleRows) != 1 {
 		t.Fatalf("expected collapse to hide children, got %d rows", len(m.visibleRows))
@@ -849,7 +1052,7 @@ func TestFilteredTogglePersistsWhileEditing(t *testing.T) {
 		t.Fatalf("expected collapse state to persist while editing filter, got %d rows", len(m.visibleRows))
 	}
 
-	m.expandNodeForView(root)
+	m.expandNodeForView(nodeToRow(root))
 	m.recalcVisibleRows()
 	if len(m.visibleRows) != 3 {
 		t.Fatalf("expected expand to restore children, got %d rows", len(m.visibleRows))

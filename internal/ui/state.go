@@ -24,6 +24,7 @@ type Stats struct {
 type viewState struct {
 	currentID            string
 	expandedIDs          map[string]bool
+	expandedInstances    map[string]bool // per-instance state for multi-parent nodes
 	filterText           string
 	filterCollapsed      map[string]bool
 	filterForcedExpanded map[string]bool
@@ -88,9 +89,15 @@ func (m *App) recalcVisibleRows() {
 					Depth:  depth,
 				}
 				m.visibleRows = append(m.visibleRows, row)
-				if !filterActive && node.Expanded {
-					traverse(node.Children, node, depth+1)
-				} else if filterActive && m.shouldExpandFilteredNode(node, hasMatchingChild) {
+
+				// Use per-instance expansion state for multi-parent nodes
+				expanded := false
+				if !filterActive {
+					expanded = m.isRowExpandedForTraversal(row)
+				} else {
+					expanded = m.shouldExpandFilteredNode(node, hasMatchingChild)
+				}
+				if expanded {
 					traverse(node.Children, node, depth+1)
 				}
 			}
@@ -118,6 +125,7 @@ func (m *App) captureState() viewState {
 		filterText:           m.filterText,
 		cursorIndex:          m.cursor,
 		expandedIDs:          m.collectExpandedIDs(),
+		expandedInstances:    copyBoolMapAll(m.expandedInstances),
 		filterCollapsed:      copyBoolMap(m.filterCollapsed),
 		filterForcedExpanded: copyBoolMap(m.filterForcedExpanded),
 		focus:                m.focus,
@@ -237,10 +245,58 @@ func (m *App) shouldExpandFilteredNode(node *graph.Node, hasMatchingChild bool) 
 	return node.Expanded
 }
 
-func (m *App) isNodeExpandedInView(node *graph.Node) bool {
+// isRowExpandedForTraversal checks if a row should be expanded during tree traversal.
+// For multi-parent nodes, it checks per-instance state first.
+func (m *App) isRowExpandedForTraversal(row graph.TreeRow) bool {
+	node := row.Node
 	if len(node.Children) == 0 {
 		return false
 	}
+
+	// Check per-instance state for multi-parent nodes
+	if row.HasMultipleParents() {
+		parentID := ""
+		if row.Parent != nil {
+			parentID = row.Parent.Issue.ID
+		}
+		key := treeRowKey(parentID, node.Issue.ID)
+		if expanded, ok := m.expandedInstances[key]; ok {
+			return expanded
+		}
+		// Fall back to Node.Expanded if no per-instance state set yet
+	}
+
+	return node.Expanded
+}
+
+func (m *App) isNodeExpandedInView(row graph.TreeRow) bool {
+	node := row.Node
+	if len(node.Children) == 0 {
+		return false
+	}
+
+	// Check per-instance state for multi-parent nodes
+	if row.HasMultipleParents() {
+		parentID := ""
+		if row.Parent != nil {
+			parentID = row.Parent.Issue.ID
+		}
+		key := treeRowKey(parentID, node.Issue.ID)
+		if expanded, ok := m.expandedInstances[key]; ok {
+			// When filtering, also check filter overrides
+			if m.filterText != "" {
+				if m.filterCollapsed != nil && m.filterCollapsed[node.Issue.ID] {
+					return false
+				}
+				if m.filterForcedExpanded != nil && m.filterForcedExpanded[node.Issue.ID] {
+					return true
+				}
+			}
+			return expanded
+		}
+		// Fall back to Node.Expanded if no per-instance state set yet
+	}
+
 	if m.filterText == "" {
 		return node.Expanded
 	}
@@ -251,6 +307,12 @@ func (m *App) isNodeExpandedInView(node *graph.Node) bool {
 		}
 	}
 	return m.shouldExpandFilteredNode(node, hasMatchingChild)
+}
+
+// treeRowKey creates a composite key for tracking per-instance state of multi-parent nodes.
+// Format: "parentID:nodeID" where parentID is empty for root nodes.
+func treeRowKey(parentID, nodeID string) string {
+	return parentID + ":" + nodeID
 }
 
 func copyBoolMap(src map[string]bool) map[string]bool {
@@ -269,8 +331,38 @@ func copyBoolMap(src map[string]bool) map[string]bool {
 	return dest
 }
 
-func (m *App) expandNodeForView(node *graph.Node) {
-	node.Expanded = true
+// copyBoolMapAll copies all entries from src, preserving both true and false values.
+// Used for expandedInstances where false explicitly means "collapsed".
+func copyBoolMapAll(src map[string]bool) map[string]bool {
+	if len(src) == 0 {
+		return nil
+	}
+	dest := make(map[string]bool, len(src))
+	for k, v := range src {
+		dest[k] = v
+	}
+	return dest
+}
+
+func (m *App) expandNodeForView(row graph.TreeRow) {
+	node := row.Node
+
+	// Track per-instance state for multi-parent nodes
+	if row.HasMultipleParents() {
+		parentID := ""
+		if row.Parent != nil {
+			parentID = row.Parent.Issue.ID
+		}
+		key := treeRowKey(parentID, node.Issue.ID)
+		if m.expandedInstances == nil {
+			m.expandedInstances = make(map[string]bool)
+		}
+		m.expandedInstances[key] = true
+		// Don't modify shared node.Expanded for multi-parent nodes
+	} else {
+		node.Expanded = true
+	}
+
 	if m.filterText == "" {
 		return
 	}
@@ -287,8 +379,25 @@ func (m *App) expandNodeForView(node *graph.Node) {
 	m.filterForcedExpanded[id] = true
 }
 
-func (m *App) collapseNodeForView(node *graph.Node) {
-	node.Expanded = false
+func (m *App) collapseNodeForView(row graph.TreeRow) {
+	node := row.Node
+
+	// Track per-instance state for multi-parent nodes
+	if row.HasMultipleParents() {
+		parentID := ""
+		if row.Parent != nil {
+			parentID = row.Parent.Issue.ID
+		}
+		key := treeRowKey(parentID, node.Issue.ID)
+		if m.expandedInstances == nil {
+			m.expandedInstances = make(map[string]bool)
+		}
+		m.expandedInstances[key] = false
+		// Don't modify shared node.Expanded for multi-parent nodes
+	} else {
+		node.Expanded = false
+	}
+
 	if m.filterText == "" {
 		return
 	}

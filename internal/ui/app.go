@@ -59,6 +59,9 @@ type App struct {
 	// filterForcedExpanded tracks nodes temporarily expanded to surface filter matches.
 	filterForcedExpanded map[string]bool
 	filterEval           map[string]filterEvaluation
+	// expandedInstances tracks expanded state per TreeRow instance for multi-parent nodes.
+	// Key format: "parentID:nodeID" where parentID is empty for root nodes.
+	expandedInstances map[string]bool
 
 	width            int
 	height           int
@@ -289,12 +292,12 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.visibleRows) == 0 {
 				return m, nil
 			}
-			node := m.visibleRows[m.cursor].Node
-			if len(node.Children) > 0 {
-				if m.isNodeExpandedInView(node) {
-					m.collapseNodeForView(node)
+			row := m.visibleRows[m.cursor]
+			if len(row.Node.Children) > 0 {
+				if m.isNodeExpandedInView(row) {
+					m.collapseNodeForView(row)
 				} else {
-					m.expandNodeForView(node)
+					m.expandNodeForView(row)
 				}
 				m.recalcVisibleRows()
 			}
@@ -302,9 +305,9 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.visibleRows) == 0 {
 				return m, nil
 			}
-			node := m.visibleRows[m.cursor].Node
-			if len(node.Children) > 0 && m.isNodeExpandedInView(node) {
-				m.collapseNodeForView(node)
+			row := m.visibleRows[m.cursor]
+			if len(row.Node.Children) > 0 && m.isNodeExpandedInView(row) {
+				m.collapseNodeForView(row)
 				m.recalcVisibleRows()
 			}
 		case "backspace":
