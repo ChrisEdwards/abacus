@@ -1775,6 +1775,55 @@ func TestErrorToastCountdown(t *testing.T) {
 	}
 }
 
+func TestExtractShortError(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		maxLen   int
+		expected string
+	}{
+		{
+			name:     "extracts from Error: prefix",
+			input:    "list issues: run bd list: Error: Database out of sync with JSONL. Run 'bd sync' to fix.",
+			maxLen:   80,
+			expected: "Database out of sync with JSONL",
+		},
+		{
+			name:     "removes Run suggestion",
+			input:    "Error: Something failed. Run 'bd fix' to resolve.",
+			maxLen:   80,
+			expected: "Something failed",
+		},
+		{
+			name:     "truncates long message",
+			input:    "Error: This is a very long error message that exceeds the maximum length allowed",
+			maxLen:   30,
+			expected: "This is a very long error m...",
+		},
+		{
+			name:     "handles multiline error",
+			input:    "Error: First line of error\nSecond line with more details",
+			maxLen:   80,
+			expected: "First line of error",
+		},
+		{
+			name:     "handles simple error without prefix",
+			input:    "connection refused",
+			maxLen:   80,
+			expected: "connection refused",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractShortError(tt.input, tt.maxLen)
+			if result != tt.expected {
+				t.Errorf("extractShortError(%q, %d) = %q, want %q", tt.input, tt.maxLen, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestUpdateViewportContentDisplaysDesignSection(t *testing.T) {
 	node := &graph.Node{
 		Issue: beads.FullIssue{

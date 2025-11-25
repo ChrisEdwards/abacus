@@ -15,7 +15,6 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/reflow/wordwrap"
 )
 
 const (
@@ -571,12 +570,17 @@ func (m *App) renderErrorToast() string {
 		remaining = 0
 	}
 
-	// Word-wrap error message if needed (max 46 chars wide)
-	errMsg := wordwrap.String(m.lastError, 46)
+	// Extract a short, user-friendly error message
+	errMsg := extractShortError(m.lastError, 80)
 
-	// Build content: error message on first line(s), countdown right-aligned on last line
+	// Build content: error message + countdown right-aligned
 	countdownStr := fmt.Sprintf("[%ds]", remaining)
-	padding := 46 - len(countdownStr)
+	errWidth := lipgloss.Width(errMsg)
+	toastWidth := 50
+	if errWidth > toastWidth {
+		toastWidth = errWidth
+	}
+	padding := toastWidth - len(countdownStr)
 	if padding < 0 {
 		padding = 0
 	}
@@ -585,65 +589,99 @@ func (m *App) renderErrorToast() string {
 	return styleErrorToast.Render(content)
 }
 
-// overlayBottomRight overlays the toast on top of the background content
-// at the bottom-right corner.
+// extractShortError extracts a short, user-friendly error message.
+func extractShortError(fullError string, maxLen int) string {
+	msg := fullError
+
+	// Look for "Error:" pattern and extract from there
+	if idx := strings.Index(msg, "Error:"); idx >= 0 {
+		msg = strings.TrimSpace(msg[idx+6:]) // Skip "Error:"
+	} else if idx := strings.Index(msg, "error:"); idx >= 0 {
+		msg = strings.TrimSpace(msg[idx+6:])
+	}
+
+	// Take only the first line/sentence
+	if idx := strings.Index(msg, "\n"); idx >= 0 {
+		msg = msg[:idx]
+	}
+	// Also truncate at period if it makes sense
+	if idx := strings.Index(msg, ". "); idx >= 0 && idx < maxLen {
+		msg = msg[:idx]
+	}
+
+	// Remove any "Run 'bd..." suggestions
+	if idx := strings.Index(msg, " Run '"); idx >= 0 {
+		msg = msg[:idx]
+	}
+	if idx := strings.Index(msg, " Run \""); idx >= 0 {
+		msg = msg[:idx]
+	}
+
+	msg = strings.TrimSpace(msg)
+
+	// Truncate if still too long
+	if len(msg) > maxLen {
+		msg = msg[:maxLen-3] + "..."
+	}
+
+	return msg
+}
+
+// overlayBottomRight positions the overlay at bottom-right of the background.
+// Uses lipgloss.Place for proper ANSI-aware positioning.
 func overlayBottomRight(background, overlay string, padding int) string {
 	if overlay == "" {
 		return background
 	}
 
+	bgWidth := lipgloss.Width(background)
+	bgHeight := lipgloss.Height(background)
+
+	// Position toast at bottom-right with padding
+	positioned := lipgloss.Place(
+		bgWidth-padding,
+		bgHeight,
+		lipgloss.Right,
+		lipgloss.Bottom,
+		overlay,
+	)
+
+	// Merge: take background lines but replace bottom-right area with toast
 	bgLines := strings.Split(background, "\n")
-	overlayLines := strings.Split(overlay, "\n")
+	overlayLines := strings.Split(positioned, "\n")
 
-	bgHeight := len(bgLines)
-	overlayHeight := len(overlayLines)
-	overlayWidth := lipgloss.Width(overlay)
+	// The positioned overlay has the same height as bgHeight
+	// We need to merge them, preferring overlay content where it exists
+	for i := 0; i < len(bgLines) && i < len(overlayLines); i++ {
+		overlayLine := overlayLines[i]
+		bgLine := bgLines[i]
 
-	// Calculate starting row position (from bottom)
-	startRow := bgHeight - overlayHeight - padding
-	if startRow < 0 {
-		startRow = 0
-	}
-
-	// Overlay each line
-	for i, overlayLine := range overlayLines {
-		bgRow := startRow + i
-		if bgRow >= bgHeight {
-			break
+		// Check if overlay line has content (not just spaces)
+		trimmed := strings.TrimRight(overlayLine, " ")
+		if trimmed != "" {
+			// Find where the overlay content starts
+			overlayStart := len(overlayLine) - len(strings.TrimLeft(overlayLine, " "))
+			if overlayStart > 0 && overlayStart < len(bgLine) {
+				// Keep background up to overlay start, then use overlay
+				bgLines[i] = truncateToWidth(bgLine, overlayStart) + overlayLine[overlayStart:]
+			} else {
+				bgLines[i] = overlayLine
+			}
 		}
-
-		bgLine := bgLines[bgRow]
-		bgLineWidth := lipgloss.Width(bgLine)
-
-		// Calculate where to insert overlay (right-aligned with padding)
-		insertPos := bgLineWidth - overlayWidth - padding
-		if insertPos < 0 {
-			insertPos = 0
-		}
-
-		// Build new line with overlay
-		bgLines[bgRow] = spliceString(bgLine, overlayLine, insertPos)
 	}
 
 	return strings.Join(bgLines, "\n")
 }
 
-// spliceString inserts overlay into base at the given rune position.
-func spliceString(base, overlay string, pos int) string {
-	baseRunes := []rune(base)
-	overlayRunes := []rune(overlay)
-
-	// Pad base if needed
-	for len(baseRunes) < pos+len(overlayRunes) {
-		baseRunes = append(baseRunes, ' ')
+// truncateToWidth truncates a string to the specified visual width.
+func truncateToWidth(s string, width int) string {
+	if lipgloss.Width(s) <= width {
+		return s
 	}
-
-	// Copy overlay runes into base
-	for i, r := range overlayRunes {
-		if pos+i < len(baseRunes) {
-			baseRunes[pos+i] = r
-		}
+	// Simple truncation - for ANSI strings this is approximate
+	runes := []rune(s)
+	if len(runes) > width {
+		return string(runes[:width])
 	}
-
-	return string(baseRunes)
+	return s
 }
