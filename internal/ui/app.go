@@ -640,11 +640,25 @@ func overlayBottomRight(background, overlay string, padding int) string {
 	overlayHeight := len(overlayLines)
 	overlayWidth := lipgloss.Width(overlay)
 
+	// Get the maximum width of the background (container width)
+	bgWidth := 0
+	for _, line := range bgLines {
+		w := lipgloss.Width(line)
+		if w > bgWidth {
+			bgWidth = w
+		}
+	}
+
 	// Calculate position: bottom-right with padding
-	// startRow is where overlay begins (from top), with padding from bottom
 	startRow := bgHeight - overlayHeight - padding
 	if startRow < 0 {
 		startRow = 0
+	}
+
+	// Insert column is fixed based on container width
+	insertCol := bgWidth - overlayWidth - padding
+	if insertCol < 0 {
+		insertCol = 0
 	}
 
 	// For each overlay line, merge it with background
@@ -655,16 +669,8 @@ func overlayBottomRight(background, overlay string, padding int) string {
 		}
 
 		bgLine := bgLines[bgRow]
-		bgLineWidth := lipgloss.Width(bgLine)
 
-		// Position overlay at right edge with padding
-		insertCol := bgLineWidth - overlayWidth - padding
-		if insertCol < 0 {
-			insertCol = 0
-		}
-
-		// Build merged line: background left + overlay
-		// Pad background to reach insert position if needed
+		// Pad background line to reach insert position
 		for lipgloss.Width(bgLine) < insertCol {
 			bgLine += " "
 		}
