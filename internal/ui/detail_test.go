@@ -442,6 +442,49 @@ func TestDetailRelationshipsShowStatusIcons(t *testing.T) {
 	}
 }
 
+func TestDetailPartOfShowsAllParents(t *testing.T) {
+	parent1 := &graph.Node{Issue: beads.FullIssue{ID: "ab-p1", Title: "Parent Epic 1", Status: "open"}}
+	parent2 := &graph.Node{Issue: beads.FullIssue{ID: "ab-p2", Title: "Parent Epic 2", Status: "open"}}
+	parent3 := &graph.Node{Issue: beads.FullIssue{ID: "ab-p3", Title: "Parent Epic 3", Status: "in_progress"}}
+
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:     "ab-child",
+			Title:  "Multi-Parent Child",
+			Status: "open",
+		},
+		Parent:         parent1, // Legacy single parent
+		Parents:        []*graph.Node{parent1, parent2, parent3},
+		CommentsLoaded: true,
+	}
+
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []graph.TreeRow{{Node: node}},
+		viewport:     viewport.New(90, 40),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	// "Part Of" section should be present
+	if !strings.Contains(content, "Part Of") {
+		t.Fatalf("expected 'Part Of' section for multi-parent node:\n%s", content)
+	}
+
+	// All parent IDs should be visible
+	for _, parent := range node.Parents {
+		if !strings.Contains(content, parent.Issue.ID) {
+			t.Fatalf("expected parent %s to appear in Part Of section:\n%s", parent.Issue.ID, content)
+		}
+	}
+
+	// Verify status icons are shown - parent3 is in_progress
+	if !strings.Contains(content, "◐") {
+		t.Fatalf("expected in-progress icon for parent3:\n%s", content)
+	}
+}
+
 func TestDetailBlockedByShowsBlockedIcon(t *testing.T) {
 	blocker := &graph.Node{Issue: beads.FullIssue{ID: "ab-611", Title: "Blocker", Status: "open"}, IsBlocked: true, CommentsLoaded: true}
 	node := &graph.Node{

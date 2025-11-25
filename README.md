@@ -28,9 +28,13 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 - **Rich Detail Panel**: View comprehensive issue information including:
   - Metadata (status, type, priority, labels, timestamps)
   - Full description with markdown rendering
-  - Parent/child relationships
-  - Blocking dependencies
+  - Relationship sections (see below)
   - Comments with timestamps
+- **Multi-Parent Support**: Tasks can belong to multiple parent epics:
+  - Tasks appear under ALL their parent epics in the tree
+  - `*` suffix indicates an item has multiple parents
+  - Cross-highlighting: selecting one instance highlights all duplicates
+  - Expansion state is shared across all instances
 - **Live Search**: Filter issues by title with instant results
 - **Dual-Pane Interface**: Navigate the tree while viewing detailed information
 - **Smart Layout**: Responsive design with text wrapping and viewport management
@@ -102,6 +106,22 @@ Options:
 ```
 
 Key workflows are summarized below—run `abacus --help` anytime for the full flag list.
+
+### Detail Panel Relationship Sections
+
+The detail panel shows different types of relationships:
+
+| Section | Meaning | Description |
+|---------|---------|-------------|
+| **Part Of** | Parent epics | Epics/tasks this issue belongs to |
+| **Subtasks** | Child tasks | Work items underneath this issue |
+| **Must Complete First** | Blockers | Issues that block this one from starting |
+| **Will Unblock** | Downstream | Issues waiting on this one to complete |
+
+Items within each section are sorted intelligently:
+- **Subtasks**: In-progress → ready (high-impact first) → blocked (closest to ready) → closed
+- **Blockers**: Items you can work on now appear first
+- **Will Unblock**: Items that become ready first appear first
 
 ### Search & Filtering
 

@@ -75,13 +75,13 @@ func TestIndentBlock(t *testing.T) {
 
 func TestGetStats(t *testing.T) {
 	t.Run("countsStatuses", func(t *testing.T) {
-		ready := &graph.Node{Issue: beads.FullIssue{Title: "Ready Task", Status: "open"}}
+		ready := &graph.Node{Issue: beads.FullIssue{ID: "ab-001", Title: "Ready Task", Status: "open"}}
 		inProgress := &graph.Node{
-			Issue:    beads.FullIssue{Title: "In Progress", Status: "in_progress"},
+			Issue:    beads.FullIssue{ID: "ab-002", Title: "In Progress", Status: "in_progress"},
 			Children: []*graph.Node{ready},
 		}
-		closed := &graph.Node{Issue: beads.FullIssue{Title: "Closed Task", Status: "closed"}}
-		blocked := &graph.Node{Issue: beads.FullIssue{Title: "Blocked Task", Status: "open"}, IsBlocked: true}
+		closed := &graph.Node{Issue: beads.FullIssue{ID: "ab-003", Title: "Closed Task", Status: "closed"}}
+		blocked := &graph.Node{Issue: beads.FullIssue{ID: "ab-004", Title: "Blocked Task", Status: "open"}, IsBlocked: true}
 
 		m := App{
 			roots: []*graph.Node{inProgress, closed, blocked},
@@ -106,8 +106,8 @@ func TestGetStats(t *testing.T) {
 	})
 
 	t.Run("appliesFilter", func(t *testing.T) {
-		matching := &graph.Node{Issue: beads.FullIssue{Title: "Alpha Ready", Status: "open"}}
-		nonMatching := &graph.Node{Issue: beads.FullIssue{Title: "Bravo Active", Status: "in_progress"}}
+		matching := &graph.Node{Issue: beads.FullIssue{ID: "ab-010", Title: "Alpha Ready", Status: "open"}}
+		nonMatching := &graph.Node{Issue: beads.FullIssue{ID: "ab-020", Title: "Bravo Active", Status: "in_progress"}}
 		m := App{
 			roots:      []*graph.Node{matching, nonMatching},
 			filterText: "ready",
@@ -144,6 +144,129 @@ func TestGetStats(t *testing.T) {
 			t.Fatalf("expected ready count 0, got %d", stats.Ready)
 		}
 	})
+
+	t.Run("deduplicatesMultiParentNodes", func(t *testing.T) {
+		// Task with multiple parents should only be counted once
+		sharedTask := &graph.Node{Issue: beads.FullIssue{ID: "ab-shared", Title: "Shared Task", Status: "open"}}
+		epic1 := &graph.Node{
+			Issue:    beads.FullIssue{ID: "ab-epic1", Title: "Epic 1", Status: "open"},
+			Children: []*graph.Node{sharedTask},
+		}
+		epic2 := &graph.Node{
+			Issue:    beads.FullIssue{ID: "ab-epic2", Title: "Epic 2", Status: "open"},
+			Children: []*graph.Node{sharedTask}, // Same task under another parent
+		}
+		sharedTask.Parents = []*graph.Node{epic1, epic2}
+
+		m := App{
+			roots: []*graph.Node{epic1, epic2},
+		}
+
+		stats := m.getStats()
+		// Should count: epic1, epic2, sharedTask (once) = 3 total
+		if stats.Total != 3 {
+			t.Fatalf("expected total 3 (multi-parent task counted once), got %d", stats.Total)
+		}
+		if stats.Ready != 3 {
+			t.Fatalf("expected 3 ready (all open, not blocked), got %d", stats.Ready)
+		}
+	})
+}
+
+func TestVisibleRowsMultiParentDuplicates(t *testing.T) {
+	// When a node has multiple parents, it should appear multiple times in visibleRows
+	sharedTask := &graph.Node{Issue: beads.FullIssue{ID: "ab-task", Title: "Shared Task", Status: "open"}}
+	epic1 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic1", Title: "Epic 1", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	epic2 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic2", Title: "Epic 2", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	sharedTask.Parents = []*graph.Node{epic1, epic2}
+
+	m := App{
+		roots: []*graph.Node{epic1, epic2},
+	}
+	m.recalcVisibleRows()
+
+	// Should have 4 rows: epic1, task (under epic1), epic2, task (under epic2)
+	if len(m.visibleRows) != 4 {
+		ids := make([]string, len(m.visibleRows))
+		for i, r := range m.visibleRows {
+			ids[i] = r.Node.Issue.ID
+		}
+		t.Fatalf("expected 4 visible rows (task appears twice), got %d: %v", len(m.visibleRows), ids)
+	}
+
+	// Count how many times sharedTask appears
+	taskCount := 0
+	for _, row := range m.visibleRows {
+		if row.Node.Issue.ID == "ab-task" {
+			taskCount++
+		}
+	}
+	if taskCount != 2 {
+		t.Fatalf("expected sharedTask to appear 2 times in visibleRows, got %d", taskCount)
+	}
+
+	// Verify depths are correct - task should be at depth 1 under each parent
+	for _, row := range m.visibleRows {
+		if row.Node.Issue.ID == "ab-task" && row.Depth != 1 {
+			t.Fatalf("expected task depth 1, got %d", row.Depth)
+		}
+	}
+}
+
+func TestVisibleRowsMultiParentCorrectParentContext(t *testing.T) {
+	// Each TreeRow should have correct Parent context
+	sharedTask := &graph.Node{Issue: beads.FullIssue{ID: "ab-task", Title: "Shared Task", Status: "open"}}
+	epic1 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic1", Title: "Epic 1", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	epic2 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic2", Title: "Epic 2", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	sharedTask.Parents = []*graph.Node{epic1, epic2}
+
+	m := App{
+		roots: []*graph.Node{epic1, epic2},
+	}
+	m.recalcVisibleRows()
+
+	// Find the task rows and verify their parent context
+	taskParents := []string{}
+	for _, row := range m.visibleRows {
+		if row.Node.Issue.ID == "ab-task" && row.Parent != nil {
+			taskParents = append(taskParents, row.Parent.Issue.ID)
+		}
+	}
+
+	if len(taskParents) != 2 {
+		t.Fatalf("expected task to have 2 rows with parent context, got %d", len(taskParents))
+	}
+
+	// Both epics should be represented as parents
+	hasEpic1 := false
+	hasEpic2 := false
+	for _, pid := range taskParents {
+		if pid == "ab-epic1" {
+			hasEpic1 = true
+		}
+		if pid == "ab-epic2" {
+			hasEpic2 = true
+		}
+	}
+	if !hasEpic1 || !hasEpic2 {
+		t.Fatalf("expected both epic1 and epic2 as parent contexts, got %v", taskParents)
+	}
 }
 
 func TestTreePrefixWidth(t *testing.T) {
@@ -803,7 +926,7 @@ func TestSearchFilterRequiresAllWords(t *testing.T) {
 
 	var ids []string
 	for _, row := range m.visibleRows {
-		ids = append(ids, row.Issue.ID)
+		ids = append(ids, row.Node.Issue.ID)
 	}
 	if len(ids) != 1 || ids[0] != "ab-612" {
 		t.Fatalf("expected only issues containing both words, got %v", ids)
@@ -1315,7 +1438,7 @@ func TestUpdateViewportContentDisplaysDesignSection(t *testing.T) {
 	}
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  nodesToRows(node),
 		viewport:     viewport.New(90, 30),
 		outputFormat: "plain",
 	}
@@ -1358,7 +1481,7 @@ func TestUpdateViewportContentOmitsDesignWhenBlank(t *testing.T) {
 	}
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  nodesToRows(node),
 		viewport:     viewport.New(90, 30),
 		outputFormat: "plain",
 	}
@@ -1395,7 +1518,7 @@ func TestUpdateViewportContentDisplaysAcceptanceSection(t *testing.T) {
 	}
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  nodesToRows(node),
 		viewport:     viewport.New(90, 30),
 		outputFormat: "plain",
 	}
@@ -1440,7 +1563,7 @@ func TestDetailMetadataLayoutMatchesDocs(t *testing.T) {
 
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  nodesToRows(node),
 		viewport:     viewport.New(90, 30),
 		outputFormat: "plain",
 	}
@@ -1505,7 +1628,7 @@ func TestDetailRelationshipSectionsFollowDocs(t *testing.T) {
 
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  nodesToRows(node),
 		viewport:     viewport.New(90, 40),
 		outputFormat: "plain",
 	}
@@ -1549,7 +1672,7 @@ func TestDetailLabelsWrapWhenViewportNarrow(t *testing.T) {
 
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  nodesToRows(node),
 		viewport:     viewport.New(42, 25),
 		outputFormat: "plain",
 	}
@@ -1600,7 +1723,7 @@ func TestDetailCommentsRenderEntries(t *testing.T) {
 	}
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  nodesToRows(node),
 		viewport:     viewport.New(80, 30),
 		outputFormat: "plain",
 	}
@@ -1632,7 +1755,7 @@ func TestDetailCommentsErrorMessageMatchesDocs(t *testing.T) {
 	}
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  nodesToRows(node),
 		viewport:     viewport.New(80, 30),
 		outputFormat: "plain",
 	}
@@ -1664,7 +1787,7 @@ func TestUpdateViewportContentOmitsAcceptanceWhenBlank(t *testing.T) {
 	}
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  nodesToRows(node),
 		viewport:     viewport.New(90, 30),
 		outputFormat: "plain",
 	}

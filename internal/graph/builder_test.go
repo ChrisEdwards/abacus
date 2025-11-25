@@ -171,6 +171,122 @@ func TestBuilderMultiParentChildrenAppearUnderAllParents(t *testing.T) {
 	}
 }
 
+func TestBuilderMultiParentWithThreeParents(t *testing.T) {
+	issues := []beads.FullIssue{
+		{ID: "ab-p1", Title: "Parent 1", Status: "open", CreatedAt: "2024-01-01T00:00:00Z", UpdatedAt: "2024-01-01T00:00:00Z"},
+		{ID: "ab-p2", Title: "Parent 2", Status: "open", CreatedAt: "2024-01-02T00:00:00Z", UpdatedAt: "2024-01-02T00:00:00Z"},
+		{ID: "ab-p3", Title: "Parent 3", Status: "open", CreatedAt: "2024-01-03T00:00:00Z", UpdatedAt: "2024-01-03T00:00:00Z"},
+		{
+			ID: "ab-child", Title: "Shared Child", Status: "open",
+			Dependencies: []beads.Dependency{
+				{Type: "parent-child", TargetID: "ab-p1"},
+				{Type: "parent-child", TargetID: "ab-p2"},
+				{Type: "parent-child", TargetID: "ab-p3"},
+			},
+			CreatedAt: "2024-01-04T00:00:00Z",
+			UpdatedAt: "2024-01-04T00:00:00Z",
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	// Find all parent nodes
+	parents := make(map[string]*Node)
+	for _, r := range roots {
+		parents[r.Issue.ID] = r
+	}
+
+	// Find the shared child
+	var child *Node
+	for _, p := range parents {
+		for _, c := range p.Children {
+			if c.Issue.ID == "ab-child" {
+				child = c
+				break
+			}
+		}
+		if child != nil {
+			break
+		}
+	}
+	if child == nil {
+		t.Fatalf("child not found in any parent")
+	}
+
+	// Verify child has 3 parents
+	if len(child.Parents) != 3 {
+		t.Fatalf("expected child to have 3 parents, got %d", len(child.Parents))
+	}
+
+	// Verify child appears under all 3 parents
+	for id, parent := range parents {
+		if id == "ab-child" {
+			continue
+		}
+		found := false
+		for _, c := range parent.Children {
+			if c.Issue.ID == "ab-child" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected parent %s to have ab-child in Children", id)
+		}
+	}
+}
+
+func TestBuilderNoDuplicateChildrenWithinParent(t *testing.T) {
+	// When both Dependencies and Dependents reference the same parent-child relationship,
+	// the child should not be duplicated in the parent's Children slice
+	issues := []beads.FullIssue{
+		{
+			ID:         "ab-parent",
+			Title:      "Parent",
+			Status:     "open",
+			CreatedAt:  "2024-01-01T00:00:00Z",
+			UpdatedAt:  "2024-01-01T00:00:00Z",
+			Dependents: []beads.Dependent{{ID: "ab-child"}},
+		},
+		{
+			ID:    "ab-child",
+			Title: "Child",
+			Dependencies: []beads.Dependency{
+				{Type: "parent-child", TargetID: "ab-parent"},
+			},
+			CreatedAt: "2024-01-02T00:00:00Z",
+			UpdatedAt: "2024-01-02T00:00:00Z",
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	var parent *Node
+	for _, r := range roots {
+		if r.Issue.ID == "ab-parent" {
+			parent = r
+			break
+		}
+	}
+	if parent == nil {
+		t.Fatalf("parent not found in roots")
+	}
+
+	// Should have exactly 1 child, not duplicated
+	if len(parent.Children) != 1 {
+		t.Fatalf("expected 1 child, got %d", len(parent.Children))
+	}
+	if parent.Children[0].Issue.ID != "ab-child" {
+		t.Fatalf("expected child ab-child, got %s", parent.Children[0].Issue.ID)
+	}
+}
+
 func TestBuilderDetectsCycles(t *testing.T) {
 	issues := []beads.FullIssue{
 		{

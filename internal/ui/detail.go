@@ -160,21 +160,24 @@ func (m *App) updateViewportContent() {
 			relSections = append(relSections, section)
 		}
 	}
-	// Subtasks - children of this node
+	// Subtasks - children of this node (sorted: in_progress → ready → blocked → closed)
 	if len(node.Children) > 0 {
-		if section := renderRelSection(fmt.Sprintf("Subtasks (%d)", len(node.Children)), node.Children); section != "" {
+		sorted := sortSubtasks(node.Children)
+		if section := renderRelSection(fmt.Sprintf("Subtasks (%d)", len(node.Children)), sorted); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
-	// Must Complete First - blockers (blocks relationships)
+	// Must Complete First - blockers (sorted: topological order, things to do first)
 	if len(node.BlockedBy) > 0 {
-		if section := renderRelSection("Must Complete First", node.BlockedBy); section != "" {
+		sorted := sortBlockers(node.BlockedBy)
+		if section := renderRelSection("Must Complete First", sorted); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
-	// Will Unblock - what this issue blocks
+	// Will Unblock - what this issue blocks (sorted: items becoming ready first)
 	if len(node.Blocks) > 0 {
-		if section := renderRelSection(fmt.Sprintf("Will Unblock (%d)", len(node.Blocks)), node.Blocks); section != "" {
+		sorted := sortBlocked(node.Blocks)
+		if section := renderRelSection(fmt.Sprintf("Will Unblock (%d)", len(node.Blocks)), sorted); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
