@@ -43,6 +43,15 @@ func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
 						blocker.Blocks = append(blocker.Blocks, node)
 					}
 				}
+			case "related":
+				if related, ok := nodeMap[dep.TargetID]; ok {
+					node.Related = append(node.Related, related)
+					related.Related = append(related.Related, node)
+				}
+			case "discovered-from":
+				if source, ok := nodeMap[dep.TargetID]; ok {
+					node.DiscoveredFrom = append(node.DiscoveredFrom, source)
+				}
 			}
 		}
 		for _, dep := range node.Issue.Dependents {

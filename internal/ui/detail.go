@@ -181,6 +181,18 @@ func (m *App) updateViewportContent() {
 			relSections = append(relSections, section)
 		}
 	}
+	// See Also - related issues (bidirectional soft links)
+	if len(node.Related) > 0 {
+		if section := renderRelSection("See Also", node.Related); section != "" {
+			relSections = append(relSections, section)
+		}
+	}
+	// Discovered While Working On - issues that led to discovering this one
+	if len(node.DiscoveredFrom) > 0 {
+		if section := renderRelSection("Discovered While Working On", node.DiscoveredFrom); section != "" {
+			relSections = append(relSections, section)
+		}
+	}
 	relBlock := joinDetailSections(relSections...)
 
 	renderMarkdown := buildMarkdownRenderer(m.outputFormat, vpWidth-2)

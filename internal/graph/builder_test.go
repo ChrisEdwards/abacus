@@ -541,3 +541,107 @@ func TestBuilderIgnoresNonParentChildDependents(t *testing.T) {
 		t.Fatalf("expected child's parent to be ab-parent, got %s", child.Parents[0].Issue.ID)
 	}
 }
+
+func TestBuilderRelatedRelationships(t *testing.T) {
+	issues := []beads.FullIssue{
+		{
+			ID:        "ab-a",
+			Title:     "Issue A",
+			Status:    "open",
+			CreatedAt: "2024-01-01T00:00:00Z",
+			UpdatedAt: "2024-01-01T00:00:00Z",
+			Dependencies: []beads.Dependency{
+				{Type: "related", TargetID: "ab-b"},
+			},
+		},
+		{
+			ID:        "ab-b",
+			Title:     "Issue B",
+			Status:    "open",
+			CreatedAt: "2024-01-02T00:00:00Z",
+			UpdatedAt: "2024-01-02T00:00:00Z",
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	var nodeA, nodeB *Node
+	for _, r := range roots {
+		switch r.Issue.ID {
+		case "ab-a":
+			nodeA = r
+		case "ab-b":
+			nodeB = r
+		}
+	}
+	if nodeA == nil || nodeB == nil {
+		t.Fatalf("expected both nodes in roots")
+	}
+
+	// Related is bidirectional - both should reference each other
+	if len(nodeA.Related) != 1 || nodeA.Related[0].Issue.ID != "ab-b" {
+		t.Fatalf("expected nodeA.Related to contain ab-b")
+	}
+	if len(nodeB.Related) != 1 || nodeB.Related[0].Issue.ID != "ab-a" {
+		t.Fatalf("expected nodeB.Related to contain ab-a")
+	}
+
+	// Related should NOT affect parent-child or tree structure
+	if len(nodeA.Parents) != 0 {
+		t.Fatalf("expected nodeA to have no parents from related relationship")
+	}
+	if len(nodeB.Children) != 0 {
+		t.Fatalf("expected nodeB to have no children from related relationship")
+	}
+}
+
+func TestBuilderDiscoveredFromRelationships(t *testing.T) {
+	issues := []beads.FullIssue{
+		{
+			ID:        "ab-discovered",
+			Title:     "Discovered Issue",
+			Status:    "open",
+			CreatedAt: "2024-01-02T00:00:00Z",
+			UpdatedAt: "2024-01-02T00:00:00Z",
+			Dependencies: []beads.Dependency{
+				{Type: "discovered-from", TargetID: "ab-source"},
+			},
+		},
+		{
+			ID:        "ab-source",
+			Title:     "Source Issue",
+			Status:    "open",
+			CreatedAt: "2024-01-01T00:00:00Z",
+			UpdatedAt: "2024-01-01T00:00:00Z",
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	var discovered *Node
+	for _, r := range roots {
+		if r.Issue.ID == "ab-discovered" {
+			discovered = r
+			break
+		}
+	}
+	if discovered == nil {
+		t.Fatalf("discovered node not found")
+	}
+
+	// DiscoveredFrom should link to the source
+	if len(discovered.DiscoveredFrom) != 1 || discovered.DiscoveredFrom[0].Issue.ID != "ab-source" {
+		t.Fatalf("expected discovered.DiscoveredFrom to contain ab-source")
+	}
+
+	// DiscoveredFrom should NOT affect parent-child or tree structure
+	if len(discovered.Parents) != 0 {
+		t.Fatalf("expected discovered to have no parents from discovered-from relationship")
+	}
+}

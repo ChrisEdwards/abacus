@@ -13,8 +13,10 @@ type Node struct {
 	Parents  []*Node
 	Parent   *Node
 
-	BlockedBy []*Node
-	Blocks    []*Node
+	BlockedBy      []*Node
+	Blocks         []*Node
+	Related        []*Node
+	DiscoveredFrom []*Node
 
 	IsBlocked      bool
 	CommentsLoaded bool
