@@ -3,6 +3,16 @@
 ## Testing Requirements
 Write tests for any changes made in this codebase. All code must build successfully, pass linting, and all tests must pass before marking a bead as closed.
 
+## Available Tools
+
+### ripgrep (rg)
+Fast code search tool available via command line. Common patterns:
+- `rg "pattern"` - search all files
+- `rg "pattern" -t go` - search only Go files
+- `rg "pattern" -g "*.go"` - search files matching glob
+- `rg "pattern" -l` - list matching files only
+- `rg "pattern" -C 3` - show 3 lines of context
+
 ## Issue Tracking with Beads
 We use beads for issue tracking and work planning. If you need more information, execute `bd quickstart`
 
