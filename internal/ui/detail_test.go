@@ -178,7 +178,7 @@ func TestDetailSectionsHaveNoBlankLineBetweenLabelAndContent(t *testing.T) {
 	}
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  []graph.TreeRow{{Node: node}},
 		viewport:     viewport.New(80, 30),
 		outputFormat: "plain",
 	}
@@ -200,7 +200,7 @@ func TestDetailSectionsWithRichMarkdownHaveNoLeadingBlankLine(t *testing.T) {
 	}
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  []graph.TreeRow{{Node: node}},
 		viewport:     viewport.New(80, 30),
 		outputFormat: "rich",
 	}
@@ -285,7 +285,7 @@ func TestDetailPaneLimitsBlankLinesBetweenSections(t *testing.T) {
 
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  []graph.TreeRow{{Node: node}},
 		viewport:     viewport.New(120, 60),
 		outputFormat: "plain",
 	}
@@ -331,7 +331,7 @@ func TestDetailSectionsUseConsistentIndentation(t *testing.T) {
 
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  []graph.TreeRow{{Node: node}},
 		viewport:     viewport.New(100, 50),
 		outputFormat: "rich",
 	}
@@ -428,7 +428,7 @@ func TestDetailRelationshipsShowStatusIcons(t *testing.T) {
 	parent := &graph.Node{Issue: beads.FullIssue{ID: "ab-600", Title: "Parent", Status: "open"}, Children: []*graph.Node{child}, CommentsLoaded: true}
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{parent},
+		visibleRows:  []graph.TreeRow{{Node: parent}},
 		viewport:     viewport.New(90, 30),
 		outputFormat: "plain",
 	}
@@ -452,7 +452,7 @@ func TestDetailBlockedByShowsBlockedIcon(t *testing.T) {
 	}
 	app := &App{
 		ShowDetails:  true,
-		visibleRows:  []*graph.Node{node},
+		visibleRows:  []graph.TreeRow{{Node: node}},
 		viewport:     viewport.New(90, 30),
 		outputFormat: "plain",
 	}

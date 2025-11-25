@@ -57,7 +57,7 @@ func clampDimension(value, minValue, maxValue int) int {
 }
 
 func (m *App) recalcVisibleRows() {
-	m.visibleRows = []*graph.Node{}
+	m.visibleRows = []graph.TreeRow{}
 	filterLower := strings.ToLower(m.filterText)
 	filterActive := filterLower != ""
 
@@ -67,8 +67,8 @@ func (m *App) recalcVisibleRows() {
 		m.filterEval = nil
 	}
 
-	var traverse func(nodes []*graph.Node)
-	traverse = func(nodes []*graph.Node) {
+	var traverse func(nodes []*graph.Node, parent *graph.Node, depth int)
+	traverse = func(nodes []*graph.Node, parent *graph.Node, depth int) {
 		for _, node := range nodes {
 			includeNode := true
 			hasMatchingChild := false
@@ -82,16 +82,21 @@ func (m *App) recalcVisibleRows() {
 			}
 
 			if includeNode {
-				m.visibleRows = append(m.visibleRows, node)
+				row := graph.TreeRow{
+					Node:   node,
+					Parent: parent,
+					Depth:  depth,
+				}
+				m.visibleRows = append(m.visibleRows, row)
 				if !filterActive && node.Expanded {
-					traverse(node.Children)
+					traverse(node.Children, node, depth+1)
 				} else if filterActive && m.shouldExpandFilteredNode(node, hasMatchingChild) {
-					traverse(node.Children)
+					traverse(node.Children, node, depth+1)
 				}
 			}
 		}
 	}
-	traverse(m.roots)
+	traverse(m.roots, nil, 0)
 	m.clampCursor()
 }
 
@@ -123,7 +128,7 @@ func (m *App) captureState() viewState {
 	}
 
 	if len(m.visibleRows) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleRows) {
-		state.currentID = m.visibleRows[m.cursor].Issue.ID
+		state.currentID = m.visibleRows[m.cursor].Node.Issue.ID
 	}
 	return state
 }
@@ -182,8 +187,8 @@ func (m *App) restoreCursorToID(id string) {
 		m.clampCursor()
 		return
 	}
-	for idx, node := range m.visibleRows {
-		if node.Issue.ID == id {
+	for idx, row := range m.visibleRows {
+		if row.Node.Issue.ID == id {
 			m.cursor = idx
 			return
 		}

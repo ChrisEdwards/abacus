@@ -29,3 +29,16 @@ type Node struct {
 	SortPriority  int
 	SortTimestamp time.Time
 }
+
+// TreeRow represents a single row in the tree view. A Node may appear in
+// multiple TreeRows when it has multiple parents.
+type TreeRow struct {
+	Node   *Node // The underlying node
+	Parent *Node // The parent context for this row (nil for roots)
+	Depth  int   // Visual depth in the tree
+}
+
+// HasMultipleParents returns true if the node has more than one parent.
+func (r TreeRow) HasMultipleParents() bool {
+	return len(r.Node.Parents) > 1
+}

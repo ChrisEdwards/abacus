@@ -23,6 +23,15 @@ import (
 	"github.com/muesli/reflow/wordwrap"
 )
 
+// nodesToRows converts a slice of Nodes to TreeRows for testing.
+func nodesToRows(nodes ...*graph.Node) []graph.TreeRow {
+	rows := make([]graph.TreeRow, len(nodes))
+	for i, n := range nodes {
+		rows[i] = graph.TreeRow{Node: n, Depth: 0}
+	}
+	return rows
+}
+
 func TestWrapWithHangingIndent(t *testing.T) {
 	t.Run("appliesIndentToWrappedLines", func(t *testing.T) {
 		text := "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
@@ -317,7 +326,7 @@ func TestCaptureState(t *testing.T) {
 
 	m := App{
 		roots:       []*graph.Node{root},
-		visibleRows: []*graph.Node{root, child},
+		visibleRows: nodesToRows(root, child),
 		cursor:      1,
 		filterText:  "alpha",
 		ShowDetails: true,
@@ -366,7 +375,7 @@ func TestRestoreCursorToID(t *testing.T) {
 	n1 := &graph.Node{Issue: beads.FullIssue{ID: "ab-001"}}
 	n2 := &graph.Node{Issue: beads.FullIssue{ID: "ab-002"}}
 	m := App{
-		visibleRows: []*graph.Node{n1, n2},
+		visibleRows: nodesToRows(n1, n2),
 		cursor:      0,
 	}
 
@@ -408,7 +417,7 @@ func TestApplyRefreshRestoresState(t *testing.T) {
 
 	m := App{
 		roots:       []*graph.Node{rootOld},
-		visibleRows: []*graph.Node{rootOld, childOld},
+		visibleRows: nodesToRows(rootOld, childOld),
 		cursor:      1,
 		filterText:  "child",
 		ShowDetails: true,
@@ -433,7 +442,7 @@ func TestApplyRefreshRestoresState(t *testing.T) {
 	if m.filterText != "child" {
 		t.Fatalf("expected filter preserved, got %s", m.filterText)
 	}
-	if len(m.visibleRows) == 0 || m.visibleRows[m.cursor].Issue.ID != "ab-002" {
+	if len(m.visibleRows) == 0 || m.visibleRows[m.cursor].Node.Issue.ID != "ab-002" {
 		t.Fatalf("expected cursor to remain on child after refresh")
 	}
 	if m.viewport.YOffset != 2 {
@@ -458,7 +467,7 @@ func TestApplyRefreshPreservesCollapsedStatePerDocs(t *testing.T) {
 	}
 	m := App{
 		roots:           []*graph.Node{rootOld},
-		visibleRows:     []*graph.Node{rootOld},
+		visibleRows:     nodesToRows(rootOld),
 		filterText:      "root",
 		filterCollapsed: map[string]bool{rootOld.Issue.ID: true},
 		textInput:       textinput.New(),
@@ -479,7 +488,7 @@ func TestApplyRefreshPreservesCollapsedStatePerDocs(t *testing.T) {
 
 func TestUpdateTogglesFocusWithTab(t *testing.T) {
 	m := &App{ShowDetails: true, focus: FocusTree}
-	m.visibleRows = []*graph.Node{{Issue: beads.FullIssue{ID: "ab-001"}}}
+	m.visibleRows = nodesToRows(&graph.Node{Issue: beads.FullIssue{ID: "ab-001"}})
 
 	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
 	if m.focus != FocusDetails {
@@ -500,7 +509,7 @@ func TestDetailFocusNavigation(t *testing.T) {
 			ShowDetails: true,
 			focus:       FocusDetails,
 			viewport:    vp,
-			visibleRows: []*graph.Node{{Issue: beads.FullIssue{ID: "ab-001"}}},
+			visibleRows: nodesToRows(&graph.Node{Issue: beads.FullIssue{ID: "ab-001"}}),
 		}
 	}
 
@@ -542,14 +551,13 @@ func TestDetailFocusNavigation(t *testing.T) {
 }
 
 func TestUpdateViewportContentResetsScrollOnNewSelection(t *testing.T) {
+	n1 := &graph.Node{Issue: beads.FullIssue{ID: "ab-100", Title: "First"}, CommentsLoaded: true}
+	n2 := &graph.Node{Issue: beads.FullIssue{ID: "ab-200", Title: "Second"}, CommentsLoaded: true}
 	m := &App{
 		ShowDetails: true,
-		visibleRows: []*graph.Node{
-			{Issue: beads.FullIssue{ID: "ab-100", Title: "First"}, CommentsLoaded: true},
-			{Issue: beads.FullIssue{ID: "ab-200", Title: "Second"}, CommentsLoaded: true},
-		},
-		viewport: viewport.Model{Width: 60, Height: 10},
-		cursor:   0,
+		visibleRows: nodesToRows(n1, n2),
+		viewport:    viewport.Model{Width: 60, Height: 10},
+		cursor:      0,
 	}
 
 	m.updateViewportContent()
@@ -566,12 +574,11 @@ func TestUpdateViewportContentResetsScrollOnNewSelection(t *testing.T) {
 }
 
 func TestUpdateViewportContentPreservesScrollForSameSelection(t *testing.T) {
+	n1 := &graph.Node{Issue: beads.FullIssue{ID: "ab-100", Title: "Same"}, CommentsLoaded: true}
 	m := &App{
 		ShowDetails: true,
-		visibleRows: []*graph.Node{
-			{Issue: beads.FullIssue{ID: "ab-100", Title: "Same"}, CommentsLoaded: true},
-		},
-		viewport: viewport.Model{Width: 60, Height: 10},
+		visibleRows: nodesToRows(n1),
+		viewport:    viewport.Model{Width: 60, Height: 10},
 	}
 
 	m.updateViewportContent()
@@ -744,7 +751,7 @@ func TestSearchFilterKeepsParentsVisible(t *testing.T) {
 	if len(m.visibleRows) != 3 {
 		t.Fatalf("expected parent chain kept when descendant matches, got %d rows", len(m.visibleRows))
 	}
-	if ids := []string{m.visibleRows[0].Issue.ID, m.visibleRows[1].Issue.ID, m.visibleRows[2].Issue.ID}; ids[0] != "ab-399" || ids[1] != "ab-400" || ids[2] != "ab-401" {
+	if ids := []string{m.visibleRows[0].Node.Issue.ID, m.visibleRows[1].Node.Issue.ID, m.visibleRows[2].Node.Issue.ID}; ids[0] != "ab-399" || ids[1] != "ab-400" || ids[2] != "ab-401" {
 		t.Fatalf("expected full parent chain visible, got %v", ids)
 	}
 }
@@ -765,8 +772,8 @@ func TestSearchFilterAutoSelectsFirstMatch(t *testing.T) {
 	if m.cursor != 0 {
 		t.Fatalf("expected cursor to jump to first match, got %d", m.cursor)
 	}
-	if m.visibleRows[m.cursor].Issue.ID != "ab-501" {
-		t.Fatalf("expected cursor on match, got %s", m.visibleRows[m.cursor].Issue.ID)
+	if m.visibleRows[m.cursor].Node.Issue.ID != "ab-501" {
+		t.Fatalf("expected cursor on match, got %s", m.visibleRows[m.cursor].Node.Issue.ID)
 	}
 }
 
@@ -985,7 +992,7 @@ func TestTreeScrollKeepsWrappedSelectionVisible(t *testing.T) {
 
 func TestTreeEndKeySafeWhenNoVisibleRows(t *testing.T) {
 	app := &App{
-		visibleRows: []*graph.Node{},
+		visibleRows: []graph.TreeRow{},
 		viewport:    viewport.New(80, 20),
 	}
 	defer func() {
@@ -1108,7 +1115,7 @@ func TestRecalcVisibleRowsMatchesIDs(t *testing.T) {
 	if len(m.visibleRows) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(m.visibleRows))
 	}
-	if got := m.visibleRows[0].Issue.ID; got != "ab-123" {
+	if got := m.visibleRows[0].Node.Issue.ID; got != "ab-123" {
 		t.Fatalf("expected ID ab-123, got %s", got)
 	}
 }
@@ -1127,7 +1134,7 @@ func TestRecalcVisibleRowsMatchesPartialIDs(t *testing.T) {
 	if len(m.visibleRows) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(m.visibleRows))
 	}
-	if got := m.visibleRows[0].Issue.ID; got != "ab-456" {
+	if got := m.visibleRows[0].Node.Issue.ID; got != "ab-456" {
 		t.Fatalf("expected ID ab-456, got %s", got)
 	}
 }

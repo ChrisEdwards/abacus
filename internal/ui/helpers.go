@@ -12,7 +12,7 @@ func (m *App) retryCommentsForCurrentNode() {
 	if m.cursor >= len(m.visibleRows) {
 		return
 	}
-	node := m.visibleRows[m.cursor]
+	node := m.visibleRows[m.cursor].Node
 	node.Issue.Comments = nil
 	node.CommentsLoaded = false
 	node.CommentError = ""

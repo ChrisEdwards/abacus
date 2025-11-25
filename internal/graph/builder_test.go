@@ -103,7 +103,7 @@ func TestBuilderBuildSimpleGraph(t *testing.T) {
 	}
 }
 
-func TestBuilderPrefersDeepestParent(t *testing.T) {
+func TestBuilderMultiParentChildrenAppearUnderAllParents(t *testing.T) {
 	issues := []beads.FullIssue{
 		{ID: "ab-1", Title: "RootA", Status: "open", CreatedAt: "2024-01-01T00:00:00Z", UpdatedAt: "2024-01-01T00:00:00Z"},
 		{
@@ -154,18 +154,20 @@ func TestBuilderPrefersDeepestParent(t *testing.T) {
 		t.Fatalf("expected rootA to own mid child")
 	}
 
+	// Leaf should appear under both mid and rootB (multi-parent support)
 	if len(mid.Children) != 1 || mid.Children[0].Issue.ID != "ab-4" {
-		t.Fatalf("expected mid to own leaf child")
+		t.Fatalf("expected mid to have leaf as child")
 	}
 	leaf := mid.Children[0]
-	if leaf.Parent != mid {
-		t.Fatalf("expected leaf parent to be mid")
+
+	// Leaf should also appear under rootB
+	if len(rootB.Children) != 1 || rootB.Children[0].Issue.ID != "ab-4" {
+		t.Fatalf("expected rootB to also have leaf as child (multi-parent)")
 	}
-	if len(rootB.Children) != 0 {
-		t.Fatalf("expected rootB to have no children after deepest selection")
-	}
-	if leaf.Depth != mid.Depth+1 {
-		t.Fatalf("expected leaf depth to be parent depth + 1")
+
+	// Leaf should have 2 parents
+	if len(leaf.Parents) != 2 {
+		t.Fatalf("expected leaf to have 2 parents, got %d", len(leaf.Parents))
 	}
 }
 

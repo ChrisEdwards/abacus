@@ -85,20 +85,25 @@ func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
 			continue
 		}
 
-		maxParentDepth := -1
+		// Add child to ALL parents' Children slices (multi-parent support)
 		for _, p := range node.Parents {
-			if p.TreeDepth > maxParentDepth {
-				maxParentDepth = p.TreeDepth
+			// Avoid duplicate children within same parent
+			alreadyChild := false
+			for _, existing := range p.Children {
+				if existing.Issue.ID == node.Issue.ID {
+					alreadyChild = true
+					break
+				}
 			}
-		}
-
-		for _, p := range node.Parents {
-			if p.TreeDepth == maxParentDepth {
+			if !alreadyChild {
 				p.Children = append(p.Children, node)
-				node.Parent = p
-				childrenIDs[node.Issue.ID] = true
 			}
 		}
+		// Set Parent to first parent for backwards compatibility
+		if len(node.Parents) > 0 {
+			node.Parent = node.Parents[0]
+		}
+		childrenIDs[node.Issue.ID] = true
 	}
 
 	for _, node := range nodeMap {

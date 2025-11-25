@@ -26,7 +26,7 @@ func (m *App) updateViewportContent() {
 		m.viewport.SetContent("")
 		return
 	}
-	node := m.visibleRows[m.cursor]
+	node := m.visibleRows[m.cursor].Node
 
 	if !node.CommentsLoaded && node.CommentError == "" {
 		if err := fetchCommentsForNode(context.Background(), m.client, node); err != nil {

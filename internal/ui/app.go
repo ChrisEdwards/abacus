@@ -40,7 +40,7 @@ type Config struct {
 // App implements the Bubble Tea model for Abacus.
 type App struct {
 	roots       []*graph.Node
-	visibleRows []*graph.Node
+	visibleRows []graph.TreeRow
 	cursor      int
 	treeTopLine int
 	repoName    string
@@ -289,7 +289,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.visibleRows) == 0 {
 				return m, nil
 			}
-			node := m.visibleRows[m.cursor]
+			node := m.visibleRows[m.cursor].Node
 			if len(node.Children) > 0 {
 				if m.isNodeExpandedInView(node) {
 					m.collapseNodeForView(node)
@@ -302,7 +302,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.visibleRows) == 0 {
 				return m, nil
 			}
-			node := m.visibleRows[m.cursor]
+			node := m.visibleRows[m.cursor].Node
 			if len(node.Children) > 0 && m.isNodeExpandedInView(node) {
 				m.collapseNodeForView(node)
 				m.recalcVisibleRows()
