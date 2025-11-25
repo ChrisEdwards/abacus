@@ -658,6 +658,11 @@ func overlayBottomRight(background, overlay string, containerWidth, padding int)
 	}
 
 	// For each overlay line, merge it with background
+	overlayLineWidth := 0
+	if len(overlayLines) > 0 {
+		overlayLineWidth = lipgloss.Width(overlayLines[0])
+	}
+
 	for i, overlayLine := range overlayLines {
 		bgRow := startRow + i
 		if bgRow >= bgHeight {
@@ -665,14 +670,22 @@ func overlayBottomRight(background, overlay string, containerWidth, padding int)
 		}
 
 		bgLine := bgLines[bgRow]
+		bgLineWidth := lipgloss.Width(bgLine)
 
 		// Pad background line to reach insert position
 		for lipgloss.Width(bgLine) < insertCol {
 			bgLine += " "
 		}
 
-		// Truncate background at insert position and append overlay
-		bgLines[bgRow] = truncateVisualWidth(bgLine, insertCol) + overlayLine
+		// Build: left part + overlay + right part (preserves border)
+		leftPart := truncateVisualWidth(bgLine, insertCol)
+		rightStart := insertCol + overlayLineWidth
+		rightPart := ""
+		if rightStart < bgLineWidth {
+			// Extract the right portion after the overlay ends
+			rightPart = ansi.Cut(bgLines[bgRow], rightStart, bgLineWidth)
+		}
+		bgLines[bgRow] = leftPart + overlayLine + rightPart
 	}
 
 	return strings.Join(bgLines, "\n")
