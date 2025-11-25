@@ -16,8 +16,8 @@ type Comment struct {
 
 // Dependency captures dependency metadata from the Beads API.
 type Dependency struct {
-	Type     string `json:"type"`
-	TargetID string `json:"target_id"`
+	TargetID string `json:"id"`
+	Type     string `json:"dependency_type"`
 }
 
 // Dependent represents a reverse dependency entry.
