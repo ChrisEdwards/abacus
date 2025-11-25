@@ -156,40 +156,40 @@ func (m *App) updateViewportContent() {
 
 	// Part Of - show ALL parents (parent-child relationships)
 	if len(node.Parents) > 0 {
-		if section := renderRelSection("Part Of", node.Parents); section != "" {
+		if section := renderRelSection(fmt.Sprintf("Part Of: (%d)", len(node.Parents)), node.Parents); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
 	// Subtasks - children of this node (sorted: in_progress → ready → blocked → closed)
 	if len(node.Children) > 0 {
 		sorted := sortSubtasks(node.Children)
-		if section := renderRelSection(fmt.Sprintf("Subtasks (%d)", len(node.Children)), sorted); section != "" {
+		if section := renderRelSection(fmt.Sprintf("Subtasks: (%d)", len(node.Children)), sorted); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
 	// Must Complete First - blockers (sorted: topological order, things to do first)
 	if len(node.BlockedBy) > 0 {
 		sorted := sortBlockers(node.BlockedBy)
-		if section := renderRelSection("Must Complete First", sorted); section != "" {
+		if section := renderRelSection(fmt.Sprintf("Must Complete First: (%d)", len(node.BlockedBy)), sorted); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
 	// Will Unblock - what this issue blocks (sorted: items becoming ready first)
 	if len(node.Blocks) > 0 {
 		sorted := sortBlocked(node.Blocks)
-		if section := renderRelSection(fmt.Sprintf("Will Unblock (%d)", len(node.Blocks)), sorted); section != "" {
+		if section := renderRelSection(fmt.Sprintf("Will Unblock: (%d)", len(node.Blocks)), sorted); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
 	// See Also - related issues (bidirectional soft links)
 	if len(node.Related) > 0 {
-		if section := renderRelSection("See Also", node.Related); section != "" {
+		if section := renderRelSection(fmt.Sprintf("See Also: (%d)", len(node.Related)), node.Related); section != "" {
 			relSections = append(relSections, section)
 		}
 	}
 	// Discovered While Working On - issues that led to discovering this one
 	if len(node.DiscoveredFrom) > 0 {
-		if section := renderRelSection("Discovered While Working On", node.DiscoveredFrom); section != "" {
+		if section := renderRelSection(fmt.Sprintf("Discovered While Working On: (%d)", len(node.DiscoveredFrom)), node.DiscoveredFrom); section != "" {
 			relSections = append(relSections, section)
 		}
 	}

@@ -1634,8 +1634,8 @@ func TestDetailRelationshipSectionsFollowDocs(t *testing.T) {
 	}
 	app.updateViewportContent()
 	content := stripANSI(app.viewport.View())
-	// New labels: "Part Of", "Subtasks", "Must Complete First", "Will Unblock"
-	order := []string{"Part Of", "Subtasks", "Must Complete First", "Will Unblock"}
+	// New labels: "Part Of:", "Subtasks", "Must Complete First:", "Will Unblock"
+	order := []string{"Part Of:", "Subtasks", "Must Complete First:", "Will Unblock"}
 	var lastIdx int = -1
 	for _, section := range order {
 		idx := strings.Index(content, section)
@@ -1647,7 +1647,7 @@ func TestDetailRelationshipSectionsFollowDocs(t *testing.T) {
 		}
 		lastIdx = idx
 	}
-	if !strings.Contains(content, "Subtasks (2)") {
+	if !strings.Contains(content, "Subtasks: (2)") {
 		t.Fatalf("expected Subtasks count header, got:\n%s", content)
 	}
 	if !strings.Contains(content, "ab-303") || !strings.Contains(content, "ab-304") {

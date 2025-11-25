@@ -343,10 +343,10 @@ func TestDetailSectionsUseConsistentIndentation(t *testing.T) {
 		"Design:",
 		"Acceptance:",
 		"Comments:",
-		"Part Of",
-		fmt.Sprintf("Subtasks (%d)", len(node.Children)),
-		"Must Complete First",
-		fmt.Sprintf("Will Unblock (%d)", len(node.Blocks)),
+		fmt.Sprintf("Part Of: (%d)", len(node.Parents)),
+		fmt.Sprintf("Subtasks: (%d)", len(node.Children)),
+		fmt.Sprintf("Must Complete First: (%d)", len(node.BlockedBy)),
+		fmt.Sprintf("Will Unblock: (%d)", len(node.Blocks)),
 	}
 	for _, label := range labels {
 		assertSectionIndentSpacing(t, content, label, detailSectionLabelIndent, detailSectionContentIndent)
@@ -467,8 +467,8 @@ func TestDetailPartOfShowsAllParents(t *testing.T) {
 	app.updateViewportContent()
 	content := stripANSI(app.viewport.View())
 
-	// "Part Of" section should be present
-	if !strings.Contains(content, "Part Of") {
+	// "Part Of:" section should be present
+	if !strings.Contains(content, "Part Of:") {
 		t.Fatalf("expected 'Part Of' section for multi-parent node:\n%s", content)
 	}
 
@@ -501,7 +501,7 @@ func TestDetailBlockedByShowsBlockedIcon(t *testing.T) {
 	}
 	app.updateViewportContent()
 	content := stripANSI(app.viewport.View())
-	if !strings.Contains(content, "Must Complete First") {
+	if !strings.Contains(content, "Must Complete First:") {
 		t.Fatalf("expected Must Complete First section in detail view:\n%s", content)
 	}
 	if !strings.Contains(content, "⛔") || !strings.Contains(content, "ab-611") {
