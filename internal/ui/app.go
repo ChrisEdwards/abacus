@@ -650,8 +650,9 @@ func overlayBottomRight(background, overlay string, containerWidth, padding int)
 		startRow = 0
 	}
 
-	// Insert column is fixed based on container width (not content width)
-	insertCol := containerWidth - overlayWidth - padding
+	// Insert column: account for border (1 char) plus padding inside
+	borderWidth := 1
+	insertCol := containerWidth - overlayWidth - padding - borderWidth
 	if insertCol < 0 {
 		insertCol = 0
 	}
