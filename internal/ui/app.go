@@ -553,7 +553,7 @@ func (m *App) View() string {
 
 	// Overlay error toast on mainBody if visible
 	if toast := m.renderErrorToast(); toast != "" {
-		mainBody = overlayBottomRight(mainBody, toast, 4) // More padding from edges
+		mainBody = overlayBottomRight(mainBody, toast, 1) // Minimal padding - bottom-right corner
 	}
 
 	return fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
