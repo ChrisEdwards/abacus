@@ -493,7 +493,7 @@ func (m *App) View() string {
 	leftContent := styleAppHeader.Render(title) + " " + status
 	var header string
 	if m.lastError != "" {
-		rightContent := styleErrorIndicator.Render("⚠ refresh error (e)")
+		rightContent := styleErrorIndicator.Render("⚠ Refresh error (e)")
 		availableWidth := m.width - lipgloss.Width(leftContent) - lipgloss.Width(rightContent) - 2
 		if availableWidth > 0 {
 			header = leftContent + strings.Repeat(" ", availableWidth) + rightContent
