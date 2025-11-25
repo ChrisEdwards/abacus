@@ -15,7 +15,7 @@ func TestBuilderBuildSimpleGraph(t *testing.T) {
 			CreatedAt: "2024-01-01T00:00:00Z",
 			UpdatedAt: "2024-01-01T00:00:00Z",
 			Dependents: []beads.Dependent{
-				{ID: "ab-2"},
+				{ID: "ab-2", Type: "parent-child"},
 			},
 		},
 		{
@@ -111,7 +111,7 @@ func TestBuilderMultiParentChildrenAppearUnderAllParents(t *testing.T) {
 			Dependencies: []beads.Dependency{{Type: "parent-child", TargetID: "ab-1"}},
 			CreatedAt:    "2024-01-02T00:00:00Z",
 			UpdatedAt:    "2024-01-02T00:00:00Z",
-			Dependents:   []beads.Dependent{{ID: "ab-4"}},
+			Dependents:   []beads.Dependent{{ID: "ab-4", Type: "parent-child"}},
 		},
 		{ID: "ab-3", Title: "RootB", Status: "open", CreatedAt: "2024-01-03T00:00:00Z", UpdatedAt: "2024-01-03T00:00:00Z"},
 		{
@@ -249,7 +249,7 @@ func TestBuilderNoDuplicateChildrenWithinParent(t *testing.T) {
 			Status:     "open",
 			CreatedAt:  "2024-01-01T00:00:00Z",
 			UpdatedAt:  "2024-01-01T00:00:00Z",
-			Dependents: []beads.Dependent{{ID: "ab-child"}},
+			Dependents: []beads.Dependent{{ID: "ab-child", Type: "parent-child"}},
 		},
 		{
 			ID:    "ab-child",
@@ -345,7 +345,7 @@ func TestBuildSortsRootsByCascadingPriority(t *testing.T) {
 			Status:    "open",
 			CreatedAt: "2024-01-01T00:00:00Z",
 			Dependents: []beads.Dependent{
-				{ID: "ab-202"},
+				{ID: "ab-202", Type: "parent-child"},
 			},
 		},
 		{
@@ -396,8 +396,8 @@ func TestBuildSortsChildrenByOldestRelevantDate(t *testing.T) {
 			Status:    "open",
 			CreatedAt: "2024-01-01T00:00:00Z",
 			Dependents: []beads.Dependent{
-				{ID: "ab-302"},
-				{ID: "ab-303"},
+				{ID: "ab-302", Type: "parent-child"},
+				{ID: "ab-303", Type: "parent-child"},
 			},
 		},
 		{
@@ -438,5 +438,106 @@ func TestBuildSortsChildrenByOldestRelevantDate(t *testing.T) {
 	}
 	if parent.Children[0].Issue.ID != "ab-302" {
 		t.Fatalf("expected oldest ready child first, got %s", parent.Children[0].Issue.ID)
+	}
+}
+
+func TestBuilderIgnoresNonParentChildDependents(t *testing.T) {
+	// Dependents with type != "parent-child" should not create parent relationships.
+	// Only "parent-child" types should appear in the "Part Of" section.
+	issues := []beads.FullIssue{
+		{
+			ID:        "ab-blocker",
+			Title:     "Blocker Issue",
+			Status:    "open",
+			CreatedAt: "2024-01-01T00:00:00Z",
+			UpdatedAt: "2024-01-01T00:00:00Z",
+			// This issue has ab-blocked as a dependent with "blocks" type
+			// This should NOT make ab-blocker a parent of ab-blocked
+			Dependents: []beads.Dependent{
+				{ID: "ab-blocked", Type: "blocks"},
+			},
+		},
+		{
+			ID:        "ab-blocked",
+			Title:     "Blocked Issue",
+			Status:    "open",
+			CreatedAt: "2024-01-02T00:00:00Z",
+			UpdatedAt: "2024-01-02T00:00:00Z",
+			Dependencies: []beads.Dependency{
+				{Type: "blocks", TargetID: "ab-blocker"},
+			},
+		},
+		{
+			ID:        "ab-parent",
+			Title:     "Real Parent",
+			Status:    "open",
+			CreatedAt: "2024-01-03T00:00:00Z",
+			UpdatedAt: "2024-01-03T00:00:00Z",
+			// This is a proper parent-child relationship
+			Dependents: []beads.Dependent{
+				{ID: "ab-child", Type: "parent-child"},
+			},
+		},
+		{
+			ID:        "ab-child",
+			Title:     "Child Issue",
+			Status:    "open",
+			CreatedAt: "2024-01-04T00:00:00Z",
+			UpdatedAt: "2024-01-04T00:00:00Z",
+			Dependencies: []beads.Dependency{
+				{Type: "parent-child", TargetID: "ab-parent"},
+			},
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	// Find the blocked issue
+	var blocked *Node
+	for _, r := range roots {
+		if r.Issue.ID == "ab-blocked" {
+			blocked = r
+			break
+		}
+	}
+	if blocked == nil {
+		t.Fatalf("blocked issue not found in roots")
+	}
+
+	// blocked should have NO parents (the "blocks" dependent should be ignored)
+	if len(blocked.Parents) != 0 {
+		parentIDs := make([]string, len(blocked.Parents))
+		for i, p := range blocked.Parents {
+			parentIDs[i] = p.Issue.ID
+		}
+		t.Fatalf("expected blocked to have 0 parents, got %d: %v", len(blocked.Parents), parentIDs)
+	}
+
+	// Find the child issue
+	var child *Node
+	for _, r := range roots {
+		for _, c := range r.Children {
+			if c.Issue.ID == "ab-child" {
+				child = c
+				break
+			}
+		}
+		if child != nil {
+			break
+		}
+	}
+	if child == nil {
+		t.Fatalf("child issue not found")
+	}
+
+	// child should have exactly 1 parent (ab-parent)
+	if len(child.Parents) != 1 {
+		t.Fatalf("expected child to have 1 parent, got %d", len(child.Parents))
+	}
+	if child.Parents[0].Issue.ID != "ab-parent" {
+		t.Fatalf("expected child's parent to be ab-parent, got %s", child.Parents[0].Issue.ID)
 	}
 }

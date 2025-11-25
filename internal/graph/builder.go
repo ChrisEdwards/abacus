@@ -46,6 +46,9 @@ func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
 			}
 		}
 		for _, dep := range node.Issue.Dependents {
+			if dep.Type != "parent-child" {
+				continue
+			}
 			if child, ok := nodeMap[dep.ID]; ok {
 				child.Parents = append(child.Parents, node)
 			}

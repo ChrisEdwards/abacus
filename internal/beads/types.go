@@ -22,7 +22,8 @@ type Dependency struct {
 
 // Dependent represents a reverse dependency entry.
 type Dependent struct {
-	ID string `json:"id"`
+	ID   string `json:"id"`
+	Type string `json:"type"`
 }
 
 // FullIssue models the expanded issue data used by the UI.
