@@ -114,9 +114,12 @@ func renderHelpSectionTable(section helpSection) string {
 	header := styleHelpSectionHeader.Render(section.title)
 	underline := styleHelpUnderline.Render(strings.Repeat("─", len(section.title)))
 
+	// Trim leading newline from table output (hidden border adds empty top row)
+	tableStr := strings.TrimPrefix(t.String(), "\n")
+
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		underline,
-		t.String(),
+		tableStr,
 	)
 }

@@ -132,7 +132,7 @@ var (
 				Foreground(cPurple)
 
 	styleHelpSectionHeader = lipgloss.NewStyle().
-				Foreground(cPurple).
+				Foreground(cCyan).
 				Bold(true)
 
 	styleHelpUnderline = lipgloss.NewStyle().
