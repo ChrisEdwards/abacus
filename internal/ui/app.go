@@ -256,19 +256,19 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch {
 			case key.Matches(msg, m.keys.Help),
 				key.Matches(msg, m.keys.Escape),
-				msg.String() == "q":
+				key.Matches(msg, m.keys.Quit):
 				m.showHelp = false
 			}
 			return m, nil
 		}
 
 		if m.searching {
-			switch msg.String() {
-			case "enter":
+			switch {
+			case key.Matches(msg, m.keys.Enter):
 				m.searching = false
 				m.textInput.Blur()
 				return m, nil
-			case "esc":
+			case key.Matches(msg, m.keys.Escape):
 				m.clearSearchFilter()
 				return m, nil
 			default:
@@ -283,15 +283,15 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, detailCmd
 		}
 
-		switch msg.String() {
-		case "/":
+		switch {
+		case key.Matches(msg, m.keys.Search):
 			if !m.searching {
 				m.searching = true
 				m.textInput.Focus()
 				m.textInput.SetValue(m.filterText)
 				m.textInput.SetCursor(len(m.filterText))
 			}
-		case "esc":
+		case key.Matches(msg, m.keys.Escape):
 			// ESC dismisses error toast first, then clears search filter
 			if m.showErrorToast {
 				m.showErrorToast = false
@@ -301,7 +301,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.clearSearchFilter()
 				return m, nil
 			}
-		case "tab":
+		case key.Matches(msg, m.keys.Tab):
 			if m.ShowDetails {
 				if m.focus == FocusTree {
 					m.focus = FocusDetails
@@ -309,7 +309,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.focus = FocusTree
 				}
 			}
-		case "shift+tab":
+		case key.Matches(msg, m.keys.ShiftTab):
 			if m.ShowDetails {
 				if m.focus == FocusDetails {
 					m.focus = FocusTree
@@ -317,41 +317,41 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.focus = FocusDetails
 				}
 			}
-		case "ctrl+c", "q":
+		case key.Matches(msg, m.keys.Quit):
 			return m, tea.Quit
-		case "enter":
+		case key.Matches(msg, m.keys.Enter):
 			m.ShowDetails = !m.ShowDetails
 			m.focus = FocusTree
 			m.updateViewportContent()
-		case "r":
+		case key.Matches(msg, m.keys.Refresh):
 			if refreshCmd := m.forceRefresh(); refreshCmd != nil {
 				return m, refreshCmd
 			}
-		case "j", "down":
+		case key.Matches(msg, m.keys.Down):
 			m.cursor++
 			m.clampCursor()
 			m.updateViewportContent()
-		case "k", "up":
+		case key.Matches(msg, m.keys.Up):
 			m.cursor--
 			m.clampCursor()
 			m.updateViewportContent()
-		case "home", "g":
+		case key.Matches(msg, m.keys.Home):
 			m.cursor = 0
 			m.clampCursor()
 			m.updateViewportContent()
-		case "end", "G":
+		case key.Matches(msg, m.keys.End):
 			m.cursor = len(m.visibleRows) - 1
 			m.clampCursor()
 			m.updateViewportContent()
-		case "pgdown", "ctrl+f":
+		case key.Matches(msg, m.keys.PageDown):
 			m.cursor += clampDimension(m.viewport.Height, 1, len(m.visibleRows))
 			m.clampCursor()
 			m.updateViewportContent()
-		case "pgup", "ctrl+b":
+		case key.Matches(msg, m.keys.PageUp):
 			m.cursor -= clampDimension(m.viewport.Height, 1, len(m.visibleRows))
 			m.clampCursor()
 			m.updateViewportContent()
-		case "space", "right", "l":
+		case key.Matches(msg, m.keys.Space), key.Matches(msg, m.keys.Right):
 			if len(m.visibleRows) == 0 {
 				return m, nil
 			}
@@ -364,7 +364,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.recalcVisibleRows()
 			}
-		case "left", "h":
+		case key.Matches(msg, m.keys.Left):
 			if len(m.visibleRows) == 0 {
 				return m, nil
 			}
@@ -373,13 +373,13 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.collapseNodeForView(row)
 				m.recalcVisibleRows()
 			}
-		case "backspace":
+		case key.Matches(msg, m.keys.Backspace):
 			if !m.ShowDetails && !m.searching && len(m.filterText) > 0 {
 				m.setFilterText(m.filterText[:len(m.filterText)-1])
 				m.recalcVisibleRows()
 				m.updateViewportContent()
 			}
-		case "c":
+		case key.Matches(msg, m.keys.Copy):
 			if len(m.visibleRows) > 0 {
 				id := m.visibleRows[m.cursor].Node.Issue.ID
 				if err := clipboard.WriteAll(id); err == nil {
@@ -389,14 +389,14 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, scheduleCopyToastTick()
 				}
 			}
-		case "e":
+		case key.Matches(msg, m.keys.Error):
 			// Show error toast if there's an error and toast isn't already visible
 			if m.lastError != "" && !m.showErrorToast {
 				m.showErrorToast = true
 				m.errorToastStart = time.Now()
 				return m, scheduleErrorToastTick()
 			}
-		case "?":
+		case key.Matches(msg, m.keys.Help):
 			m.showHelp = true
 			return m, nil
 		}
@@ -451,22 +451,22 @@ func (m *App) handleDetailNavigationKey(msg tea.KeyMsg) (bool, tea.Cmd) {
 		return false, nil
 	}
 
-	switch msg.String() {
-	case "home", "g":
+	switch {
+	case key.Matches(msg, m.keys.Home):
 		m.viewport.GotoTop()
 		return true, nil
-	case "end", "G":
+	case key.Matches(msg, m.keys.End):
 		m.viewport.GotoBottom()
 		return true, nil
-	case "ctrl+f":
+	case key.Matches(msg, m.keys.PageDown):
 		_ = m.viewport.PageDown()
 		return true, nil
-	case "ctrl+b":
+	case key.Matches(msg, m.keys.PageUp):
 		_ = m.viewport.PageUp()
 		return true, nil
 	}
 
-	if isDetailScrollKey(msg) {
+	if m.isDetailScrollKey(msg) {
 		var cmd tea.Cmd
 		m.viewport, cmd = m.viewport.Update(msg)
 		return true, cmd
@@ -475,9 +475,20 @@ func (m *App) handleDetailNavigationKey(msg tea.KeyMsg) (bool, tea.Cmd) {
 	return false, nil
 }
 
-func isDetailScrollKey(msg tea.KeyMsg) bool {
+func (m *App) isDetailScrollKey(msg tea.KeyMsg) bool {
+	// Standard navigation keys via KeyMap
+	if key.Matches(msg, m.keys.Up) ||
+		key.Matches(msg, m.keys.Down) ||
+		key.Matches(msg, m.keys.Left) ||
+		key.Matches(msg, m.keys.Right) ||
+		key.Matches(msg, m.keys.PageUp) ||
+		key.Matches(msg, m.keys.PageDown) ||
+		key.Matches(msg, m.keys.Space) {
+		return true
+	}
+	// Viewport-specific keys (half-page, etc.) not in KeyMap
 	switch msg.String() {
-	case "j", "k", "down", "up", "pgdown", "pgup", "f", "b", "d", "u", "ctrl+d", "ctrl+u", "left", "right", "h", "l", "space", " ":
+	case "f", "b", "d", "u", "ctrl+d", "ctrl+u":
 		return true
 	}
 	return msg.Type == tea.KeySpace

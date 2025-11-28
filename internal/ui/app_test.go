@@ -813,7 +813,7 @@ func TestApplyRefreshPreservesCollapsedStatePerDocs(t *testing.T) {
 }
 
 func TestUpdateTogglesFocusWithTab(t *testing.T) {
-	m := &App{ShowDetails: true, focus: FocusTree}
+	m := &App{ShowDetails: true, focus: FocusTree, keys: DefaultKeyMap()}
 	m.visibleRows = nodesToRows(&graph.Node{Issue: beads.FullIssue{ID: "ab-001"}})
 
 	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
@@ -836,6 +836,7 @@ func TestDetailFocusNavigation(t *testing.T) {
 			focus:       FocusDetails,
 			viewport:    vp,
 			visibleRows: nodesToRows(&graph.Node{Issue: beads.FullIssue{ID: "ab-001"}}),
+			keys:        DefaultKeyMap(),
 		}
 	}
 
@@ -929,6 +930,7 @@ func TestUpdateClearsFilterWithEsc(t *testing.T) {
 			textInput:  textinput.New(),
 			filterText: filter,
 			searching:  searching,
+			keys:       DefaultKeyMap(),
 		}
 		m.textInput.SetValue(filter)
 		m.recalcVisibleRows()
@@ -1666,6 +1668,7 @@ func TestErrorToastEscDismisses(t *testing.T) {
 		showErrorToast: true,
 		errorShownOnce: true,
 		ready:          true,
+		keys:           DefaultKeyMap(),
 	}
 
 	// Press ESC
@@ -1686,6 +1689,7 @@ func TestErrorToastEKeyRecalls(t *testing.T) {
 		showErrorToast: false,
 		errorShownOnce: true,
 		ready:          true,
+		keys:           DefaultKeyMap(),
 	}
 
 	// Press 'e'

@@ -68,6 +68,18 @@ func TestDefaultKeyMap(t *testing.T) {
 			t.Error("expected / to match Search binding")
 		}
 	})
+
+	t.Run("ShiftTabBinding", func(t *testing.T) {
+		if !key.Matches(tea.KeyMsg{Type: tea.KeyShiftTab}, km.ShiftTab) {
+			t.Error("expected shift+tab to match ShiftTab binding")
+		}
+	})
+
+	t.Run("BackspaceBinding", func(t *testing.T) {
+		if !key.Matches(tea.KeyMsg{Type: tea.KeyBackspace}, km.Backspace) {
+			t.Error("expected backspace to match Backspace binding")
+		}
+	})
 }
 
 func TestKeyBindingsHaveHelpText(t *testing.T) {
@@ -95,6 +107,8 @@ func TestKeyBindingsHaveHelpText(t *testing.T) {
 		{"Copy", km.Copy},
 		{"Search", km.Search},
 		{"Escape", km.Escape},
+		{"ShiftTab", km.ShiftTab},
+		{"Backspace", km.Backspace},
 	}
 
 	for _, b := range bindings {

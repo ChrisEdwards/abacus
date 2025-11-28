@@ -28,8 +28,10 @@ type KeyMap struct {
 	Copy    key.Binding
 
 	// Search
-	Search key.Binding
-	Escape key.Binding
+	Search    key.Binding
+	Escape    key.Binding
+	ShiftTab  key.Binding
+	Backspace key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings for Abacus.
@@ -112,6 +114,14 @@ func DefaultKeyMap() KeyMap {
 		Escape: key.NewBinding(
 			key.WithKeys("esc"),
 			key.WithHelp("Esc", "Clear/cancel"),
+		),
+		ShiftTab: key.NewBinding(
+			key.WithKeys("shift+tab"),
+			key.WithHelp("⇧⇥", "Previous focus"),
+		),
+		Backspace: key.NewBinding(
+			key.WithKeys("backspace"),
+			key.WithHelp("⌫", "Delete char"),
 		),
 	}
 }
