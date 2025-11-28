@@ -592,15 +592,7 @@ func (m *App) View() string {
 	if m.searching {
 		bottomBar = m.textInput.View()
 	} else {
-		footerStr := " [ / ] Search  [ enter ] Detail  [ tab ] Focus  [ c ] Copy  [ ? ] Help  [ q ] Quit"
-		if m.ShowDetails && m.focus == FocusDetails {
-			footerStr += "  [ j/k ] Scroll"
-		} else {
-			footerStr += "  [ space ] Expand"
-		}
-		bottomBar = lipgloss.NewStyle().Foreground(cLightGray).Render(
-			fmt.Sprintf("%s   %s", footerStr,
-				lipgloss.PlaceHorizontal(m.width-len(footerStr)-5, lipgloss.Right, "Repo: "+m.repoName)))
+		bottomBar = m.renderFooter()
 	}
 
 	// Help overlay takes visual precedence over everything

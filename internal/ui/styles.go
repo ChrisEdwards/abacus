@@ -148,6 +148,18 @@ var (
 	styleHelpFooter = lipgloss.NewStyle().
 			Foreground(cBrightGray).
 			Italic(true)
+
+	// Footer bar styles
+	styleKeyPill = lipgloss.NewStyle().
+			Background(cPurple).
+			Foreground(cWhite).
+			Bold(true)
+
+	styleKeyDesc = lipgloss.NewStyle().
+			Foreground(cBrightGray)
+
+	styleFooterMuted = lipgloss.NewStyle().
+			Foreground(cGray)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {
