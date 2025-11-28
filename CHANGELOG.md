@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-11-28
+
 ### Added
 - Help screen overlay with `?` key showing all keyboard shortcuts (ab-0nv)
 - Copy bead ID to clipboard with `c` key, shows success toast with 5-second countdown (ab-ftk)
