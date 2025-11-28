@@ -242,10 +242,14 @@ func runWithRuntime(
 	}
 
 	spinnerStopped := false
+	var appRef *ui.App // Keep reference to app for exit summary
 	wrappedFactory := func(app *ui.App) programRunner {
+		appRef = app // Store reference for exit summary
 		if spinner != nil && !spinnerStopped {
 			spinner.Stop()
 			spinnerStopped = true
+			// Clear the loading screen area before entering alt screen
+			clearLoadingScreen(os.Stderr)
 		}
 		if factory == nil {
 			return nil
@@ -258,5 +262,15 @@ func runWithRuntime(
 		spinner.Stop()
 		spinnerStopped = true
 	}
+
+	// Print exit summary AFTER TUI exits (with final stats and session duration)
+	if appRef != nil && err == nil {
+		printExitSummary(os.Stderr, ExitSummary{
+			Version:     cfg.Version,
+			EndStats:    appRef.GetStats(),
+			SessionInfo: appRef.GetSessionInfo(),
+		})
+	}
+
 	return err
 }

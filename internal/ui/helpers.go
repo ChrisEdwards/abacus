@@ -2,10 +2,31 @@ package ui
 
 import (
 	"strings"
+	"time"
 
 	"abacus/internal/domain"
 	"abacus/internal/graph"
 )
+
+// SessionInfo contains session tracking data for the exit summary.
+type SessionInfo struct {
+	StartTime    time.Time
+	InitialStats Stats
+}
+
+// GetSessionInfo returns session tracking data for the exit summary.
+func (m *App) GetSessionInfo() SessionInfo {
+	return SessionInfo{
+		StartTime:    m.sessionStart,
+		InitialStats: m.initialStats,
+	}
+}
+
+// GetStats returns issue counts for external use (e.g., exit summary).
+// This is the public version of getStats().
+func (m *App) GetStats() Stats {
+	return m.getStats()
+}
 
 // getStats computes issue counts for the status bar.
 //

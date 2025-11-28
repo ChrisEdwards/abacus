@@ -95,6 +95,10 @@ type App struct {
 	// Help overlay state
 	showHelp bool
 	keys     KeyMap
+
+	// Session tracking for exit summary
+	sessionStart time.Time
+	initialStats Stats
 }
 
 // NewApp creates a new UI app instance based on configuration and current working directory.
@@ -167,11 +171,14 @@ func NewApp(cfg Config) (*App, error) {
 		dbPath:          dbPath,
 		lastDBModTime:   dbModTime,
 		keys:            DefaultKeyMap(),
+		sessionStart:    time.Now(),
 	}
 	if dbErr != nil {
 		app.lastRefreshStats = fmt.Sprintf("refresh unavailable: %v", dbErr)
 	}
 	app.recalcVisibleRows()
+	// Capture initial stats for session summary
+	app.initialStats = app.getStats()
 	if reporter != nil {
 		reporter.Stage(StartupStageReady, "Ready!")
 	}
