@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Startup progress indicators with helpful status messages (ab-cbf)
 
 ### Changed
+- **Requires Beads CLI 0.25.0+**: needed for dependency_type field to correctly display parent/child relationships and other relationship types (ab-e0v)
 - Detail pane relationship sections renamed for clarity (Dependencies → Blocked By, Dependents split by type)
 - Blocked items now use lighter red (203) for better visibility
 - Sibling highlight for multi-parent nodes is now more visible (ab-8ld)

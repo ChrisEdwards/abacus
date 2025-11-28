@@ -10,7 +10,7 @@ import (
 )
 
 // MinBeadsVersion defines the minimum supported Beads CLI version.
-const MinBeadsVersion = "0.24.0"
+const MinBeadsVersion = "0.25.0"
 
 // VersionInfo captures metadata about the Beads CLI discovered during checks.
 type VersionInfo struct {

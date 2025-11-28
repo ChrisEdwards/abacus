@@ -33,7 +33,7 @@ func TestHandleVersionCheckResultNotInstalled(t *testing.T) {
 
 func TestHandleVersionCheckResultTooOld(t *testing.T) {
 	var buf bytes.Buffer
-	info := beads.VersionInfo{Bin: "bd", Installed: "v0.20.0", Required: "v0.24.0"}
+	info := beads.VersionInfo{Bin: "bd", Installed: "v0.20.0", Required: "v0.25.0"}
 	err := beads.VersionError{Kind: beads.VersionErrorTooOld, Info: info}
 	if exit := handleVersionCheckResult(&buf, info, err); !exit {
 		t.Fatalf("expected exit for outdated CLI")
@@ -42,14 +42,14 @@ func TestHandleVersionCheckResultTooOld(t *testing.T) {
 	if !strings.Contains(out, "version too old") {
 		t.Fatalf("expected version too old text, got %q", out)
 	}
-	if !strings.Contains(out, "v0.20.0") || !strings.Contains(out, "v0.24.0") {
+	if !strings.Contains(out, "v0.20.0") || !strings.Contains(out, "v0.25.0") {
 		t.Fatalf("expected version numbers in output: %q", out)
 	}
 }
 
 func TestHandleVersionCheckResultWarning(t *testing.T) {
 	var buf bytes.Buffer
-	info := beads.VersionInfo{Bin: "bd", Required: "v0.24.0"}
+	info := beads.VersionInfo{Bin: "bd", Required: "v0.25.0"}
 	err := beads.VersionError{Kind: beads.VersionErrorCommandFailed, Info: info, Err: errors.New("timeout")}
 	if exit := handleVersionCheckResult(&buf, info, err); exit {
 		t.Fatalf("expected to continue on warning")
