@@ -3,6 +3,18 @@
 ## Testing Requirements
 Write tests for any changes made in this codebase. All code must build successfully, pass linting, and all tests must pass before marking a bead as closed.
 
+### TUI Visual Testing
+When making UI changes, use `scripts/tui-test.sh` to verify the layout visually:
+```bash
+make build                         # Build first after code changes
+./scripts/tui-test.sh start        # Launch in tmux
+./scripts/tui-test.sh keys 'jjjl'  # Navigate (j=down, l=expand)
+./scripts/tui-test.sh enter        # Open detail pane
+./scripts/tui-test.sh view         # Capture current state
+./scripts/tui-test.sh quit         # Clean up
+```
+Always verify UI changes look correct before marking work complete.
+
 ## Available Tools
 
 ### ripgrep (rg)
