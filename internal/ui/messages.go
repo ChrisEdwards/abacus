@@ -31,3 +31,11 @@ func scheduleErrorToastTick() tea.Cmd {
 		return errorToastTickMsg{}
 	})
 }
+
+type copyToastTickMsg struct{}
+
+func scheduleCopyToastTick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+		return copyToastTickMsg{}
+	})
+}

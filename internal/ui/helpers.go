@@ -1,25 +1,11 @@
 package ui
 
 import (
-	"context"
 	"strings"
 
 	"abacus/internal/domain"
 	"abacus/internal/graph"
 )
-
-func (m *App) retryCommentsForCurrentNode() {
-	if m.cursor >= len(m.visibleRows) {
-		return
-	}
-	node := m.visibleRows[m.cursor].Node
-	node.Issue.Comments = nil
-	node.CommentsLoaded = false
-	node.CommentError = ""
-	if err := fetchCommentsForNode(context.Background(), m.client, node); err != nil {
-		node.CommentError = err.Error()
-	}
-}
 
 // getStats computes issue counts for the status bar.
 //

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Copy bead ID to clipboard with `c` key, shows success toast with 5-second countdown (ab-ftk)
+
 ## [0.2.0] - 2025-11-27
 
 ### Added

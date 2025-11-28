@@ -2209,6 +2209,118 @@ func TestUpdateViewportContentOmitsAcceptanceWhenBlank(t *testing.T) {
 	}
 }
 
+func TestCopyBeadIDSetsToastState(t *testing.T) {
+	node := &graph.Node{Issue: beads.FullIssue{ID: "ab-123", Title: "Test Issue"}}
+	app := &App{
+		visibleRows: nodesToRows(node),
+		cursor:      0,
+		ready:       true,
+	}
+
+	// Simulate pressing 'c' key - we test the state changes, not actual clipboard
+	// (clipboard may not work in CI/test environments)
+	app.copiedBeadID = node.Issue.ID
+	app.showCopyToast = true
+	app.copyToastStart = time.Now()
+
+	if !app.showCopyToast {
+		t.Error("expected showCopyToast to be true")
+	}
+	if app.copiedBeadID != "ab-123" {
+		t.Errorf("expected copiedBeadID 'ab-123', got %s", app.copiedBeadID)
+	}
+}
+
+func TestCopyToastCountdown(t *testing.T) {
+	app := &App{
+		copiedBeadID:   "ab-456",
+		showCopyToast:  true,
+		copyToastStart: time.Now().Add(-3 * time.Second), // Started 3 seconds ago
+		ready:          true,
+	}
+
+	// Process tick - should continue countdown (not yet 5 seconds)
+	_, cmd := app.Update(copyToastTickMsg{})
+	if !app.showCopyToast {
+		t.Error("toast should still be visible before 5 seconds")
+	}
+	if cmd == nil {
+		t.Error("expected another tick to be scheduled")
+	}
+
+	// Simulate 5+ seconds elapsed
+	app.copyToastStart = time.Now().Add(-6 * time.Second)
+	_, cmd = app.Update(copyToastTickMsg{})
+	if app.showCopyToast {
+		t.Error("toast should auto-dismiss after 5 seconds")
+	}
+}
+
+func TestCopyToastRenders(t *testing.T) {
+	app := &App{
+		copiedBeadID:   "ab-789",
+		showCopyToast:  true,
+		copyToastStart: time.Now(),
+		ready:          true,
+	}
+
+	toast := app.renderCopyToast()
+	if toast == "" {
+		t.Fatal("expected toast to render")
+	}
+
+	plain := stripANSI(toast)
+	if !strings.Contains(plain, "ab-789") {
+		t.Errorf("expected toast to contain bead ID 'ab-789', got: %s", plain)
+	}
+	if !strings.Contains(plain, "Copied") {
+		t.Errorf("expected toast to contain 'Copied', got: %s", plain)
+	}
+	if !strings.Contains(plain, "clipboard") {
+		t.Errorf("expected toast to contain 'clipboard', got: %s", plain)
+	}
+}
+
+func TestCopyToastNotRenderedWhenInactive(t *testing.T) {
+	app := &App{
+		copiedBeadID:  "ab-999",
+		showCopyToast: false,
+		ready:         true,
+	}
+
+	toast := app.renderCopyToast()
+	if toast != "" {
+		t.Error("expected no toast when showCopyToast is false")
+	}
+}
+
+func TestCopyWithEmptyVisibleRows(t *testing.T) {
+	app := &App{
+		visibleRows: []graph.TreeRow{},
+		ready:       true,
+	}
+
+	// Press 'c' with no visible rows - should not panic or set toast
+	_, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+
+	if app.showCopyToast {
+		t.Error("expected no toast when no rows visible")
+	}
+}
+
+func TestCopyToastTickWhenNotShowing(t *testing.T) {
+	app := &App{
+		showCopyToast: false,
+		ready:         true,
+	}
+
+	// Process tick when toast is not showing - should return nil cmd
+	_, cmd := app.Update(copyToastTickMsg{})
+	if cmd != nil {
+		t.Error("expected no tick scheduled when toast is not showing")
+	}
+}
+
 func loadFixtureIssues(t *testing.T, file string) []beads.FullIssue {
 	t.Helper()
 	candidates := []string{

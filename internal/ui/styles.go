@@ -111,6 +111,12 @@ var (
 	styleErrorIndicator = lipgloss.NewStyle().
 				Foreground(cRed).
 				Bold(true)
+
+	styleSuccessToast = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#00FF00")). // Green
+				Foreground(cWhite).
+				Padding(0, 1)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {

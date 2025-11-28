@@ -149,6 +149,7 @@ Items within each section are sorted intelligently:
 | Switch Focus | `Tab` | Switch between tree and detail |
 | Search | `/` | Enter search mode |
 | Clear Search | `Esc` | Clear search filter |
+| Copy ID | `c` | Copy bead ID to clipboard |
 | Quit | `q` or `Ctrl+C` | Exit application |
 
 Detail panel focused shortcuts: `↑/↓` or `j/k` scroll, `Ctrl+F/B` or `PgDn/Up` page, `g/G` or `Home/End` jump.

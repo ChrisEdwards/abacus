@@ -11,6 +11,7 @@ import (
 	"abacus/internal/beads"
 	"abacus/internal/graph"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -84,6 +85,11 @@ type App struct {
 	errorShownOnce  bool      // True after first toast display
 	showErrorToast  bool      // Currently showing toast
 	errorToastStart time.Time // When toast was shown (for countdown)
+
+	// Copy toast state
+	showCopyToast  bool
+	copyToastStart time.Time
+	copiedBeadID   string
 }
 
 // NewApp creates a new UI app instance based on configuration and current working directory.
@@ -216,6 +222,15 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, scheduleErrorToastTick()
+	case copyToastTickMsg:
+		if !m.showCopyToast {
+			return m, nil
+		}
+		if time.Since(m.copyToastStart) >= 5*time.Second {
+			m.showCopyToast = false
+			return m, nil
+		}
+		return m, scheduleCopyToastTick()
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -348,8 +363,14 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updateViewportContent()
 			}
 		case "c":
-			if m.ShowDetails && m.focus == FocusDetails {
-				m.retryCommentsForCurrentNode()
+			if len(m.visibleRows) > 0 {
+				id := m.visibleRows[m.cursor].Node.Issue.ID
+				if err := clipboard.WriteAll(id); err == nil {
+					m.copiedBeadID = id
+					m.showCopyToast = true
+					m.copyToastStart = time.Now()
+					return m, scheduleCopyToastTick()
+				}
 			}
 		case "e":
 			// Show error toast if there's an error and toast isn't already visible
@@ -540,7 +561,7 @@ func (m *App) View() string {
 	if m.searching {
 		bottomBar = m.textInput.View()
 	} else {
-		footerStr := " [ / ] Search  [ enter ] Detail  [ tab ] Switch Focus  [ q ] Quit"
+		footerStr := " [ / ] Search  [ enter ] Detail  [ tab ] Switch Focus  [ c ] Copy ID  [ q ] Quit"
 		if m.ShowDetails && m.focus == FocusDetails {
 			footerStr += "  [ j/k ] Scroll Details"
 		} else {
@@ -552,8 +573,11 @@ func (m *App) View() string {
 				lipgloss.PlaceHorizontal(m.width-len(footerStr)-5, lipgloss.Right, "Repo: "+m.repoName)))
 	}
 
-	// Overlay error toast on mainBody if visible
-	if toast := m.renderErrorToast(); toast != "" {
+	// Overlay toast on mainBody if visible (copy toast takes priority)
+	if toast := m.renderCopyToast(); toast != "" {
+		containerWidth := lipgloss.Width(mainBody)
+		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
+	} else if toast := m.renderErrorToast(); toast != "" {
 		// Measure actual rendered width for proper right-alignment
 		containerWidth := lipgloss.Width(mainBody)
 		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
@@ -597,6 +621,36 @@ func (m *App) renderErrorToast() string {
 	content := fmt.Sprintf("%s\n%s\n%s%s", titleLine, bdErrLine, strings.Repeat(" ", padding), countdownStr)
 
 	return styleErrorToast.Render(content)
+}
+
+// renderCopyToast renders the copy success toast content if visible.
+func (m *App) renderCopyToast() string {
+	if !m.showCopyToast || m.copiedBeadID == "" {
+		return ""
+	}
+	elapsed := time.Since(m.copyToastStart)
+	remaining := 5 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Build content: message + right-aligned countdown
+	msgLine := fmt.Sprintf("Copied '%s' to clipboard.", m.copiedBeadID)
+	countdownStr := fmt.Sprintf("[%ds]", remaining)
+
+	// Calculate toast width based on message
+	toastWidth := lipgloss.Width(msgLine)
+	if toastWidth < 30 {
+		toastWidth = 30
+	}
+
+	padding := toastWidth - len(countdownStr)
+	if padding < 0 {
+		padding = 0
+	}
+	content := fmt.Sprintf("%s\n%s%s", msgLine, strings.Repeat(" ", padding), countdownStr)
+
+	return styleSuccessToast.Render(content)
 }
 
 // extractShortError extracts a short, user-friendly error message.
