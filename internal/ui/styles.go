@@ -159,7 +159,7 @@ var (
 			Foreground(cBrightGray)
 
 	styleFooterMuted = lipgloss.NewStyle().
-			Foreground(cGray)
+			Foreground(cBrightGray)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {
