@@ -42,8 +42,8 @@ var (
 
 	// styleCrossHighlight is a muted version for duplicate instances of the same node
 	styleCrossHighlight = lipgloss.NewStyle().
-				Background(lipgloss.Color("236")).
-				Foreground(cBrightGray)
+				Background(lipgloss.Color("240")).
+				Foreground(cLightGray)
 
 	styleAppHeader = lipgloss.NewStyle().
 			Foreground(cWhite).
