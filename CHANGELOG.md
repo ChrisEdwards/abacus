@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-11-27
+
 ### Added
 - Multi-parent tree display: issues with multiple parents now appear under all parent epics (ab-k2o)
 - Notes section in detail pane showing implementation notes (ab-k7a)
