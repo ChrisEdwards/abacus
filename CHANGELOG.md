@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Multi-parent tree display: issues with multiple parents now appear under all parent epics (ab-k2o)
+- Notes section in detail pane showing implementation notes (ab-k7a)
+- Related and Discovered-From relationship sections in detail pane (ab-749)
+- Error toast overlay when background refresh fails (ab-9sl)
+- Startup progress indicators with helpful status messages (ab-cbf)
+
+### Changed
+- Detail pane relationship sections renamed for clarity (Dependencies → Blocked By, Dependents split by type)
+- Blocked items now use lighter red (203) for better visibility
+- Sibling highlight for multi-parent nodes is now more visible (ab-8ld)
+
+### Fixed
+- Expanding/collapsing a multi-parent node now only affects the selected instance, not all instances (ab-vue)
+- Detail pane now shows all blockers, not just open ones
+- Dependency and Dependent JSON parsing now correctly maps API response fields (ab-0g1)
+- Dependents are now filtered by type to prevent incorrect parent relationships
+
 ## [0.1.0] - 2025-11-23
 
 Initial release of abacus - a TUI viewer for Beads issue tracking.

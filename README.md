@@ -28,6 +28,7 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 - **Rich Detail Panel**: View comprehensive issue information including:
   - Metadata (status, type, priority, labels, timestamps)
   - Full description with markdown rendering
+  - Notes section with implementation details
   - Relationship sections (see below)
   - Comments with timestamps
 - **Multi-Parent Support**: Tasks can belong to multiple parent epics:
@@ -117,6 +118,8 @@ The detail panel shows different types of relationships:
 | **Subtasks** | Child tasks | Work items underneath this issue |
 | **Must Complete First** | Blockers | Issues that block this one from starting |
 | **Will Unblock** | Downstream | Issues waiting on this one to complete |
+| **Related** | Soft links | Issues related but not blocking |
+| **Discovered From** | Origin | Issues that led to discovering this one |
 
 Items within each section are sorted intelligently:
 - **Subtasks**: In-progress → ready (high-impact first) → blocked (closest to ready) → closed
@@ -134,6 +137,7 @@ Items within each section are sorted intelligently:
 - Enabled by default at 3 seconds; change with `--auto-refresh-seconds N`.
 - Set `0` to disable background refresh if you want to control reloads manually.
 - Auto-refresh preserves cursor, expanded nodes, and search filters.
+- If a refresh fails, an error toast appears briefly in the bottom-right corner.
 
 ## Keyboard Shortcuts
 
