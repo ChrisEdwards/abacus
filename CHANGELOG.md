@@ -8,7 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Help screen overlay with `?` key showing all keyboard shortcuts (ab-0nv)
 - Copy bead ID to clipboard with `c` key, shows success toast with 5-second countdown (ab-ftk)
+
+### Changed
+- Footer redesigned with pill-style key hints, context-sensitive keys, and cleaner layout (ab-jbb)
+- Refactored all key handling to use idiomatic `key.Matches()` pattern (ab-zbn)
+
+### Fixed
+- Pressing ESC to clear search filter now preserves current selection instead of jumping to first item (ab-7pt)
 
 ## [0.2.0] - 2025-11-27
 
