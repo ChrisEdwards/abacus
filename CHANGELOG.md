@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Exit summary displayed when quitting: shows session duration and bead stats with change deltas highlighted (ab-0hc)
+
 ## [0.3.0] - 2025-11-28
 
 ### Added
