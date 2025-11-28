@@ -12,6 +12,7 @@ import (
 	"abacus/internal/graph"
 
 	"github.com/atotto/clipboard"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -90,6 +91,10 @@ type App struct {
 	showCopyToast  bool
 	copyToastStart time.Time
 	copiedBeadID   string
+
+	// Help overlay state
+	showHelp bool
+	keys     KeyMap
 }
 
 // NewApp creates a new UI app instance based on configuration and current working directory.
@@ -161,6 +166,7 @@ func NewApp(cfg Config) (*App, error) {
 		client:          client,
 		dbPath:          dbPath,
 		lastDBModTime:   dbModTime,
+		keys:            DefaultKeyMap(),
 	}
 	if dbErr != nil {
 		app.lastRefreshStats = fmt.Sprintf("refresh unavailable: %v", dbErr)
@@ -245,6 +251,17 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateViewportContent()
 
 	case tea.KeyMsg:
+		// Help overlay takes precedence - blocks all other keys
+		if m.showHelp {
+			switch {
+			case key.Matches(msg, m.keys.Help),
+				key.Matches(msg, m.keys.Escape),
+				msg.String() == "q":
+				m.showHelp = false
+			}
+			return m, nil
+		}
+
 		if m.searching {
 			switch msg.String() {
 			case "enter":
@@ -379,6 +396,9 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.errorToastStart = time.Now()
 				return m, scheduleErrorToastTick()
 			}
+		case "?":
+			m.showHelp = true
+			return m, nil
 		}
 	default:
 		if m.ShowDetails && m.focus == FocusDetails {
@@ -561,16 +581,21 @@ func (m *App) View() string {
 	if m.searching {
 		bottomBar = m.textInput.View()
 	} else {
-		footerStr := " [ / ] Search  [ enter ] Detail  [ tab ] Switch Focus  [ c ] Copy ID  [ q ] Quit"
+		footerStr := " [ / ] Search  [ enter ] Detail  [ tab ] Focus  [ c ] Copy  [ ? ] Help  [ q ] Quit"
 		if m.ShowDetails && m.focus == FocusDetails {
-			footerStr += "  [ j/k ] Scroll Details"
+			footerStr += "  [ j/k ] Scroll"
 		} else {
 			footerStr += "  [ space ] Expand"
 		}
-		footerStr += "  [ r ] Refresh"
 		bottomBar = lipgloss.NewStyle().Foreground(cLightGray).Render(
 			fmt.Sprintf("%s   %s", footerStr,
 				lipgloss.PlaceHorizontal(m.width-len(footerStr)-5, lipgloss.Right, "Repo: "+m.repoName)))
+	}
+
+	// Help overlay takes visual precedence over everything
+	if m.showHelp {
+		helpOverlay := renderHelpOverlay(m.keys, m.width, m.height-2)
+		return fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
 	}
 
 	// Overlay toast on mainBody if visible (copy toast takes priority)

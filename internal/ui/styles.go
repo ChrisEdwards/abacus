@@ -117,6 +117,37 @@ var (
 				BorderForeground(lipgloss.Color("#00FF00")). // Green
 				Foreground(cWhite).
 				Padding(0, 1)
+
+	// Help overlay styles
+	styleHelpOverlay = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(cPurple).
+				Padding(1, 2)
+
+	styleHelpTitle = lipgloss.NewStyle().
+			Foreground(cGold).
+			Bold(true)
+
+	styleHelpDivider = lipgloss.NewStyle().
+				Foreground(cPurple)
+
+	styleHelpSectionHeader = lipgloss.NewStyle().
+				Foreground(cPurple).
+				Bold(true)
+
+	styleHelpUnderline = lipgloss.NewStyle().
+				Foreground(cGray)
+
+	styleHelpKey = lipgloss.NewStyle().
+			Foreground(cCyan).
+			Bold(true)
+
+	styleHelpDesc = lipgloss.NewStyle().
+			Foreground(cLightGray)
+
+	styleHelpFooter = lipgloss.NewStyle().
+			Foreground(cBrightGray).
+			Italic(true)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {

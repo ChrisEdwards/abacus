@@ -2430,3 +2430,114 @@ func normalizePath(t *testing.T, path string) string {
 	}
 	return abs
 }
+
+func TestHelpToggle(t *testing.T) {
+	app := &App{
+		visibleRows: nodesToRows(&graph.Node{Issue: beads.FullIssue{ID: "ab-001"}}),
+		keys:        DefaultKeyMap(),
+	}
+
+	// Initially help is not shown
+	if app.showHelp {
+		t.Error("expected showHelp to be false initially")
+	}
+
+	// Press ? to show help
+	result, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	app = result.(*App)
+	if !app.showHelp {
+		t.Error("expected showHelp to be true after pressing ?")
+	}
+
+	// Press ? again to hide help
+	result, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	app = result.(*App)
+	if app.showHelp {
+		t.Error("expected showHelp to be false after pressing ? again")
+	}
+}
+
+func TestHelpDismissWithEsc(t *testing.T) {
+	app := &App{
+		showHelp: true,
+		keys:     DefaultKeyMap(),
+	}
+
+	result, _ := app.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	app = result.(*App)
+
+	if app.showHelp {
+		t.Error("expected showHelp to be false after pressing Esc")
+	}
+}
+
+func TestHelpDismissWithQ(t *testing.T) {
+	app := &App{
+		showHelp:    true,
+		keys:        DefaultKeyMap(),
+		visibleRows: nodesToRows(&graph.Node{Issue: beads.FullIssue{ID: "ab-001"}}),
+	}
+
+	// q should dismiss help, NOT quit the app
+	result, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	app = result.(*App)
+
+	if app.showHelp {
+		t.Error("expected showHelp to be false after pressing q")
+	}
+	if cmd != nil {
+		t.Error("expected no quit command when dismissing help with q")
+	}
+}
+
+func TestHelpBlocksOtherKeys(t *testing.T) {
+	app := &App{
+		showHelp:    true,
+		keys:        DefaultKeyMap(),
+		visibleRows: nodesToRows(&graph.Node{Issue: beads.FullIssue{ID: "ab-001"}}),
+		cursor:      0,
+	}
+
+	initialCursor := app.cursor
+
+	// Navigation keys should be blocked
+	result, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	app = result.(*App)
+	if app.cursor != initialCursor {
+		t.Error("expected cursor to remain unchanged when help is shown")
+	}
+	if !app.showHelp {
+		t.Error("expected help to still be shown after pressing j")
+	}
+
+	// Search key should be blocked
+	result, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	app = result.(*App)
+	if app.searching {
+		t.Error("expected searching to remain false when help is shown")
+	}
+	if !app.showHelp {
+		t.Error("expected help to still be shown after pressing /")
+	}
+}
+
+func TestHelpOverlayInView(t *testing.T) {
+	app := &App{
+		showHelp:    true,
+		keys:        DefaultKeyMap(),
+		visibleRows: nodesToRows(&graph.Node{Issue: beads.FullIssue{ID: "ab-001"}}),
+		width:       80,
+		height:      24,
+		ready:       true,
+	}
+
+	view := app.View()
+
+	// View should contain help overlay content
+	if !strings.Contains(view, "ABACUS HELP") {
+		t.Error("expected view to contain 'ABACUS HELP' when help is shown")
+	}
+	if !strings.Contains(view, "NAVIGATION") {
+		t.Error("expected view to contain 'NAVIGATION' section when help is shown")
+	}
+}
