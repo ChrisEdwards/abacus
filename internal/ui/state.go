@@ -413,3 +413,99 @@ func (m *App) collapseNodeForView(row graph.TreeRow) {
 		}
 	}
 }
+
+// findNodeByID searches the tree for a node with the given ID.
+func (m *App) findNodeByID(id string) *graph.Node {
+	var result *graph.Node
+	var walk func(nodes []*graph.Node)
+	walk = func(nodes []*graph.Node) {
+		for _, n := range nodes {
+			if n.Issue.ID == id {
+				result = n
+				return
+			}
+			walk(n.Children)
+		}
+	}
+	walk(m.roots)
+	return result
+}
+
+// restoreCursorToRow finds the exact row matching nodeID and parentID (for multi-parent support).
+// Returns true if the row was found and cursor was set.
+func (m *App) restoreCursorToRow(nodeID, parentID string) bool {
+	for idx, row := range m.visibleRows {
+		if row.Node.Issue.ID != nodeID {
+			continue
+		}
+		rowParentID := ""
+		if row.Parent != nil {
+			rowParentID = row.Parent.Issue.ID
+		}
+		if rowParentID == parentID {
+			m.cursor = idx
+			return true
+		}
+	}
+	return false
+}
+
+// expandAncestorsForRow expands the ancestor chain for a specific parent context
+// so the node will be visible after the filter is cleared.
+func (m *App) expandAncestorsForRow(nodeID, parentID string) {
+	// Find the node
+	node := m.findNodeByID(nodeID)
+	if node == nil {
+		return
+	}
+
+	// If parentID is specified, find that specific parent and expand up from there
+	if parentID != "" {
+		parent := m.findNodeByID(parentID)
+		for parent != nil {
+			if len(parent.Parents) > 1 {
+				// Multi-parent: use per-instance expansion with root context
+				key := treeRowKey("", parent.Issue.ID)
+				if m.expandedInstances == nil {
+					m.expandedInstances = make(map[string]bool)
+				}
+				m.expandedInstances[key] = true
+			} else {
+				parent.Expanded = true
+			}
+			if len(parent.Parents) > 0 {
+				parent = parent.Parents[0]
+			} else {
+				parent = parent.Parent
+			}
+		}
+	}
+
+	// Also expand up from the node itself
+	current := node.Parent
+	if current == nil && len(node.Parents) > 0 {
+		current = node.Parents[0]
+	}
+	for current != nil {
+		current.Expanded = true
+		next := current.Parent
+		if next == nil && len(current.Parents) > 0 {
+			next = current.Parents[0]
+		}
+		current = next
+	}
+}
+
+// transferFilterExpansionState copies filterForcedExpanded state to permanent Node.Expanded state
+// so manually expanded nodes stay expanded after clearing the filter.
+func (m *App) transferFilterExpansionState() {
+	if m.filterForcedExpanded == nil {
+		return
+	}
+	for id := range m.filterForcedExpanded {
+		node := m.findNodeByID(id)
+		if node != nil {
+			node.Expanded = true
+		}
+	}
+}

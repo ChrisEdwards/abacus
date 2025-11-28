@@ -410,6 +410,8 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // clearSearchFilter exits search mode and removes any applied filter.
+// It preserves the current selection by capturing the selected node/parent
+// before clearing, expanding ancestors, and restoring the cursor position.
 func (m *App) clearSearchFilter() {
 	prevFilter := m.filterText
 	m.searching = false
@@ -418,9 +420,37 @@ func (m *App) clearSearchFilter() {
 	if prevFilter == "" {
 		return
 	}
+
+	// 1. Capture current selection (node + parent for multi-parent support)
+	var selectedNodeID, selectedParentID string
+	if len(m.visibleRows) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleRows) {
+		row := m.visibleRows[m.cursor]
+		selectedNodeID = row.Node.Issue.ID
+		if row.Parent != nil {
+			selectedParentID = row.Parent.Issue.ID
+		}
+	}
+
+	// 2. Transfer manually expanded nodes to permanent state
+	m.transferFilterExpansionState()
+
+	// 3. Expand ancestors so selected node will be visible
+	if selectedNodeID != "" {
+		m.expandAncestorsForRow(selectedNodeID, selectedParentID)
+	}
+
 	m.setFilterText("")
 	m.recalcVisibleRows()
+
+	// 4. Restore cursor to exact row (handles multi-parent)
+	if selectedNodeID != "" {
+		if !m.restoreCursorToRow(selectedNodeID, selectedParentID) {
+			m.restoreCursorToID(selectedNodeID) // Fallback
+		}
+	}
+
 	m.updateViewportContent()
+	// Note: Scrolling is handled automatically by renderTreeView()
 }
 
 func (m *App) setFilterText(value string) {

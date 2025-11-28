@@ -972,6 +972,258 @@ func TestUpdateClearsFilterWithEsc(t *testing.T) {
 	})
 }
 
+func TestClearFilterPreservesSelectionSingleParent(t *testing.T) {
+	// Create tree: root -> child -> leaf
+	leaf := &graph.Node{Issue: beads.FullIssue{ID: "ab-leaf", Title: "Leaf Node"}}
+	child := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-child", Title: "Child Node"},
+		Children: []*graph.Node{leaf},
+	}
+	leaf.Parent = child
+	leaf.Parents = []*graph.Node{child}
+	root := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-root", Title: "Root Node"},
+		Children: []*graph.Node{child},
+	}
+	child.Parent = root
+	child.Parents = []*graph.Node{root}
+
+	m := &App{
+		roots:     []*graph.Node{root},
+		textInput: textinput.New(),
+		keys:      DefaultKeyMap(),
+	}
+
+	// Filter to show leaf, which auto-expands ancestors
+	m.setFilterText("leaf")
+	m.recalcVisibleRows()
+
+	// Find and select the leaf node
+	for i, row := range m.visibleRows {
+		if row.Node.Issue.ID == "ab-leaf" {
+			m.cursor = i
+			break
+		}
+	}
+
+	// Clear filter with ESC
+	m.clearSearchFilter()
+
+	// Verify leaf is still selected
+	if m.visibleRows[m.cursor].Node.Issue.ID != "ab-leaf" {
+		t.Fatalf("expected cursor on leaf node after clearing filter, got %s",
+			m.visibleRows[m.cursor].Node.Issue.ID)
+	}
+
+	// Verify ancestors are expanded so leaf is visible
+	if !root.Expanded {
+		t.Fatalf("expected root to be expanded after clearing filter")
+	}
+	if !child.Expanded {
+		t.Fatalf("expected child to be expanded after clearing filter")
+	}
+}
+
+func TestClearFilterPreservesSelectionMultiParent(t *testing.T) {
+	// Create tree: epic1 -> task, epic2 -> task (shared)
+	task := &graph.Node{Issue: beads.FullIssue{ID: "ab-task", Title: "Shared Task"}}
+	epic1 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic1", Title: "Epic One"},
+		Children: []*graph.Node{task},
+		Expanded: true,
+	}
+	epic2 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic2", Title: "Epic Two"},
+		Children: []*graph.Node{task},
+		Expanded: true,
+	}
+	task.Parents = []*graph.Node{epic1, epic2}
+
+	m := &App{
+		roots:     []*graph.Node{epic1, epic2},
+		textInput: textinput.New(),
+		keys:      DefaultKeyMap(),
+	}
+
+	// Filter to show task
+	m.setFilterText("task")
+	m.recalcVisibleRows()
+
+	// Find the task under epic2 (second occurrence)
+	taskUnderEpic2Idx := -1
+	for i, row := range m.visibleRows {
+		if row.Node.Issue.ID == "ab-task" && row.Parent != nil && row.Parent.Issue.ID == "ab-epic2" {
+			taskUnderEpic2Idx = i
+			break
+		}
+	}
+	if taskUnderEpic2Idx == -1 {
+		t.Fatalf("could not find task under epic2 in filtered results")
+	}
+	m.cursor = taskUnderEpic2Idx
+
+	// Clear filter
+	m.clearSearchFilter()
+
+	// Verify cursor is on task under epic2 specifically
+	currentRow := m.visibleRows[m.cursor]
+	if currentRow.Node.Issue.ID != "ab-task" {
+		t.Fatalf("expected cursor on task, got %s", currentRow.Node.Issue.ID)
+	}
+	if currentRow.Parent == nil || currentRow.Parent.Issue.ID != "ab-epic2" {
+		parentID := ""
+		if currentRow.Parent != nil {
+			parentID = currentRow.Parent.Issue.ID
+		}
+		t.Fatalf("expected task under epic2, got parent %s", parentID)
+	}
+}
+
+func TestClearFilterExpandsAncestors(t *testing.T) {
+	// Create deeply nested tree: level0 -> level1 -> level2 -> level3
+	level3 := &graph.Node{Issue: beads.FullIssue{ID: "ab-lvl3", Title: "Level Three"}}
+	level2 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-lvl2", Title: "Level Two"},
+		Children: []*graph.Node{level3},
+	}
+	level3.Parent = level2
+	level3.Parents = []*graph.Node{level2}
+	level1 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-lvl1", Title: "Level One"},
+		Children: []*graph.Node{level2},
+	}
+	level2.Parent = level1
+	level2.Parents = []*graph.Node{level1}
+	level0 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-lvl0", Title: "Level Zero"},
+		Children: []*graph.Node{level1},
+	}
+	level1.Parent = level0
+	level1.Parents = []*graph.Node{level0}
+
+	m := &App{
+		roots:     []*graph.Node{level0},
+		textInput: textinput.New(),
+		keys:      DefaultKeyMap(),
+	}
+
+	// Filter to show deepest node
+	m.setFilterText("three")
+	m.recalcVisibleRows()
+
+	// Select the deep node
+	for i, row := range m.visibleRows {
+		if row.Node.Issue.ID == "ab-lvl3" {
+			m.cursor = i
+			break
+		}
+	}
+
+	// Clear filter
+	m.clearSearchFilter()
+
+	// Verify all ancestors are expanded
+	if !level0.Expanded {
+		t.Fatalf("expected level0 to be expanded")
+	}
+	if !level1.Expanded {
+		t.Fatalf("expected level1 to be expanded")
+	}
+	if !level2.Expanded {
+		t.Fatalf("expected level2 to be expanded")
+	}
+
+	// Verify the deep node is in visible rows
+	found := false
+	for _, row := range m.visibleRows {
+		if row.Node.Issue.ID == "ab-lvl3" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected level3 to be visible after clearing filter")
+	}
+}
+
+func TestClearFilterPreservesManualExpansion(t *testing.T) {
+	// Create tree with collapsed child that has its own children
+	grandchild := &graph.Node{Issue: beads.FullIssue{ID: "ab-gc", Title: "Grandchild"}}
+	child := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-child", Title: "Child Node"},
+		Children: []*graph.Node{grandchild},
+		Expanded: false, // Initially collapsed
+	}
+	grandchild.Parent = child
+	grandchild.Parents = []*graph.Node{child}
+	root := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-root", Title: "Root Node"},
+		Children: []*graph.Node{child},
+		Expanded: true,
+	}
+	child.Parent = root
+	child.Parents = []*graph.Node{root}
+
+	m := &App{
+		roots:     []*graph.Node{root},
+		textInput: textinput.New(),
+		keys:      DefaultKeyMap(),
+	}
+
+	// Apply a filter that matches child
+	m.setFilterText("child")
+	m.recalcVisibleRows()
+
+	// Find child and manually expand it during filtering
+	for i, row := range m.visibleRows {
+		if row.Node.Issue.ID == "ab-child" {
+			m.cursor = i
+			m.expandNodeForView(row)
+			break
+		}
+	}
+	m.recalcVisibleRows()
+
+	// Clear filter
+	m.clearSearchFilter()
+
+	// Verify child remains expanded
+	if !child.Expanded {
+		t.Fatalf("expected child to remain expanded after clearing filter")
+	}
+}
+
+func TestClearFilterRootNodeSelection(t *testing.T) {
+	// Create simple tree with multiple roots
+	root1 := &graph.Node{Issue: beads.FullIssue{ID: "ab-root1", Title: "First Root"}}
+	root2 := &graph.Node{Issue: beads.FullIssue{ID: "ab-root2", Title: "Second Root"}}
+
+	m := &App{
+		roots:     []*graph.Node{root1, root2},
+		textInput: textinput.New(),
+		keys:      DefaultKeyMap(),
+	}
+
+	// Filter to show only second root
+	m.setFilterText("second")
+	m.recalcVisibleRows()
+
+	// Should only show root2
+	if len(m.visibleRows) != 1 {
+		t.Fatalf("expected 1 visible row during filter, got %d", len(m.visibleRows))
+	}
+	m.cursor = 0
+
+	// Clear filter
+	m.clearSearchFilter()
+
+	// Verify root2 is still selected
+	if m.visibleRows[m.cursor].Node.Issue.ID != "ab-root2" {
+		t.Fatalf("expected cursor on root2 after clearing filter, got %s",
+			m.visibleRows[m.cursor].Node.Issue.ID)
+	}
+}
+
 func TestFilteredTreeManualToggle(t *testing.T) {
 	buildApp := func() (*App, *graph.Node) {
 		leaf := &graph.Node{Issue: beads.FullIssue{ID: "ab-003", Title: "Leaf"}}
