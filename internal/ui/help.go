@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/lipgloss/table"
 )
 
 // helpSection represents a group of keybindings for display.
@@ -97,29 +96,23 @@ func renderHelpOverlay(keys KeyMap, width, height int) string {
 	)
 }
 
-// renderHelpSectionTable renders a single help section using lipgloss/table.
+// renderHelpSectionTable renders a single help section with styled rows.
 func renderHelpSectionTable(section helpSection) string {
-	// Create table with hidden borders for clean look
-	t := table.New().
-		Border(lipgloss.HiddenBorder()).
-		StyleFunc(func(row, col int) lipgloss.Style {
-			if col == 0 {
-				return styleHelpKey.Width(14)
-			}
-			return styleHelpDesc
-		}).
-		Rows(section.rows...)
-
-	// Build section with header and underline
+	// Build section header and underline
 	header := styleHelpSectionHeader.Render(section.title)
 	underline := styleHelpUnderline.Render(strings.Repeat("─", len(section.title)))
 
-	// Trim leading newline from table output (hidden border adds empty top row)
-	tableStr := strings.TrimPrefix(t.String(), "\n")
+	// Build rows manually to avoid table border spacing issues
+	var rowStrings []string
+	for _, row := range section.rows {
+		key := styleHelpKey.Width(14).Render(row[0])
+		desc := styleHelpDesc.Render(row[1])
+		rowStrings = append(rowStrings, key+desc)
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		underline,
-		tableStr,
+		strings.Join(rowStrings, "\n"),
 	)
 }
