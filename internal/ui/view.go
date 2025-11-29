@@ -205,26 +205,28 @@ func (m *App) renderStatusToast() string {
 		remaining = 0
 	}
 
-	// Line 1: New status as hero - icon + label in color
+	// Line 1: "Status → ◐ In Progress" - label + new status as hero
 	newIcon, newIconStyle, newTextStyle := statusPresentation(m.statusToastNewStatus)
-	heroLine := " " + newIconStyle.Render(newIcon) + " " + newTextStyle.Render(formatStatusLabel(m.statusToastNewStatus))
+	label := styleStatsDim.Render("Status →")
+	status := newIconStyle.Render(newIcon) + " " + newTextStyle.Render(formatStatusLabel(m.statusToastNewStatus))
+	heroLine := " " + label + " " + status
 
-	// Line 2: Muted transition hint + bead ID + countdown
-	oldIcon, _, _ := statusPresentation(m.statusToastOldStatus)
-	mutedOld := styleStatsDim.Render(oldIcon + "→")
+	// Line 2: bead ID + right-aligned countdown
 	beadID := styleID.Render(m.statusToastBeadID)
 	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
 
 	// Calculate spacing for right-aligned countdown
-	leftPart := " " + mutedOld + " " + beadID
-	minWidth := 24
+	leftPart := " " + beadID
+	heroWidth := lipgloss.Width(heroLine)
 	leftWidth := lipgloss.Width(leftPart)
 	countdownWidth := lipgloss.Width(countdownStr)
-	totalWidth := leftWidth + 2 + countdownWidth
-	if totalWidth < minWidth {
-		totalWidth = minWidth
+
+	// Match hero line width for alignment
+	targetWidth := heroWidth
+	if targetWidth < 20 {
+		targetWidth = 20
 	}
-	padding := totalWidth - leftWidth - countdownWidth
+	padding := targetWidth - leftWidth - countdownWidth
 	if padding < 2 {
 		padding = 2
 	}
