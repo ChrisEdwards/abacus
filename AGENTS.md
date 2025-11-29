@@ -3,6 +3,13 @@
 ## Testing Requirements
 Write tests for any changes made in this codebase. All code must build successfully, pass linting, and all tests must pass before marking a bead as closed.
 
+### TUI Design Principles
+When building UI features, follow the design principles in [`docs/UI_PRINCIPLES.md`](docs/UI_PRINCIPLES.md). This includes:
+- Visual hierarchy and consistent styling
+- Toast and overlay patterns
+- Context-aware footer hints
+- Hotkey design guidelines
+
 ### TUI Visual Testing
 When making UI changes, use `scripts/tui-test.sh` to verify the layout visually:
 ```bash
