@@ -75,14 +75,14 @@ func NewCreateOverlay(defaultParentID string, availableParents []ParentOption) *
 	// Parent filter input
 	pi := textinput.New()
 	pi.Placeholder = "(none) type to filter..."
-	pi.CharLimit = 50
-	pi.Width = 35
+	pi.CharLimit = 80
+	pi.Width = 40
 
-	// Pre-fill parent if default exists
+	// Pre-fill parent if default exists - show Display text (ID + title)
 	if defaultParentID != "" {
 		for _, p := range availableParents {
 			if p.ID == defaultParentID {
-				pi.SetValue(p.ID)
+				pi.SetValue(p.Display)
 				break
 			}
 		}
@@ -125,7 +125,7 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 			// If in dropdown, select the item
 			if m.showDropdown && len(m.filteredParents) > 0 {
 				selected := m.filteredParents[m.parentIndex]
-				m.parentInput.SetValue(selected.ID)
+				m.parentInput.SetValue(selected.Display)
 				m.showDropdown = false
 				return m, nil
 			}
@@ -470,8 +470,16 @@ func (m *CreateOverlay) Priority() int {
 // ParentID returns the current parent ID value.
 func (m *CreateOverlay) ParentID() string {
 	inputVal := strings.TrimSpace(m.parentInput.Value())
+	if inputVal == "" {
+		return ""
+	}
+	// Match against Display text or ID
 	for _, p := range m.parentOptions {
-		if p.ID == inputVal {
+		if p.Display == inputVal || p.ID == inputVal {
+			return p.ID
+		}
+		// Also match if input starts with the ID (partial match)
+		if strings.HasPrefix(inputVal, p.ID+" ") {
 			return p.ID
 		}
 	}

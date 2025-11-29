@@ -25,9 +25,13 @@ func TestNewCreateOverlay(t *testing.T) {
 		if overlay.defaultParent != "ab-123" {
 			t.Errorf("expected default parent 'ab-123', got %s", overlay.defaultParent)
 		}
-		// Parent input should be pre-filled
-		if overlay.parentInput.Value() != "ab-123" {
-			t.Errorf("expected parent input 'ab-123', got %s", overlay.parentInput.Value())
+		// Parent input should show Display text (ID + title)
+		if overlay.parentInput.Value() != "ab-123 Test" {
+			t.Errorf("expected parent input 'ab-123 Test', got %s", overlay.parentInput.Value())
+		}
+		// ParentID() should still return just the ID
+		if overlay.ParentID() != "ab-123" {
+			t.Errorf("expected ParentID() 'ab-123', got %s", overlay.ParentID())
 		}
 	})
 
