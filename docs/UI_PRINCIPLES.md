@@ -41,6 +41,27 @@ Use icons to clarify actions:
 - `↑↓` for navigation
 - `←→` for expand/collapse
 
+### 5. ASCII over Unicode for Selection States
+
+For checkboxes in lists, prefer ASCII:
+- `[ ]` / `[x]` - Clear at any size, any terminal font
+- Avoid `☐` / `☑` - Too small to distinguish in many fonts
+
+### 6. Cursor vs Selection State
+
+When lists have both a cursor AND checked/selected items:
+- **Cursor**: Background highlight (shows where you ARE)
+- **Selection state**: Foreground color change (shows what's CHECKED)
+
+Never use the same color for both - it creates confusion.
+
+### 7. Color-Coded Feedback
+
+Use universal color associations for instant comprehension:
+- **Green** (`styleLabelChecked`): Additions, positive changes (`+label`)
+- **Red** (`styleBlockedText`): Removals, negative changes (`-label`)
+- **Gray** (`styleStatsDim`): Neutral/supporting info
+
 ---
 
 ## Component Patterns
@@ -84,9 +105,10 @@ The footer changes based on active context:
 
 | Context | Hints |
 |---------|-------|
-| Tree view | `↑↓` Navigate, `←→` Expand, `s` ✎ Status |
+| Tree view | `↑↓` Navigate, `←→` Expand, `s` ✎ Status, `L` Labels |
 | Details view | `↑↓` Scroll |
 | Status overlay | `o` Open, `i` In Progress, `c` Close, `esc` Cancel |
+| Labels overlay | `↑↓` Navigate, `Space` Toggle, `⏎` Apply, `esc` Cancel |
 
 Implementation: Check `m.activeOverlay` or `m.focus` in `renderFooter()`.
 
@@ -107,6 +129,20 @@ Implementation: Check `m.activeOverlay` or `m.focus` in `renderFooter()`.
 - **Skip disabled options** in navigation
 - `Enter` to confirm
 - `Esc` to cancel (always)
+
+### Escape Key Hierarchy
+
+When overlays have filter/input fields, Escape should work in stages:
+1. **First Escape**: Clear the filter/input if populated
+2. **Second Escape**: Close the overlay
+
+This is intuitive - users expect Escape to "undo" the most recent action first.
+
+### Hotkey Conflict Avoidance
+
+- **Preserve vim `hjkl` navigation** - It's sacred in TUI apps
+- **Use Shift variants** when lowercase conflicts (e.g., `L` for Labels since `l` is vim-right)
+- **Avoid "second consonant" mnemonics** (e.g., `b` for la**B**els) - clever but not guessable
 
 ### Status Transitions
 
