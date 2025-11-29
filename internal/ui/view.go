@@ -205,43 +205,33 @@ func (m *App) renderStatusToast() string {
 		remaining = 0
 	}
 
-	// Build styled transition line: "Status Changed: ○ Open → ◐ In Progress"
-	headerStyle := lipgloss.NewStyle().Foreground(cWhite).Bold(true)
-	header := headerStyle.Render("Status Changed:")
-
-	oldIcon, oldIconStyle, oldTextStyle := statusPresentation(m.statusToastOldStatus)
+	// Line 1: New status as hero - icon + label in color
 	newIcon, newIconStyle, newTextStyle := statusPresentation(m.statusToastNewStatus)
+	heroLine := " " + newIconStyle.Render(newIcon) + " " + newTextStyle.Render(formatStatusLabel(m.statusToastNewStatus))
 
-	oldPart := oldIconStyle.Render(oldIcon) + " " + oldTextStyle.Render(formatStatusLabel(m.statusToastOldStatus))
-	newPart := newIconStyle.Render(newIcon) + " " + newTextStyle.Render(formatStatusLabel(m.statusToastNewStatus))
-	arrow := styleFooterMuted.Render(" → ")
+	// Line 2: Muted transition hint + bead ID + countdown
+	oldIcon, _, _ := statusPresentation(m.statusToastOldStatus)
+	mutedOld := styleStatsDim.Render(oldIcon + "→")
+	beadID := styleID.Render(m.statusToastBeadID)
+	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
 
-	titleLine := header + " " + oldPart + arrow + newPart
-
-	// Bead line: ID in gold, title in normal style (like tree view)
-	title := m.statusToastTitle
-	if len(title) > 35 {
-		title = title[:32] + "..."
+	// Calculate spacing for right-aligned countdown
+	leftPart := " " + mutedOld + " " + beadID
+	minWidth := 24
+	leftWidth := lipgloss.Width(leftPart)
+	countdownWidth := lipgloss.Width(countdownStr)
+	totalWidth := leftWidth + 2 + countdownWidth
+	if totalWidth < minWidth {
+		totalWidth = minWidth
 	}
-	beadLine := styleID.Render(m.statusToastBeadID) + " " + styleNormalText.Render(title)
-
-	countdownStr := fmt.Sprintf("[%ds]", remaining)
-
-	// Calculate toast width
-	toastWidth := lipgloss.Width(beadLine)
-	if w := lipgloss.Width(titleLine); w > toastWidth {
-		toastWidth = w
-	}
-	if toastWidth < 30 {
-		toastWidth = 30
+	padding := totalWidth - leftWidth - countdownWidth
+	if padding < 2 {
+		padding = 2
 	}
 
-	padding := toastWidth - lipgloss.Width(countdownStr)
-	if padding < 0 {
-		padding = 0
-	}
+	infoLine := leftPart + strings.Repeat(" ", padding) + countdownStr
 
-	content := fmt.Sprintf("%s\n%s\n%s%s", titleLine, beadLine, strings.Repeat(" ", padding), countdownStr)
+	content := heroLine + "\n" + infoLine
 	return styleSuccessToast.Render(content)
 }
 
