@@ -164,7 +164,7 @@ func TestRenderRefreshStatus(t *testing.T) {
 	t.Run("ErrorState", func(t *testing.T) {
 		m := &App{lastError: "connection failed"}
 		status := m.renderRefreshStatus()
-		if !strings.Contains(status, "⚠") || !strings.Contains(status, "error") {
+		if !strings.Contains(status, "⚠") || !strings.Contains(status, "Error") {
 			t.Errorf("expected error indicator, got: %q", status)
 		}
 	})
@@ -216,7 +216,7 @@ func TestRenderRefreshStatus(t *testing.T) {
 			refreshInFlight: true, // Also refreshing, but error should take priority
 		}
 		status := m.renderRefreshStatus()
-		if !strings.Contains(status, "error") {
+		if !strings.Contains(status, "Error") {
 			t.Errorf("expected error to take priority over refreshing, got: %q", status)
 		}
 	})

@@ -111,7 +111,7 @@ func (m *App) renderFooter() string {
 // Priority: error > refreshing > delta metrics (if changed) > empty
 func (m *App) renderRefreshStatus() string {
 	if m.lastError != "" {
-		return styleErrorIndicator.Render("⚠ Refresh error (!)")
+		return styleErrorIndicator.Render("⚠ Error (!)")
 	}
 	if m.refreshInFlight {
 		return styleFooterMuted.Render(m.spinner.View() + " Refreshing...")

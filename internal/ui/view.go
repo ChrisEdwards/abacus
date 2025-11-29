@@ -168,7 +168,7 @@ func (m *App) renderErrorToast() string {
 	errMsg := extractShortError(m.lastError, 80)
 
 	// Build content: title + bd error message + countdown right-aligned
-	titleLine := "⚠ Refresh Error"
+	titleLine := "⚠ Error"
 	bdErrLine := fmt.Sprintf("bd: %s", errMsg)
 	countdownStr := fmt.Sprintf("[%ds]", remaining)
 
@@ -338,35 +338,40 @@ func (m *App) renderCreateToast() string {
 		remaining = 0
 	}
 
-	// Line 1: "Created: Title..." - hero message
-	titleDisplay := m.createToastTitle
-	if len(titleDisplay) > 25 {
-		titleDisplay = titleDisplay[:22] + "..."
+	// Line 1: "✓ Created ab-xyz" - bead ID prominent
+	beadID := m.createToastBeadID
+	if beadID == "" {
+		beadID = "..."
 	}
-	label := styleStatsDim.Render("Created:")
-	heroLine := " " + label + " " + styleLabelChecked.Render(titleDisplay)
+	heroLine := " ✓ " + styleStatsDim.Render("Created") + " " + styleID.Render(beadID)
 
-	// Line 2: bead ID + right-aligned countdown
-	beadID := styleID.Render(m.createToastBeadID)
+	// Line 2: title (up to 45 chars) + right-aligned countdown
+	titleDisplay := m.createToastTitle
+	if len(titleDisplay) > 45 {
+		titleDisplay = titleDisplay[:42] + "..."
+	}
+	titlePart := " " + styleLabelChecked.Render(titleDisplay)
 	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
 
 	// Calculate spacing for right-aligned countdown
-	leftPart := " " + beadID
 	heroWidth := lipgloss.Width(heroLine)
-	leftWidth := lipgloss.Width(leftPart)
+	titleWidth := lipgloss.Width(titlePart)
 	countdownWidth := lipgloss.Width(countdownStr)
 
-	// Match hero line width for alignment
+	// Use wider of hero or title line for alignment
 	targetWidth := heroWidth
-	if targetWidth < 20 {
-		targetWidth = 20
+	if titleWidth > targetWidth {
+		targetWidth = titleWidth + countdownWidth + 2
 	}
-	padding := targetWidth - leftWidth - countdownWidth
+	if targetWidth < 30 {
+		targetWidth = 30
+	}
+	padding := targetWidth - titleWidth - countdownWidth
 	if padding < 2 {
 		padding = 2
 	}
 
-	infoLine := leftPart + strings.Repeat(" ", padding) + countdownStr
+	infoLine := titlePart + strings.Repeat(" ", padding) + countdownStr
 
 	content := heroLine + "\n" + infoLine
 	return styleSuccessToast.Render(content)
