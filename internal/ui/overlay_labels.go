@@ -69,6 +69,12 @@ func (m *LabelsOverlay) Update(msg tea.Msg) (*LabelsOverlay, tea.Cmd) {
 		// Handle special keys by type first (more reliable when textinput is focused)
 		switch msg.Type {
 		case tea.KeyEsc:
+			// If filter has text, clear it first; otherwise close overlay
+			if m.filterInput.Value() != "" {
+				m.filterInput.SetValue("")
+				m.cursor = 0
+				return m, nil
+			}
 			return m, func() tea.Msg { return LabelsCancelledMsg{} }
 		case tea.KeyEnter:
 			return m, m.confirm()
