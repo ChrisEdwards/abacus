@@ -190,6 +190,21 @@ var (
 
 	styleStatusBeadTitle = lipgloss.NewStyle().
 				Foreground(cLightGray)
+
+	// Labels overlay styles
+	styleLabelChecked = lipgloss.NewStyle().
+				Foreground(cCyan).
+				Bold(true)
+
+	styleLabelUnchecked = lipgloss.NewStyle().
+				Foreground(cWhite)
+
+	styleLabelSelected = lipgloss.NewStyle().
+				Foreground(cCyan).
+				Bold(true)
+
+	styleLabelNewOption = lipgloss.NewStyle().
+				Foreground(cGold)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {

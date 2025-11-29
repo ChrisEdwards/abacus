@@ -10,4 +10,6 @@ type Client interface {
 	UpdateStatus(ctx context.Context, issueID, newStatus string) error
 	Close(ctx context.Context, issueID string) error
 	Reopen(ctx context.Context, issueID string) error
+	AddLabel(ctx context.Context, issueID, label string) error
+	RemoveLabel(ctx context.Context, issueID, label string) error
 }

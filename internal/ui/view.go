@@ -94,9 +94,19 @@ func (m *App) View() string {
 		bottomBar = m.renderFooter()
 	}
 
-	// Status overlay takes visual precedence over help
+	// Overlays take visual precedence over help
 	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
 		overlay := m.statusOverlay.View()
+		centered := lipgloss.Place(m.width, m.height-2,
+			lipgloss.Center, lipgloss.Center,
+			overlay,
+			lipgloss.WithWhitespaceChars(" "),
+		)
+		return fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+	}
+
+	if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
+		overlay := m.labelsOverlay.View()
 		centered := lipgloss.Place(m.width, m.height-2,
 			lipgloss.Center, lipgloss.Center,
 			overlay,
@@ -111,8 +121,11 @@ func (m *App) View() string {
 		return fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
 	}
 
-	// Overlay toast on mainBody if visible (status toast > copy toast > error toast)
-	if toast := m.renderStatusToast(); toast != "" {
+	// Overlay toast on mainBody if visible (labels toast > status toast > copy toast > error toast)
+	if toast := m.renderLabelsToast(); toast != "" {
+		containerWidth := lipgloss.Width(mainBody)
+		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
+	} else if toast := m.renderStatusToast(); toast != "" {
 		containerWidth := lipgloss.Width(mainBody)
 		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
 	} else if toast := m.renderCopyToast(); toast != "" {
@@ -247,4 +260,55 @@ func statusPresentation(status string) (string, lipgloss.Style, lipgloss.Style) 
 	default: // open
 		return "○", styleIconOpen, styleNormalText
 	}
+}
+
+// renderLabelsToast renders the labels change success toast if visible.
+func (m *App) renderLabelsToast() string {
+	if !m.labelsToastVisible {
+		return ""
+	}
+	elapsed := time.Since(m.labelsToastStart)
+	remaining := 7 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Build summary: "+label1, +label2" or "-label1" or both
+	var parts []string
+	for _, l := range m.labelsToastAdded {
+		parts = append(parts, "+"+l)
+	}
+	for _, l := range m.labelsToastRemoved {
+		parts = append(parts, "-"+l)
+	}
+
+	// Line 1: "Labels: +ui, +bug, -old"
+	label := styleStatsDim.Render("Labels:")
+	changes := styleLabelChecked.Render(strings.Join(parts, ", "))
+	heroLine := " " + label + " " + changes
+
+	// Line 2: bead ID + right-aligned countdown
+	beadID := styleID.Render(m.labelsToastBeadID)
+	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
+
+	// Calculate spacing for right-aligned countdown
+	leftPart := " " + beadID
+	heroWidth := lipgloss.Width(heroLine)
+	leftWidth := lipgloss.Width(leftPart)
+	countdownWidth := lipgloss.Width(countdownStr)
+
+	// Match hero line width for alignment
+	targetWidth := heroWidth
+	if targetWidth < 20 {
+		targetWidth = 20
+	}
+	padding := targetWidth - leftWidth - countdownWidth
+	if padding < 2 {
+		padding = 2
+	}
+
+	infoLine := leftPart + strings.Repeat(" ", padding) + countdownStr
+
+	content := heroLine + "\n" + infoLine
+	return styleSuccessToast.Render(content)
 }

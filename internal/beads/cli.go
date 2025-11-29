@@ -140,6 +140,34 @@ func (c *cliClient) Reopen(ctx context.Context, issueID string) error {
 	return nil
 }
 
+func (c *cliClient) AddLabel(ctx context.Context, issueID, label string) error {
+	if strings.TrimSpace(issueID) == "" {
+		return fmt.Errorf("issue id is required for add label")
+	}
+	if strings.TrimSpace(label) == "" {
+		return fmt.Errorf("label is required for add label")
+	}
+	_, err := c.run(ctx, "label", "add", issueID, label)
+	if err != nil {
+		return fmt.Errorf("run bd label add: %w", err)
+	}
+	return nil
+}
+
+func (c *cliClient) RemoveLabel(ctx context.Context, issueID, label string) error {
+	if strings.TrimSpace(issueID) == "" {
+		return fmt.Errorf("issue id is required for remove label")
+	}
+	if strings.TrimSpace(label) == "" {
+		return fmt.Errorf("label is required for remove label")
+	}
+	_, err := c.run(ctx, "label", "remove", issueID, label)
+	if err != nil {
+		return fmt.Errorf("run bd label remove: %w", err)
+	}
+	return nil
+}
+
 func (c *cliClient) run(ctx context.Context, args ...string) ([]byte, error) {
 	finalArgs := make([]string, 0, len(c.dbArgs)+len(args))
 	finalArgs = append(finalArgs, c.dbArgs...)

@@ -2,7 +2,10 @@ package ui
 
 import (
 	"context"
+	"sort"
 	"time"
+
+	"abacus/internal/graph"
 
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/key"
@@ -50,12 +53,48 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, scheduleStatusToastTick()
+	case LabelsUpdatedMsg:
+		m.activeOverlay = OverlayNone
+		m.labelsOverlay = nil
+		if len(msg.Added) > 0 || len(msg.Removed) > 0 {
+			m.displayLabelsToast(msg.IssueID, msg.Added, msg.Removed)
+			return m, tea.Batch(m.executeLabelsUpdate(msg), scheduleLabelsToastTick())
+		}
+		return m, nil
+	case LabelsCancelledMsg:
+		m.activeOverlay = OverlayNone
+		m.labelsOverlay = nil
+		return m, nil
+	case labelUpdateCompleteMsg:
+		if msg.err != nil {
+			m.lastError = msg.err.Error()
+			m.showErrorToast = true
+			m.errorToastStart = time.Now()
+			return m, scheduleErrorToastTick()
+		}
+		return m, m.forceRefresh()
+	case labelsToastTickMsg:
+		if !m.labelsToastVisible {
+			return m, nil
+		}
+		if time.Since(m.labelsToastStart) >= 7*time.Second {
+			m.labelsToastVisible = false
+			return m, nil
+		}
+		return m, scheduleLabelsToastTick()
 	}
 
 	// Delegate to status overlay if active
 	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
 		var cmd tea.Cmd
 		m.statusOverlay, cmd = m.statusOverlay.Update(msg)
+		return m, cmd
+	}
+
+	// Delegate to labels overlay if active
+	if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
+		var cmd tea.Cmd
+		m.labelsOverlay, cmd = m.labelsOverlay.Update(msg)
 		return m, cmd
 	}
 
@@ -294,6 +333,18 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				row := m.visibleRows[m.cursor]
 				return m, m.executeClose(row.Node.Issue.ID)
 			}
+		case key.Matches(msg, m.keys.Labels):
+			if len(m.visibleRows) > 0 {
+				row := m.visibleRows[m.cursor]
+				allLabels := m.getAllLabels()
+				m.labelsOverlay = NewLabelsOverlay(
+					row.Node.Issue.ID,
+					row.Node.Issue.Labels,
+					allLabels,
+				)
+				m.activeOverlay = OverlayLabels
+			}
+			return m, nil
 		}
 	default:
 		if m.ShowDetails && m.focus == FocusDetails {
@@ -484,4 +535,66 @@ func formatStatusLabel(status string) string {
 	default:
 		return status
 	}
+}
+
+// Message types for label operations
+type labelUpdateCompleteMsg struct {
+	err error
+}
+
+type labelsToastTickMsg struct{}
+
+func scheduleLabelsToastTick() tea.Cmd {
+	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
+		return labelsToastTickMsg{}
+	})
+}
+
+// getAllLabels collects all unique labels from all issues in the tree.
+func (m *App) getAllLabels() []string {
+	labelSet := make(map[string]bool)
+	var collectLabels func([]*graph.Node)
+	collectLabels = func(nodes []*graph.Node) {
+		for _, n := range nodes {
+			for _, l := range n.Issue.Labels {
+				labelSet[l] = true
+			}
+			collectLabels(n.Children)
+		}
+	}
+	collectLabels(m.roots)
+
+	labels := make([]string, 0, len(labelSet))
+	for l := range labelSet {
+		labels = append(labels, l)
+	}
+	sort.Strings(labels)
+	return labels
+}
+
+// executeLabelsUpdate runs the bd label add/remove commands asynchronously.
+func (m *App) executeLabelsUpdate(msg LabelsUpdatedMsg) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		for _, label := range msg.Added {
+			if err := m.client.AddLabel(ctx, msg.IssueID, label); err != nil {
+				return labelUpdateCompleteMsg{err: err}
+			}
+		}
+		for _, label := range msg.Removed {
+			if err := m.client.RemoveLabel(ctx, msg.IssueID, label); err != nil {
+				return labelUpdateCompleteMsg{err: err}
+			}
+		}
+		return labelUpdateCompleteMsg{err: nil}
+	}
+}
+
+// displayLabelsToast displays a success toast for label changes.
+func (m *App) displayLabelsToast(issueID string, added, removed []string) {
+	m.labelsToastBeadID = issueID
+	m.labelsToastAdded = added
+	m.labelsToastRemoved = removed
+	m.labelsToastVisible = true
+	m.labelsToastStart = time.Now()
 }

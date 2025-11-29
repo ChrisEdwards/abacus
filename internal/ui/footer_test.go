@@ -24,7 +24,7 @@ func TestKeyPill(t *testing.T) {
 
 func TestRenderFooter(t *testing.T) {
 	m := &App{
-		width:    100,
+		width:    120,
 		repoName: "abacus",
 		focus:    FocusTree,
 	}
@@ -148,8 +148,8 @@ func TestFooterHintSlices(t *testing.T) {
 	})
 
 	t.Run("TreeHintsCount", func(t *testing.T) {
-		if len(treeFooterHints) != 3 {
-			t.Errorf("expected 3 tree hints, got %d", len(treeFooterHints))
+		if len(treeFooterHints) != 4 {
+			t.Errorf("expected 4 tree hints, got %d", len(treeFooterHints))
 		}
 	})
 

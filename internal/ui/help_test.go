@@ -72,9 +72,9 @@ func TestGetHelpSections(t *testing.T) {
 		}
 	})
 
-	t.Run("ActionsHas8Rows", func(t *testing.T) {
-		if len(sections[1].rows) != 8 {
-			t.Errorf("Actions section: expected 8 rows, got %d", len(sections[1].rows))
+	t.Run("ActionsHas9Rows", func(t *testing.T) {
+		if len(sections[1].rows) != 9 {
+			t.Errorf("Actions section: expected 9 rows, got %d", len(sections[1].rows))
 		}
 	})
 

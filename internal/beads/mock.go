@@ -17,6 +17,8 @@ type MockClient struct {
 	UpdateStatusFn func(context.Context, string, string) error
 	CloseFn        func(context.Context, string) error
 	ReopenFn       func(context.Context, string) error
+	AddLabelFn     func(context.Context, string, string) error
+	RemoveLabelFn  func(context.Context, string, string) error
 
 	mu                      sync.Mutex
 	ListCallCount           int
@@ -25,11 +27,15 @@ type MockClient struct {
 	UpdateStatusCallCount   int
 	CloseCallCount          int
 	ReopenCallCount         int
+	AddLabelCallCount       int
+	RemoveLabelCallCount    int
 	ShowCallArgs            [][]string
 	CommentIDs              []string
 	UpdateStatusCallArgs    [][]string // [issueID, newStatus]
 	CloseCallArgs           []string
 	ReopenCallArgs          []string
+	AddLabelCallArgs        [][]string // [issueID, label]
+	RemoveLabelCallArgs     [][]string // [issueID, label]
 }
 
 // NewMockClient returns a MockClient with zeroed handlers.
@@ -112,4 +118,30 @@ func (m *MockClient) Reopen(ctx context.Context, issueID string) error {
 		return nil // Default to no-op for tests
 	}
 	return m.ReopenFn(ctx, issueID)
+}
+
+// AddLabel invokes the configured stub or returns nil (no-op by default).
+func (m *MockClient) AddLabel(ctx context.Context, issueID, label string) error {
+	m.mu.Lock()
+	m.AddLabelCallCount++
+	m.AddLabelCallArgs = append(m.AddLabelCallArgs, []string{issueID, label})
+	m.mu.Unlock()
+
+	if m.AddLabelFn == nil {
+		return nil // Default to no-op for tests
+	}
+	return m.AddLabelFn(ctx, issueID, label)
+}
+
+// RemoveLabel invokes the configured stub or returns nil (no-op by default).
+func (m *MockClient) RemoveLabel(ctx context.Context, issueID, label string) error {
+	m.mu.Lock()
+	m.RemoveLabelCallCount++
+	m.RemoveLabelCallArgs = append(m.RemoveLabelCallArgs, []string{issueID, label})
+	m.mu.Unlock()
+
+	if m.RemoveLabelFn == nil {
+		return nil // Default to no-op for tests
+	}
+	return m.RemoveLabelFn(ctx, issueID, label)
 }

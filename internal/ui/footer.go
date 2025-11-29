@@ -28,6 +28,7 @@ var treeFooterHints = []footerHint{
 	{"↑↓", "Navigate"},
 	{"←→", "Expand"},
 	{"s", "✎ Status"},
+	{"L", "Labels"},
 }
 
 var detailsFooterHints = []footerHint{
@@ -41,14 +42,24 @@ var statusOverlayFooterHints = []footerHint{
 	{"esc", "Cancel"},
 }
 
+var labelsOverlayFooterHints = []footerHint{
+	{"↑↓", "Navigate"},
+	{"Space", "Toggle"},
+	{"⏎", "Apply"},
+	{"esc", "Cancel"},
+}
+
 // renderFooter renders the footer bar with pill-style key hints.
 func (m *App) renderFooter() string {
 	var hints []footerHint
 
-	// Status overlay gets its own footer (no global hints)
-	if m.activeOverlay == OverlayStatus {
+	// Overlays get their own footer (no global hints)
+	switch m.activeOverlay {
+	case OverlayStatus:
 		hints = statusOverlayFooterHints
-	} else {
+	case OverlayLabels:
+		hints = labelsOverlayFooterHints
+	default:
 		// Context-specific keys (shown first, leftmost)
 		switch m.focus {
 		case FocusTree:

@@ -29,6 +29,7 @@ type KeyMap struct {
 	Status    key.Binding
 	StartWork key.Binding
 	CloseBead key.Binding
+	Labels    key.Binding
 
 	// Search
 	Search    key.Binding
@@ -119,6 +120,10 @@ func DefaultKeyMap() KeyMap {
 		CloseBead: key.NewBinding(
 			key.WithKeys("x"),
 			key.WithHelp("x", "Close bead"),
+		),
+		Labels: key.NewBinding(
+			key.WithKeys("L"),
+			key.WithHelp("L", "Manage labels"),
 		),
 
 		// Search
