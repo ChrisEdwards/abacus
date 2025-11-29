@@ -193,14 +193,15 @@ var (
 
 	// Labels overlay styles
 	styleLabelChecked = lipgloss.NewStyle().
-				Foreground(cCyan).
+				Foreground(cNeonGreen).
 				Bold(true)
 
 	styleLabelUnchecked = lipgloss.NewStyle().
 				Foreground(cWhite)
 
-	styleLabelSelected = lipgloss.NewStyle().
-				Foreground(cCyan).
+	styleLabelCursor = lipgloss.NewStyle().
+				Background(cHighlight).
+				Foreground(cWhite).
 				Bold(true)
 
 	styleLabelNewOption = lipgloss.NewStyle().

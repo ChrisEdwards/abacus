@@ -31,8 +31,9 @@ type LabelsCancelledMsg struct{}
 // NewLabelsOverlay creates a new labels overlay for the given issue.
 func NewLabelsOverlay(issueID string, currentLabels, allProjectLabels []string) *LabelsOverlay {
 	ti := textinput.New()
-	ti.Placeholder = "filter or add..."
-	ti.Prompt = "/ "
+	ti.Placeholder = ""
+	ti.Prompt = ""
+	ti.CharLimit = 50
 	ti.Focus()
 
 	selected := make(map[string]bool)
@@ -231,8 +232,13 @@ func (m *LabelsOverlay) View() string {
 	b.WriteString(divider)
 	b.WriteString("\n")
 
-	// Filter input
-	b.WriteString(m.filterInput.View())
+	// Filter input - show static prompt when empty to avoid textinput display bugs
+	filterValue := m.filterInput.Value()
+	if filterValue == "" {
+		b.WriteString(styleStatsDim.Render("/ type to filter..."))
+	} else {
+		b.WriteString("/ " + filterValue)
+	}
 	b.WriteString("\n")
 
 	// Another divider
@@ -246,17 +252,17 @@ func (m *LabelsOverlay) View() string {
 		b.WriteString("\n")
 	} else {
 		for i, label := range filtered {
-			checkbox := "☐"
+			checkbox := "[ ]"
 			style := styleLabelUnchecked
 			if m.selected[label] {
-				checkbox = "☑"
+				checkbox = "[x]"
 				style = styleLabelChecked
 			}
 
 			line := "  " + checkbox + " " + label
 			if i == m.cursor {
-				line += "  ←"
-				style = styleLabelSelected
+				// Cursor gets highlight background, overrides other styling
+				style = styleLabelCursor
 			}
 
 			b.WriteString(style.Render(line))
@@ -269,8 +275,8 @@ func (m *LabelsOverlay) View() string {
 			line := "  + Add \"" + newLabel + "\""
 			style := styleLabelNewOption
 			if m.cursor == len(filtered) {
-				line += "  ←"
-				style = styleLabelSelected
+				// Cursor gets highlight background
+				style = styleLabelCursor
 			}
 			b.WriteString(style.Render(line))
 			b.WriteString("\n")
