@@ -27,6 +27,7 @@ var globalFooterHints = []footerHint{
 var treeFooterHints = []footerHint{
 	{"↑↓", "Navigate"},
 	{"←→", "Expand"},
+	{"s", "Status"},
 }
 
 var detailsFooterHints = []footerHint{

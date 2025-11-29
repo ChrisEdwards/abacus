@@ -148,8 +148,8 @@ func TestFooterHintSlices(t *testing.T) {
 	})
 
 	t.Run("TreeHintsCount", func(t *testing.T) {
-		if len(treeFooterHints) != 2 {
-			t.Errorf("expected 2 tree hints, got %d", len(treeFooterHints))
+		if len(treeFooterHints) != 3 {
+			t.Errorf("expected 3 tree hints, got %d", len(treeFooterHints))
 		}
 	})
 
