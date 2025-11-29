@@ -274,17 +274,18 @@ func (m *App) renderLabelsToast() string {
 	}
 
 	// Build summary: "+label1, +label2" or "-label1" or both
+	// Added labels in green, removed labels in red
 	var parts []string
 	for _, l := range m.labelsToastAdded {
-		parts = append(parts, "+"+l)
+		parts = append(parts, styleLabelChecked.Render("+"+l))
 	}
 	for _, l := range m.labelsToastRemoved {
-		parts = append(parts, "-"+l)
+		parts = append(parts, styleBlockedText.Render("-"+l))
 	}
 
 	// Line 1: "Labels: +ui, +bug, -old"
 	label := styleStatsDim.Render("Labels:")
-	changes := styleLabelChecked.Render(strings.Join(parts, ", "))
+	changes := strings.Join(parts, styleStatsDim.Render(", "))
 	heroLine := " " + label + " " + changes
 
 	// Line 2: bead ID + right-aligned countdown
