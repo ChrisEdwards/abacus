@@ -16,12 +16,14 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case StatusChangedMsg:
 		m.activeOverlay = OverlayNone
 		issueTitle := ""
+		oldStatus := ""
 		if m.statusOverlay != nil {
 			issueTitle = m.statusOverlay.issueTitle
+			oldStatus = m.statusOverlay.currentStatus
 		}
 		m.statusOverlay = nil
 		if msg.NewStatus != "" {
-			m.displayStatusToast(msg.IssueID, issueTitle, msg.NewStatus)
+			m.displayStatusToast(msg.IssueID, issueTitle, oldStatus, msg.NewStatus)
 			return m, tea.Batch(m.executeStatusChangeCmd(msg.IssueID, msg.NewStatus), scheduleStatusToastTick())
 		}
 		return m, nil
@@ -283,12 +285,12 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.StartWork):
 			if len(m.visibleRows) > 0 {
 				row := m.visibleRows[m.cursor]
-				return m, m.executeStatusChange(row.Node.Issue.ID, row.Node.Issue.Title, "in_progress")
+				return m, m.executeStatusChange(row.Node.Issue.ID, row.Node.Issue.Title, row.Node.Issue.Status, "in_progress")
 			}
 		case key.Matches(msg, m.keys.CloseBead):
 			if len(m.visibleRows) > 0 {
 				row := m.visibleRows[m.cursor]
-				return m, m.executeClose(row.Node.Issue.ID, row.Node.Issue.Title)
+				return m, m.executeClose(row.Node.Issue.ID, row.Node.Issue.Title, row.Node.Issue.Status)
 			}
 		}
 	default:
@@ -429,8 +431,8 @@ func scheduleStatusToastTick() tea.Cmd {
 }
 
 // executeStatusChange runs the bd update command asynchronously and shows toast.
-func (m *App) executeStatusChange(issueID, issueTitle, newStatus string) tea.Cmd {
-	m.displayStatusToast(issueID, issueTitle, newStatus)
+func (m *App) executeStatusChange(issueID, issueTitle, oldStatus, newStatus string) tea.Cmd {
+	m.displayStatusToast(issueID, issueTitle, oldStatus, newStatus)
 	return tea.Batch(m.executeStatusChangeCmd(issueID, newStatus), scheduleStatusToastTick())
 }
 
@@ -443,8 +445,8 @@ func (m *App) executeStatusChangeCmd(issueID, newStatus string) tea.Cmd {
 }
 
 // executeClose runs the bd close command asynchronously.
-func (m *App) executeClose(issueID, issueTitle string) tea.Cmd {
-	m.displayStatusToast(issueID, issueTitle, "closed")
+func (m *App) executeClose(issueID, issueTitle, oldStatus string) tea.Cmd {
+	m.displayStatusToast(issueID, issueTitle, oldStatus, "closed")
 	closeCmd := func() tea.Msg {
 		err := m.client.Close(context.Background(), issueID)
 		return statusUpdateCompleteMsg{err: err}
@@ -453,8 +455,9 @@ func (m *App) executeClose(issueID, issueTitle string) tea.Cmd {
 }
 
 // displayStatusToast displays a success toast for status changes.
-func (m *App) displayStatusToast(issueID, issueTitle, newStatus string) {
-	m.statusToastMessage = formatStatusLabel(newStatus)
+func (m *App) displayStatusToast(issueID, issueTitle, oldStatus, newStatus string) {
+	m.statusToastOldStatus = oldStatus
+	m.statusToastNewStatus = newStatus
 	m.statusToastBeadID = issueID
 	m.statusToastTitle = issueTitle
 	m.statusToastVisible = true

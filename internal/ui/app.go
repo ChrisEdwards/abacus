@@ -98,11 +98,12 @@ type App struct {
 	copiedBeadID   string
 
 	// Status toast state
-	statusToastVisible bool
-	statusToastStart   time.Time
-	statusToastMessage string
-	statusToastBeadID  string
-	statusToastTitle   string
+	statusToastVisible   bool
+	statusToastStart     time.Time
+	statusToastOldStatus string
+	statusToastNewStatus string
+	statusToastBeadID    string
+	statusToastTitle     string
 
 	// Help overlay state
 	showHelp bool

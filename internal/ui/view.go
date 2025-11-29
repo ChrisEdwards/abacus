@@ -196,7 +196,7 @@ func (m *App) renderCopyToast() string {
 
 // renderStatusToast renders the status change success toast if visible.
 func (m *App) renderStatusToast() string {
-	if !m.statusToastVisible || m.statusToastMessage == "" {
+	if !m.statusToastVisible || m.statusToastNewStatus == "" {
 		return ""
 	}
 	elapsed := time.Since(m.statusToastStart)
@@ -205,15 +205,25 @@ func (m *App) renderStatusToast() string {
 		remaining = 0
 	}
 
-	// Build content with bead context
-	titleLine := fmt.Sprintf("Status -> %s", m.statusToastMessage)
+	// Build styled transition line: "Status Changed: ○ Open → ◐ In Progress"
+	headerStyle := lipgloss.NewStyle().Foreground(cWhite).Bold(true)
+	header := headerStyle.Render("Status Changed:")
 
-	// Truncate title if too long
+	oldIcon, oldIconStyle, oldTextStyle := statusPresentation(m.statusToastOldStatus)
+	newIcon, newIconStyle, newTextStyle := statusPresentation(m.statusToastNewStatus)
+
+	oldPart := oldIconStyle.Render(oldIcon) + " " + oldTextStyle.Render(formatStatusLabel(m.statusToastOldStatus))
+	newPart := newIconStyle.Render(newIcon) + " " + newTextStyle.Render(formatStatusLabel(m.statusToastNewStatus))
+	arrow := styleFooterMuted.Render(" → ")
+
+	titleLine := header + " " + oldPart + arrow + newPart
+
+	// Bead line: ID in gold, title in normal style (like tree view)
 	title := m.statusToastTitle
 	if len(title) > 35 {
 		title = title[:32] + "..."
 	}
-	beadLine := fmt.Sprintf("%s %s", m.statusToastBeadID, title)
+	beadLine := styleID.Render(m.statusToastBeadID) + " " + styleNormalText.Render(title)
 
 	countdownStr := fmt.Sprintf("[%ds]", remaining)
 
@@ -226,11 +236,23 @@ func (m *App) renderStatusToast() string {
 		toastWidth = 30
 	}
 
-	padding := toastWidth - len(countdownStr)
+	padding := toastWidth - lipgloss.Width(countdownStr)
 	if padding < 0 {
 		padding = 0
 	}
 
 	content := fmt.Sprintf("%s\n%s\n%s%s", titleLine, beadLine, strings.Repeat(" ", padding), countdownStr)
 	return styleSuccessToast.Render(content)
+}
+
+// statusPresentation returns icon, icon style, and text style for a status.
+func statusPresentation(status string) (string, lipgloss.Style, lipgloss.Style) {
+	switch status {
+	case "in_progress":
+		return "◐", styleIconInProgress, styleInProgressText
+	case "closed":
+		return "✔", styleIconDone, styleDoneText
+	default: // open
+		return "○", styleIconOpen, styleNormalText
+	}
 }
