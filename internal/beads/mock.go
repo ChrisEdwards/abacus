@@ -16,6 +16,7 @@ type MockClient struct {
 	CommentsFn     func(context.Context, string) ([]Comment, error)
 	UpdateStatusFn func(context.Context, string, string) error
 	CloseFn        func(context.Context, string) error
+	ReopenFn       func(context.Context, string) error
 
 	mu                      sync.Mutex
 	ListCallCount           int
@@ -23,10 +24,12 @@ type MockClient struct {
 	CommentsCallCount       int
 	UpdateStatusCallCount   int
 	CloseCallCount          int
+	ReopenCallCount         int
 	ShowCallArgs            [][]string
 	CommentIDs              []string
 	UpdateStatusCallArgs    [][]string // [issueID, newStatus]
 	CloseCallArgs           []string
+	ReopenCallArgs          []string
 }
 
 // NewMockClient returns a MockClient with zeroed handlers.
@@ -96,4 +99,17 @@ func (m *MockClient) Close(ctx context.Context, issueID string) error {
 		return nil // Default to no-op for tests
 	}
 	return m.CloseFn(ctx, issueID)
+}
+
+// Reopen invokes the configured stub or returns nil (no-op by default).
+func (m *MockClient) Reopen(ctx context.Context, issueID string) error {
+	m.mu.Lock()
+	m.ReopenCallCount++
+	m.ReopenCallArgs = append(m.ReopenCallArgs, issueID)
+	m.mu.Unlock()
+
+	if m.ReopenFn == nil {
+		return nil // Default to no-op for tests
+	}
+	return m.ReopenFn(ctx, issueID)
 }

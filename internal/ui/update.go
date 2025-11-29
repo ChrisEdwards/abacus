@@ -15,9 +15,17 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case StatusChangedMsg:
 		m.activeOverlay = OverlayNone
+		oldStatus := ""
+		if m.statusOverlay != nil {
+			oldStatus = m.statusOverlay.currentStatus
+		}
 		m.statusOverlay = nil
 		if msg.NewStatus != "" {
 			m.displayStatusToast(msg.IssueID, msg.NewStatus)
+			// Use Reopen command when transitioning from closed to open
+			if oldStatus == "closed" && msg.NewStatus == "open" {
+				return m, tea.Batch(m.executeReopenCmd(msg.IssueID), scheduleStatusToastTick())
+			}
 			return m, tea.Batch(m.executeStatusChangeCmd(msg.IssueID, msg.NewStatus), scheduleStatusToastTick())
 		}
 		return m, nil
@@ -446,6 +454,14 @@ func (m *App) executeClose(issueID string) tea.Cmd {
 		return statusUpdateCompleteMsg{err: err}
 	}
 	return tea.Batch(closeCmd, scheduleStatusToastTick())
+}
+
+// executeReopenCmd runs the bd reopen command asynchronously.
+func (m *App) executeReopenCmd(issueID string) tea.Cmd {
+	return func() tea.Msg {
+		err := m.client.Reopen(context.Background(), issueID)
+		return statusUpdateCompleteMsg{err: err}
+	}
 }
 
 // displayStatusToast displays a success toast for status changes.

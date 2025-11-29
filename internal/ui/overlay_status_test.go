@@ -31,12 +31,13 @@ func TestNewStatusOverlay(t *testing.T) {
 		}
 	})
 
-	t.Run("ClosedStatusDisablesTransitions", func(t *testing.T) {
+	t.Run("ClosedStatusAllowsReopen", func(t *testing.T) {
 		overlay := NewStatusOverlay("test-123", "Test Issue", "closed")
-		// From closed, cannot transition to open or in_progress
-		if !overlay.options[0].disabled {
-			t.Error("expected open to be disabled when current status is closed")
+		// From closed, can reopen (transition to open)
+		if overlay.options[0].disabled {
+			t.Error("expected open to NOT be disabled (reopen allowed)")
 		}
+		// Cannot go directly to in_progress from closed
 		if !overlay.options[1].disabled {
 			t.Error("expected in_progress to be disabled when current status is closed")
 		}
@@ -107,12 +108,12 @@ func TestStatusOverlayNavigation(t *testing.T) {
 
 	t.Run("SkipsDisabledOnDown", func(t *testing.T) {
 		overlay := NewStatusOverlay("test-123", "Test", "closed")
-		// From closed: open=disabled, in_progress=disabled, closed=enabled
+		// From closed: open=enabled (reopen), in_progress=disabled, closed=enabled
 		overlay.selected = 2 // Start at closed
 		overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-		// Should stay at 2 since 0 and 1 are disabled
-		if overlay.selected != 2 {
-			t.Errorf("expected selected 2 (skip disabled), got %d", overlay.selected)
+		// Should go to 0 (open) skipping disabled in_progress at 1
+		if overlay.selected != 0 {
+			t.Errorf("expected selected 0 (skip disabled in_progress), got %d", overlay.selected)
 		}
 	})
 }

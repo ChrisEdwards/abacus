@@ -129,6 +129,17 @@ func (c *cliClient) Close(ctx context.Context, issueID string) error {
 	return nil
 }
 
+func (c *cliClient) Reopen(ctx context.Context, issueID string) error {
+	if strings.TrimSpace(issueID) == "" {
+		return fmt.Errorf("issue id is required for reopen")
+	}
+	_, err := c.run(ctx, "reopen", issueID)
+	if err != nil {
+		return fmt.Errorf("run bd reopen: %w", err)
+	}
+	return nil
+}
+
 func (c *cliClient) run(ctx context.Context, args ...string) ([]byte, error) {
 	finalArgs := make([]string, 0, len(c.dbArgs)+len(args))
 	finalArgs = append(finalArgs, c.dbArgs...)
