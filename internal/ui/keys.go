@@ -122,8 +122,8 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("x", "Close bead"),
 		),
 		Labels: key.NewBinding(
-			key.WithKeys("l"),
-			key.WithHelp("l", "Manage labels"),
+			key.WithKeys("L"),
+			key.WithHelp("L", "Manage labels"),
 		),
 
 		// Search
