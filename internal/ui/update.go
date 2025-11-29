@@ -22,7 +22,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusOverlay = nil
 		if msg.NewStatus != "" {
 			m.displayStatusToast(msg.IssueID, issueTitle, msg.NewStatus)
-			return m, m.executeStatusChangeCmd(msg.IssueID, msg.NewStatus)
+			return m, tea.Batch(m.executeStatusChangeCmd(msg.IssueID, msg.NewStatus), scheduleStatusToastTick())
 		}
 		return m, nil
 	case StatusCancelledMsg:
@@ -431,7 +431,7 @@ func scheduleStatusToastTick() tea.Cmd {
 // executeStatusChange runs the bd update command asynchronously and shows toast.
 func (m *App) executeStatusChange(issueID, issueTitle, newStatus string) tea.Cmd {
 	m.displayStatusToast(issueID, issueTitle, newStatus)
-	return m.executeStatusChangeCmd(issueID, newStatus)
+	return tea.Batch(m.executeStatusChangeCmd(issueID, newStatus), scheduleStatusToastTick())
 }
 
 // executeStatusChangeCmd runs the bd update command asynchronously without toast.
@@ -445,10 +445,11 @@ func (m *App) executeStatusChangeCmd(issueID, newStatus string) tea.Cmd {
 // executeClose runs the bd close command asynchronously.
 func (m *App) executeClose(issueID, issueTitle string) tea.Cmd {
 	m.displayStatusToast(issueID, issueTitle, "closed")
-	return func() tea.Msg {
+	closeCmd := func() tea.Msg {
 		err := m.client.Close(context.Background(), issueID)
 		return statusUpdateCompleteMsg{err: err}
 	}
+	return tea.Batch(closeCmd, scheduleStatusToastTick())
 }
 
 // displayStatusToast displays a success toast for status changes.
