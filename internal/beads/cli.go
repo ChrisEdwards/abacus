@@ -213,9 +213,9 @@ func (c *cliClient) AddDependency(ctx context.Context, fromID, toID, depType str
 	if strings.TrimSpace(depType) == "" {
 		depType = "blocks"
 	}
-	_, err := c.run(ctx, "dep", fromID, toID, "--type="+depType)
+	_, err := c.run(ctx, "dep", "add", fromID, toID, "--type", depType)
 	if err != nil {
-		return fmt.Errorf("run bd dep: %w", err)
+		return fmt.Errorf("run bd dep add: %w", err)
 	}
 	return nil
 }
