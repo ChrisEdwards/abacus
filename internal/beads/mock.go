@@ -11,14 +11,16 @@ var ErrMockNotImplemented = errors.New("beads.MockClient: method not implemented
 
 // MockClient is a test double for the Beads client interface.
 type MockClient struct {
-	ListFn         func(context.Context) ([]LiteIssue, error)
-	ShowFn         func(context.Context, []string) ([]FullIssue, error)
-	CommentsFn     func(context.Context, string) ([]Comment, error)
-	UpdateStatusFn func(context.Context, string, string) error
-	CloseFn        func(context.Context, string) error
-	ReopenFn       func(context.Context, string) error
-	AddLabelFn     func(context.Context, string, string) error
-	RemoveLabelFn  func(context.Context, string, string) error
+	ListFn          func(context.Context) ([]LiteIssue, error)
+	ShowFn          func(context.Context, []string) ([]FullIssue, error)
+	CommentsFn      func(context.Context, string) ([]Comment, error)
+	UpdateStatusFn  func(context.Context, string, string) error
+	CloseFn         func(context.Context, string) error
+	ReopenFn        func(context.Context, string) error
+	AddLabelFn      func(context.Context, string, string) error
+	RemoveLabelFn   func(context.Context, string, string) error
+	CreateFn        func(context.Context, string, string, int) (string, error)
+	AddDependencyFn func(context.Context, string, string, string) error
 
 	mu                      sync.Mutex
 	ListCallCount           int
@@ -29,6 +31,8 @@ type MockClient struct {
 	ReopenCallCount         int
 	AddLabelCallCount       int
 	RemoveLabelCallCount    int
+	CreateCallCount         int
+	AddDependencyCallCount  int
 	ShowCallArgs            [][]string
 	CommentIDs              []string
 	UpdateStatusCallArgs    [][]string // [issueID, newStatus]
@@ -36,6 +40,15 @@ type MockClient struct {
 	ReopenCallArgs          []string
 	AddLabelCallArgs        [][]string // [issueID, label]
 	RemoveLabelCallArgs     [][]string // [issueID, label]
+	CreateCallArgs          []CreateCallArg
+	AddDependencyCallArgs   [][]string // [fromID, toID, depType]
+}
+
+// CreateCallArg captures arguments passed to Create.
+type CreateCallArg struct {
+	Title     string
+	IssueType string
+	Priority  int
 }
 
 // NewMockClient returns a MockClient with zeroed handlers.
@@ -144,4 +157,34 @@ func (m *MockClient) RemoveLabel(ctx context.Context, issueID, label string) err
 		return nil // Default to no-op for tests
 	}
 	return m.RemoveLabelFn(ctx, issueID, label)
+}
+
+// Create invokes the configured stub or returns a mock bead ID.
+func (m *MockClient) Create(ctx context.Context, title, issueType string, priority int) (string, error) {
+	m.mu.Lock()
+	m.CreateCallCount++
+	m.CreateCallArgs = append(m.CreateCallArgs, CreateCallArg{
+		Title:     title,
+		IssueType: issueType,
+		Priority:  priority,
+	})
+	m.mu.Unlock()
+
+	if m.CreateFn == nil {
+		return "ab-mock", nil // Default to returning mock ID
+	}
+	return m.CreateFn(ctx, title, issueType, priority)
+}
+
+// AddDependency invokes the configured stub or returns nil (no-op by default).
+func (m *MockClient) AddDependency(ctx context.Context, fromID, toID, depType string) error {
+	m.mu.Lock()
+	m.AddDependencyCallCount++
+	m.AddDependencyCallArgs = append(m.AddDependencyCallArgs, []string{fromID, toID, depType})
+	m.mu.Unlock()
+
+	if m.AddDependencyFn == nil {
+		return nil // Default to no-op for tests
+	}
+	return m.AddDependencyFn(ctx, fromID, toID, depType)
 }

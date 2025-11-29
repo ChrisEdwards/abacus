@@ -168,6 +168,58 @@ func (c *cliClient) RemoveLabel(ctx context.Context, issueID, label string) erro
 	return nil
 }
 
+func (c *cliClient) Create(ctx context.Context, title, issueType string, priority int) (string, error) {
+	if strings.TrimSpace(title) == "" {
+		return "", fmt.Errorf("title is required for create")
+	}
+	if strings.TrimSpace(issueType) == "" {
+		issueType = "task"
+	}
+	out, err := c.run(ctx, "create",
+		"--title="+title,
+		"--type="+issueType,
+		fmt.Sprintf("--priority=%d", priority),
+	)
+	if err != nil {
+		return "", fmt.Errorf("run bd create: %w", err)
+	}
+	// Parse the new bead ID from output (e.g., "Created ab-xyz")
+	output := strings.TrimSpace(string(out))
+	// Look for pattern like "Created ab-xxx" or just "ab-xxx"
+	parts := strings.Fields(output)
+	for _, part := range parts {
+		if strings.HasPrefix(part, "ab-") || strings.Contains(part, "-") {
+			// Clean up any trailing punctuation
+			id := strings.TrimRight(part, ".,;:!")
+			if len(id) > 0 {
+				return id, nil
+			}
+		}
+	}
+	// If we can't parse an ID, return the raw output (caller can handle)
+	if len(parts) > 0 {
+		return parts[len(parts)-1], nil
+	}
+	return "", fmt.Errorf("could not parse bead ID from output: %s", output)
+}
+
+func (c *cliClient) AddDependency(ctx context.Context, fromID, toID, depType string) error {
+	if strings.TrimSpace(fromID) == "" {
+		return fmt.Errorf("from ID is required for add dependency")
+	}
+	if strings.TrimSpace(toID) == "" {
+		return fmt.Errorf("to ID is required for add dependency")
+	}
+	if strings.TrimSpace(depType) == "" {
+		depType = "blocks"
+	}
+	_, err := c.run(ctx, "dep", fromID, toID, "--type="+depType)
+	if err != nil {
+		return fmt.Errorf("run bd dep: %w", err)
+	}
+	return nil
+}
+
 func (c *cliClient) run(ctx context.Context, args ...string) ([]byte, error) {
 	finalArgs := make([]string, 0, len(c.dbArgs)+len(args))
 	finalArgs = append(finalArgs, c.dbArgs...)

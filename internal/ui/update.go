@@ -82,6 +82,34 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, scheduleLabelsToastTick()
+	case BeadCreatedMsg:
+		m.activeOverlay = OverlayNone
+		m.createOverlay = nil
+		m.displayCreateToast(msg.Title)
+		return m, tea.Batch(m.executeCreateBead(msg), scheduleCreateToastTick())
+	case CreateCancelledMsg:
+		m.activeOverlay = OverlayNone
+		m.createOverlay = nil
+		return m, nil
+	case createCompleteMsg:
+		if msg.err != nil {
+			m.lastError = msg.err.Error()
+			m.showErrorToast = true
+			m.errorToastStart = time.Now()
+			return m, scheduleErrorToastTick()
+		}
+		// Store the new bead ID for toast display
+		m.createToastBeadID = msg.id
+		return m, m.forceRefresh()
+	case createToastTickMsg:
+		if !m.createToastVisible {
+			return m, nil
+		}
+		if time.Since(m.createToastStart) >= 7*time.Second {
+			m.createToastVisible = false
+			return m, nil
+		}
+		return m, scheduleCreateToastTick()
 	}
 
 	// Delegate to status overlay if active
@@ -95,6 +123,13 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
 		var cmd tea.Cmd
 		m.labelsOverlay, cmd = m.labelsOverlay.Update(msg)
+		return m, cmd
+	}
+
+	// Delegate to create overlay if active
+	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+		var cmd tea.Cmd
+		m.createOverlay, cmd = m.createOverlay.Update(msg)
 		return m, cmd
 	}
 
@@ -345,6 +380,15 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.activeOverlay = OverlayLabels
 			}
 			return m, nil
+		case key.Matches(msg, m.keys.NewBead):
+			defaultParent := ""
+			if len(m.visibleRows) > 0 {
+				defaultParent = m.visibleRows[m.cursor].Node.Issue.ID
+			}
+			parents := m.getAvailableParents()
+			m.createOverlay = NewCreateOverlay(defaultParent, parents)
+			m.activeOverlay = OverlayCreate
+			return m, m.createOverlay.Init()
 		}
 	default:
 		if m.ShowDetails && m.focus == FocusDetails {
@@ -597,4 +641,62 @@ func (m *App) displayLabelsToast(issueID string, added, removed []string) {
 	m.labelsToastRemoved = removed
 	m.labelsToastVisible = true
 	m.labelsToastStart = time.Now()
+}
+
+// Message types for create operations
+type createCompleteMsg struct {
+	id  string
+	err error
+}
+
+type createToastTickMsg struct{}
+
+func scheduleCreateToastTick() tea.Cmd {
+	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
+		return createToastTickMsg{}
+	})
+}
+
+// getAvailableParents collects all beads that can be used as parents.
+func (m *App) getAvailableParents() []ParentOption {
+	var parents []ParentOption
+	var collectParents func([]*graph.Node)
+	collectParents = func(nodes []*graph.Node) {
+		for _, n := range nodes {
+			// Create display string: "ab-xxx Title..." (truncated)
+			display := n.Issue.ID + " " + truncateTitle(n.Issue.Title, 30)
+			parents = append(parents, ParentOption{
+				ID:      n.Issue.ID,
+				Display: display,
+			})
+			collectParents(n.Children)
+		}
+	}
+	collectParents(m.roots)
+	return parents
+}
+
+// executeCreateBead runs the bd create command asynchronously.
+func (m *App) executeCreateBead(msg BeadCreatedMsg) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		newID, err := m.client.Create(ctx, msg.Title, msg.IssueType, msg.Priority)
+		if err != nil {
+			return createCompleteMsg{err: err}
+		}
+		// If parent specified, add parent-child dependency
+		if msg.ParentID != "" {
+			if err := m.client.AddDependency(ctx, newID, msg.ParentID, "parent-child"); err != nil {
+				return createCompleteMsg{id: newID, err: err}
+			}
+		}
+		return createCompleteMsg{id: newID}
+	}
+}
+
+// displayCreateToast displays a success toast for bead creation.
+func (m *App) displayCreateToast(title string) {
+	m.createToastTitle = title
+	m.createToastVisible = true
+	m.createToastStart = time.Now()
 }

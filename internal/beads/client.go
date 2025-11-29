@@ -12,4 +12,6 @@ type Client interface {
 	Reopen(ctx context.Context, issueID string) error
 	AddLabel(ctx context.Context, issueID, label string) error
 	RemoveLabel(ctx context.Context, issueID, label string) error
+	Create(ctx context.Context, title, issueType string, priority int) (string, error)
+	AddDependency(ctx context.Context, fromID, toID, depType string) error
 }

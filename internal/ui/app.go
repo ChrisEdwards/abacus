@@ -33,6 +33,7 @@ const (
 	OverlayNone OverlayType = iota
 	OverlayStatus
 	OverlayLabels
+	OverlayCreate
 )
 
 // Config configures the UI application.
@@ -112,6 +113,7 @@ type App struct {
 	activeOverlay OverlayType
 	statusOverlay *StatusOverlay
 	labelsOverlay *LabelsOverlay
+	createOverlay *CreateOverlay
 
 	// Labels toast state
 	labelsToastVisible bool
@@ -119,6 +121,12 @@ type App struct {
 	labelsToastAdded   []string
 	labelsToastRemoved []string
 	labelsToastBeadID  string
+
+	// Create toast state
+	createToastVisible bool
+	createToastStart   time.Time
+	createToastBeadID  string
+	createToastTitle   string
 
 	// Session tracking for exit summary
 	sessionStart time.Time

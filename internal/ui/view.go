@@ -115,14 +115,27 @@ func (m *App) View() string {
 		return fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
 	}
 
+	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+		overlay := m.createOverlay.View()
+		centered := lipgloss.Place(m.width, m.height-2,
+			lipgloss.Center, lipgloss.Center,
+			overlay,
+			lipgloss.WithWhitespaceChars(" "),
+		)
+		return fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+	}
+
 	// Help overlay takes visual precedence over everything else
 	if m.showHelp {
 		helpOverlay := renderHelpOverlay(m.keys, m.width, m.height-2)
 		return fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
 	}
 
-	// Overlay toast on mainBody if visible (labels toast > status toast > copy toast > error toast)
-	if toast := m.renderLabelsToast(); toast != "" {
+	// Overlay toast on mainBody if visible (create toast > labels toast > status toast > copy toast > error toast)
+	if toast := m.renderCreateToast(); toast != "" {
+		containerWidth := lipgloss.Width(mainBody)
+		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
+	} else if toast := m.renderLabelsToast(); toast != "" {
 		containerWidth := lipgloss.Width(mainBody)
 		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
 	} else if toast := m.renderStatusToast(); toast != "" {
@@ -290,6 +303,51 @@ func (m *App) renderLabelsToast() string {
 
 	// Line 2: bead ID + right-aligned countdown
 	beadID := styleID.Render(m.labelsToastBeadID)
+	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
+
+	// Calculate spacing for right-aligned countdown
+	leftPart := " " + beadID
+	heroWidth := lipgloss.Width(heroLine)
+	leftWidth := lipgloss.Width(leftPart)
+	countdownWidth := lipgloss.Width(countdownStr)
+
+	// Match hero line width for alignment
+	targetWidth := heroWidth
+	if targetWidth < 20 {
+		targetWidth = 20
+	}
+	padding := targetWidth - leftWidth - countdownWidth
+	if padding < 2 {
+		padding = 2
+	}
+
+	infoLine := leftPart + strings.Repeat(" ", padding) + countdownStr
+
+	content := heroLine + "\n" + infoLine
+	return styleSuccessToast.Render(content)
+}
+
+// renderCreateToast renders the bead creation success toast if visible.
+func (m *App) renderCreateToast() string {
+	if !m.createToastVisible {
+		return ""
+	}
+	elapsed := time.Since(m.createToastStart)
+	remaining := 7 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Line 1: "Created: Title..." - hero message
+	titleDisplay := m.createToastTitle
+	if len(titleDisplay) > 25 {
+		titleDisplay = titleDisplay[:22] + "..."
+	}
+	label := styleStatsDim.Render("Created:")
+	heroLine := " " + label + " " + styleLabelChecked.Render(titleDisplay)
+
+	// Line 2: bead ID + right-aligned countdown
+	beadID := styleID.Render(m.createToastBeadID)
 	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
 
 	// Calculate spacing for right-aligned countdown
