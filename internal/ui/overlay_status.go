@@ -21,7 +21,6 @@ type StatusOverlay struct {
 type statusOption struct {
 	value    string // "open", "in_progress", "closed"
 	label    string // Display label
-	hotkey   string // Keyboard shortcut
 	disabled bool   // True if transition is not allowed
 }
 
@@ -39,9 +38,9 @@ func NewStatusOverlay(issueID, issueTitle, currentStatus string) *StatusOverlay 
 	current := domain.Status(currentStatus)
 
 	options := []statusOption{
-		{value: "open", label: "Open", hotkey: "o"},
-		{value: "in_progress", label: "In Progress", hotkey: "i"},
-		{value: "closed", label: "Closed", hotkey: "c"},
+		{value: "open", label: "Open"},
+		{value: "in_progress", label: "In Progress"},
+		{value: "closed", label: "Closed"},
 	}
 
 	// Mark invalid transitions as disabled
@@ -170,7 +169,7 @@ func (m *StatusOverlay) View() string {
 	b.WriteString(divider)
 	b.WriteString("\n")
 
-	// Options with hotkeys
+	// Options (clean, no inline hotkeys)
 	for i, opt := range m.options {
 		var line string
 		indicator := "○"
@@ -178,28 +177,31 @@ func (m *StatusOverlay) View() string {
 			indicator = "●"
 		}
 
-		// Format: [o] ○ Open  ←
-		hotkeyPart := "[" + opt.hotkey + "]"
 		label := opt.label
 		if i == m.selected {
 			label += "  ←"
 		}
 
 		if opt.disabled {
-			line = styleStatusDisabled.Render(" " + hotkeyPart + " " + indicator + " " + label)
+			line = styleStatusDisabled.Render("  " + indicator + " " + label)
 		} else if i == m.selected {
-			line = styleStatusSelected.Render(" " + hotkeyPart + " " + indicator + " " + label)
+			line = styleStatusSelected.Render("  " + indicator + " " + label)
 		} else {
-			// Hotkey in cyan, rest in normal
-			hotkeyStyled := styleHelpKey.Render(hotkeyPart)
-			line = " " + hotkeyStyled + " " + styleStatusOption.Render(indicator+" "+label)
+			line = styleStatusOption.Render("  " + indicator + " " + label)
 		}
 
 		b.WriteString(line)
-		if i < len(m.options)-1 {
-			b.WriteString("\n")
-		}
+		b.WriteString("\n")
 	}
+
+	// Footer with hotkeys
+	b.WriteString(styleStatusDivider.Render(strings.Repeat("─", 36)))
+	b.WriteString("\n")
+	footer := styleHelpKey.Render("o") + styleHelpDesc.Render(" open  ") +
+		styleHelpKey.Render("i") + styleHelpDesc.Render(" in progress  ") +
+		styleHelpKey.Render("c") + styleHelpDesc.Render(" close  ") +
+		styleHelpKey.Render("esc") + styleHelpDesc.Render(" cancel")
+	b.WriteString(footer)
 
 	content := b.String()
 	return styleStatusOverlay.Render(content)
