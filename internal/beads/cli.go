@@ -104,6 +104,31 @@ func (c *cliClient) Comments(ctx context.Context, issueID string) ([]Comment, er
 	return comments, nil
 }
 
+func (c *cliClient) UpdateStatus(ctx context.Context, issueID, newStatus string) error {
+	if strings.TrimSpace(issueID) == "" {
+		return fmt.Errorf("issue id is required for status update")
+	}
+	if strings.TrimSpace(newStatus) == "" {
+		return fmt.Errorf("new status is required for status update")
+	}
+	_, err := c.run(ctx, "update", issueID, "--status="+newStatus)
+	if err != nil {
+		return fmt.Errorf("run bd update: %w", err)
+	}
+	return nil
+}
+
+func (c *cliClient) Close(ctx context.Context, issueID string) error {
+	if strings.TrimSpace(issueID) == "" {
+		return fmt.Errorf("issue id is required for close")
+	}
+	_, err := c.run(ctx, "close", issueID)
+	if err != nil {
+		return fmt.Errorf("run bd close: %w", err)
+	}
+	return nil
+}
+
 func (c *cliClient) run(ctx context.Context, args ...string) ([]byte, error) {
 	finalArgs := make([]string, 0, len(c.dbArgs)+len(args))
 	finalArgs = append(finalArgs, c.dbArgs...)

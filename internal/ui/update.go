@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"time"
 
 	"github.com/atotto/clipboard"
@@ -10,6 +11,46 @@ import (
 )
 
 func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle overlay messages regardless of overlay state
+	switch msg := msg.(type) {
+	case StatusChangedMsg:
+		m.activeOverlay = OverlayNone
+		m.statusOverlay = nil
+		if msg.NewStatus != "" {
+			m.displayStatusToast(msg.NewStatus)
+			return m, m.executeStatusChange(msg.IssueID, msg.NewStatus)
+		}
+		return m, nil
+	case StatusCancelledMsg:
+		m.activeOverlay = OverlayNone
+		m.statusOverlay = nil
+		return m, nil
+	case statusUpdateCompleteMsg:
+		if msg.err != nil {
+			m.lastError = msg.err.Error()
+			m.showErrorToast = true
+			m.errorToastStart = time.Now()
+			return m, scheduleErrorToastTick()
+		}
+		return m, m.forceRefresh()
+	case statusToastTickMsg:
+		if !m.statusToastVisible {
+			return m, nil
+		}
+		if time.Since(m.statusToastStart) >= 3*time.Second {
+			m.statusToastVisible = false
+			return m, nil
+		}
+		return m, scheduleStatusToastTick()
+	}
+
+	// Delegate to status overlay if active
+	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
+		var cmd tea.Cmd
+		m.statusOverlay, cmd = m.statusOverlay.Update(msg)
+		return m, cmd
+	}
+
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case spinner.TickMsg:
@@ -228,6 +269,23 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Help):
 			m.showHelp = true
 			return m, nil
+		case key.Matches(msg, m.keys.Status):
+			if len(m.visibleRows) > 0 {
+				row := m.visibleRows[m.cursor]
+				m.statusOverlay = NewStatusOverlay(row.Node.Issue.ID, row.Node.Issue.Status)
+				m.activeOverlay = OverlayStatus
+			}
+			return m, nil
+		case key.Matches(msg, m.keys.StartWork):
+			if len(m.visibleRows) > 0 {
+				row := m.visibleRows[m.cursor]
+				return m, m.executeStatusChange(row.Node.Issue.ID, "in_progress")
+			}
+		case key.Matches(msg, m.keys.CloseBead):
+			if len(m.visibleRows) > 0 {
+				row := m.visibleRows[m.cursor]
+				return m, m.executeClose(row.Node.Issue.ID)
+			}
 		}
 	default:
 		if m.ShowDetails && m.focus == FocusDetails {
@@ -351,4 +409,56 @@ func (m *App) isDetailScrollKey(msg tea.KeyMsg) bool {
 		return true
 	}
 	return msg.Type == tea.KeySpace
+}
+
+// Message types for status operations
+type statusUpdateCompleteMsg struct {
+	err error
+}
+
+type statusToastTickMsg struct{}
+
+func scheduleStatusToastTick() tea.Cmd {
+	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
+		return statusToastTickMsg{}
+	})
+}
+
+// executeStatusChange runs the bd update command asynchronously.
+func (m *App) executeStatusChange(issueID, newStatus string) tea.Cmd {
+	m.displayStatusToast(newStatus)
+	return func() tea.Msg {
+		err := m.client.UpdateStatus(context.Background(), issueID, newStatus)
+		return statusUpdateCompleteMsg{err: err}
+	}
+}
+
+// executeClose runs the bd close command asynchronously.
+func (m *App) executeClose(issueID string) tea.Cmd {
+	m.displayStatusToast("closed")
+	return func() tea.Msg {
+		err := m.client.Close(context.Background(), issueID)
+		return statusUpdateCompleteMsg{err: err}
+	}
+}
+
+// displayStatusToast displays a success toast for status changes.
+func (m *App) displayStatusToast(newStatus string) {
+	m.statusToastMessage = formatStatusLabel(newStatus)
+	m.statusToastVisible = true
+	m.statusToastStart = time.Now()
+}
+
+// formatStatusLabel converts a status value to a display label.
+func formatStatusLabel(status string) string {
+	switch status {
+	case "open":
+		return "Open"
+	case "in_progress":
+		return "In Progress"
+	case "closed":
+		return "Closed"
+	default:
+		return status
+	}
 }

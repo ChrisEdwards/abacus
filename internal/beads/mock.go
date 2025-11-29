@@ -11,16 +11,22 @@ var ErrMockNotImplemented = errors.New("beads.MockClient: method not implemented
 
 // MockClient is a test double for the Beads client interface.
 type MockClient struct {
-	ListFn     func(context.Context) ([]LiteIssue, error)
-	ShowFn     func(context.Context, []string) ([]FullIssue, error)
-	CommentsFn func(context.Context, string) ([]Comment, error)
+	ListFn         func(context.Context) ([]LiteIssue, error)
+	ShowFn         func(context.Context, []string) ([]FullIssue, error)
+	CommentsFn     func(context.Context, string) ([]Comment, error)
+	UpdateStatusFn func(context.Context, string, string) error
+	CloseFn        func(context.Context, string) error
 
-	mu                sync.Mutex
-	ListCallCount     int
-	ShowCallCount     int
-	CommentsCallCount int
-	ShowCallArgs      [][]string
-	CommentIDs        []string
+	mu                      sync.Mutex
+	ListCallCount           int
+	ShowCallCount           int
+	CommentsCallCount       int
+	UpdateStatusCallCount   int
+	CloseCallCount          int
+	ShowCallArgs            [][]string
+	CommentIDs              []string
+	UpdateStatusCallArgs    [][]string // [issueID, newStatus]
+	CloseCallArgs           []string
 }
 
 // NewMockClient returns a MockClient with zeroed handlers.
@@ -64,4 +70,30 @@ func (m *MockClient) Comments(ctx context.Context, issueID string) ([]Comment, e
 		return nil, ErrMockNotImplemented
 	}
 	return m.CommentsFn(ctx, issueID)
+}
+
+// UpdateStatus invokes the configured stub or returns nil (no-op by default).
+func (m *MockClient) UpdateStatus(ctx context.Context, issueID, newStatus string) error {
+	m.mu.Lock()
+	m.UpdateStatusCallCount++
+	m.UpdateStatusCallArgs = append(m.UpdateStatusCallArgs, []string{issueID, newStatus})
+	m.mu.Unlock()
+
+	if m.UpdateStatusFn == nil {
+		return nil // Default to no-op for tests
+	}
+	return m.UpdateStatusFn(ctx, issueID, newStatus)
+}
+
+// Close invokes the configured stub or returns nil (no-op by default).
+func (m *MockClient) Close(ctx context.Context, issueID string) error {
+	m.mu.Lock()
+	m.CloseCallCount++
+	m.CloseCallArgs = append(m.CloseCallArgs, issueID)
+	m.mu.Unlock()
+
+	if m.CloseFn == nil {
+		return nil // Default to no-op for tests
+	}
+	return m.CloseFn(ctx, issueID)
 }

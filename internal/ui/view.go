@@ -94,14 +94,28 @@ func (m *App) View() string {
 		bottomBar = m.renderFooter()
 	}
 
-	// Help overlay takes visual precedence over everything
+	// Status overlay takes visual precedence over help
+	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
+		overlay := m.statusOverlay.View()
+		centered := lipgloss.Place(m.width, m.height-2,
+			lipgloss.Center, lipgloss.Center,
+			overlay,
+			lipgloss.WithWhitespaceChars(" "),
+		)
+		return fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+	}
+
+	// Help overlay takes visual precedence over everything else
 	if m.showHelp {
 		helpOverlay := renderHelpOverlay(m.keys, m.width, m.height-2)
 		return fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
 	}
 
-	// Overlay toast on mainBody if visible (copy toast takes priority)
-	if toast := m.renderCopyToast(); toast != "" {
+	// Overlay toast on mainBody if visible (status toast > copy toast > error toast)
+	if toast := m.renderStatusToast(); toast != "" {
+		containerWidth := lipgloss.Width(mainBody)
+		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
+	} else if toast := m.renderCopyToast(); toast != "" {
 		containerWidth := lipgloss.Width(mainBody)
 		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
 	} else if toast := m.renderErrorToast(); toast != "" {
@@ -177,5 +191,20 @@ func (m *App) renderCopyToast() string {
 	}
 	content := fmt.Sprintf("%s\n%s%s", msgLine, strings.Repeat(" ", padding), countdownStr)
 
+	return styleSuccessToast.Render(content)
+}
+
+// renderStatusToast renders the status change success toast if visible.
+func (m *App) renderStatusToast() string {
+	if !m.statusToastVisible || m.statusToastMessage == "" {
+		return ""
+	}
+	elapsed := time.Since(m.statusToastStart)
+	remaining := 3 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	content := fmt.Sprintf("Status -> %s", m.statusToastMessage)
 	return styleSuccessToast.Render(content)
 }

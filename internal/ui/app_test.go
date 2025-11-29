@@ -1929,11 +1929,11 @@ func TestErrorToastEKeyRecalls(t *testing.T) {
 		keys:           DefaultKeyMap(),
 	}
 
-	// Press 'e'
-	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	// Press '!' (error key)
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
 
 	if !app.showErrorToast {
-		t.Error("expected showErrorToast to be true after pressing 'e'")
+		t.Error("expected showErrorToast to be true after pressing '!'")
 	}
 	if cmd == nil {
 		t.Error("expected tick command to be returned")

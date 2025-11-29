@@ -19,13 +19,16 @@ type KeyMap struct {
 	PageDown key.Binding
 
 	// Actions
-	Enter   key.Binding
-	Tab     key.Binding
-	Refresh key.Binding
-	Error   key.Binding
-	Help    key.Binding
-	Quit    key.Binding
-	Copy    key.Binding
+	Enter     key.Binding
+	Tab       key.Binding
+	Refresh   key.Binding
+	Error     key.Binding
+	Help      key.Binding
+	Quit      key.Binding
+	Copy      key.Binding
+	Status    key.Binding
+	StartWork key.Binding
+	CloseBead key.Binding
 
 	// Search
 	Search    key.Binding
@@ -90,8 +93,8 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("r", "Refresh"),
 		),
 		Error: key.NewBinding(
-			key.WithKeys("e"),
-			key.WithHelp("e", "Error details"),
+			key.WithKeys("!"),
+			key.WithHelp("!", "Error details"),
 		),
 		Help: key.NewBinding(
 			key.WithKeys("?"),
@@ -104,6 +107,18 @@ func DefaultKeyMap() KeyMap {
 		Copy: key.NewBinding(
 			key.WithKeys("c"),
 			key.WithHelp("c", "Copy ID"),
+		),
+		Status: key.NewBinding(
+			key.WithKeys("s"),
+			key.WithHelp("s", "Change status"),
+		),
+		StartWork: key.NewBinding(
+			key.WithKeys("i"),
+			key.WithHelp("i", "Start work"),
+		),
+		CloseBead: key.NewBinding(
+			key.WithKeys("x"),
+			key.WithHelp("x", "Close bead"),
 		),
 
 		// Search

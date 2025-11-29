@@ -160,6 +160,29 @@ var (
 
 	styleFooterMuted = lipgloss.NewStyle().
 			Foreground(cBrightGray)
+
+	// Status overlay styles
+	styleStatusOverlay = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(cPurple).
+				Padding(1, 2)
+
+	styleStatusTitle = lipgloss.NewStyle().
+				Foreground(cGold).
+				Bold(true)
+
+	styleStatusDivider = lipgloss.NewStyle().
+				Foreground(cPurple)
+
+	styleStatusOption = lipgloss.NewStyle().
+				Foreground(cWhite)
+
+	styleStatusSelected = lipgloss.NewStyle().
+				Foreground(cCyan).
+				Bold(true)
+
+	styleStatusDisabled = lipgloss.NewStyle().
+				Foreground(cGray)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {

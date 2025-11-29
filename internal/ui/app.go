@@ -26,6 +26,14 @@ const (
 	refreshDisplayDuration = 3 * time.Second // How long delta metrics stay visible in footer
 )
 
+// OverlayType represents which overlay is currently active.
+type OverlayType int
+
+const (
+	OverlayNone OverlayType = iota
+	OverlayStatus
+)
+
 // Config configures the UI application.
 type Config struct {
 	RefreshInterval time.Duration
@@ -89,9 +97,18 @@ type App struct {
 	copyToastStart time.Time
 	copiedBeadID   string
 
+	// Status toast state
+	statusToastVisible bool
+	statusToastStart   time.Time
+	statusToastMessage string
+
 	// Help overlay state
 	showHelp bool
 	keys     KeyMap
+
+	// Status overlay state
+	activeOverlay OverlayType
+	statusOverlay *StatusOverlay
 
 	// Session tracking for exit summary
 	sessionStart time.Time
