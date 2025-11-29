@@ -12,6 +12,7 @@ import (
 // StatusOverlay is a compact popup for changing a bead's status.
 type StatusOverlay struct {
 	issueID       string
+	issueTitle    string
 	currentStatus string
 	selected      int
 	options       []statusOption
@@ -33,7 +34,7 @@ type StatusChangedMsg struct {
 type StatusCancelledMsg struct{}
 
 // NewStatusOverlay creates a new status overlay for the given issue.
-func NewStatusOverlay(issueID, currentStatus string) *StatusOverlay {
+func NewStatusOverlay(issueID, issueTitle, currentStatus string) *StatusOverlay {
 	current := domain.Status(currentStatus)
 
 	options := []statusOption{
@@ -61,6 +62,7 @@ func NewStatusOverlay(issueID, currentStatus string) *StatusOverlay {
 
 	return &StatusOverlay{
 		issueID:       issueID,
+		issueTitle:    issueTitle,
 		currentStatus: currentStatus,
 		selected:      selected,
 		options:       options,
@@ -129,13 +131,18 @@ func (m *StatusOverlay) confirm() tea.Cmd {
 func (m *StatusOverlay) View() string {
 	var b strings.Builder
 
-	// Title
-	title := styleStatusTitle.Render("STATUS")
+	// Title with bead context
+	title := styleStatusTitle.Render("CHANGE STATUS")
 	b.WriteString(title)
 	b.WriteString("\n")
 
+	// Bead info line
+	beadInfo := styleStatusBeadID.Render(m.issueID) + " " + styleStatusBeadTitle.Render(truncateTitle(m.issueTitle, 30))
+	b.WriteString(beadInfo)
+	b.WriteString("\n")
+
 	// Divider
-	divider := styleStatusDivider.Render(strings.Repeat("─", 20))
+	divider := styleStatusDivider.Render(strings.Repeat("─", 36))
 	b.WriteString(divider)
 	b.WriteString("\n")
 
@@ -168,4 +175,12 @@ func (m *StatusOverlay) View() string {
 
 	content := b.String()
 	return styleStatusOverlay.Render(content)
+}
+
+// truncateTitle shortens a title to maxLen characters with ellipsis.
+func truncateTitle(title string, maxLen int) string {
+	if len(title) <= maxLen {
+		return title
+	}
+	return title[:maxLen-3] + "..."
 }

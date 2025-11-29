@@ -183,6 +183,13 @@ var (
 
 	styleStatusDisabled = lipgloss.NewStyle().
 				Foreground(cGray)
+
+	styleStatusBeadID = lipgloss.NewStyle().
+				Foreground(cGold).
+				Bold(true)
+
+	styleStatusBeadTitle = lipgloss.NewStyle().
+				Foreground(cLightGray)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {

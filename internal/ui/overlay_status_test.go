@@ -8,7 +8,7 @@ import (
 
 func TestNewStatusOverlay(t *testing.T) {
 	t.Run("PreSelectsCurrentStatus", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "in_progress")
+		overlay := NewStatusOverlay("test-123", "Test Issue Title", "in_progress")
 		if overlay.selected != 1 {
 			t.Errorf("expected selected index 1 for in_progress, got %d", overlay.selected)
 		}
@@ -18,21 +18,21 @@ func TestNewStatusOverlay(t *testing.T) {
 	})
 
 	t.Run("OpenStatusSelected", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "open")
+		overlay := NewStatusOverlay("test-123", "Test Issue", "open")
 		if overlay.selected != 0 {
 			t.Errorf("expected selected index 0 for open, got %d", overlay.selected)
 		}
 	})
 
 	t.Run("ClosedStatusSelected", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "closed")
+		overlay := NewStatusOverlay("test-123", "Test Issue", "closed")
 		if overlay.selected != 2 {
 			t.Errorf("expected selected index 2 for closed, got %d", overlay.selected)
 		}
 	})
 
 	t.Run("ClosedStatusDisablesTransitions", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "closed")
+		overlay := NewStatusOverlay("test-123", "Test Issue", "closed")
 		// From closed, cannot transition to open or in_progress
 		if !overlay.options[0].disabled {
 			t.Error("expected open to be disabled when current status is closed")
@@ -47,7 +47,7 @@ func TestNewStatusOverlay(t *testing.T) {
 	})
 
 	t.Run("OpenStatusAllowsTransitions", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "open")
+		overlay := NewStatusOverlay("test-123", "Test Issue", "open")
 		// From open, can transition to in_progress and closed
 		if overlay.options[0].disabled {
 			t.Error("expected open to NOT be disabled when current status is open")
@@ -59,11 +59,18 @@ func TestNewStatusOverlay(t *testing.T) {
 			t.Error("expected closed to NOT be disabled when current status is open")
 		}
 	})
+
+	t.Run("StoresIssueTitle", func(t *testing.T) {
+		overlay := NewStatusOverlay("test-123", "My Important Task", "open")
+		if overlay.issueTitle != "My Important Task" {
+			t.Errorf("expected issueTitle 'My Important Task', got %q", overlay.issueTitle)
+		}
+	})
 }
 
 func TestStatusOverlayNavigation(t *testing.T) {
 	t.Run("DownMovesToNext", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "open")
+		overlay := NewStatusOverlay("test-123", "Test", "open")
 		overlay.selected = 0
 		overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 		if overlay.selected != 1 {
@@ -72,7 +79,7 @@ func TestStatusOverlayNavigation(t *testing.T) {
 	})
 
 	t.Run("UpMovesToPrevious", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "open")
+		overlay := NewStatusOverlay("test-123", "Test", "open")
 		overlay.selected = 1
 		overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 		if overlay.selected != 0 {
@@ -81,7 +88,7 @@ func TestStatusOverlayNavigation(t *testing.T) {
 	})
 
 	t.Run("DownWrapsAround", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "open")
+		overlay := NewStatusOverlay("test-123", "Test", "open")
 		overlay.selected = 2
 		overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 		if overlay.selected != 0 {
@@ -90,7 +97,7 @@ func TestStatusOverlayNavigation(t *testing.T) {
 	})
 
 	t.Run("UpWrapsAround", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "open")
+		overlay := NewStatusOverlay("test-123", "Test", "open")
 		overlay.selected = 0
 		overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 		if overlay.selected != 2 {
@@ -99,7 +106,7 @@ func TestStatusOverlayNavigation(t *testing.T) {
 	})
 
 	t.Run("SkipsDisabledOnDown", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "closed")
+		overlay := NewStatusOverlay("test-123", "Test", "closed")
 		// From closed: open=disabled, in_progress=disabled, closed=enabled
 		overlay.selected = 2 // Start at closed
 		overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
@@ -112,7 +119,7 @@ func TestStatusOverlayNavigation(t *testing.T) {
 
 func TestStatusOverlayEnter(t *testing.T) {
 	t.Run("SendsStatusChangedMsg", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "open")
+		overlay := NewStatusOverlay("test-123", "Test", "open")
 		overlay.selected = 1 // in_progress
 		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
 		if cmd == nil {
@@ -134,7 +141,7 @@ func TestStatusOverlayEnter(t *testing.T) {
 
 func TestStatusOverlayEscape(t *testing.T) {
 	t.Run("SendsStatusCancelledMsg", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "open")
+		overlay := NewStatusOverlay("test-123", "Test", "open")
 		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
 		if cmd == nil {
 			t.Fatal("expected command from escape")
@@ -149,7 +156,7 @@ func TestStatusOverlayEscape(t *testing.T) {
 
 func TestStatusOverlayView(t *testing.T) {
 	t.Run("ContainsTitle", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "open")
+		overlay := NewStatusOverlay("test-123", "Test", "open")
 		view := overlay.View()
 		if view == "" {
 			t.Error("expected non-empty view")
@@ -161,7 +168,7 @@ func TestStatusOverlayView(t *testing.T) {
 	})
 
 	t.Run("ShowsAllOptions", func(t *testing.T) {
-		overlay := NewStatusOverlay("test-123", "open")
+		overlay := NewStatusOverlay("test-123", "Test", "open")
 		_ = overlay.View() // Ensure View() doesn't panic
 		// Should contain all three options
 		expectedLabels := []string{"Open", "In Progress", "Closed"}

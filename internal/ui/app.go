@@ -101,6 +101,8 @@ type App struct {
 	statusToastVisible bool
 	statusToastStart   time.Time
 	statusToastMessage string
+	statusToastBeadID  string
+	statusToastTitle   string
 
 	// Help overlay state
 	showHelp bool

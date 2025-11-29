@@ -15,10 +15,14 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case StatusChangedMsg:
 		m.activeOverlay = OverlayNone
+		issueTitle := ""
+		if m.statusOverlay != nil {
+			issueTitle = m.statusOverlay.issueTitle
+		}
 		m.statusOverlay = nil
 		if msg.NewStatus != "" {
-			m.displayStatusToast(msg.NewStatus)
-			return m, m.executeStatusChange(msg.IssueID, msg.NewStatus)
+			m.displayStatusToast(msg.IssueID, issueTitle, msg.NewStatus)
+			return m, m.executeStatusChangeCmd(msg.IssueID, msg.NewStatus)
 		}
 		return m, nil
 	case StatusCancelledMsg:
@@ -37,7 +41,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.statusToastVisible {
 			return m, nil
 		}
-		if time.Since(m.statusToastStart) >= 3*time.Second {
+		if time.Since(m.statusToastStart) >= 7*time.Second {
 			m.statusToastVisible = false
 			return m, nil
 		}
@@ -272,19 +276,19 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Status):
 			if len(m.visibleRows) > 0 {
 				row := m.visibleRows[m.cursor]
-				m.statusOverlay = NewStatusOverlay(row.Node.Issue.ID, row.Node.Issue.Status)
+				m.statusOverlay = NewStatusOverlay(row.Node.Issue.ID, row.Node.Issue.Title, row.Node.Issue.Status)
 				m.activeOverlay = OverlayStatus
 			}
 			return m, nil
 		case key.Matches(msg, m.keys.StartWork):
 			if len(m.visibleRows) > 0 {
 				row := m.visibleRows[m.cursor]
-				return m, m.executeStatusChange(row.Node.Issue.ID, "in_progress")
+				return m, m.executeStatusChange(row.Node.Issue.ID, row.Node.Issue.Title, "in_progress")
 			}
 		case key.Matches(msg, m.keys.CloseBead):
 			if len(m.visibleRows) > 0 {
 				row := m.visibleRows[m.cursor]
-				return m, m.executeClose(row.Node.Issue.ID)
+				return m, m.executeClose(row.Node.Issue.ID, row.Node.Issue.Title)
 			}
 		}
 	default:
@@ -424,9 +428,14 @@ func scheduleStatusToastTick() tea.Cmd {
 	})
 }
 
-// executeStatusChange runs the bd update command asynchronously.
-func (m *App) executeStatusChange(issueID, newStatus string) tea.Cmd {
-	m.displayStatusToast(newStatus)
+// executeStatusChange runs the bd update command asynchronously and shows toast.
+func (m *App) executeStatusChange(issueID, issueTitle, newStatus string) tea.Cmd {
+	m.displayStatusToast(issueID, issueTitle, newStatus)
+	return m.executeStatusChangeCmd(issueID, newStatus)
+}
+
+// executeStatusChangeCmd runs the bd update command asynchronously without toast.
+func (m *App) executeStatusChangeCmd(issueID, newStatus string) tea.Cmd {
 	return func() tea.Msg {
 		err := m.client.UpdateStatus(context.Background(), issueID, newStatus)
 		return statusUpdateCompleteMsg{err: err}
@@ -434,8 +443,8 @@ func (m *App) executeStatusChange(issueID, newStatus string) tea.Cmd {
 }
 
 // executeClose runs the bd close command asynchronously.
-func (m *App) executeClose(issueID string) tea.Cmd {
-	m.displayStatusToast("closed")
+func (m *App) executeClose(issueID, issueTitle string) tea.Cmd {
+	m.displayStatusToast(issueID, issueTitle, "closed")
 	return func() tea.Msg {
 		err := m.client.Close(context.Background(), issueID)
 		return statusUpdateCompleteMsg{err: err}
@@ -443,8 +452,10 @@ func (m *App) executeClose(issueID string) tea.Cmd {
 }
 
 // displayStatusToast displays a success toast for status changes.
-func (m *App) displayStatusToast(newStatus string) {
+func (m *App) displayStatusToast(issueID, issueTitle, newStatus string) {
 	m.statusToastMessage = formatStatusLabel(newStatus)
+	m.statusToastBeadID = issueID
+	m.statusToastTitle = issueTitle
 	m.statusToastVisible = true
 	m.statusToastStart = time.Now()
 }

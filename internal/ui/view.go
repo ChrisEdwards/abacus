@@ -200,11 +200,37 @@ func (m *App) renderStatusToast() string {
 		return ""
 	}
 	elapsed := time.Since(m.statusToastStart)
-	remaining := 3 - int(elapsed.Seconds())
+	remaining := 7 - int(elapsed.Seconds())
 	if remaining < 0 {
 		remaining = 0
 	}
 
-	content := fmt.Sprintf("Status -> %s", m.statusToastMessage)
+	// Build content with bead context
+	titleLine := fmt.Sprintf("Status -> %s", m.statusToastMessage)
+
+	// Truncate title if too long
+	title := m.statusToastTitle
+	if len(title) > 35 {
+		title = title[:32] + "..."
+	}
+	beadLine := fmt.Sprintf("%s %s", m.statusToastBeadID, title)
+
+	countdownStr := fmt.Sprintf("[%ds]", remaining)
+
+	// Calculate toast width
+	toastWidth := lipgloss.Width(beadLine)
+	if w := lipgloss.Width(titleLine); w > toastWidth {
+		toastWidth = w
+	}
+	if toastWidth < 30 {
+		toastWidth = 30
+	}
+
+	padding := toastWidth - len(countdownStr)
+	if padding < 0 {
+		padding = 0
+	}
+
+	content := fmt.Sprintf("%s\n%s\n%s%s", titleLine, beadLine, strings.Repeat(" ", padding), countdownStr)
 	return styleSuccessToast.Render(content)
 }
