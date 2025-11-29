@@ -176,9 +176,9 @@ func (c *cliClient) Create(ctx context.Context, title, issueType string, priorit
 		issueType = "task"
 	}
 	out, err := c.run(ctx, "create",
-		"--title="+title,
-		"--type="+issueType,
-		fmt.Sprintf("--priority=%d", priority),
+		"--title", title,
+		"--type", issueType,
+		"--priority", fmt.Sprintf("%d", priority),
 	)
 	if err != nil {
 		return "", fmt.Errorf("run bd create: %w", err)
