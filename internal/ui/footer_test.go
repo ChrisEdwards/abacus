@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestKeyPill(t *testing.T) {
@@ -57,9 +58,10 @@ func TestRenderFooter(t *testing.T) {
 		}
 	})
 
-	t.Run("ContainsRepoName", func(t *testing.T) {
-		if !strings.Contains(footer, "Repo: abacus") {
-			t.Error("expected footer to contain repo name")
+	t.Run("NoRefreshStatusWhenEmpty", func(t *testing.T) {
+		// With no refresh state, footer should have no right content
+		if strings.Contains(footer, "Refreshing") || strings.Contains(footer, "error") {
+			t.Error("expected footer to have no refresh status when app is idle")
 		}
 	})
 }
@@ -132,9 +134,9 @@ func TestFooterNarrowTerminal(t *testing.T) {
 		t.Error("expected non-empty footer for narrow terminal")
 	}
 
-	// Should always contain repo name
-	if !strings.Contains(footer, "Repo:") {
-		t.Error("expected footer to contain repo even in narrow mode")
+	// Should contain at least some key hints (search key "/" is commonly preserved)
+	if !strings.Contains(footer, "/") && !strings.Contains(footer, "Search") {
+		t.Errorf("expected footer to contain at least search key in narrow mode, got: %q", footer)
 	}
 }
 
@@ -154,6 +156,68 @@ func TestFooterHintSlices(t *testing.T) {
 	t.Run("DetailsHintsCount", func(t *testing.T) {
 		if len(detailsFooterHints) != 1 {
 			t.Errorf("expected 1 details hint, got %d", len(detailsFooterHints))
+		}
+	})
+}
+
+func TestRenderRefreshStatus(t *testing.T) {
+	t.Run("ErrorState", func(t *testing.T) {
+		m := &App{lastError: "connection failed"}
+		status := m.renderRefreshStatus()
+		if !strings.Contains(status, "⚠") || !strings.Contains(status, "error") {
+			t.Errorf("expected error indicator, got: %q", status)
+		}
+	})
+
+	t.Run("RefreshingState", func(t *testing.T) {
+		m := &App{refreshInFlight: true}
+		status := m.renderRefreshStatus()
+		if !strings.Contains(status, "Refreshing") {
+			t.Errorf("expected refreshing indicator, got: %q", status)
+		}
+	})
+
+	t.Run("DeltaMetricsVisible", func(t *testing.T) {
+		m := &App{
+			lastRefreshStats: "+1 / Δ0 / -0",
+			lastRefreshTime:  time.Now(),
+		}
+		status := m.renderRefreshStatus()
+		if !strings.Contains(status, "Δ") || !strings.Contains(status, "+1") {
+			t.Errorf("expected delta metrics, got: %q", status)
+		}
+	})
+
+	t.Run("NoChangeHidden", func(t *testing.T) {
+		m := &App{
+			lastRefreshStats: "+0 / Δ0 / -0",
+			lastRefreshTime:  time.Now(),
+		}
+		status := m.renderRefreshStatus()
+		if status != "" {
+			t.Errorf("expected empty status when no changes, got: %q", status)
+		}
+	})
+
+	t.Run("DeltaMetricsExpired", func(t *testing.T) {
+		m := &App{
+			lastRefreshStats: "+1 / Δ0 / -0",
+			lastRefreshTime:  time.Now().Add(-refreshDisplayDuration - time.Second),
+		}
+		status := m.renderRefreshStatus()
+		if status != "" {
+			t.Errorf("expected empty status after display duration, got: %q", status)
+		}
+	})
+
+	t.Run("ErrorTakesPriority", func(t *testing.T) {
+		m := &App{
+			lastError:       "some error",
+			refreshInFlight: true, // Also refreshing, but error should take priority
+		}
+		status := m.renderRefreshStatus()
+		if !strings.Contains(status, "error") {
+			t.Errorf("expected error to take priority over refreshing, got: %q", status)
 		}
 	})
 }

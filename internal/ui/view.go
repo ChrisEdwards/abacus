@@ -39,35 +39,20 @@ func (m *App) View() string {
 		status += " " + styleFilterInfo.Render(filterLabel)
 	}
 
-	if m.lastRefreshStats != "" {
-		refreshStr := fmt.Sprintf(" Δ %s", m.lastRefreshStats)
-		if m.showRefreshFlash && time.Since(m.lastRefreshTime) < refreshFlashDuration {
-			refreshStr = styleSelected.Render(refreshStr)
-		} else {
-			refreshStr = styleStatsDim.Render(refreshStr)
-			m.showRefreshFlash = false
-		}
-		status += " " + refreshStr
-	}
-
 	title := "ABACUS"
 	if m.version != "" {
 		title = fmt.Sprintf("ABACUS v%s", m.version)
 	}
 
-	// Build header with right-aligned error indicator if present
+	// Build header with repo name on right
 	leftContent := styleAppHeader.Render(title) + " " + status
+	rightContent := styleFooterMuted.Render("Repo: " + m.repoName)
+	availableWidth := m.width - lipgloss.Width(leftContent) - lipgloss.Width(rightContent) - 2
 	var header string
-	if m.lastError != "" {
-		rightContent := styleErrorIndicator.Render("⚠ Refresh error (e)")
-		availableWidth := m.width - lipgloss.Width(leftContent) - lipgloss.Width(rightContent) - 2
-		if availableWidth > 0 {
-			header = leftContent + strings.Repeat(" ", availableWidth) + rightContent
-		} else {
-			header = leftContent + " " + rightContent
-		}
+	if availableWidth > 0 {
+		header = leftContent + strings.Repeat(" ", availableWidth) + rightContent
 	} else {
-		header = leftContent
+		header = leftContent + " " + rightContent
 	}
 	treeViewStr := m.renderTreeView()
 

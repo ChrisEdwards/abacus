@@ -777,9 +777,6 @@ func TestApplyRefreshRestoresState(t *testing.T) {
 	if m.lastRefreshStats == "" {
 		t.Fatalf("expected refresh stats to be populated")
 	}
-	if !m.showRefreshFlash {
-		t.Fatalf("expected refresh flash flag to be set")
-	}
 	if m.focus != FocusDetails {
 		t.Fatalf("expected focus restored to details")
 	}
@@ -1429,28 +1426,34 @@ func TestStatsFilteredSuffixMatchesDocs(t *testing.T) {
 	}
 }
 
-func TestRefreshDeltaHighlightMatchesDocs(t *testing.T) {
+func TestRefreshDeltaDisplayMatchesDocs(t *testing.T) {
 	m := &App{
 		width:            100,
 		height:           30,
 		ready:            true,
 		lastRefreshStats: "+1 / Δ1 / -0",
 	}
-	highlightFragment := styleSelected.Render(" Δ " + m.lastRefreshStats)
-	shadowFragment := styleStatsDim.Render(" Δ " + m.lastRefreshStats)
-	m.showRefreshFlash = true
+
+	// Test visible state (within display duration, with changes)
 	m.lastRefreshTime = time.Now()
-	view := m.View()
-	if !strings.Contains(view, highlightFragment) {
-		t.Fatalf("expected refresh delta to be highlighted immediately after refresh")
+	status := m.renderRefreshStatus()
+	if !strings.Contains(status, "Δ") || !strings.Contains(status, "+1") {
+		t.Fatalf("expected refresh delta to be visible with changes, got: %q", status)
 	}
-	m.lastRefreshTime = time.Now().Add(-refreshFlashDuration - time.Millisecond)
-	view = m.View()
-	if !strings.Contains(view, shadowFragment) {
-		t.Fatalf("expected refresh delta to dim after highlight window: %q", view)
+
+	// Test empty state (after display duration)
+	m.lastRefreshTime = time.Now().Add(-refreshDisplayDuration - time.Millisecond)
+	status = m.renderRefreshStatus()
+	if status != "" {
+		t.Fatalf("expected refresh status to be empty after display duration, got: %q", status)
 	}
-	if m.showRefreshFlash {
-		t.Fatalf("expected flash flag reset after highlight window")
+
+	// Test no-change state (should not show delta)
+	m.lastRefreshStats = "+0 / Δ0 / -0"
+	m.lastRefreshTime = time.Now()
+	status = m.renderRefreshStatus()
+	if status != "" {
+		t.Fatalf("expected refresh status to be empty when no changes, got: %q", status)
 	}
 }
 
@@ -1774,14 +1777,7 @@ func TestAppRefreshWithMockClient(t *testing.T) {
 
 	app := mustNewTestApp(t, mock)
 	cmd := app.forceRefresh()
-	if cmd == nil {
-		t.Fatalf("expected refresh cmd")
-	}
-	msg := cmd()
-	refreshMsg, ok := msg.(refreshCompleteMsg)
-	if !ok {
-		t.Fatalf("expected refreshCompleteMsg, got %T", msg)
-	}
+	refreshMsg := extractRefreshMsg(t, cmd)
 	app.Update(refreshMsg)
 
 	if got := app.roots[0].Issue.Title; got != "Root Epic Updated" {
@@ -1857,14 +1853,7 @@ func TestRefreshHandlesClientError(t *testing.T) {
 
 	app := mustNewTestApp(t, mock)
 	cmd := app.forceRefresh()
-	if cmd == nil {
-		t.Fatalf("expected refresh cmd")
-	}
-	msg := cmd()
-	refreshMsg, ok := msg.(refreshCompleteMsg)
-	if !ok {
-		t.Fatalf("expected refreshCompleteMsg, got %T", msg)
-	}
+	refreshMsg := extractRefreshMsg(t, cmd)
 	app.Update(refreshMsg)
 	// Errors are now stored in lastError, not lastRefreshStats
 	if app.lastError == "" {
@@ -1895,11 +1884,7 @@ func TestErrorToastShowsOnFirstError(t *testing.T) {
 
 	// Trigger refresh error
 	cmd := app.forceRefresh()
-	if cmd == nil {
-		t.Fatalf("expected refresh cmd")
-	}
-	msg := cmd()
-	refreshMsg := msg.(refreshCompleteMsg)
+	refreshMsg := extractRefreshMsg(t, cmd)
 	_, nextCmd := app.Update(refreshMsg)
 
 	// Toast should be shown on first error
@@ -2648,6 +2633,34 @@ func mustNewTestApp(t *testing.T, client beads.Client) *App {
 		t.Fatalf("NewApp: %v", err)
 	}
 	return app
+}
+
+// extractRefreshMsg extracts refreshCompleteMsg from a command result.
+// Since startRefresh now returns a batch (spinner + refresh), we need to
+// execute the batch and find the refreshCompleteMsg among the results.
+func extractRefreshMsg(t *testing.T, cmd tea.Cmd) refreshCompleteMsg {
+	t.Helper()
+	if cmd == nil {
+		t.Fatalf("expected refresh cmd, got nil")
+	}
+	msg := cmd()
+	// Check if it's a direct refreshCompleteMsg
+	if refreshMsg, ok := msg.(refreshCompleteMsg); ok {
+		return refreshMsg
+	}
+	// Check if it's a BatchMsg containing our refresh
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, c := range batch {
+			if c != nil {
+				result := c()
+				if refreshMsg, ok := result.(refreshCompleteMsg); ok {
+					return refreshMsg
+				}
+			}
+		}
+	}
+	t.Fatalf("could not find refreshCompleteMsg in %T", msg)
+	return refreshCompleteMsg{}
 }
 
 func fileModTime(t *testing.T, path string) time.Time {

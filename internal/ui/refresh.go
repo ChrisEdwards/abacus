@@ -34,7 +34,6 @@ func (m *App) checkDBForChanges() tea.Cmd {
 	if err != nil {
 		m.autoRefresh = false
 		m.lastRefreshStats = fmt.Sprintf("refresh disabled: %v", err)
-		m.showRefreshFlash = true
 		m.lastRefreshTime = time.Now()
 		return nil
 	}
@@ -49,7 +48,7 @@ func (m *App) startRefresh(targetModTime time.Time) tea.Cmd {
 		return nil
 	}
 	m.refreshInFlight = true
-	return refreshDataCmd(m.client, targetModTime)
+	return tea.Batch(m.spinner.Tick, refreshDataCmd(m.client, targetModTime))
 }
 
 func (m *App) forceRefresh() tea.Cmd {
@@ -104,6 +103,5 @@ func (m *App) applyRefresh(newRoots []*graph.Node, newDigest map[string]string, 
 	m.updateViewportContent()
 
 	m.lastRefreshStats = computeDiffStats(oldDigest, newDigest)
-	m.showRefreshFlash = true
 	m.lastRefreshTime = time.Now()
 }

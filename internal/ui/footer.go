@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -47,11 +48,10 @@ func (m *App) renderFooter() string {
 	// Global keys
 	hints = append(hints, globalFooterHints...)
 
-	// Calculate available width
-	repoText := "Repo: " + m.repoName
-	repoRendered := styleFooterMuted.Render(repoText)
-	repoWidth := lipgloss.Width(repoRendered)
-	availableWidth := m.width - repoWidth - 4 // padding
+	// Calculate available width for hints
+	rightContent := m.renderRefreshStatus()
+	rightWidth := lipgloss.Width(rightContent)
+	availableWidth := m.width - rightWidth - 4 // padding
 
 	// Progressively remove hints if too wide
 	hints = m.trimHintsToFit(hints, availableWidth)
@@ -66,12 +66,30 @@ func (m *App) renderFooter() string {
 	leftWidth := lipgloss.Width(left)
 
 	// Calculate spacing for right-alignment
-	spacing := m.width - leftWidth - repoWidth
+	spacing := m.width - leftWidth - rightWidth
 	if spacing < 2 {
 		spacing = 2
 	}
 
-	return left + strings.Repeat(" ", spacing) + repoRendered
+	return left + strings.Repeat(" ", spacing) + rightContent
+}
+
+// renderRefreshStatus returns the current refresh status for the footer.
+// Priority: error > refreshing > delta metrics (if changed) > empty
+func (m *App) renderRefreshStatus() string {
+	if m.lastError != "" {
+		return styleErrorIndicator.Render("⚠ Refresh error (e)")
+	}
+	if m.refreshInFlight {
+		return styleFooterMuted.Render(m.spinner.View() + " Refreshing...")
+	}
+	// Only show delta if something changed and within display duration
+	if m.lastRefreshStats != "" &&
+		m.lastRefreshStats != "+0 / Δ0 / -0" &&
+		time.Since(m.lastRefreshTime) < refreshDisplayDuration {
+		return styleFooterMuted.Render("Δ " + m.lastRefreshStats)
+	}
+	return ""
 }
 
 // keyPill renders a single key hint as a pill with description.

@@ -11,6 +11,7 @@ import (
 	"abacus/internal/beads"
 	"abacus/internal/graph"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,7 +23,7 @@ const (
 	minTreeWidth           = 18
 	minListHeight          = 5
 	defaultRefreshInterval = 3 * time.Second
-	refreshFlashDuration   = 2 * time.Second
+	refreshDisplayDuration = 3 * time.Second // How long delta metrics stay visible in footer
 )
 
 // Config configures the UI application.
@@ -69,9 +70,9 @@ type App struct {
 	dbPath           string
 	lastDBModTime    time.Time
 	lastRefreshStats string
-	showRefreshFlash bool
 	refreshInFlight  bool
 	lastRefreshTime  time.Time
+	spinner          spinner.Model
 	outputFormat     string
 	version          string
 
@@ -144,6 +145,12 @@ func NewApp(cfg Config) (*App, error) {
 	ti.Placeholder = "Search..."
 	ti.Prompt = "/"
 
+	s := spinner.New()
+	s.Spinner = spinner.Spinner{
+		Frames: []string{"◴", "◷", "◶", "◵"},
+		FPS:    time.Second / 4,
+	}
+
 	repo := "abacus"
 	if wd, err := os.Getwd(); err == nil && wd != "" {
 		repo = filepath.Base(wd)
@@ -166,6 +173,7 @@ func NewApp(cfg Config) (*App, error) {
 		client:          client,
 		dbPath:          dbPath,
 		lastDBModTime:   dbModTime,
+		spinner:         s,
 		keys:            DefaultKeyMap(),
 		sessionStart:    time.Now(),
 	}
