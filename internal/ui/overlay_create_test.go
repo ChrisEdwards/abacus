@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -25,11 +26,13 @@ func TestNewCreateOverlay(t *testing.T) {
 		if overlay.defaultParent != "ab-123" {
 			t.Errorf("expected default parent 'ab-123', got %s", overlay.defaultParent)
 		}
-		// Parent input should show Display text (ID + title)
-		if overlay.parentInput.Value() != "ab-123 Test" {
-			t.Errorf("expected parent input 'ab-123 Test', got %s", overlay.parentInput.Value())
+		// selectedParent should be set
+		if overlay.selectedParent == nil {
+			t.Error("expected selectedParent to be set")
+		} else if overlay.selectedParent.ID != "ab-123" {
+			t.Errorf("expected selectedParent.ID 'ab-123', got %s", overlay.selectedParent.ID)
 		}
-		// ParentID() should still return just the ID
+		// ParentID() should return the ID
 		if overlay.ParentID() != "ab-123" {
 			t.Errorf("expected ParentID() 'ab-123', got %s", overlay.ParentID())
 		}
@@ -168,7 +171,6 @@ func TestCreateOverlaySubmit(t *testing.T) {
 
 func TestCreateOverlayFormCompletion(t *testing.T) {
 	t.Run("BeadCreatedMsgHasCorrectFields", func(t *testing.T) {
-		// Test that BeadCreatedMsg correctly stores all fields
 		msg := BeadCreatedMsg{
 			Title:     "Test Bead",
 			IssueType: "feature",
@@ -197,9 +199,17 @@ func TestCreateOverlayView(t *testing.T) {
 		if view == "" {
 			t.Error("expected non-empty view")
 		}
-		// Just verify it renders without panic
 		if len(view) < 50 {
 			t.Error("view seems too short")
+		}
+	})
+
+	t.Run("ContainsTypeDescription", func(t *testing.T) {
+		overlay := NewCreateOverlay("", nil)
+		view := overlay.View()
+		// Default type is Task
+		if !contains(view, "A small unit of work") {
+			t.Error("expected view to contain type description")
 		}
 	})
 }
@@ -267,4 +277,82 @@ func TestCreateOverlayParentFilter(t *testing.T) {
 			t.Errorf("expected max 5 filtered parents, got %d", len(overlay.filteredParents))
 		}
 	})
+}
+
+func TestCreateOverlayParentSelection(t *testing.T) {
+	t.Run("BackspaceClearsSelection", func(t *testing.T) {
+		parents := []ParentOption{
+			{ID: "ab-123", Display: "ab-123 Test"},
+		}
+		overlay := NewCreateOverlay("ab-123", parents)
+		overlay.focus = focusParent
+
+		// Should have selection
+		if overlay.selectedParent == nil {
+			t.Fatal("expected selectedParent to be set")
+		}
+
+		// Backspace with empty input clears selection
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+		if overlay.selectedParent != nil {
+			t.Error("expected selectedParent to be cleared")
+		}
+	})
+
+	t.Run("EnterSelectsFromDropdown", func(t *testing.T) {
+		parents := []ParentOption{
+			{ID: "ab-001", Display: "ab-001 First"},
+			{ID: "ab-002", Display: "ab-002 Second"},
+		}
+		overlay := NewCreateOverlay("", parents)
+		overlay.focus = focusParent
+		overlay.showDropdown = true
+		overlay.filteredParents = parents
+		overlay.parentIndex = 1 // Select second
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+		if overlay.selectedParent == nil {
+			t.Fatal("expected selectedParent to be set")
+		}
+		if overlay.selectedParent.ID != "ab-002" {
+			t.Errorf("expected selected ID 'ab-002', got %s", overlay.selectedParent.ID)
+		}
+		if overlay.showDropdown {
+			t.Error("expected dropdown to be closed")
+		}
+	})
+}
+
+func TestHighlightMatch(t *testing.T) {
+	t.Run("HighlightsMatch", func(t *testing.T) {
+		result := highlightMatch("ab-123 Test Title", "test")
+		// Result should contain the matched text (case-insensitive match preserves original case)
+		if !strings.Contains(result, "Test") {
+			t.Error("expected result to contain matched text 'Test'")
+		}
+		// Result should contain surrounding text
+		if !strings.Contains(result, "ab-123") || !strings.Contains(result, "Title") {
+			t.Error("expected result to contain surrounding text")
+		}
+	})
+
+	t.Run("NoMatchReturnsOriginal", func(t *testing.T) {
+		result := highlightMatch("ab-123 Test Title", "xyz")
+		if result != "ab-123 Test Title" {
+			t.Errorf("expected original text, got %s", result)
+		}
+	})
+
+	t.Run("EmptyFilterReturnsOriginal", func(t *testing.T) {
+		result := highlightMatch("ab-123 Test Title", "")
+		if result != "ab-123 Test Title" {
+			t.Errorf("expected original text, got %s", result)
+		}
+	})
+}
+
+// Helper function
+func contains(s, substr string) bool {
+	return len(s) > 0 && len(substr) > 0 && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || contains(s[1:], substr)))
 }

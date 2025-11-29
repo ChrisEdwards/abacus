@@ -16,9 +16,16 @@ const (
 	focusParent
 )
 
-// Type options
+// Type options with descriptions
 var typeOptions = []string{"task", "feature", "bug", "epic", "chore"}
 var typeLabels = []string{"Task", "Feature", "Bug", "Epic", "Chore"}
+var typeDescriptions = []string{
+	"A small unit of work",
+	"New functionality for users",
+	"Something that's broken",
+	"A large initiative with subtasks",
+	"Maintenance or housekeeping",
+}
 
 // Priority options
 var priorityLabels = []string{"Crit", "High", "Med", "Low", "Back"}
@@ -41,9 +48,10 @@ type CreateOverlay struct {
 	parentInput     textinput.Model
 	parentOptions   []ParentOption
 	filteredParents []ParentOption
-	parentIndex     int // Selected index in filtered list
+	parentIndex     int    // Selected index in filtered list
 	showDropdown    bool
 	defaultParent   string
+	selectedParent  *ParentOption // Currently selected parent (nil if none)
 }
 
 // ParentOption represents a bead that can be selected as a parent.
@@ -72,21 +80,11 @@ func NewCreateOverlay(defaultParentID string, availableParents []ParentOption) *
 	ti.CharLimit = 100
 	ti.Width = 40
 
-	// Parent filter input
+	// Parent filter input - always starts empty for searching
 	pi := textinput.New()
-	pi.Placeholder = "(none) type to filter..."
+	pi.Placeholder = "type to search..."
 	pi.CharLimit = 80
 	pi.Width = 40
-
-	// Pre-fill parent if default exists - show Display text (ID + title)
-	if defaultParentID != "" {
-		for _, p := range availableParents {
-			if p.ID == defaultParentID {
-				pi.SetValue(p.Display)
-				break
-			}
-		}
-	}
 
 	m := &CreateOverlay{
 		focus:           focusTitle,
@@ -99,7 +97,16 @@ func NewCreateOverlay(defaultParentID string, availableParents []ParentOption) *
 		defaultParent:   defaultParentID,
 	}
 
-	m.filterParents()
+	// Pre-select parent if default exists
+	if defaultParentID != "" {
+		for i := range availableParents {
+			if availableParents[i].ID == defaultParentID {
+				m.selectedParent = &availableParents[i]
+				break
+			}
+		}
+	}
+
 	return m
 }
 
@@ -117,6 +124,7 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 			// If dropdown is open, close it first
 			if m.showDropdown {
 				m.showDropdown = false
+				m.parentInput.SetValue("")
 				return m, nil
 			}
 			return m, func() tea.Msg { return CreateCancelledMsg{} }
@@ -125,7 +133,8 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 			// If in dropdown, select the item
 			if m.showDropdown && len(m.filteredParents) > 0 {
 				selected := m.filteredParents[m.parentIndex]
-				m.parentInput.SetValue(selected.Display)
+				m.selectedParent = &selected
+				m.parentInput.SetValue("")
 				m.showDropdown = false
 				return m, nil
 			}
@@ -187,12 +196,20 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 				return m, nil
 			}
 
+		case tea.KeyBackspace, tea.KeyDelete:
+			// In parent field with no input text but has selection, clear selection
+			if m.focus == focusParent && m.parentInput.Value() == "" && m.selectedParent != nil {
+				m.selectedParent = nil
+				return m, nil
+			}
+
 		case tea.KeyCtrlN:
 			// Ctrl+N to open/navigate dropdown
 			if m.focus == focusParent {
 				if !m.showDropdown {
 					m.showDropdown = true
 					m.parentIndex = 0
+					m.filterParents()
 				} else if m.parentIndex < len(m.filteredParents)-1 {
 					m.parentIndex++
 				}
@@ -280,13 +297,8 @@ func (m *CreateOverlay) filterParents() {
 
 func (m *CreateOverlay) submit() tea.Msg {
 	parentID := ""
-	// Check if input matches a valid parent ID
-	inputVal := strings.TrimSpace(m.parentInput.Value())
-	for _, p := range m.parentOptions {
-		if p.ID == inputVal {
-			parentID = p.ID
-			break
-		}
+	if m.selectedParent != nil {
+		parentID = m.selectedParent.ID
 	}
 
 	return BeadCreatedMsg{
@@ -339,10 +351,42 @@ var (
 				Bold(true).
 				PaddingLeft(1)
 
+	styleMatchHighlight = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("212")).
+				Bold(true)
+
 	styleCreateError = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("196")).
 				Italic(true)
+
+	styleTypeDesc = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")).
+			Italic(true)
+
+	styleSelectedParent = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("86"))
+
+	styleParentClear = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("241"))
 )
+
+// highlightMatch highlights the matching portion of text
+func highlightMatch(text, filter string) string {
+	if filter == "" {
+		return text
+	}
+	lowerText := strings.ToLower(text)
+	lowerFilter := strings.ToLower(filter)
+	idx := strings.Index(lowerText, lowerFilter)
+	if idx == -1 {
+		return text
+	}
+	// Build highlighted string
+	before := text[:idx]
+	match := text[idx : idx+len(filter)]
+	after := text[idx+len(filter):]
+	return before + styleMatchHighlight.Render(match) + after
+}
 
 // View implements tea.Model.
 func (m *CreateOverlay) View() string {
@@ -375,7 +419,7 @@ func (m *CreateOverlay) View() string {
 	}
 	b.WriteString("\n\n")
 
-	// Type pills
+	// Type pills with description
 	typeLabel := styleCreateLabel.Render("Type")
 	b.WriteString(typeLabel)
 	b.WriteString("    ")
@@ -393,6 +437,10 @@ func (m *CreateOverlay) View() string {
 			b.WriteString(" ")
 		}
 	}
+	b.WriteString("\n")
+	// Show description for selected type
+	b.WriteString("          ")
+	b.WriteString(styleTypeDesc.Render(typeDescriptions[m.typeIndex]))
 	b.WriteString("\n\n")
 
 	// Priority pills
@@ -415,39 +463,61 @@ func (m *CreateOverlay) View() string {
 	}
 	b.WriteString("\n\n")
 
-	// Parent field
+	// Parent field - show selected parent or search input
 	parentLabel := styleCreateLabel.Render("Parent")
 	b.WriteString(parentLabel)
-	b.WriteString("\n")
 
-	parentStyle := styleCreateInput
-	if m.focus == focusParent {
-		parentStyle = styleCreateInputFocused
+	if m.selectedParent != nil && m.focus != focusParent {
+		// Show selected parent with clear hint
+		b.WriteString("  ")
+		display := truncateTitle(m.selectedParent.Display, 38)
+		b.WriteString(styleSelectedParent.Render(display))
+		b.WriteString("\n")
+	} else if m.selectedParent != nil && m.focus == focusParent && m.parentInput.Value() == "" {
+		// Focused with selection but no search - show selected + hint
+		b.WriteString("  ")
+		display := truncateTitle(m.selectedParent.Display, 38)
+		b.WriteString(styleSelectedParent.Render(display))
+		b.WriteString(" ")
+		b.WriteString(styleParentClear.Render("(⌫ clear)"))
+		b.WriteString("\n")
+		// Also show search input below
+		parentStyle := styleCreateInputFocused
+		b.WriteString(parentStyle.Render(m.parentInput.View()))
+		b.WriteString("\n")
+	} else {
+		// No selection or searching
+		b.WriteString("\n")
+		parentStyle := styleCreateInput
+		if m.focus == focusParent {
+			parentStyle = styleCreateInputFocused
+		}
+		b.WriteString(parentStyle.Render(m.parentInput.View()))
+		b.WriteString("\n")
 	}
-	b.WriteString(parentStyle.Render(m.parentInput.View()))
-	b.WriteString("\n")
 
-	// Dropdown results
+	// Dropdown results with highlighted matches
 	if m.showDropdown && len(m.filteredParents) > 0 {
+		filter := m.parentInput.Value()
 		for i, p := range m.filteredParents {
 			display := truncateTitle(p.Display, 42)
+			highlighted := highlightMatch(display, filter)
 			if i == m.parentIndex {
-				b.WriteString(styleDropdownSelected.Render("› " + display))
+				b.WriteString(styleDropdownSelected.Render("› "))
+				b.WriteString(highlighted)
 			} else {
-				b.WriteString(styleDropdownItem.Render(display))
+				b.WriteString(styleDropdownItem.Render("  "))
+				b.WriteString(highlighted)
 			}
 			b.WriteString("\n")
 		}
-	} else if m.focus == focusParent && m.parentInput.Value() == "" {
-		b.WriteString(styleDropdownItem.Render("type to search parents..."))
+	} else if m.focus == focusParent && m.selectedParent == nil && m.parentInput.Value() == "" {
+		b.WriteString(styleDropdownItem.Render("  (none) - type to search"))
 		b.WriteString("\n")
 	}
 
 	b.WriteString("\n")
 	b.WriteString(divider)
-	b.WriteString("\n")
-	footer := styleHelpFooter.Render("Tab: Next  ←→: Select  Enter: Submit  Esc: Cancel")
-	b.WriteString(footer)
 
 	return styleHelpOverlay.Render(b.String())
 }
@@ -469,19 +539,8 @@ func (m *CreateOverlay) Priority() int {
 
 // ParentID returns the current parent ID value.
 func (m *CreateOverlay) ParentID() string {
-	inputVal := strings.TrimSpace(m.parentInput.Value())
-	if inputVal == "" {
-		return ""
-	}
-	// Match against Display text or ID
-	for _, p := range m.parentOptions {
-		if p.Display == inputVal || p.ID == inputVal {
-			return p.ID
-		}
-		// Also match if input starts with the ID (partial match)
-		if strings.HasPrefix(inputVal, p.ID+" ") {
-			return p.ID
-		}
+	if m.selectedParent != nil {
+		return m.selectedParent.ID
 	}
 	return ""
 }

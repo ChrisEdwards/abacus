@@ -49,6 +49,13 @@ var labelsOverlayFooterHints = []footerHint{
 	{"esc", "Cancel"},
 }
 
+var createOverlayFooterHints = []footerHint{
+	{"Tab", "Next"},
+	{"←→", "Select"},
+	{"⏎", "Submit"},
+	{"esc", "Cancel"},
+}
+
 // renderFooter renders the footer bar with pill-style key hints.
 func (m *App) renderFooter() string {
 	var hints []footerHint
@@ -59,6 +66,8 @@ func (m *App) renderFooter() string {
 		hints = statusOverlayFooterHints
 	case OverlayLabels:
 		hints = labelsOverlayFooterHints
+	case OverlayCreate:
+		hints = createOverlayFooterHints
 	default:
 		// Context-specific keys (shown first, leftmost)
 		switch m.focus {
