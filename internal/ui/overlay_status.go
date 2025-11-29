@@ -191,17 +191,10 @@ func (m *StatusOverlay) View() string {
 		}
 
 		b.WriteString(line)
-		b.WriteString("\n")
+		if i < len(m.options)-1 {
+			b.WriteString("\n")
+		}
 	}
-
-	// Footer with hotkeys
-	b.WriteString(styleStatusDivider.Render(strings.Repeat("─", 36)))
-	b.WriteString("\n")
-	footer := styleHelpKey.Render("o") + styleHelpDesc.Render(" open  ") +
-		styleHelpKey.Render("i") + styleHelpDesc.Render(" in progress  ") +
-		styleHelpKey.Render("c") + styleHelpDesc.Render(" close  ") +
-		styleHelpKey.Render("esc") + styleHelpDesc.Render(" cancel")
-	b.WriteString(footer)
 
 	content := b.String()
 	return styleStatusOverlay.Render(content)
