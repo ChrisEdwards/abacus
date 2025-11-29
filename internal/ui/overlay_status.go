@@ -21,6 +21,7 @@ type StatusOverlay struct {
 type statusOption struct {
 	value    string // "open", "in_progress", "closed"
 	label    string // Display label
+	hotkey   string // Keyboard shortcut
 	disabled bool   // True if transition is not allowed
 }
 
@@ -38,9 +39,9 @@ func NewStatusOverlay(issueID, issueTitle, currentStatus string) *StatusOverlay 
 	current := domain.Status(currentStatus)
 
 	options := []statusOption{
-		{value: "open", label: "Open"},
-		{value: "in_progress", label: "In Progress"},
-		{value: "closed", label: "Closed"},
+		{value: "open", label: "Open", hotkey: "o"},
+		{value: "in_progress", label: "In Progress", hotkey: "i"},
+		{value: "closed", label: "Closed", hotkey: "c"},
 	}
 
 	// Mark invalid transitions as disabled
@@ -92,9 +93,27 @@ func (m *StatusOverlay) Update(msg tea.Msg) (*StatusOverlay, tea.Cmd) {
 			return m, m.confirm()
 		case key.Matches(msg, key.NewBinding(key.WithKeys("esc"))):
 			return m, func() tea.Msg { return StatusCancelledMsg{} }
+		// Hotkeys: o=Open, i=In Progress, c=Closed
+		case key.Matches(msg, key.NewBinding(key.WithKeys("o"))):
+			return m, m.selectByValue("open")
+		case key.Matches(msg, key.NewBinding(key.WithKeys("i"))):
+			return m, m.selectByValue("in_progress")
+		case key.Matches(msg, key.NewBinding(key.WithKeys("c"))):
+			return m, m.selectByValue("closed")
 		}
 	}
 	return m, nil
+}
+
+// selectByValue selects and confirms the option with the given value if enabled.
+func (m *StatusOverlay) selectByValue(value string) tea.Cmd {
+	for i, opt := range m.options {
+		if opt.value == value && !opt.disabled {
+			m.selected = i
+			return m.confirm()
+		}
+	}
+	return nil
 }
 
 func (m *StatusOverlay) moveDown() {
@@ -151,7 +170,7 @@ func (m *StatusOverlay) View() string {
 	b.WriteString(divider)
 	b.WriteString("\n")
 
-	// Options
+	// Options with hotkeys
 	for i, opt := range m.options {
 		var line string
 		indicator := "○"
@@ -159,17 +178,21 @@ func (m *StatusOverlay) View() string {
 			indicator = "●"
 		}
 
+		// Format: [o] ○ Open  ←
+		hotkeyPart := "[" + opt.hotkey + "]"
 		label := opt.label
 		if i == m.selected {
 			label += "  ←"
 		}
 
 		if opt.disabled {
-			line = styleStatusDisabled.Render("  " + indicator + " " + label)
+			line = styleStatusDisabled.Render(" " + hotkeyPart + " " + indicator + " " + label)
 		} else if i == m.selected {
-			line = styleStatusSelected.Render("  " + indicator + " " + label)
+			line = styleStatusSelected.Render(" " + hotkeyPart + " " + indicator + " " + label)
 		} else {
-			line = styleStatusOption.Render("  " + indicator + " " + label)
+			// Hotkey in cyan, rest in normal
+			hotkeyStyled := styleHelpKey.Render(hotkeyPart)
+			line = " " + hotkeyStyled + " " + styleStatusOption.Render(indicator+" "+label)
 		}
 
 		b.WriteString(line)
