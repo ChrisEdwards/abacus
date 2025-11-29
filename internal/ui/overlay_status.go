@@ -154,18 +154,13 @@ func (m *StatusOverlay) confirm() tea.Cmd {
 func (m *StatusOverlay) View() string {
 	var b strings.Builder
 
-	// Title with bead context
-	title := styleStatusTitle.Render("CHANGE STATUS")
-	b.WriteString(title)
-	b.WriteString("\n")
-
-	// Bead info line
-	beadInfo := styleStatusBeadID.Render(m.issueID) + " " + styleStatusBeadTitle.Render(truncateTitle(m.issueTitle, 30))
-	b.WriteString(beadInfo)
+	// Breadcrumb header: ab-6s4 › Status
+	header := styleID.Render(m.issueID) + styleStatsDim.Render(" › ") + styleStatsDim.Render("Status")
+	b.WriteString(header)
 	b.WriteString("\n")
 
 	// Divider
-	divider := styleStatusDivider.Render(strings.Repeat("─", 36))
+	divider := styleStatusDivider.Render(strings.Repeat("─", 20))
 	b.WriteString(divider)
 	b.WriteString("\n")
 
