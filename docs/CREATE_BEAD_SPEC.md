@@ -110,14 +110,14 @@ The modal is divided into five distinct **zones**.
 │ ╰──────────────────────────────────────────────────────────────────────────╯ │
 │                                                                              │
 │  PROPERTIES                                                                  │
-│ ╭────────────────────╮  ╭────────────────────╮  ╭────────────────────╮       │
-│ │ TYPE               │  │ PRIORITY           │  │ EFFORT             │       │
-│ │ ► Task             │  │ ► Med              │  │ [          ]       │       │
-│ │   Feature          │  │   High             │  │                    │       │
-│ │   Bug              │  │   Critical         │  │                    │       │
-│ │   Epic             │  │   Low              │  │                    │       │
-│ │   Chore            │  │   Backlog          │  │                    │       │
-│ ╰────────────────────╯  ╰────────────────────╯  ╰────────────────────╯       │
+│ ╭────────────────────────────╮  ╭────────────────────────────╮              │
+│ │ TYPE                       │  │ PRIORITY                   │              │
+│ │ ► Task                     │  │ ► Med                      │              │
+│ │   Feature                  │  │   High                     │              │
+│ │   Bug                      │  │   Critical                 │              │
+│ │   Epic                     │  │   Low                      │              │
+│ │   Chore                    │  │   Backlog                  │              │
+│ ╰────────────────────────────╯  ╰────────────────────────────╯              │
 │                                                                              │
 │  LABELS                                                                      │
 │ ╭──────────────────────────────────────────────────────────────────────────╮ │
@@ -165,14 +165,14 @@ The modal is divided into five distinct **zones**.
 - No placeholder text needed (cursor implies "type here")
 - No "required" label (submission validates)
 
-### Zone 3: Properties (Type, Priority, Effort)
+### Zone 3: Properties (Type, Priority)
 
 | Aspect | Specification |
 |--------|---------------|
-| **Layout** | Three-column horizontal grid (all fixed width) |
-| **Columns** | Type, Priority, Effort |
+| **Layout** | Two-column horizontal grid (fixed width) |
+| **Columns** | Type, Priority |
 | **Navigation** | `Tab` / `Shift+Tab` cycles columns; `↑/↓` selects within Type/Priority |
-| **Purpose** | "What kind of bead, how important, how long?" — core metadata |
+| **Purpose** | "What kind of bead, how important?" — core metadata |
 
 **Selection Visual:**
 - Current option marked with `►` prefix
@@ -203,23 +203,6 @@ When Type or Priority is focused, single keys select directly:
 - When field is **focused**: Underline the hotkey letter (e.g., "T̲ask", "F̲eature")
 - When field is **unfocused**: No underlines (cleaner appearance)
 - Keys are **case-insensitive** (`t` and `T` both select Task)
-
-**Effort Field:**
-
-| Aspect | Specification |
-|--------|---------------|
-| **Type** | Structured duration input |
-| **Accepted Formats** | `30m`, `2h`, `1.5h`, `1d`, `2d` (converts to minutes internally: 1d = 8h) |
-| **Optional** | Can leave blank |
-| **Validation** | On blur or submit: if non-empty and unparseable, show red border + hint |
-| **Invalid Hint** | Below field: `Expected: 30m, 2h, 1d` in `styleStatsDim` |
-
-**Effort Validation Behavior:**
-- Empty input: Valid (effort is optional)
-- Valid formats: `15m`, `30m`, `1h`, `1.5h`, `2h`, `1d`, `2d`, etc.
-- Invalid input (e.g., "soon", "a few hours"): Red border, hint shown, focus stays
-- Validation triggers on: blur (Tab away) or submit (Enter)
-- User must fix or clear before submission succeeds
 
 ### Zone 4: Labels
 
@@ -668,11 +651,8 @@ Power users need to dump a brain-cache of tasks rapidly.
 | Priority | Persists | Batch often same priority |
 | Labels | Persists | Batch context (e.g., all "backend") |
 | Assignee | Persists | Batch often same assignee |
-| Effort | **Clears** | Each task has unique effort |
 
 **Why most persist:** If you're adding 5 backend tasks to an epic, you don't want to set Type, Priority, Labels, and Assignee five times. These are "batch context."
-
-**Why Effort clears:** Each task likely has different time estimates.
 
 ### 4.4 Validation & Error Handling
 
@@ -749,7 +729,7 @@ When type auto-changes:
 
 | Key | Action |
 |-----|--------|
-| `Tab` | Next field (Title → Type → Priority → Effort → Labels → Assignee) |
+| `Tab` | Next field (Title → Type → Priority → Labels → Assignee) |
 | `Shift+Tab` | Previous field (from Title goes to Parent) |
 | `↑` / `k` | Previous option in current selector |
 | `↓` / `j` | Next option in current selector |
@@ -760,7 +740,7 @@ When type auto-changes:
 
 | Key | Context | Action |
 |-----|---------|--------|
-| `Enter` | Title / Selectors / Effort | Create bead, close modal |
+| `Enter` | Title / Selectors | Create bead, close modal |
 | `Enter` | Parent focused | Confirm parent value, move to Title |
 | `Enter` | Parent dropdown | Select highlighted result, move to Title |
 | `Enter` | Labels (match highlighted) | Create chip, clear input, stay in Labels |
@@ -1114,7 +1094,7 @@ More fields are returned if they are populated.
 ### State Management
 
 ```
-Focus: Parent | Title | Type | Priority | Effort | Labels | Assignee
+Focus: Parent | Title | Type | Priority | Labels | Assignee
 ParentID: string (empty = Root, committed value)
 ParentPending: string (pending value while in Parent field)
 ParentOriginal: string (value when Parent field was focused, for Esc revert)
@@ -1143,7 +1123,6 @@ AssigneeFilteredMatches: []string (matches for current input)
 AssigneeHighlightedIndex: int (index of highlighted match, 0 = first)
 IsAssigneeDropdownOpen: bool (false after 1st Esc)
 
-EffortInput: string
 IsSearching: bool (Parent search active)
 IsCreating: bool
 ```
@@ -1204,7 +1183,7 @@ CreateModalCancelledMsg {}
 | Bulk entry | Not supported | Ctrl+Enter workflow |
 | Enter key | Always submit | Context-dependent |
 | Footer | Static help text | Dynamic (flips) |
-| Properties | Vertical list | Three-row layout (Type/Priority/Effort, Labels, Assignee) |
+| Properties | Vertical list | Two-column layout (Type/Priority), then Labels, Assignee |
 
 ---
 
