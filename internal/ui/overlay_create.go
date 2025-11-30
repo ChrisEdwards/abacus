@@ -2,11 +2,22 @@ package ui
 
 import (
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// titleFlashClearMsg clears the title validation error flash.
+type titleFlashClearMsg struct{}
+
+// titleFlashCmd returns a command that clears the title flash after a delay.
+func titleFlashCmd() tea.Cmd {
+	return tea.Tick(flashDuration, func(_ time.Time) tea.Msg {
+		return titleFlashClearMsg{}
+	})
+}
 
 // CreateFocus represents which zone has focus in the create overlay.
 type CreateFocus int
@@ -42,7 +53,8 @@ type CreateOverlay struct {
 	parentOriginal  string // Value when Parent field focused, for Esc revert (spec Section 12)
 
 	// Zone 2: Title (hero element)
-	titleInput textinput.Model
+	titleInput           textinput.Model
+	titleValidationError bool // True when flashing red for validation
 
 	// Zone 3: Properties (2-column grid)
 	typeIndex       int
@@ -163,6 +175,10 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 
 	// Handle messages from composed components
 	switch msg := msg.(type) {
+	case titleFlashClearMsg:
+		m.titleValidationError = false
+		return m, nil
+
 	case ChipComboBoxTabMsg:
 		// Labels combo requested Tab - move to Assignee
 		m.focus = FocusAssignee
@@ -239,9 +255,10 @@ func (m *CreateOverlay) handleEscape() (*CreateOverlay, tea.Cmd) {
 }
 
 func (m *CreateOverlay) handleSubmit(_ bool) (*CreateOverlay, tea.Cmd) {
-	// Validate title
+	// Validate title - flash red if empty (spec Section 4.4)
 	if strings.TrimSpace(m.titleInput.Value()) == "" {
-		return m, nil
+		m.titleValidationError = true
+		return m, titleFlashCmd()
 	}
 
 	// TODO: implement "Create & Add Another" (Ctrl+Enter) using the stayOpen parameter
@@ -516,6 +533,13 @@ var (
 				Padding(0, 1).
 				Width(44)
 
+	// Error state for title validation (spec Section 4.4 - red border flash)
+	styleCreateInputError = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("196")). // Red
+				Padding(0, 1).
+				Width(44)
+
 	styleCreateError = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("196")).
 				Italic(true)
@@ -574,6 +598,9 @@ func (m *CreateOverlay) View() string {
 	titleStyle := styleCreateInput
 	if m.focus == FocusTitle {
 		titleStyle = styleCreateInputFocused
+	}
+	if m.titleValidationError {
+		titleStyle = styleCreateInputError
 	}
 	titleView := titleStyle.Render(m.titleInput.View())
 	if parentSearchActive {
@@ -765,4 +792,9 @@ func (m *CreateOverlay) DefaultParentID() string {
 // IsRootMode returns whether the overlay was opened in root mode (for testing).
 func (m *CreateOverlay) IsRootMode() bool {
 	return m.isRootMode
+}
+
+// TitleValidationError returns whether the title is showing validation error (for testing).
+func (m *CreateOverlay) TitleValidationError() bool {
+	return m.titleValidationError
 }

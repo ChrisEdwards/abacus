@@ -171,10 +171,19 @@ func TestCreateOverlayNavigation(t *testing.T) {
 func TestCreateOverlaySubmit(t *testing.T) {
 	t.Run("RequiresTitle", func(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
-		// Title is empty
-		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
-		if cmd != nil {
-			t.Error("expected no submit with empty title")
+		// Title is empty - should flash red and return flash command (not submit)
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Error("expected flash command with empty title")
+		}
+		// Should NOT be a BeadCreatedMsg (i.e., no submit)
+		msg := cmd()
+		if _, ok := msg.(BeadCreatedMsg); ok {
+			t.Error("expected no submit (BeadCreatedMsg) with empty title")
+		}
+		// Should show validation error
+		if !overlay.TitleValidationError() {
+			t.Error("expected validation error with empty title")
 		}
 	})
 
@@ -929,6 +938,99 @@ func TestParentFieldStateTracking(t *testing.T) {
 		overlay.parentOriginal = "test-original"
 		if overlay.parentOriginal != "test-original" {
 			t.Errorf("expected parentOriginal 'test-original', got %s", overlay.parentOriginal)
+		}
+	})
+}
+
+// Tests for Zone 2: Title Field Validation Flash (ab-4rv)
+// These tests verify spec behavior from Section 4.4
+
+func TestTitleValidationFlash(t *testing.T) {
+	t.Run("EmptySubmitSetsValidationError", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		// Title is empty by default
+
+		if overlay.TitleValidationError() {
+			t.Error("expected no validation error initially")
+		}
+
+		// Try to submit with empty title
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+		if !overlay.TitleValidationError() {
+			t.Error("expected validation error after empty submit")
+		}
+
+		// Should return a flash clear command
+		if cmd == nil {
+			t.Error("expected flash clear command")
+		}
+	})
+
+	t.Run("FlashClearMsgClearsError", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+
+		// Set error state
+		overlay.titleValidationError = true
+
+		// Send flash clear message
+		overlay, _ = overlay.Update(titleFlashClearMsg{})
+
+		if overlay.TitleValidationError() {
+			t.Error("expected validation error to be cleared after titleFlashClearMsg")
+		}
+	})
+
+	t.Run("ValidTitleDoesNotFlash", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Valid Title")
+
+		// Submit with valid title
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+		if overlay.TitleValidationError() {
+			t.Error("expected no validation error with valid title")
+		}
+
+		// cmd should be submit command, not flash command
+		if cmd == nil {
+			t.Fatal("expected submit command")
+		}
+		msg := cmd()
+		_, ok := msg.(BeadCreatedMsg)
+		if !ok {
+			t.Errorf("expected BeadCreatedMsg, got %T", msg)
+		}
+	})
+
+	t.Run("WhitespaceOnlyTitleFlashes", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("   \t\n  ")
+
+		// Submit with whitespace-only title
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+		if !overlay.TitleValidationError() {
+			t.Error("expected validation error for whitespace-only title")
+		}
+
+		if cmd == nil {
+			t.Error("expected flash clear command")
+		}
+	})
+}
+
+func TestTitleValidationFlashGetter(t *testing.T) {
+	t.Run("GetterReturnsCorrectState", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+
+		if overlay.TitleValidationError() {
+			t.Error("expected false initially")
+		}
+
+		overlay.titleValidationError = true
+		if !overlay.TitleValidationError() {
+			t.Error("expected true after setting")
 		}
 	})
 }
