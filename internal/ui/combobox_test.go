@@ -343,11 +343,20 @@ func TestComboBoxFiltering(t *testing.T) {
 		cb := NewComboBox(options).WithMaxVisible(5)
 		cb.Focus()
 
-		// Type 'Item' to match all
+		// Type 'I' to match all
 		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'I'}})
 
-		if len(cb.filteredOptions) != 5 {
-			t.Errorf("expected max 5 filtered options, got %d", len(cb.filteredOptions))
+		// All matches are stored in filteredOptions for navigation
+		if len(cb.filteredOptions) != 20 {
+			t.Errorf("expected 20 filtered options, got %d", len(cb.filteredOptions))
+		}
+
+		// But View only renders MaxVisible items
+		view := cb.View()
+		// Count how many "Item" entries appear (should be limited to MaxVisible)
+		itemCount := strings.Count(view, "Item")
+		if itemCount > 5 {
+			t.Errorf("expected max 5 visible items, got %d", itemCount)
 		}
 	})
 

@@ -43,7 +43,8 @@ type ComboBox struct {
 	value           string          // Committed/selected value
 	originalValue   string          // For Esc revert
 	filteredOptions []string        // Current filtered list
-	highlightIndex  int             // Currently highlighted item
+	highlightIndex  int             // Currently highlighted item in filteredOptions
+	scrollOffset    int             // First visible item index for scrolling
 	focused         bool            // Is this component focused
 }
 
@@ -186,12 +187,14 @@ func (c ComboBox) handleBrowsingKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 	case tea.KeyUp:
 		if c.highlightIndex > 0 {
 			c.highlightIndex--
+			c.adjustScrollOffset()
 		}
 		return c, nil
 
 	case tea.KeyDown:
 		if c.highlightIndex < len(c.filteredOptions)-1 {
 			c.highlightIndex++
+			c.adjustScrollOffset()
 		}
 		return c, nil
 
@@ -227,12 +230,14 @@ func (c ComboBox) handleFilteringKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 	case tea.KeyUp:
 		if c.highlightIndex > 0 {
 			c.highlightIndex--
+			c.adjustScrollOffset()
 		}
 		return c, nil
 
 	case tea.KeyDown:
 		if c.highlightIndex < len(c.filteredOptions)-1 {
 			c.highlightIndex++
+			c.adjustScrollOffset()
 		}
 		return c, nil
 
@@ -303,6 +308,7 @@ func (c *ComboBox) filterOptions() {
 	input := strings.ToLower(c.textInput.Value())
 	if input == "" {
 		c.filteredOptions = c.Options
+		c.scrollOffset = 0
 		return
 	}
 	c.filteredOptions = nil
@@ -311,24 +317,49 @@ func (c *ComboBox) filterOptions() {
 			c.filteredOptions = append(c.filteredOptions, opt)
 		}
 	}
-	// Limit to MaxVisible
-	if len(c.filteredOptions) > c.MaxVisible {
-		c.filteredOptions = c.filteredOptions[:c.MaxVisible]
-	}
+	// Reset scroll when filter changes
+	c.scrollOffset = 0
+	// Note: No longer limiting to MaxVisible here - View handles visible window
 }
 
 func (c *ComboBox) highlightCurrentValue() {
 	if c.value == "" {
 		c.highlightIndex = 0
+		c.scrollOffset = 0
 		return
 	}
 	for i, opt := range c.filteredOptions {
 		if opt == c.value {
 			c.highlightIndex = i
+			c.adjustScrollOffset()
 			return
 		}
 	}
 	c.highlightIndex = 0 // Value not in list
+	c.scrollOffset = 0
+}
+
+// adjustScrollOffset ensures the highlighted item is visible in the dropdown window.
+func (c *ComboBox) adjustScrollOffset() {
+	// If highlight is above visible window, scroll up
+	if c.highlightIndex < c.scrollOffset {
+		c.scrollOffset = c.highlightIndex
+	}
+	// If highlight is below visible window, scroll down
+	if c.highlightIndex >= c.scrollOffset+c.MaxVisible {
+		c.scrollOffset = c.highlightIndex - c.MaxVisible + 1
+	}
+	// Clamp scroll offset
+	if c.scrollOffset < 0 {
+		c.scrollOffset = 0
+	}
+	maxOffset := len(c.filteredOptions) - c.MaxVisible
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if c.scrollOffset > maxOffset {
+		c.scrollOffset = maxOffset
+	}
 }
 
 // View implements tea.Model.
@@ -355,15 +386,35 @@ func (c ComboBox) View() string {
 				b.WriteString(styleComboBoxNoMatch.Render("  No matches"))
 			}
 		} else {
-			for i, opt := range c.filteredOptions {
+			// Show scroll-up indicator if there are items above
+			if c.scrollOffset > 0 {
+				b.WriteString(styleComboBoxHint.Render("  ▲ more above"))
+				b.WriteString("\n")
+			}
+
+			// Calculate visible window
+			endIndex := c.scrollOffset + c.MaxVisible
+			if endIndex > len(c.filteredOptions) {
+				endIndex = len(c.filteredOptions)
+			}
+
+			// Render only visible items
+			for i := c.scrollOffset; i < endIndex; i++ {
+				opt := c.filteredOptions[i]
 				if i == c.highlightIndex {
 					b.WriteString(styleComboBoxHighlight.Render("\u25b8 " + opt))
 				} else {
 					b.WriteString(styleComboBoxOption.Render("  " + opt))
 				}
-				if i < len(c.filteredOptions)-1 {
+				if i < endIndex-1 {
 					b.WriteString("\n")
 				}
+			}
+
+			// Show scroll-down indicator if there are items below
+			if endIndex < len(c.filteredOptions) {
+				b.WriteString("\n")
+				b.WriteString(styleComboBoxHint.Render("  ▼ more below"))
 			}
 		}
 	}
