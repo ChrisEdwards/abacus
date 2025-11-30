@@ -392,6 +392,285 @@ func TestChipComboBoxTabMsg(t *testing.T) {
 	})
 }
 
+func TestCreateOverlayBoundsChecking(t *testing.T) {
+	t.Run("TypeIndexStaysAtZeroOnUpArrow", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusType
+		overlay.typeIndex = 0
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyUp})
+		if overlay.typeIndex != 0 {
+			t.Errorf("expected type index to stay at 0, got %d", overlay.typeIndex)
+		}
+	})
+
+	t.Run("TypeIndexStaysAtMaxOnDownArrow", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusType
+		overlay.typeIndex = 4 // chore (last)
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
+		if overlay.typeIndex != 4 {
+			t.Errorf("expected type index to stay at 4, got %d", overlay.typeIndex)
+		}
+	})
+
+	t.Run("PriorityIndexStaysAtZeroOnUpArrow", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusPriority
+		overlay.priorityIndex = 0 // critical
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyUp})
+		if overlay.priorityIndex != 0 {
+			t.Errorf("expected priority index to stay at 0, got %d", overlay.priorityIndex)
+		}
+	})
+
+	t.Run("PriorityIndexStaysAtMaxOnDownArrow", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusPriority
+		overlay.priorityIndex = 4 // backlog (last)
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
+		if overlay.priorityIndex != 4 {
+			t.Errorf("expected priority index to stay at 4, got %d", overlay.priorityIndex)
+		}
+	})
+}
+
+func TestCreateOverlayFullNavigationCycle(t *testing.T) {
+	t.Run("AssigneeTabWrapsToTitle", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusAssignee
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
+		if overlay.Focus() != FocusTitle {
+			t.Errorf("expected focus to wrap to title, got %d", overlay.Focus())
+		}
+	})
+
+	t.Run("ShiftTabFullCycle", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+
+		// Start at Title, go backwards
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		if overlay.Focus() != FocusParent {
+			t.Errorf("expected Title -> Parent, got %d", overlay.Focus())
+		}
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		if overlay.Focus() != FocusAssignee {
+			t.Errorf("expected Parent -> Assignee, got %d", overlay.Focus())
+		}
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		if overlay.Focus() != FocusLabels {
+			t.Errorf("expected Assignee -> Labels, got %d", overlay.Focus())
+		}
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		if overlay.Focus() != FocusPriority {
+			t.Errorf("expected Labels -> Priority, got %d", overlay.Focus())
+		}
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		if overlay.Focus() != FocusType {
+			t.Errorf("expected Priority -> Type, got %d", overlay.Focus())
+		}
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		if overlay.Focus() != FocusTitle {
+			t.Errorf("expected Type -> Title, got %d", overlay.Focus())
+		}
+	})
+}
+
+func TestCreateOverlayEscapeWithDropdown(t *testing.T) {
+	t.Run("EscapeClosesParentDropdownFirst", func(t *testing.T) {
+		parents := []ParentOption{{ID: "ab-1", Display: "ab-1 Test"}}
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableParents: parents,
+		})
+		overlay.focus = FocusParent
+
+		// Focus the combo and type to open dropdown
+		overlay.parentCombo.Focus()
+		overlay.parentCombo, _ = overlay.parentCombo.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+
+		// Verify dropdown is open
+		if !overlay.parentCombo.IsDropdownOpen() {
+			t.Skip("dropdown did not open - combo box behavior may differ")
+		}
+
+		// Now Esc should close dropdown, not cancel modal
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		if cmd != nil {
+			msg := cmd()
+			if _, ok := msg.(CreateCancelledMsg); ok {
+				t.Error("expected Esc to close dropdown first, not cancel modal")
+			}
+		}
+	})
+
+	t.Run("EscapeClosesAssigneeDropdownFirst", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableAssignees: []string{"alice", "bob"},
+		})
+		overlay.focus = FocusAssignee
+
+		// Focus the combo and type to open dropdown
+		overlay.assigneeCombo.Focus()
+		overlay.assigneeCombo, _ = overlay.assigneeCombo.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+
+		// Verify dropdown is open
+		if !overlay.assigneeCombo.IsDropdownOpen() {
+			t.Skip("dropdown did not open - combo box behavior may differ")
+		}
+
+		// Now Esc should close dropdown, not cancel modal
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		if cmd != nil {
+			msg := cmd()
+			if _, ok := msg.(CreateCancelledMsg); ok {
+				t.Error("expected Esc to close dropdown first, not cancel modal")
+			}
+		}
+	})
+}
+
+func TestCreateOverlaySubmitPopulatesAllFields(t *testing.T) {
+	t.Run("SubmitIncludesTypeAndPriority", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Test Bead")
+		overlay.typeIndex = 1  // feature
+		overlay.priorityIndex = 0 // critical
+
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected submit command")
+		}
+		msg := cmd()
+		created, ok := msg.(BeadCreatedMsg)
+		if !ok {
+			t.Fatalf("expected BeadCreatedMsg, got %T", msg)
+		}
+		if created.IssueType != "feature" {
+			t.Errorf("expected issue type 'feature', got %s", created.IssueType)
+		}
+		if created.Priority != 0 {
+			t.Errorf("expected priority 0 (critical), got %d", created.Priority)
+		}
+	})
+
+	t.Run("SubmitIncludesParentID", func(t *testing.T) {
+		parents := []ParentOption{
+			{ID: "ab-123", Display: "ab-123 Parent Bead"},
+		}
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			DefaultParentID:  "ab-123",
+			AvailableParents: parents,
+		})
+		overlay.titleInput.SetValue("Child Bead")
+
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected submit command")
+		}
+		msg := cmd()
+		created := msg.(BeadCreatedMsg)
+		if created.ParentID != "ab-123" {
+			t.Errorf("expected parent ID 'ab-123', got %s", created.ParentID)
+		}
+	})
+
+	t.Run("SubmitIncludesLabels", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableLabels: []string{"backend", "frontend", "urgent"},
+		})
+		overlay.titleInput.SetValue("Labeled Bead")
+
+		// Add chips to labels combo
+		overlay.labelsCombo.SetChips([]string{"backend", "urgent"})
+
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected submit command")
+		}
+		msg := cmd()
+		created := msg.(BeadCreatedMsg)
+		if len(created.Labels) != 2 {
+			t.Errorf("expected 2 labels, got %d", len(created.Labels))
+		}
+		if created.Labels[0] != "backend" || created.Labels[1] != "urgent" {
+			t.Errorf("expected labels [backend, urgent], got %v", created.Labels)
+		}
+	})
+
+	t.Run("UnassignedMapsToEmptyString", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Unassigned Bead")
+		// Default assignee is "Unassigned"
+
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected submit command")
+		}
+		msg := cmd()
+		created := msg.(BeadCreatedMsg)
+		if created.Assignee != "" {
+			t.Errorf("expected empty assignee for 'Unassigned', got '%s'", created.Assignee)
+		}
+	})
+
+	t.Run("SubmitIncludesAssignee", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableAssignees: []string{"alice", "bob"},
+		})
+		overlay.titleInput.SetValue("Assigned Bead")
+		overlay.assigneeCombo.SetValue("alice")
+
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected submit command")
+		}
+		msg := cmd()
+		created := msg.(BeadCreatedMsg)
+		if created.Assignee != "alice" {
+			t.Errorf("expected assignee 'alice', got '%s'", created.Assignee)
+		}
+	})
+}
+
+func TestCreateOverlayInit(t *testing.T) {
+	t.Run("InitReturnsBlinkCommand", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		cmd := overlay.Init()
+		if cmd == nil {
+			t.Error("expected Init to return a command for cursor blink")
+		}
+	})
+}
+
+func TestCreateOverlayOptionsPassThrough(t *testing.T) {
+	t.Run("AvailableLabelsPopulatesCombo", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableLabels: []string{"alpha", "beta", "gamma"},
+		})
+		if len(overlay.labelsOptions) != 3 {
+			t.Errorf("expected 3 labels options, got %d", len(overlay.labelsOptions))
+		}
+	})
+
+	t.Run("AvailableAssigneesPopulatesCombo", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableAssignees: []string{"alice", "bob"},
+		})
+		if len(overlay.assigneeOptions) != 2 {
+			t.Errorf("expected 2 assignee options, got %d", len(overlay.assigneeOptions))
+		}
+	})
+}
+
 // Helper function
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
