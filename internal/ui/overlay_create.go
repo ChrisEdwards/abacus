@@ -143,6 +143,9 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 		WithAllowNew(true, "New assignee: %s")
 	assigneeCombo.SetValue("Unassigned")
 
+	// Focus title input BEFORE assigning to struct (textinput.Model is a value type)
+	ti.Focus()
+
 	m := &CreateOverlay{
 		focus:           FocusTitle, // Title is auto-focused (spec Section 3.2)
 		titleInput:      ti,
@@ -157,9 +160,6 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 		assigneeCombo:   assigneeCombo,
 		assigneeOptions: opts.AvailableAssignees,
 	}
-
-	// Focus title input
-	ti.Focus()
 
 	return m
 }
