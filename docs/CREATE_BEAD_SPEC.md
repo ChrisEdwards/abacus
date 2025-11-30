@@ -208,9 +208,18 @@ When Type or Priority is focused, single keys select directly:
 
 | Aspect | Specification |
 |--------|---------------|
-| **Type** | Free-text input |
-| **Formats** | `30m`, `2h`, `1.5h`, `1d` (converts to minutes internally) |
+| **Type** | Structured duration input |
+| **Accepted Formats** | `30m`, `2h`, `1.5h`, `1d`, `2d` (converts to minutes internally: 1d = 8h) |
 | **Optional** | Can leave blank |
+| **Validation** | On blur or submit: if non-empty and unparseable, show red border + hint |
+| **Invalid Hint** | Below field: `Expected: 30m, 2h, 1d` in `styleStatsDim` |
+
+**Effort Validation Behavior:**
+- Empty input: Valid (effort is optional)
+- Valid formats: `15m`, `30m`, `1h`, `1.5h`, `2h`, `1d`, `2d`, etc.
+- Invalid input (e.g., "soon", "a few hours"): Red border, hint shown, focus stays
+- Validation triggers on: blur (Tab away) or submit (Enter)
+- User must fix or clear before submission succeeds
 
 ### Zone 4: Labels
 
