@@ -195,6 +195,21 @@ var (
 
 	styleLabelNewOption = lipgloss.NewStyle().
 				Foreground(cGold)
+
+	// Chip styles for label tokens
+	styleChip = lipgloss.NewStyle().
+			Foreground(cWhite).
+			Background(lipgloss.Color("25")) // Same as styleLabel
+
+	styleChipHighlight = lipgloss.NewStyle().
+				Foreground(cWhite).
+				Background(cHighlight). // Purple
+				Bold(true)
+
+	styleChipFlash = lipgloss.NewStyle().
+			Foreground(cWhite).
+			Background(cOrange). // Orange flash for duplicate
+			Bold(true)
 )
 
 func buildMarkdownRenderer(format string, width int) func(string) string {
