@@ -39,6 +39,7 @@ type CreateOverlay struct {
 	parentOptions   []ParentOption
 	isRootMode      bool   // True if opened with 'N' (no parent)
 	defaultParentID string // Pre-selected parent ID
+	parentOriginal  string // Value when Parent field focused, for Esc revert (spec Section 12)
 
 	// Zone 2: Title (hero element)
 	titleInput textinput.Model
@@ -223,6 +224,16 @@ func (m *CreateOverlay) handleEscape() (*CreateOverlay, tea.Cmd) {
 		return m, nil
 	}
 
+	// If Parent field is focused (no dropdown open), Esc reverts and moves to Title (spec Section 4.2)
+	if m.focus == FocusParent {
+		m.parentCombo.SetValue(m.parentOriginal)
+		// Restore isRootMode based on whether original was empty
+		m.isRootMode = m.parentOriginal == ""
+		m.parentCombo.Blur()
+		m.focus = FocusTitle
+		return m, m.titleInput.Focus()
+	}
+
 	// No dropdown open - cancel the modal
 	return m, func() tea.Msg { return CreateCancelledMsg{} }
 }
@@ -284,6 +295,8 @@ func (m *CreateOverlay) handleShiftTab() (*CreateOverlay, tea.Cmd) {
 	case FocusTitle:
 		m.titleInput.Blur()
 		m.focus = FocusParent
+		// Store original value for Esc revert (spec Section 4.2)
+		m.parentOriginal = m.parentCombo.Value()
 		cmds = append(cmds, m.parentCombo.Focus())
 	case FocusType:
 		m.focus = FocusTitle
@@ -310,6 +323,15 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 
 	switch m.focus {
 	case FocusParent:
+		// Handle Delete/Backspace to clear to root (spec Section 4.2)
+		if msg.Type == tea.KeyDelete || msg.Type == tea.KeyBackspace {
+			// Only clear when dropdown is not open (otherwise let ComboBox handle it)
+			if !m.parentCombo.IsDropdownOpen() {
+				m.parentCombo.SetValue("")
+				m.isRootMode = true
+				return m, nil
+			}
+		}
 		// Parent uses ComboBox
 		m.parentCombo, cmd = m.parentCombo.Update(msg)
 		return m, cmd
@@ -497,11 +519,18 @@ var (
 	styleCreateError = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("196")).
 				Italic(true)
+
+	// Dimmed style for modal depth effect (spec Section 2.4)
+	styleCreateDimmed = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("239"))
 )
 
 // View implements tea.Model - 5-zone HUD layout per spec Section 3.
 func (m *CreateOverlay) View() string {
 	var b strings.Builder
+
+	// Check if parent search is active for dimming effect (spec Section 2.4)
+	parentSearchActive := m.parentCombo.IsDropdownOpen()
 
 	// Header
 	title := styleHelpTitle.Render("NEW BEAD")
@@ -512,7 +541,7 @@ func (m *CreateOverlay) View() string {
 	b.WriteString(divider)
 	b.WriteString("\n\n")
 
-	// Zone 1: Parent (anchor at top)
+	// Zone 1: Parent (anchor at top) - never dimmed
 	parentLabel := styleCreateLabel.Render("PARENT")
 	if m.focus == FocusParent {
 		parentLabel = styleHelpSectionHeader.Render("PARENT")
@@ -531,10 +560,13 @@ func (m *CreateOverlay) View() string {
 	}
 	b.WriteString("\n\n")
 
-	// Zone 2: Title (hero element)
+	// Zone 2: Title (hero element) - dimmed when parent search active
 	titleLabel := styleCreateLabel.Render("TITLE")
 	if m.focus == FocusTitle {
 		titleLabel = styleHelpSectionHeader.Render("TITLE")
+	}
+	if parentSearchActive {
+		titleLabel = styleCreateDimmed.Render("TITLE")
 	}
 	b.WriteString(titleLabel)
 	b.WriteString("\n")
@@ -543,7 +575,11 @@ func (m *CreateOverlay) View() string {
 	if m.focus == FocusTitle {
 		titleStyle = styleCreateInputFocused
 	}
-	b.WriteString(titleStyle.Render(m.titleInput.View()))
+	titleView := titleStyle.Render(m.titleInput.View())
+	if parentSearchActive {
+		titleView = styleCreateDimmed.Render(m.titleInput.View())
+	}
+	b.WriteString(titleView)
 
 	// Validation hint
 	if m.focus == FocusTitle && strings.TrimSpace(m.titleInput.Value()) == "" {
@@ -552,10 +588,13 @@ func (m *CreateOverlay) View() string {
 	}
 	b.WriteString("\n\n")
 
-	// Zone 3: Properties (2-column grid)
+	// Zone 3: Properties (2-column grid) - dimmed when parent search active
 	propsLabel := styleCreateLabel.Render("PROPERTIES")
 	if m.focus == FocusType || m.focus == FocusPriority {
 		propsLabel = styleHelpSectionHeader.Render("PROPERTIES")
+	}
+	if parentSearchActive {
+		propsLabel = styleCreateDimmed.Render("PROPERTIES")
 	}
 	b.WriteString(propsLabel)
 	b.WriteString("\n")
@@ -566,34 +605,56 @@ func (m *CreateOverlay) View() string {
 		"    ", // Spacer between columns
 		m.renderPriorityColumn(),
 	)
+	if parentSearchActive {
+		propsGrid = styleCreateDimmed.Render(propsGrid)
+	}
 	b.WriteString(propsGrid)
 	b.WriteString("\n\n")
 
-	// Zone 4: Labels (inline chips)
+	// Zone 4: Labels (inline chips) - dimmed when parent search active
 	labelsLabel := styleCreateLabel.Render("LABELS")
 	if m.focus == FocusLabels {
 		labelsLabel = styleHelpSectionHeader.Render("LABELS")
 	}
+	if parentSearchActive {
+		labelsLabel = styleCreateDimmed.Render("LABELS")
+	}
 	b.WriteString(labelsLabel)
 	b.WriteString("\n")
-	b.WriteString(m.labelsCombo.View())
+	labelsView := m.labelsCombo.View()
+	if parentSearchActive {
+		labelsView = styleCreateDimmed.Render(labelsView)
+	}
+	b.WriteString(labelsView)
 	b.WriteString("\n\n")
 
-	// Zone 5: Assignee
+	// Zone 5: Assignee - dimmed when parent search active
 	assigneeLabel := styleCreateLabel.Render("ASSIGNEE")
 	if m.focus == FocusAssignee {
 		assigneeLabel = styleHelpSectionHeader.Render("ASSIGNEE")
 	}
+	if parentSearchActive {
+		assigneeLabel = styleCreateDimmed.Render("ASSIGNEE")
+	}
 	b.WriteString(assigneeLabel)
 	b.WriteString("\n")
-	b.WriteString(m.assigneeCombo.View())
+	assigneeView := m.assigneeCombo.View()
+	if parentSearchActive {
+		assigneeView = styleCreateDimmed.Render(assigneeView)
+	}
+	b.WriteString(assigneeView)
 	b.WriteString("\n\n")
 
-	// Footer with keyboard hints
+	// Footer with keyboard hints (spec Section 4.1 - footer flipping)
 	b.WriteString(divider)
 	b.WriteString("\n")
 	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
-	b.WriteString(footerStyle.Render("Enter Create   ^Enter Create & Add Another   Tab Next   Esc Cancel"))
+	if parentSearchActive {
+		// Parent search footer (spec Section 4.1)
+		b.WriteString(footerStyle.Render("Enter Select   Esc Revert"))
+	} else {
+		b.WriteString(footerStyle.Render("Enter Create   ^Enter Create & Add Another   Tab Next   Esc Cancel"))
+	}
 
 	return styleHelpOverlay.Render(b.String())
 }

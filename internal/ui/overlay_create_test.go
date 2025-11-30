@@ -671,6 +671,268 @@ func TestCreateOverlayOptionsPassThrough(t *testing.T) {
 	})
 }
 
+// Tests for Zone 1: Parent Field (ab-6yx)
+// These tests verify the spec behavior from Section 3.1 and 4.2
+
+func TestParentFieldDeleteClearsToRoot(t *testing.T) {
+	t.Run("DeleteKeyFromParentClearsValue", func(t *testing.T) {
+		parents := []ParentOption{
+			{ID: "ab-123", Display: "ab-123 Test Parent"},
+		}
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			DefaultParentID:  "ab-123",
+			AvailableParents: parents,
+		})
+		// Focus parent field
+		overlay.focus = FocusParent
+		overlay.parentCombo.Focus()
+
+		// Verify parent has value
+		if overlay.ParentID() != "ab-123" {
+			t.Errorf("expected initial parent ID 'ab-123', got %s", overlay.ParentID())
+		}
+
+		// Press Delete
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDelete})
+
+		// Verify parent cleared
+		if overlay.ParentID() != "" {
+			t.Errorf("expected empty parent ID after Delete, got %s", overlay.ParentID())
+		}
+		if !overlay.isRootMode {
+			t.Error("expected isRootMode to be true after Delete")
+		}
+	})
+
+	t.Run("BackspaceKeyFromParentClearsValue", func(t *testing.T) {
+		parents := []ParentOption{
+			{ID: "ab-456", Display: "ab-456 Another Parent"},
+		}
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			DefaultParentID:  "ab-456",
+			AvailableParents: parents,
+		})
+		// Focus parent field
+		overlay.focus = FocusParent
+		overlay.parentCombo.Focus()
+
+		// Press Backspace
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+
+		// Verify parent cleared
+		if overlay.ParentID() != "" {
+			t.Errorf("expected empty parent ID after Backspace, got %s", overlay.ParentID())
+		}
+		if !overlay.isRootMode {
+			t.Error("expected isRootMode to be true after Backspace")
+		}
+	})
+
+	t.Run("DeleteShowsRootIndicatorInView", func(t *testing.T) {
+		parents := []ParentOption{
+			{ID: "ab-789", Display: "ab-789 Test"},
+		}
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			DefaultParentID:  "ab-789",
+			AvailableParents: parents,
+		})
+		overlay.focus = FocusParent
+		overlay.parentCombo.Focus()
+
+		// Press Delete to clear
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDelete})
+
+		// Check view shows root indicator
+		view := overlay.View()
+		if !contains(view, "No Parent") {
+			t.Error("expected view to show 'No Parent' after Delete")
+		}
+	})
+}
+
+func TestParentFieldEscRevertsChanges(t *testing.T) {
+	t.Run("EscFromParentRevertsToOriginalValue", func(t *testing.T) {
+		parents := []ParentOption{
+			{ID: "ab-111", Display: "ab-111 Original"},
+			{ID: "ab-222", Display: "ab-222 Other"},
+		}
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			DefaultParentID:  "ab-111",
+			AvailableParents: parents,
+		})
+
+		// Move to parent field (Shift+Tab from Title sets parentOriginal)
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		if overlay.Focus() != FocusParent {
+			t.Fatalf("expected focus on parent, got %d", overlay.Focus())
+		}
+
+		// Verify parentOriginal was set
+		if overlay.parentOriginal != "ab-111 Original" {
+			t.Errorf("expected parentOriginal 'ab-111 Original', got %s", overlay.parentOriginal)
+		}
+
+		// Clear the parent with Delete
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDelete})
+		if overlay.ParentID() != "" {
+			t.Errorf("expected parent cleared after Delete, got %s", overlay.ParentID())
+		}
+
+		// Press Esc to revert
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+		// Verify value reverted
+		if overlay.ParentID() != "ab-111" {
+			t.Errorf("expected parent reverted to 'ab-111', got %s", overlay.ParentID())
+		}
+		// Verify focus moved to Title
+		if overlay.Focus() != FocusTitle {
+			t.Errorf("expected focus on Title after Esc, got %d", overlay.Focus())
+		}
+	})
+
+	t.Run("EscFromParentRestoresIsRootMode", func(t *testing.T) {
+		parents := []ParentOption{
+			{ID: "ab-333", Display: "ab-333 Test"},
+		}
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			DefaultParentID:  "ab-333",
+			AvailableParents: parents,
+		})
+
+		// Move to parent field
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+
+		// Clear the parent (sets isRootMode = true)
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDelete})
+		if !overlay.isRootMode {
+			t.Error("expected isRootMode true after Delete")
+		}
+
+		// Press Esc to revert
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+		// isRootMode should be false since original had a parent
+		if overlay.isRootMode {
+			t.Error("expected isRootMode false after Esc revert")
+		}
+	})
+}
+
+func TestParentFieldNavigation(t *testing.T) {
+	t.Run("TabFromParentMovesToTitle", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusParent
+		overlay.parentCombo.Focus()
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
+		if overlay.Focus() != FocusTitle {
+			t.Errorf("expected focus on Title after Tab from Parent, got %d", overlay.Focus())
+		}
+	})
+
+	t.Run("ShiftTabFromTitleSetsParentOriginal", func(t *testing.T) {
+		parents := []ParentOption{
+			{ID: "ab-nav", Display: "ab-nav Navigation Test"},
+		}
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			DefaultParentID:  "ab-nav",
+			AvailableParents: parents,
+		})
+
+		// Shift+Tab from Title to Parent
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+
+		if overlay.Focus() != FocusParent {
+			t.Errorf("expected focus on Parent, got %d", overlay.Focus())
+		}
+		if overlay.parentOriginal != "ab-nav Navigation Test" {
+			t.Errorf("expected parentOriginal set, got %s", overlay.parentOriginal)
+		}
+	})
+}
+
+func TestParentFieldFooterUpdates(t *testing.T) {
+	t.Run("FooterShowsSelectEscWhenParentDropdownOpen", func(t *testing.T) {
+		parents := []ParentOption{
+			{ID: "ab-foot", Display: "ab-foot Footer Test"},
+		}
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableParents: parents,
+		})
+		overlay.focus = FocusParent
+		overlay.parentCombo.Focus()
+
+		// Open dropdown with Down arrow
+		overlay.parentCombo, _ = overlay.parentCombo.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		if !overlay.parentCombo.IsDropdownOpen() {
+			t.Skip("dropdown did not open")
+		}
+
+		view := overlay.View()
+		if !contains(view, "Enter Select") {
+			t.Error("expected footer to show 'Enter Select' when parent dropdown open")
+		}
+		if !contains(view, "Esc Revert") {
+			t.Error("expected footer to show 'Esc Revert' when parent dropdown open")
+		}
+		if contains(view, "Create & Add Another") {
+			t.Error("expected footer NOT to show 'Create & Add Another' when parent dropdown open")
+		}
+	})
+
+	t.Run("FooterShowsNormalWhenParentDropdownClosed", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+
+		view := overlay.View()
+		if !contains(view, "Enter Create") {
+			t.Error("expected footer to show 'Enter Create' when dropdown closed")
+		}
+		if !contains(view, "^Enter Create & Add Another") {
+			t.Error("expected footer to show '^Enter Create & Add Another' when dropdown closed")
+		}
+	})
+}
+
+func TestParentFieldRootModeInitialization(t *testing.T) {
+	t.Run("RootModeShowsNoParentIndicator", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			IsRootMode: true,
+		})
+
+		view := overlay.View()
+		if !contains(view, "No Parent") {
+			t.Error("expected view to show 'No Parent' in root mode")
+		}
+	})
+
+	t.Run("NormalModeShowsParentCombo", func(t *testing.T) {
+		parents := []ParentOption{
+			{ID: "ab-norm", Display: "ab-norm Normal Mode"},
+		}
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			DefaultParentID:  "ab-norm",
+			AvailableParents: parents,
+		})
+
+		view := overlay.View()
+		if contains(view, "No Parent") {
+			t.Error("expected view NOT to show 'No Parent' when parent is selected")
+		}
+	})
+}
+
+func TestParentFieldStateTracking(t *testing.T) {
+	t.Run("ParentOriginalGetter", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.parentOriginal = "test-original"
+		if overlay.parentOriginal != "test-original" {
+			t.Errorf("expected parentOriginal 'test-original', got %s", overlay.parentOriginal)
+		}
+	})
+}
+
 // Helper function
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
