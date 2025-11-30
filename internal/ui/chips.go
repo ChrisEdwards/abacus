@@ -236,6 +236,24 @@ func (c ChipList) wrapChips(renderedChips []string) string {
 	return strings.Join(lines, "\n")
 }
 
+// RenderChips returns styled chip strings without word wrapping.
+// Used by ChipComboBox to combine chips with input before wrapping.
+func (c ChipList) RenderChips() []string {
+	var result []string
+	for i, chip := range c.Chips {
+		var chipStr string
+		if c.flashIndex == i {
+			chipStr = styleChipFlash.Render("[" + chip + "]")
+		} else if c.state == ChipListNavigation && i == c.navIndex {
+			chipStr = styleChipHighlight.Render("[►" + chip + "◄]")
+		} else {
+			chipStr = styleChip.Render("[" + chip + "]")
+		}
+		result = append(result, chipStr)
+	}
+	return result
+}
+
 // AddChip adds a label to the chip list. Returns false if duplicate.
 func (c *ChipList) AddChip(label string) bool {
 	label = strings.TrimSpace(label)
