@@ -93,7 +93,7 @@ The UI must **never** wait for database reload.
 
 ## 3. Visual Layout
 
-The modal is divided into three distinct **zones**.
+The modal is divided into five distinct **zones**.
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────╮
@@ -109,22 +109,27 @@ The modal is divided into three distinct **zones**.
 │ │ ┃                                                                        │ │
 │ ╰──────────────────────────────────────────────────────────────────────────╯ │
 │                                                                              │
-│  CATEGORIZATION                                                              │
-│ ╭──────────────╮  ╭──────────────╮  ╭──────────────────────────────────────╮ │
-│ │ TYPE         │  │ PRIORITY     │  │ LABELS                               │ │
-│ │ ► Task       │  │ ► Med        │  │ [backend] [urgent] [|               ]│ │
-│ │   Feature    │  │   High       │  │  ↓ to browse, type to filter         │ │
-│ │   Bug        │  │   Critical   │  │                                      │ │
-│ │   Epic       │  │   Low        │  │                                      │ │
-│ │   Chore      │  │   Backlog    │  │                                      │ │
-│ ╰──────────────╯  ╰──────────────╯  ╰──────────────────────────────────────╯ │
+│  PROPERTIES                                                                  │
+│ ╭────────────────────╮  ╭────────────────────╮  ╭────────────────────╮       │
+│ │ TYPE               │  │ PRIORITY           │  │ EFFORT             │       │
+│ │ ► Task             │  │ ► Med              │  │ [          ]       │       │
+│ │   Feature          │  │   High             │  │                    │       │
+│ │   Bug              │  │   Critical         │  │                    │       │
+│ │   Epic             │  │   Low              │  │                    │       │
+│ │   Chore            │  │   Backlog          │  │                    │       │
+│ ╰────────────────────╯  ╰────────────────────╯  ╰────────────────────╯       │
 │                                                                              │
-│  ASSIGNMENT                                                                  │
-│ ╭────────────────────────────────╮  ╭──────────────────────────────────────╮ │
-│ │ ASSIGNEE                       │  │ EFFORT                               │ │
-│ │ [Unassigned                  ] │  │ [          ]                         │ │
-│ │  ↓ to browse, type to filter   │  │                                      │ │
-│ ╰────────────────────────────────╯  ╰──────────────────────────────────────╯ │
+│  LABELS                                                                      │
+│ ╭──────────────────────────────────────────────────────────────────────────╮ │
+│ │ [backend] [urgent] [api] [|                                            ] │ │
+│ │  ↓ to browse, type to filter                                             │ │
+│ ╰──────────────────────────────────────────────────────────────────────────╯ │
+│                                                                              │
+│  ASSIGNEE                                                                    │
+│ ╭──────────────────────────────────────────────────────────────────────────╮ │
+│ │ [Unassigned                                                            ] │ │
+│ │  ↓ to browse, type to filter                                             │ │
+│ ╰──────────────────────────────────────────────────────────────────────────╯ │
 │                                                                              │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ Enter Create   ^Enter Create & Add Another   Tab Next   Esc Cancel           │
@@ -160,14 +165,14 @@ The modal is divided into three distinct **zones**.
 - No placeholder text needed (cursor implies "type here")
 - No "required" label (submission validates)
 
-### Zone 3: Categorization (Type, Priority, Labels)
+### Zone 3: Properties (Type, Priority, Effort)
 
 | Aspect | Specification |
 |--------|---------------|
-| **Layout** | Three-column horizontal grid |
-| **Columns** | Type, Priority, Labels |
-| **Navigation** | `Tab` / `Shift+Tab` cycles columns; `↑/↓` selects within column |
-| **Purpose** | "What is this bead?" — classification and tagging |
+| **Layout** | Three-column horizontal grid (all fixed width) |
+| **Columns** | Type, Priority, Effort |
+| **Navigation** | `Tab` / `Shift+Tab` cycles columns; `↑/↓` selects within Type/Priority |
+| **Purpose** | "What kind of bead, how important, how long?" — core metadata |
 
 **Selection Visual:**
 - Current option marked with `►` prefix
@@ -199,7 +204,15 @@ When Type or Priority is focused, single keys select directly:
 - When field is **unfocused**: No underlines (cleaner appearance)
 - Keys are **case-insensitive** (`t` and `T` both select Task)
 
-**Labels Field:**
+**Effort Field:**
+
+| Aspect | Specification |
+|--------|---------------|
+| **Type** | Free-text input |
+| **Formats** | `30m`, `2h`, `1.5h`, `1d` (converts to minutes internally) |
+| **Optional** | Can leave blank |
+
+### Zone 4: Labels
 
 | Aspect | Specification |
 |--------|---------------|
@@ -347,16 +360,13 @@ State: CHIP_NAV (navigating chips)
   └─ Esc       → Exit to INPUT (no deletion)
 ```
 
-### Zone 4: Assignment (Assignee, Effort)
+### Zone 5: Assignee
 
 | Aspect | Specification |
 |--------|---------------|
-| **Layout** | Two-column horizontal grid |
-| **Columns** | Assignee, Effort |
-| **Navigation** | `Tab` / `Shift+Tab` cycles; `↑/↓` in Assignee |
-| **Purpose** | "Who does it, how long?" — operational details |
-
-**Assignee Field:**
+| **Layout** | Full-width row |
+| **Navigation** | `Tab` / `Shift+Tab` cycles to/from Labels |
+| **Purpose** | "Who does it?" — ownership |
 
 | Aspect | Specification |
 |--------|---------------|
@@ -396,7 +406,7 @@ When the field already has a value (e.g., "Carlos") and user presses `↓`:
 | Key | Behavior | Result |
 |-----|----------|--------|
 | **Enter** | Select match | Value becomes highlighted match, field confirmed |
-| **Tab** | Select & next | Value becomes highlighted match, focus moves to Effort |
+| **Tab** | Select & wrap | Value becomes highlighted match, focus wraps to Title |
 | **↓/↑** | Navigate | Highlight different match |
 
 **When dropdown is OPEN with NO MATCHES:**
@@ -404,7 +414,7 @@ When the field already has a value (e.g., "Carlos") and user presses `↓`:
 | Key | Behavior | Result |
 |-----|----------|--------|
 | **Enter** | Create new | Value becomes typed text, toast: "New Assignee Added" |
-| **Tab** | Create & next | Value becomes typed text, focus moves to Effort |
+| **Tab** | Create & wrap | Value becomes typed text, focus wraps to Title |
 
 **The Escape Hatch (Two-Stage Escape):**
 
@@ -469,7 +479,7 @@ After 1st Esc, Enter/Tab accepts the literal typed value.
 │   Carlotta                     │
 ╰────────────────────────────────╯
 ```
-→ Press `Tab` → Field becomes "Carlos", focus jumps to Effort ✓
+→ Press `Tab` → Field becomes "Carlos", focus wraps to Title ✓
 
 *Creating new assignee "Carl" (Escape Hatch):*
 ```
@@ -487,7 +497,7 @@ After 1st Esc, Enter/Tab accepts the literal typed value.
 │ [Carl|                       ] │ ← Dropdown closed
 ╰────────────────────────────────╯
 ```
-→ Press `Tab` → Field becomes "Carl" (new), focus jumps to Effort, toast appears ✓
+→ Press `Tab` → Field becomes "Carl" (new), focus wraps to Title, toast appears ✓
 
 *No match found:*
 ```
@@ -503,14 +513,6 @@ After 1st Esc, Enter/Tab accepts the literal typed value.
 
 **Design Rationale:**
 This follows the VS Code IntelliSense model: **"Suggestion wins unless explicitly dismissed."** Speed is prioritized because selecting existing assignees is the 95% case.
-
-**Effort Field:**
-
-| Aspect | Specification |
-|--------|---------------|
-| **Type** | Free-text input |
-| **Formats** | `30m`, `2h`, `1.5h`, `1d` (converts to minutes internally) |
-| **Optional** | Can leave blank |
 
 ---
 
@@ -738,12 +740,12 @@ When type auto-changes:
 
 | Key | Action |
 |-----|--------|
-| `Tab` | Next field (Title → Type → Priority → Labels → Assignee → Effort) |
+| `Tab` | Next field (Title → Type → Priority → Effort → Labels → Assignee) |
 | `Shift+Tab` | Previous field (from Title goes to Parent) |
 | `↑` / `k` | Previous option in current selector |
 | `↓` / `j` | Next option in current selector |
-| `←` / `h` | Previous column (in Categorization/Assignment zones) |
-| `→` / `l` | Next column (in Categorization/Assignment zones) |
+| `←` / `h` | Previous column (in Properties zone) |
+| `→` / `l` | Next column (in Properties zone) |
 
 ### Actions
 
@@ -774,8 +776,8 @@ When type auto-changes:
 | `↑/↓` | Assignee (dropdown open) | Navigate autocomplete results |
 | `Enter` | Assignee (match highlighted) | Select highlighted match |
 | `Enter` | Assignee (no match) | Create new assignee with typed text |
-| `Tab` | Assignee (match highlighted) | Select match, move to Effort |
-| `Tab` | Assignee (no match/dismissed) | Use typed text, move to Effort |
+| `Tab` | Assignee (match highlighted) | Select match, wrap to Title |
+| `Tab` | Assignee (no match/dismissed) | Use typed text, wrap to Title |
 
 ### The Safety Valve
 
@@ -907,12 +909,11 @@ When type auto-changes:
 3. Tabs to Assignee field
 4. Types "al" to filter
 5. Dropdown shows "alice" as highlighted match
-6. Presses `Tab` (selects "alice", moves to Effort)
-7. Presses `Enter` to create
+6. Presses `Enter` (selects "alice", creates bead)
 
 **Result:** Task assigned to existing team member in ~3 keystrokes
 
-**Note:** Both `Enter` and `Tab` select the highlighted match. `Tab` is often faster because it also advances to the next field.
+**Note:** Both `Enter` and `Tab` select the highlighted match. Since Assignee is the last field, `Enter` is typically used to confirm and create.
 
 ### 7.9 Create Assignee That's Substring of Existing (Escape Hatch)
 
@@ -924,9 +925,8 @@ When type auto-changes:
 4. Types "Carl"
 5. Dropdown shows "Carlos" auto-highlighted (partial match)
 6. User wants literal "Carl", presses `Esc` (dropdown closes, input still "Carl")
-7. Presses `Tab` (accepts literal "Carl", moves to Effort)
-8. Presses `Enter` to create
-9. Toast appears: `New Assignee Added: Carl`
+7. Presses `Enter` (accepts literal "Carl", creates bead)
+8. Toast appears: `New Assignee Added: Carl`
 
 **Result:** New assignee created despite partial match with existing name
 
@@ -1105,7 +1105,7 @@ More fields are returned if they are populated.
 ### State Management
 
 ```
-Focus: Parent | Title | Type | Priority | Labels | Assignee | Effort
+Focus: Parent | Title | Type | Priority | Effort | Labels | Assignee
 ParentID: string (empty = Root, committed value)
 ParentPending: string (pending value while in Parent field)
 ParentOriginal: string (value when Parent field was focused, for Esc revert)
@@ -1147,7 +1147,7 @@ IsCreating: bool
 State: IDLE (focused, dropdown closed)
   ├─ ↓        → BROWSING (open dropdown with full list)
   ├─ typing   → FILTERING (open dropdown with filtered list)
-  ├─ Tab      → Keep current value, move to Effort
+  ├─ Tab      → Keep current value, wrap to Title
   ├─ Enter    → Keep current value, confirm field
   └─ Esc      → (depends on context, may close modal)
 
@@ -1155,14 +1155,14 @@ State: BROWSING (dropdown open, full list)
   ├─ ↓/↑     → Navigate list, move highlight
   ├─ typing  → FILTERING (switch to filtered mode)
   ├─ Enter   → Select highlighted item
-  ├─ Tab     → Select highlighted item, move to Effort
+  ├─ Tab     → Select highlighted item, wrap to Title
   └─ Esc     → IDLE (close dropdown)
 
 State: FILTERING (dropdown open, filtered list)
   ├─ ↓/↑     → Navigate filtered results
   ├─ typing  → Update filter, re-highlight first match
   ├─ Enter   → Select highlighted match (or literal if no matches)
-  ├─ Tab     → Select highlighted match (or literal), move to Effort
+  ├─ Tab     → Select highlighted match (or literal), wrap to Title
   └─ Esc     → IDLE (close dropdown, keep typed text) [1st Esc]
               → Revert to original [2nd Esc from IDLE]
 ```
@@ -1195,7 +1195,7 @@ CreateModalCancelledMsg {}
 | Bulk entry | Not supported | Ctrl+Enter workflow |
 | Enter key | Always submit | Context-dependent |
 | Footer | Static help text | Dynamic (flips) |
-| Properties | Vertical list | Two-row horizontal grid |
+| Properties | Vertical list | Three-row layout (Type/Priority/Effort, Labels, Assignee) |
 
 ---
 
