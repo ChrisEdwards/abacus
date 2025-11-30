@@ -9,7 +9,7 @@ import (
 
 func TestNewCreateOverlay(t *testing.T) {
 	t.Run("SetsDefaultValues", func(t *testing.T) {
-		overlay := NewCreateOverlay("", nil)
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		if overlay.IssueType() != "task" {
 			t.Errorf("expected default issue type 'task', got %s", overlay.IssueType())
 		}
@@ -22,17 +22,14 @@ func TestNewCreateOverlay(t *testing.T) {
 		parents := []ParentOption{
 			{ID: "ab-123", Display: "ab-123 Test"},
 		}
-		overlay := NewCreateOverlay("ab-123", parents)
-		if overlay.defaultParent != "ab-123" {
-			t.Errorf("expected default parent 'ab-123', got %s", overlay.defaultParent)
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			DefaultParentID:  "ab-123",
+			AvailableParents: parents,
+		})
+		if overlay.DefaultParentID() != "ab-123" {
+			t.Errorf("expected default parent 'ab-123', got %s", overlay.DefaultParentID())
 		}
-		// selectedParent should be set
-		if overlay.selectedParent == nil {
-			t.Error("expected selectedParent to be set")
-		} else if overlay.selectedParent.ID != "ab-123" {
-			t.Errorf("expected selectedParent.ID 'ab-123', got %s", overlay.selectedParent.ID)
-		}
-		// ParentID() should return the ID
+		// ParentID() should return the ID via combo box
 		if overlay.ParentID() != "ab-123" {
 			t.Errorf("expected ParentID() 'ab-123', got %s", overlay.ParentID())
 		}
@@ -43,23 +40,34 @@ func TestNewCreateOverlay(t *testing.T) {
 			{ID: "ab-001", Display: "ab-001 First"},
 			{ID: "ab-002", Display: "ab-002 Second"},
 		}
-		overlay := NewCreateOverlay("", parents)
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableParents: parents,
+		})
 		if len(overlay.parentOptions) != 2 {
 			t.Errorf("expected 2 parent options, got %d", len(overlay.parentOptions))
 		}
 	})
 
 	t.Run("TitleInputIsFocused", func(t *testing.T) {
-		overlay := NewCreateOverlay("", nil)
-		if overlay.focus != focusTitle {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		if overlay.Focus() != FocusTitle {
 			t.Error("expected focus on title")
+		}
+	})
+
+	t.Run("RootModeIsSet", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			IsRootMode: true,
+		})
+		if !overlay.IsRootMode() {
+			t.Error("expected root mode to be true")
 		}
 	})
 }
 
 func TestCreateOverlayEscape(t *testing.T) {
 	t.Run("SendsCreateCancelledMsg", func(t *testing.T) {
-		overlay := NewCreateOverlay("", nil)
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
 		if cmd == nil {
 			t.Fatal("expected command from escape")
@@ -70,80 +78,99 @@ func TestCreateOverlayEscape(t *testing.T) {
 			t.Fatalf("expected CreateCancelledMsg, got %T", msg)
 		}
 	})
-
-	t.Run("ClosesDropdownFirst", func(t *testing.T) {
-		overlay := NewCreateOverlay("", []ParentOption{{ID: "ab-1", Display: "ab-1 Test"}})
-		overlay.showDropdown = true
-		updated, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
-		if cmd != nil {
-			t.Error("expected no command when closing dropdown")
-		}
-		if updated.showDropdown {
-			t.Error("expected dropdown to be closed")
-		}
-	})
 }
 
 func TestCreateOverlayNavigation(t *testing.T) {
 	t.Run("TabMovesToNextField", func(t *testing.T) {
-		overlay := NewCreateOverlay("", nil)
-		if overlay.focus != focusTitle {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		if overlay.Focus() != FocusTitle {
 			t.Error("expected initial focus on title")
 		}
+		// Tab: Title -> Type
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
-		if overlay.focus != focusType {
-			t.Errorf("expected focus on type, got %d", overlay.focus)
+		if overlay.Focus() != FocusType {
+			t.Errorf("expected focus on type, got %d", overlay.Focus())
 		}
+		// Tab: Type -> Priority
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
-		if overlay.focus != focusPriority {
-			t.Errorf("expected focus on priority, got %d", overlay.focus)
+		if overlay.Focus() != FocusPriority {
+			t.Errorf("expected focus on priority, got %d", overlay.Focus())
 		}
+		// Tab: Priority -> Labels
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
-		if overlay.focus != focusParent {
-			t.Errorf("expected focus on parent, got %d", overlay.focus)
+		if overlay.Focus() != FocusLabels {
+			t.Errorf("expected focus on labels, got %d", overlay.Focus())
 		}
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
-		if overlay.focus != focusTitle {
-			t.Errorf("expected focus to wrap to title, got %d", overlay.focus)
+		// Note: Labels to Assignee transition requires ChipComboBoxTabMsg
+	})
+
+	t.Run("ShiftTabFromTitleGoesToParent", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		if overlay.Focus() != FocusTitle {
+			t.Error("expected initial focus on title")
+		}
+		// Shift+Tab: Title -> Parent
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		if overlay.Focus() != FocusParent {
+			t.Errorf("expected focus on parent, got %d", overlay.Focus())
 		}
 	})
 
-	t.Run("LeftRightChangesType", func(t *testing.T) {
-		overlay := NewCreateOverlay("", nil)
-		overlay.focus = focusType
+	t.Run("UpDownChangesType", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusType
 		if overlay.typeIndex != 0 {
 			t.Error("expected initial type index 0")
 		}
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRight})
+		// Down arrow increases index
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
 		if overlay.typeIndex != 1 {
 			t.Errorf("expected type index 1, got %d", overlay.typeIndex)
 		}
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyLeft})
+		// Up arrow decreases index
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyUp})
 		if overlay.typeIndex != 0 {
 			t.Errorf("expected type index 0, got %d", overlay.typeIndex)
 		}
 	})
 
-	t.Run("LeftRightChangesPriority", func(t *testing.T) {
-		overlay := NewCreateOverlay("", nil)
-		overlay.focus = focusPriority
+	t.Run("UpDownChangesPriority", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusPriority
 		if overlay.priorityIndex != 2 {
 			t.Errorf("expected initial priority index 2 (Med), got %d", overlay.priorityIndex)
 		}
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRight})
+		// Down arrow increases index
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
 		if overlay.priorityIndex != 3 {
 			t.Errorf("expected priority index 3, got %d", overlay.priorityIndex)
 		}
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyLeft})
+		// Up arrow decreases index
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyUp})
 		if overlay.priorityIndex != 2 {
 			t.Errorf("expected priority index 2, got %d", overlay.priorityIndex)
+		}
+	})
+
+	t.Run("LeftRightNavigatesBetweenTypeAndPriority", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusType
+		// Right arrow moves to priority
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRight})
+		if overlay.Focus() != FocusPriority {
+			t.Errorf("expected focus on priority, got %d", overlay.Focus())
+		}
+		// Left arrow moves back to type
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyLeft})
+		if overlay.Focus() != FocusType {
+			t.Errorf("expected focus on type, got %d", overlay.Focus())
 		}
 	})
 }
 
 func TestCreateOverlaySubmit(t *testing.T) {
 	t.Run("RequiresTitle", func(t *testing.T) {
-		overlay := NewCreateOverlay("", nil)
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		// Title is empty
 		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
 		if cmd != nil {
@@ -152,7 +179,7 @@ func TestCreateOverlaySubmit(t *testing.T) {
 	})
 
 	t.Run("SubmitsWithValidTitle", func(t *testing.T) {
-		overlay := NewCreateOverlay("", nil)
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		overlay.titleInput.SetValue("Test Bead")
 		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
 		if cmd == nil {
@@ -176,6 +203,8 @@ func TestCreateOverlayFormCompletion(t *testing.T) {
 			IssueType: "feature",
 			Priority:  1,
 			ParentID:  "ab-parent",
+			Labels:    []string{"backend", "urgent"},
+			Assignee:  "alice",
 		}
 		if msg.Title != "Test Bead" {
 			t.Errorf("expected title 'Test Bead', got %s", msg.Title)
@@ -189,12 +218,18 @@ func TestCreateOverlayFormCompletion(t *testing.T) {
 		if msg.ParentID != "ab-parent" {
 			t.Errorf("expected parent ID 'ab-parent', got %s", msg.ParentID)
 		}
+		if len(msg.Labels) != 2 || msg.Labels[0] != "backend" {
+			t.Errorf("expected labels [backend, urgent], got %v", msg.Labels)
+		}
+		if msg.Assignee != "alice" {
+			t.Errorf("expected assignee 'alice', got %s", msg.Assignee)
+		}
 	})
 }
 
 func TestCreateOverlayView(t *testing.T) {
 	t.Run("RenderContainsTitle", func(t *testing.T) {
-		overlay := NewCreateOverlay("", nil)
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		view := overlay.View()
 		if view == "" {
 			t.Error("expected non-empty view")
@@ -204,19 +239,41 @@ func TestCreateOverlayView(t *testing.T) {
 		}
 	})
 
-	t.Run("ContainsTypeDescription", func(t *testing.T) {
-		overlay := NewCreateOverlay("", nil)
+	t.Run("ContainsZoneLabels", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		view := overlay.View()
-		// Default type is Task
-		if !contains(view, "A small unit of work") {
-			t.Error("expected view to contain type description")
+		// Should contain zone headers
+		if !contains(view, "PARENT") {
+			t.Error("expected view to contain PARENT zone")
+		}
+		if !contains(view, "TITLE") {
+			t.Error("expected view to contain TITLE zone")
+		}
+		if !contains(view, "PROPERTIES") {
+			t.Error("expected view to contain PROPERTIES zone")
+		}
+		if !contains(view, "LABELS") {
+			t.Error("expected view to contain LABELS zone")
+		}
+		if !contains(view, "ASSIGNEE") {
+			t.Error("expected view to contain ASSIGNEE zone")
+		}
+	})
+
+	t.Run("ShowsRootModeIndicator", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			IsRootMode: true,
+		})
+		view := overlay.View()
+		if !contains(view, "No Parent") {
+			t.Error("expected view to show 'No Parent' for root mode")
 		}
 	})
 }
 
 func TestCreateOverlayGetters(t *testing.T) {
 	t.Run("ReturnsCurrentValues", func(t *testing.T) {
-		overlay := NewCreateOverlay("", nil)
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		overlay.titleInput.SetValue("My Title")
 		overlay.typeIndex = 2 // bug
 		overlay.priorityIndex = 0
@@ -248,111 +305,94 @@ func TestParentOption(t *testing.T) {
 	})
 }
 
-func TestCreateOverlayParentFilter(t *testing.T) {
-	t.Run("FiltersParentsByID", func(t *testing.T) {
-		parents := []ParentOption{
-			{ID: "ab-001", Display: "ab-001 First"},
-			{ID: "ab-002", Display: "ab-002 Second"},
-			{ID: "xy-003", Display: "xy-003 Third"},
-		}
-		overlay := NewCreateOverlay("", parents)
-		overlay.parentInput.SetValue("ab")
-		overlay.filterParents()
+func TestCreateOverlayTypeHotkeys(t *testing.T) {
+	t.Run("TypeHotkeysWork", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusType
 
-		if len(overlay.filteredParents) != 2 {
-			t.Errorf("expected 2 filtered parents, got %d", len(overlay.filteredParents))
-		}
-	})
-
-	t.Run("LimitsToFiveResults", func(t *testing.T) {
-		parents := make([]ParentOption, 10)
-		for i := range parents {
-			parents[i] = ParentOption{ID: "ab-00" + string(rune('0'+i)), Display: "Test"}
-		}
-		overlay := NewCreateOverlay("", parents)
-		overlay.parentInput.SetValue("ab")
-		overlay.filterParents()
-
-		if len(overlay.filteredParents) != 5 {
-			t.Errorf("expected max 5 filtered parents, got %d", len(overlay.filteredParents))
-		}
-	})
-}
-
-func TestCreateOverlayParentSelection(t *testing.T) {
-	t.Run("BackspaceClearsSelection", func(t *testing.T) {
-		parents := []ParentOption{
-			{ID: "ab-123", Display: "ab-123 Test"},
-		}
-		overlay := NewCreateOverlay("ab-123", parents)
-		overlay.focus = focusParent
-
-		// Should have selection
-		if overlay.selectedParent == nil {
-			t.Fatal("expected selectedParent to be set")
+		// Press 'f' for feature
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+		if overlay.typeIndex != 1 {
+			t.Errorf("expected type index 1 (feature), got %d", overlay.typeIndex)
 		}
 
-		// Backspace with empty input clears selection
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyBackspace})
-		if overlay.selectedParent != nil {
-			t.Error("expected selectedParent to be cleared")
+		// Press 'b' for bug
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+		if overlay.typeIndex != 2 {
+			t.Errorf("expected type index 2 (bug), got %d", overlay.typeIndex)
 		}
-	})
 
-	t.Run("EnterSelectsFromDropdown", func(t *testing.T) {
-		parents := []ParentOption{
-			{ID: "ab-001", Display: "ab-001 First"},
-			{ID: "ab-002", Display: "ab-002 Second"},
+		// Press 'e' for epic
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+		if overlay.typeIndex != 3 {
+			t.Errorf("expected type index 3 (epic), got %d", overlay.typeIndex)
 		}
-		overlay := NewCreateOverlay("", parents)
-		overlay.focus = focusParent
-		overlay.showDropdown = true
-		overlay.filteredParents = parents
-		overlay.parentIndex = 1 // Select second
 
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		// Press 'c' for chore
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+		if overlay.typeIndex != 4 {
+			t.Errorf("expected type index 4 (chore), got %d", overlay.typeIndex)
+		}
 
-		if overlay.selectedParent == nil {
-			t.Fatal("expected selectedParent to be set")
-		}
-		if overlay.selectedParent.ID != "ab-002" {
-			t.Errorf("expected selected ID 'ab-002', got %s", overlay.selectedParent.ID)
-		}
-		if overlay.showDropdown {
-			t.Error("expected dropdown to be closed")
+		// Press 't' for task
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+		if overlay.typeIndex != 0 {
+			t.Errorf("expected type index 0 (task), got %d", overlay.typeIndex)
 		}
 	})
 }
 
-func TestHighlightMatch(t *testing.T) {
-	t.Run("HighlightsMatch", func(t *testing.T) {
-		result := highlightMatch("ab-123 Test Title", "test")
-		// Result should contain the matched text (case-insensitive match preserves original case)
-		if !strings.Contains(result, "Test") {
-			t.Error("expected result to contain matched text 'Test'")
+func TestCreateOverlayPriorityHotkeys(t *testing.T) {
+	t.Run("PriorityHotkeysWork", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusPriority
+
+		// Press 'c' for critical
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+		if overlay.priorityIndex != 0 {
+			t.Errorf("expected priority index 0 (critical), got %d", overlay.priorityIndex)
 		}
-		// Result should contain surrounding text
-		if !strings.Contains(result, "ab-123") || !strings.Contains(result, "Title") {
-			t.Error("expected result to contain surrounding text")
+
+		// Press 'h' for high
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+		if overlay.priorityIndex != 1 {
+			t.Errorf("expected priority index 1 (high), got %d", overlay.priorityIndex)
+		}
+
+		// Press 'l' for low
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+		if overlay.priorityIndex != 3 {
+			t.Errorf("expected priority index 3 (low), got %d", overlay.priorityIndex)
+		}
+
+		// Press 'b' for backlog
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+		if overlay.priorityIndex != 4 {
+			t.Errorf("expected priority index 4 (backlog), got %d", overlay.priorityIndex)
+		}
+
+		// Press 'm' for medium
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+		if overlay.priorityIndex != 2 {
+			t.Errorf("expected priority index 2 (medium), got %d", overlay.priorityIndex)
 		}
 	})
+}
 
-	t.Run("NoMatchReturnsOriginal", func(t *testing.T) {
-		result := highlightMatch("ab-123 Test Title", "xyz")
-		if result != "ab-123 Test Title" {
-			t.Errorf("expected original text, got %s", result)
-		}
-	})
+func TestChipComboBoxTabMsg(t *testing.T) {
+	t.Run("LabelsTabMovesToAssignee", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusLabels
 
-	t.Run("EmptyFilterReturnsOriginal", func(t *testing.T) {
-		result := highlightMatch("ab-123 Test Title", "")
-		if result != "ab-123 Test Title" {
-			t.Errorf("expected original text, got %s", result)
+		// Simulate ChipComboBoxTabMsg from labels combo
+		overlay, _ = overlay.Update(ChipComboBoxTabMsg{})
+		if overlay.Focus() != FocusAssignee {
+			t.Errorf("expected focus on assignee after labels Tab, got %d", overlay.Focus())
 		}
 	})
 }
 
 // Helper function
 func contains(s, substr string) bool {
-	return len(s) > 0 && len(substr) > 0 && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || contains(s[1:], substr)))
+	return strings.Contains(s, substr)
 }

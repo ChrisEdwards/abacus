@@ -385,8 +385,13 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.visibleRows) > 0 {
 				defaultParent = m.visibleRows[m.cursor].Node.Issue.ID
 			}
-			parents := m.getAvailableParents()
-			m.createOverlay = NewCreateOverlay(defaultParent, parents)
+			m.createOverlay = NewCreateOverlay(CreateOverlayOptions{
+				DefaultParentID:    defaultParent,
+				AvailableParents:   m.getAvailableParents(),
+				AvailableLabels:    m.getAllLabels(),
+				AvailableAssignees: nil, // Backend integration deferred to ab-39r
+				IsRootMode:         false,
+			})
 			m.activeOverlay = OverlayCreate
 			return m, m.createOverlay.Init()
 		}
