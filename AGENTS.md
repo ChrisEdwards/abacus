@@ -54,6 +54,8 @@ You must complete ALL of the following steps before marking a bead as closed:
 1. **Write Tests**: Write comprehensive tests for any code you added or changed
 2. **Verify Build**: Ensure the code builds successfully (`go build`)
 3. **Run Linter**: Run `make lint` and fix all issues before committing
+   - Remove unused variables and styles
+   - Use `//nolint:unparam` only when parameter is used in tests
 4. **Run Tests**: Ensure all tests pass (`go test ./...`)
 5. **Commit Changes**: Commit your changes with a detailed commit message explaining:
    - What was changed and why

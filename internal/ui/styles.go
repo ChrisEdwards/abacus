@@ -167,10 +167,6 @@ var (
 				BorderForeground(cPurple).
 				Padding(1, 2)
 
-	styleStatusTitle = lipgloss.NewStyle().
-				Foreground(cGold).
-				Bold(true)
-
 	styleStatusDivider = lipgloss.NewStyle().
 				Foreground(cPurple)
 
@@ -183,13 +179,6 @@ var (
 
 	styleStatusDisabled = lipgloss.NewStyle().
 				Foreground(cGray)
-
-	styleStatusBeadID = lipgloss.NewStyle().
-				Foreground(cGold).
-				Bold(true)
-
-	styleStatusBeadTitle = lipgloss.NewStyle().
-				Foreground(cLightGray)
 
 	// Labels overlay styles
 	styleLabelChecked = lipgloss.NewStyle().

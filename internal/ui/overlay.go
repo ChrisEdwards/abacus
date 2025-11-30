@@ -47,6 +47,9 @@ func extractShortError(fullError string, maxLen int) string {
 
 // overlayBottomRight positions the overlay at bottom-right of the background.
 // containerWidth specifies the known width of the container for proper right-alignment.
+// padding is parameterized for testability even though production always uses 1.
+//
+//nolint:unparam // padding varies in tests
 func overlayBottomRight(background, overlay string, containerWidth, padding int) string {
 	if overlay == "" {
 		return background
