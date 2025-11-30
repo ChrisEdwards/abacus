@@ -358,7 +358,7 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 		return m, cmd
 
 	case FocusType:
-		// Type uses arrow keys and single-key selection
+		// Type uses arrow keys, vim keys (j/k/h/l), and single-key selection
 		switch msg.Type {
 		case tea.KeyUp, tea.KeyDown:
 			if msg.Type == tea.KeyUp && m.typeIndex > 0 {
@@ -371,15 +371,32 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 		case tea.KeyRight:
 			m.focus = FocusPriority // Move to priority column
 		case tea.KeyRunes:
-			// Single-key selection: t=task, f=feature, b=bug, e=epic, c=chore
 			if len(msg.Runes) > 0 {
-				m.handleTypeHotkey(msg.Runes[0])
+				r := msg.Runes[0]
+				switch r {
+				case 'j': // Vim down
+					if m.typeIndex < len(typeOptions)-1 {
+						m.typeIndex++
+					}
+				case 'k': // Vim up
+					if m.typeIndex > 0 {
+						m.typeIndex--
+					}
+				case 'h': // Vim left - stay in type (leftmost)
+					// Already in leftmost column
+				case 'l': // Vim right - move to priority
+					m.focus = FocusPriority
+				default:
+					// Single-key selection: t=task, f=feature, b=bug, e=epic, c=chore
+					m.handleTypeHotkey(r)
+				}
 			}
 		}
 		return m, nil
 
 	case FocusPriority:
-		// Priority uses arrow keys and single-key selection
+		// Priority uses arrow keys, vim keys (j/k), and single-key selection
+		// Note: h/l are priority hotkeys (High, Low) not vim navigation here
 		switch msg.Type {
 		case tea.KeyUp, tea.KeyDown:
 			if msg.Type == tea.KeyUp && m.priorityIndex > 0 {
@@ -392,9 +409,22 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 		case tea.KeyRight:
 			m.focus = FocusPriority // Stay in priority (rightmost column)
 		case tea.KeyRunes:
-			// Single-key selection: c=crit, h=high, m=med, l=low, b=backlog
 			if len(msg.Runes) > 0 {
-				m.handlePriorityHotkey(msg.Runes[0])
+				r := msg.Runes[0]
+				switch r {
+				case 'j': // Vim down
+					if m.priorityIndex < len(priorityLabels)-1 {
+						m.priorityIndex++
+					}
+				case 'k': // Vim up
+					if m.priorityIndex > 0 {
+						m.priorityIndex--
+					}
+				default:
+					// Single-key selection: c=crit, h=high, m=med, l=low, b=backlog
+					// (h/l are hotkeys here, not vim navigation - use arrow keys for columns)
+					m.handlePriorityHotkey(r)
+				}
 			}
 		}
 		return m, nil
@@ -686,6 +716,17 @@ func (m *CreateOverlay) View() string {
 	return styleHelpOverlay.Render(b.String())
 }
 
+// underlineFirstChar adds a combining underline (U+0332) after the first character.
+// "Task" -> "T̲ask"
+func underlineFirstChar(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	runes := []rune(s)
+	// Insert combining low line (U+0332) after first character
+	return string(runes[0]) + "\u0332" + string(runes[1:])
+}
+
 func (m *CreateOverlay) renderTypeColumn() string {
 	var b strings.Builder
 
@@ -701,15 +742,21 @@ func (m *CreateOverlay) renderTypeColumn() string {
 	for i, label := range typeLabels {
 		prefix := "  "
 		style := styleCreatePill
+		displayLabel := label
 		if i == m.typeIndex {
 			prefix = "► "
 			if m.focus == FocusType {
 				style = styleCreatePillFocused
+				// Underline hotkey letter when focused (spec Section 3.3)
+				displayLabel = underlineFirstChar(label)
 			} else {
 				style = styleCreatePillSelected
 			}
+		} else if m.focus == FocusType {
+			// Underline hotkey letter for all options when column is focused
+			displayLabel = underlineFirstChar(label)
 		}
-		b.WriteString(style.Render(prefix + label))
+		b.WriteString(style.Render(prefix + displayLabel))
 		if i < len(typeLabels)-1 {
 			b.WriteString("\n")
 		}
@@ -733,15 +780,21 @@ func (m *CreateOverlay) renderPriorityColumn() string {
 	for i, label := range priorityLabels {
 		prefix := "  "
 		style := styleCreatePill
+		displayLabel := label
 		if i == m.priorityIndex {
 			prefix = "► "
 			if m.focus == FocusPriority {
 				style = styleCreatePillFocused
+				// Underline hotkey letter when focused (spec Section 3.3)
+				displayLabel = underlineFirstChar(label)
 			} else {
 				style = styleCreatePillSelected
 			}
+		} else if m.focus == FocusPriority {
+			// Underline hotkey letter for all options when column is focused
+			displayLabel = underlineFirstChar(label)
 		}
-		b.WriteString(style.Render(prefix + label))
+		b.WriteString(style.Render(prefix + displayLabel))
 		if i < len(priorityLabels)-1 {
 			b.WriteString("\n")
 		}

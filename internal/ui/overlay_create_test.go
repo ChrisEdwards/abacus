@@ -1035,6 +1035,158 @@ func TestTitleValidationFlashGetter(t *testing.T) {
 	})
 }
 
+// Tests for Zone 3: Vim Navigation (ab-l9e)
+func TestVimNavigationKeys(t *testing.T) {
+	t.Run("JKNavigatesTypeOptions", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusType
+		overlay.typeIndex = 0
+
+		// j moves down
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		if overlay.typeIndex != 1 {
+			t.Errorf("expected type index 1 after 'j', got %d", overlay.typeIndex)
+		}
+
+		// k moves up
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+		if overlay.typeIndex != 0 {
+			t.Errorf("expected type index 0 after 'k', got %d", overlay.typeIndex)
+		}
+	})
+
+	t.Run("JKNavigatesPriorityOptions", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusPriority
+		overlay.priorityIndex = 2 // Medium
+
+		// j moves down
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		if overlay.priorityIndex != 3 {
+			t.Errorf("expected priority index 3 after 'j', got %d", overlay.priorityIndex)
+		}
+
+		// k moves up
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+		if overlay.priorityIndex != 2 {
+			t.Errorf("expected priority index 2 after 'k', got %d", overlay.priorityIndex)
+		}
+	})
+
+	t.Run("HLNavigatesBetweenColumnsFromType", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusType
+
+		// l moves to priority
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+		if overlay.Focus() != FocusPriority {
+			t.Errorf("expected focus on priority after 'l', got %d", overlay.Focus())
+		}
+
+		// Note: In Priority column, 'h' is a hotkey for High, not navigation
+		// So we test that h doesn't navigate from Type (stays put)
+		overlay.focus = FocusType
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+		if overlay.Focus() != FocusType {
+			t.Errorf("expected focus to stay on type after 'h', got %d", overlay.Focus())
+		}
+	})
+
+	t.Run("HLArePriorityHotkeysNotNavigation", func(t *testing.T) {
+		// In Priority column, h and l are hotkeys for High and Low
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusPriority
+		overlay.priorityIndex = 2 // Medium
+
+		// 'h' selects High (index 1), not navigation
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+		if overlay.priorityIndex != 1 {
+			t.Errorf("expected priority index 1 (High) after 'h', got %d", overlay.priorityIndex)
+		}
+
+		// 'l' selects Low (index 3), not navigation
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+		if overlay.priorityIndex != 3 {
+			t.Errorf("expected priority index 3 (Low) after 'l', got %d", overlay.priorityIndex)
+		}
+	})
+
+	t.Run("VimKeysBoundsChecking", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusType
+		overlay.typeIndex = 0
+
+		// k at top stays at 0
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+		if overlay.typeIndex != 0 {
+			t.Errorf("expected type index to stay at 0, got %d", overlay.typeIndex)
+		}
+
+		// j at bottom stays at max
+		overlay.typeIndex = 4
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		if overlay.typeIndex != 4 {
+			t.Errorf("expected type index to stay at 4, got %d", overlay.typeIndex)
+		}
+	})
+}
+
+// Tests for Zone 3: Hotkey Underlines (ab-l9e)
+func TestHotkeyUnderlines(t *testing.T) {
+	t.Run("UnderlineFirstCharHelper", func(t *testing.T) {
+		result := underlineFirstChar("Task")
+		// Should have combining underline after 'T'
+		if result != "T\u0332ask" {
+			t.Errorf("expected T̲ask, got %s", result)
+		}
+
+		result = underlineFirstChar("Feature")
+		if result != "F\u0332eature" {
+			t.Errorf("expected F̲eature, got %s", result)
+		}
+
+		// Empty string should return empty
+		result = underlineFirstChar("")
+		if result != "" {
+			t.Errorf("expected empty string, got %s", result)
+		}
+	})
+
+	t.Run("TypeColumnShowsUnderlineWhenFocused", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusType
+
+		view := overlay.View()
+		// Should contain underlined T in Task (T̲ = T + combining underline)
+		if !contains(view, "T\u0332") {
+			t.Error("expected underlined T in Type column when focused")
+		}
+	})
+
+	t.Run("PriorityColumnShowsUnderlineWhenFocused", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusPriority
+
+		view := overlay.View()
+		// Should contain underlined C in Crit (C̲ = C + combining underline)
+		if !contains(view, "C\u0332") {
+			t.Error("expected underlined C in Priority column when focused")
+		}
+	})
+
+	t.Run("NoUnderlineWhenUnfocused", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusTitle // Neither Type nor Priority focused
+
+		view := overlay.View()
+		// Should NOT contain combining underline in labels
+		// Note: This is a soft check since the view might have other combining chars
+		if contains(view, "T\u0332ask") {
+			t.Error("expected no underlined Task when Type is unfocused")
+		}
+	})
+}
+
 // Helper function
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
