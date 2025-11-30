@@ -560,11 +560,13 @@ func (m *CreateOverlay) View() string {
 	b.WriteString(propsLabel)
 	b.WriteString("\n")
 
-	// Type column
-	b.WriteString(m.renderTypeColumn())
-	b.WriteString("  ")
-	// Priority column
-	b.WriteString(m.renderPriorityColumn())
+	// Type and Priority columns side-by-side
+	propsGrid := lipgloss.JoinHorizontal(lipgloss.Top,
+		m.renderTypeColumn(),
+		"    ", // Spacer between columns
+		m.renderPriorityColumn(),
+	)
+	b.WriteString(propsGrid)
 	b.WriteString("\n\n")
 
 	// Zone 4: Labels (inline chips)
