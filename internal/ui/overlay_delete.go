@@ -72,6 +72,8 @@ func (m *DeleteOverlay) confirm() tea.Cmd {
 
 // View implements tea.Model.
 func (m *DeleteOverlay) View() string {
+	const maxWidth = 50
+
 	var b strings.Builder
 
 	// Header: ab-xxx › Delete
@@ -79,10 +81,16 @@ func (m *DeleteOverlay) View() string {
 	b.WriteString(header)
 	b.WriteString("\n")
 
-	// Divider
-	divider := styleStatusDivider.Render(strings.Repeat("─", 28))
+	// Divider - match content width
+	dividerWidth := maxWidth
+	divider := styleStatusDivider.Render(strings.Repeat("─", dividerWidth))
 	b.WriteString(divider)
 	b.WriteString("\n")
+
+	// Title with word wrapping
+	wrappedTitle := wrapText(m.issueTitle, maxWidth)
+	b.WriteString(styleNormalText.Render(wrappedTitle))
+	b.WriteString("\n\n")
 
 	// Warning message
 	warning := styleStatsDim.Render("This cannot be undone.")

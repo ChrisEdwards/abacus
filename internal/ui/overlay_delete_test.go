@@ -172,6 +172,28 @@ func TestDeleteOverlay_View(t *testing.T) {
 		}
 	})
 
+	t.Run("ContainsTitle", func(t *testing.T) {
+		overlay := NewDeleteOverlay("ab-123", "My Important Task Title")
+		view := overlay.View()
+		if !strings.Contains(view, "My Important Task Title") {
+			t.Error("expected view to contain issue title")
+		}
+	})
+
+	t.Run("WrapsLongTitle", func(t *testing.T) {
+		longTitle := "This is a very long title that should be wrapped to multiple lines in the dialog"
+		overlay := NewDeleteOverlay("ab-123", longTitle)
+		view := overlay.View()
+		// Should contain parts of the title
+		if !strings.Contains(view, "very long title") {
+			t.Error("expected view to contain parts of long title")
+		}
+		// Should have wrapped (contains newline in the title area)
+		if !strings.Contains(view, "wrapped") {
+			t.Error("expected view to contain 'wrapped' from the long title")
+		}
+	})
+
 	t.Run("ContainsOptions", func(t *testing.T) {
 		overlay := NewDeleteOverlay("ab-123", "Test")
 		view := overlay.View()
