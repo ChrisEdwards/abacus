@@ -995,11 +995,14 @@ func (m *CreateOverlay) renderFooter() string {
 	case m.isCreating:
 		// Creating state: user must wait
 		return footerStyle.Render("Creating bead...")
-	case m.parentCombo.IsDropdownOpen():
-		// Parent search active: Enter selects, Esc reverts
+	case m.parentCombo.IsDropdownOpen() || m.labelsCombo.IsDropdownOpen() || m.assigneeCombo.IsDropdownOpen():
+		// Dropdown search active: Enter selects, Esc reverts
 		return footerStyle.Render("Enter Select   Esc Revert")
+	case m.focus == FocusParent || m.focus == FocusLabels || m.focus == FocusAssignee:
+		// Combo box field focused (but dropdown closed): show browse hint
+		return footerStyle.Render("↓ Browse   Enter Create   Tab Next   Esc Cancel")
 	default:
-		// Default state: standard creation actions
+		// Default state: Title, Type, Priority fields
 		return footerStyle.Render("Enter Create   ^Enter Create & Add Another   Tab Next   Esc Cancel")
 	}
 }

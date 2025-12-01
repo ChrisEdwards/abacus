@@ -2408,6 +2408,84 @@ func TestCreateOverlayFooter(t *testing.T) {
 			t.Errorf("expected default footer after closing dropdown, got: %s", footer)
 		}
 	})
+
+	t.Run("FooterShowsBrowseHintOnParentField", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableParents: []ParentOption{
+				{ID: "ab-123", Display: "ab-123 Test"},
+			},
+		})
+
+		// Navigate to parent field (but don't open dropdown)
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab}) // From Title to Parent
+
+		footer := overlay.renderFooter()
+
+		if !strings.Contains(footer, "↓ Browse") {
+			t.Errorf("expected footer to contain '↓ Browse' on parent field, got: %s", footer)
+		}
+		if !strings.Contains(footer, "Enter Create") {
+			t.Errorf("expected footer to contain 'Enter Create' on parent field, got: %s", footer)
+		}
+	})
+
+	t.Run("FooterShowsBrowseHintOnLabelsField", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableLabels: []string{"bug", "feature"},
+		})
+
+		// Navigate to labels field
+		overlay.focus = FocusLabels
+
+		footer := overlay.renderFooter()
+
+		if !strings.Contains(footer, "↓ Browse") {
+			t.Errorf("expected footer to contain '↓ Browse' on labels field, got: %s", footer)
+		}
+	})
+
+	t.Run("FooterShowsBrowseHintOnAssigneeField", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableAssignees: []string{"alice", "bob"},
+		})
+
+		// Navigate to assignee field
+		overlay.focus = FocusAssignee
+
+		footer := overlay.renderFooter()
+
+		if !strings.Contains(footer, "↓ Browse") {
+			t.Errorf("expected footer to contain '↓ Browse' on assignee field, got: %s", footer)
+		}
+	})
+
+	t.Run("FooterShowsSelectHintForAnyDropdown", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableLabels:    []string{"bug", "feature"},
+			AvailableAssignees: []string{"alice", "bob"},
+		})
+
+		// Test labels dropdown
+		overlay.focus = FocusLabels
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		footer := overlay.renderFooter()
+		if !strings.Contains(footer, "Enter Select") {
+			t.Errorf("expected 'Enter Select' when labels dropdown open, got: %s", footer)
+		}
+
+		// Close labels dropdown
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+		// Test assignee dropdown
+		overlay.focus = FocusAssignee
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		footer = overlay.renderFooter()
+		if !strings.Contains(footer, "Enter Select") {
+			t.Errorf("expected 'Enter Select' when assignee dropdown open, got: %s", footer)
+		}
+	})
 }
 
 func TestCreateOverlayFooterState(t *testing.T) {
