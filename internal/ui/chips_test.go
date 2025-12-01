@@ -515,8 +515,9 @@ func TestChipList_View_Normal(t *testing.T) {
 	if !strings.Contains(view, "frontend") {
 		t.Error("expected view to contain 'frontend'")
 	}
-	if !strings.Contains(view, "[") {
-		t.Error("expected view to contain brackets")
+	// Pills use powerline characters instead of brackets
+	if !strings.Contains(view, pillLeft) && !strings.Contains(view, pillRight) {
+		t.Error("expected view to contain pill characters")
 	}
 }
 
@@ -529,9 +530,10 @@ func TestChipList_View_Highlighted(t *testing.T) {
 	cl, _ = cl.Update(tea.KeyMsg{Type: tea.KeyLeft})
 
 	view := cl.View()
-	// Highlighted chip should have markers
-	if !strings.Contains(view, "►backend◄") {
-		t.Errorf("expected highlighted chip with markers, got: %s", view)
+	// Highlighted chip rendered with different background color (pill style)
+	// Just verify the label is present - color styling can't be easily tested
+	if !strings.Contains(view, "backend") {
+		t.Errorf("expected highlighted chip to contain 'backend', got: %s", view)
 	}
 }
 

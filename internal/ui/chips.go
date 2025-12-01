@@ -196,13 +196,11 @@ func (c ChipList) View() string {
 	for i, chip := range c.Chips {
 		var chipStr string
 		if c.flashIndex == i {
-			// Flash state for duplicate
-			chipStr = styleChipFlash.Render("[" + chip + "]")
+			chipStr = renderPillChip(chip, chipStateFlash)
 		} else if c.state == ChipListNavigation && i == c.navIndex {
-			// Highlighted chip with markers
-			chipStr = styleChipHighlight.Render("[►" + chip + "◄]")
+			chipStr = renderPillChip(chip, chipStateHighlight)
 		} else {
-			chipStr = styleChip.Render("[" + chip + "]")
+			chipStr = renderPillChip(chip, chipStateNormal)
 		}
 		renderedChips = append(renderedChips, chipStr)
 	}
@@ -251,11 +249,11 @@ func (c ChipList) RenderChips() []string {
 	for i, chip := range c.Chips {
 		var chipStr string
 		if c.flashIndex == i {
-			chipStr = styleChipFlash.Render("[" + chip + "]")
+			chipStr = renderPillChip(chip, chipStateFlash)
 		} else if c.state == ChipListNavigation && i == c.navIndex {
-			chipStr = styleChipHighlight.Render("[►" + chip + "◄]")
+			chipStr = renderPillChip(chip, chipStateHighlight)
 		} else {
-			chipStr = styleChip.Render("[" + chip + "]")
+			chipStr = renderPillChip(chip, chipStateNormal)
 		}
 		result = append(result, chipStr)
 	}
@@ -415,3 +413,53 @@ func FlashCmd() tea.Cmd {
 }
 
 const flashDuration = 150 * time.Millisecond
+
+// Chip visual states for pill rendering
+type chipState int
+
+const (
+	chipStateNormal chipState = iota
+	chipStateHighlight
+	chipStateFlash
+)
+
+// Powerline characters for pill-shaped chips
+const (
+	pillLeft  = "\ue0b6" // Left half-circle (rounded left edge)
+	pillRight = "\ue0b4" // Right half-circle (rounded right edge)
+)
+
+// renderPillChip renders a label as a pill-shaped chip using powerline glyphs.
+// The pill has curved edges and a solid background color for the label text.
+func renderPillChip(label string, state chipState) string {
+	var bgColor, fgColor lipgloss.Color
+
+	switch state {
+	case chipStateHighlight:
+		bgColor = cHighlight // Purple for selection
+		fgColor = cWhite
+	case chipStateFlash:
+		bgColor = cOrange // Orange flash for duplicate
+		fgColor = cWhite
+	default:
+		bgColor = lipgloss.Color("25") // Blue, same as styleLabel
+		fgColor = cWhite
+	}
+
+	// Left cap: foreground is the chip color (creates the curved colored edge)
+	leftCap := lipgloss.NewStyle().Foreground(bgColor).Render(pillLeft)
+
+	// Label text: colored background with contrasting text
+	labelStyle := lipgloss.NewStyle().
+		Foreground(fgColor).
+		Background(bgColor)
+	if state == chipStateHighlight || state == chipStateFlash {
+		labelStyle = labelStyle.Bold(true)
+	}
+	labelText := labelStyle.Render(label)
+
+	// Right cap: foreground is the chip color
+	rightCap := lipgloss.NewStyle().Foreground(bgColor).Render(pillRight)
+
+	return leftCap + labelText + rightCap
+}

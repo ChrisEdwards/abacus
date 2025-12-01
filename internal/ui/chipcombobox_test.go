@@ -358,9 +358,9 @@ func TestChipComboBox_View_ChipNavMode(t *testing.T) {
 
 	view := cc.View()
 
-	// Should show highlighted chip marker
-	if !strings.Contains(view, "►backend◄") {
-		t.Errorf("expected highlighted chip with markers, got: %s", view)
+	// Should show chip label (pill style uses background color for highlighting)
+	if !strings.Contains(view, "backend") {
+		t.Errorf("expected chip with label 'backend', got: %s", view)
 	}
 }
 
@@ -472,8 +472,8 @@ func TestChipComboBox_RenderChips_Highlighted(t *testing.T) {
 
 	chips := cl.RenderChips()
 
-	// Last chip should have highlight markers
-	if !strings.Contains(chips[1], "►frontend◄") {
-		t.Errorf("expected highlighted chip, got: %s", chips[1])
+	// Last chip should contain the label (pill style uses background color for highlighting)
+	if !strings.Contains(chips[1], "frontend") {
+		t.Errorf("expected highlighted chip to contain 'frontend', got: %s", chips[1])
 	}
 }
