@@ -129,6 +129,9 @@ type CreateOverlay struct {
 	// Zone 5: Assignee (single-select combo)
 	assigneeCombo   ComboBox
 	assigneeOptions []string
+
+	// State management
+	isCreating bool // True during form submission (spec Section 4.1)
 }
 
 // ParentOption represents a bead that can be selected as a parent.
@@ -267,6 +270,7 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 		// Clear title only, keep all other fields persistent (spec Section 4.3)
 		m.titleInput.SetValue("")
 		m.titleValidationError = false
+		m.isCreating = false // Clear creating state (spec Section 4.1)
 		m.focus = FocusTitle
 		return m, m.titleInput.Focus()
 
@@ -376,6 +380,9 @@ func (m *CreateOverlay) handleSubmit(stayOpen bool) (*CreateOverlay, tea.Cmd) {
 		m.titleValidationError = true
 		return m, titleFlashCmd()
 	}
+
+	// Set creating state for footer (spec Section 4.1)
+	m.isCreating = true
 
 	if stayOpen {
 		// Bulk entry mode: submit and prepare for next entry (spec Section 4.3)
@@ -883,13 +890,7 @@ func (m *CreateOverlay) View() string {
 	// Footer with keyboard hints (spec Section 4.1 - footer flipping)
 	b.WriteString(divider)
 	b.WriteString("\n")
-	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
-	if parentSearchActive {
-		// Parent search footer (spec Section 4.1)
-		b.WriteString(footerStyle.Render("Enter Select   Esc Revert"))
-	} else {
-		b.WriteString(footerStyle.Render("Enter Create   ^Enter Create & Add Another   Tab Next   Esc Cancel"))
-	}
+	b.WriteString(m.renderFooter())
 
 	return styleHelpOverlay.Render(b.String())
 }
@@ -983,6 +984,24 @@ func (m *CreateOverlay) renderPriorityColumn() string {
 	}
 
 	return b.String()
+}
+
+// renderFooter returns the dynamic footer based on current context (spec Section 4.1).
+// Footer "flips" between states to eliminate ambiguity of intent.
+func (m *CreateOverlay) renderFooter() string {
+	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
+
+	switch {
+	case m.isCreating:
+		// Creating state: user must wait
+		return footerStyle.Render("Creating bead...")
+	case m.parentCombo.IsDropdownOpen():
+		// Parent search active: Enter selects, Esc reverts
+		return footerStyle.Render("Enter Select   Esc Revert")
+	default:
+		// Default state: standard creation actions
+		return footerStyle.Render("Enter Create   ^Enter Create & Add Another   Tab Next   Esc Cancel")
+	}
 }
 
 // Title returns the current title value.

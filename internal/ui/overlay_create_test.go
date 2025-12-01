@@ -2297,3 +2297,163 @@ func TestTypeInferenceIntegration(t *testing.T) {
 		}
 	})
 }
+
+// ============================================================================
+// Dynamic Footer Tests (spec Section 4.1)
+// ============================================================================
+
+func TestCreateOverlayFooter(t *testing.T) {
+	t.Run("DefaultFooter", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		footer := overlay.renderFooter()
+
+		if !strings.Contains(footer, "Enter Create") {
+			t.Error("expected default footer to contain 'Enter Create'")
+		}
+		if !strings.Contains(footer, "^Enter Create & Add Another") {
+			t.Error("expected default footer to contain bulk entry hint")
+		}
+		if !strings.Contains(footer, "Tab Next") {
+			t.Error("expected default footer to contain 'Tab Next'")
+		}
+		if !strings.Contains(footer, "Esc Cancel") {
+			t.Error("expected default footer to contain 'Esc Cancel'")
+		}
+	})
+
+	t.Run("ParentSearchFooter", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableParents: []ParentOption{
+				{ID: "ab-123", Display: "ab-123 Test"},
+				{ID: "ab-456", Display: "ab-456 Another"},
+			},
+		})
+
+		// Navigate to parent field and focus it
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab}) // From Title to Parent
+
+		// Type to open dropdown in Filtering mode
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+
+		footer := overlay.renderFooter()
+
+		if !strings.Contains(footer, "Enter Select") {
+			t.Errorf("expected parent search footer to contain 'Enter Select', got: %s", footer)
+		}
+		if !strings.Contains(footer, "Esc Revert") {
+			t.Errorf("expected parent search footer to contain 'Esc Revert', got: %s", footer)
+		}
+		// Should NOT contain the default footer text
+		if strings.Contains(footer, "Enter Create") {
+			t.Errorf("expected parent search footer to not contain 'Enter Create', got: %s", footer)
+		}
+	})
+
+	t.Run("CreatingFooter", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.isCreating = true
+
+		footer := overlay.renderFooter()
+
+		if !strings.Contains(footer, "Creating bead...") {
+			t.Error("expected creating footer to contain 'Creating bead...'")
+		}
+		// Should NOT contain the default footer text
+		if strings.Contains(footer, "Enter Create") {
+			t.Error("expected creating footer to not contain 'Enter Create'")
+		}
+	})
+
+	t.Run("FooterInView", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		view := overlay.View()
+
+		// Verify default footer appears in view
+		if !strings.Contains(view, "Enter Create") {
+			t.Error("expected default footer in view output")
+		}
+	})
+
+	t.Run("FooterSwitchesWithParentDropdown", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableParents: []ParentOption{
+				{ID: "ab-123", Display: "ab-123 Test"},
+			},
+		})
+
+		// Initially should show default footer
+		footer := overlay.renderFooter()
+		if !strings.Contains(footer, "Enter Create") {
+			t.Error("expected default footer initially")
+		}
+
+		// Navigate to parent field
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab}) // From Title to Parent
+
+		// Type to open dropdown
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+
+		// Should now show parent search footer
+		footer = overlay.renderFooter()
+		if !strings.Contains(footer, "Enter Select") {
+			t.Errorf("expected parent search footer after opening dropdown, got: %s", footer)
+		}
+
+		// Close dropdown with Esc
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+		// Should revert to default footer
+		footer = overlay.renderFooter()
+		if !strings.Contains(footer, "Enter Create") {
+			t.Errorf("expected default footer after closing dropdown, got: %s", footer)
+		}
+	})
+}
+
+func TestCreateOverlayFooterState(t *testing.T) {
+	t.Run("IsCreatingSetOnSubmit", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Test bead")
+		overlay.focus = FocusTitle
+
+		// Submit form
+		overlay, _ = overlay.handleSubmit(false)
+
+		if !overlay.isCreating {
+			t.Error("expected isCreating=true after handleSubmit")
+		}
+	})
+
+	t.Run("IsCreatingClearedOnBulkReset", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.isCreating = true
+
+		// Process bulk entry reset message
+		overlay, _ = overlay.Update(bulkEntryResetMsg{})
+
+		if overlay.isCreating {
+			t.Error("expected isCreating=false after bulkEntryResetMsg")
+		}
+	})
+
+	t.Run("FooterShowsCreatingDuringSubmission", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Test bead")
+		overlay.focus = FocusTitle
+
+		// Before submission
+		footer := overlay.renderFooter()
+		if strings.Contains(footer, "Creating bead...") {
+			t.Error("should not show creating footer before submission")
+		}
+
+		// Submit form
+		overlay, _ = overlay.handleSubmit(false)
+
+		// After submission
+		footer = overlay.renderFooter()
+		if !strings.Contains(footer, "Creating bead...") {
+			t.Error("expected creating footer after submission")
+		}
+	})
+}
