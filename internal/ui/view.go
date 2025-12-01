@@ -130,14 +130,27 @@ func (m *App) View() string {
 		return fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
 	}
 
+	if m.activeOverlay == OverlayDelete && m.deleteOverlay != nil {
+		overlay := m.deleteOverlay.View()
+		centered := lipgloss.Place(m.width, m.height-2,
+			lipgloss.Center, lipgloss.Center,
+			overlay,
+			lipgloss.WithWhitespaceChars(" "),
+		)
+		return fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+	}
+
 	// Help overlay takes visual precedence over everything else
 	if m.showHelp {
 		helpOverlay := renderHelpOverlay(m.keys, m.width, m.height-2)
 		return fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
 	}
 
-	// Overlay toast on mainBody if visible (create toast > new assignee toast > new label toast > labels toast > status toast > copy toast > error toast)
-	if toast := m.renderCreateToast(); toast != "" {
+	// Overlay toast on mainBody if visible (delete toast > create toast > new assignee toast > new label toast > labels toast > status toast > copy toast > error toast)
+	if toast := m.renderDeleteToast(); toast != "" {
+		containerWidth := lipgloss.Width(mainBody)
+		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
+	} else if toast := m.renderCreateToast(); toast != "" {
 		containerWidth := lipgloss.Width(mainBody)
 		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
 	} else if toast := m.renderNewAssigneeToast(); toast != "" {
@@ -430,4 +443,36 @@ func (m *App) renderNewAssigneeToast() string {
 	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
 
 	return styleSuccessToast.Render(content + countdownStr)
+}
+
+// renderDeleteToast renders the delete success toast if visible.
+func (m *App) renderDeleteToast() string {
+	if !m.deleteToastVisible || m.deleteToastBeadID == "" {
+		return ""
+	}
+	elapsed := time.Since(m.deleteToastStart)
+	remaining := 5 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Line 1: "✓ Deleted ab-xyz"
+	heroLine := " ✓ " + styleStatsDim.Render("Deleted") + " " + styleID.Render(m.deleteToastBeadID)
+	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
+
+	// Calculate spacing for right-aligned countdown
+	heroWidth := lipgloss.Width(heroLine)
+	countdownWidth := lipgloss.Width(countdownStr)
+
+	targetWidth := heroWidth
+	if targetWidth < 25 {
+		targetWidth = 25
+	}
+	padding := targetWidth - countdownWidth
+	if padding < 2 {
+		padding = 2
+	}
+
+	content := heroLine + "\n" + strings.Repeat(" ", padding) + countdownStr
+	return styleSuccessToast.Render(content)
 }

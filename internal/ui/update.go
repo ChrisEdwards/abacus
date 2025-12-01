@@ -202,6 +202,31 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, scheduleNewAssigneeToastTick()
+	case DeleteConfirmedMsg:
+		m.activeOverlay = OverlayNone
+		m.deleteOverlay = nil
+		return m, tea.Batch(m.executeDelete(msg.IssueID), scheduleDeleteToastTick())
+	case DeleteCancelledMsg:
+		m.activeOverlay = OverlayNone
+		m.deleteOverlay = nil
+		return m, nil
+	case deleteCompleteMsg:
+		if msg.err != nil {
+			m.lastError = msg.err.Error()
+			m.showErrorToast = true
+			m.errorToastStart = time.Now()
+			return m, scheduleErrorToastTick()
+		}
+		return m, m.forceRefresh()
+	case deleteToastTickMsg:
+		if !m.deleteToastVisible {
+			return m, nil
+		}
+		if time.Since(m.deleteToastStart) >= 5*time.Second {
+			m.deleteToastVisible = false
+			return m, nil
+		}
+		return m, scheduleDeleteToastTick()
 	}
 
 	// Handle background messages before delegating to overlays
@@ -328,6 +353,11 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		if m.activeOverlay == OverlayDelete && m.deleteOverlay != nil {
+			m.deleteOverlay, cmd = m.deleteOverlay.Update(msg)
+			return m, cmd
+		}
+
 		if handled, detailCmd := m.handleDetailNavigationKey(msg); handled {
 			return m, detailCmd
 		}
@@ -422,11 +452,27 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.collapseNodeForView(row)
 				m.recalcVisibleRows()
 			}
+		case key.Matches(msg, m.keys.Delete):
+			// Delete key opens delete confirmation (only when tree focused)
+			if m.activeOverlay == OverlayNone && !m.searching && len(m.visibleRows) > 0 {
+				row := m.visibleRows[m.cursor]
+				m.deleteOverlay = NewDeleteOverlay(row.Node.Issue.ID, row.Node.Issue.Title)
+				m.activeOverlay = OverlayDelete
+			}
+			return m, nil
 		case key.Matches(msg, m.keys.Backspace):
+			// Backspace deletes filter chars if filter is active
 			if !m.ShowDetails && !m.searching && len(m.filterText) > 0 {
 				m.setFilterText(m.filterText[:len(m.filterText)-1])
 				m.recalcVisibleRows()
 				m.updateViewportContent()
+				return m, nil
+			}
+			// Backspace also opens delete confirmation when no filter is active
+			if m.activeOverlay == OverlayNone && !m.searching && m.filterText == "" && len(m.visibleRows) > 0 {
+				row := m.visibleRows[m.cursor]
+				m.deleteOverlay = NewDeleteOverlay(row.Node.Issue.ID, row.Node.Issue.Title)
+				m.activeOverlay = OverlayDelete
 			}
 		case key.Matches(msg, m.keys.Copy):
 			if len(m.visibleRows) > 0 {
@@ -852,4 +898,33 @@ func (m *App) displayNewAssigneeToast(assignee string) {
 	m.newAssigneeToastAssignee = assignee
 	m.newAssigneeToastVisible = true
 	m.newAssigneeToastStart = time.Now()
+}
+
+// Message types for delete operations
+type deleteCompleteMsg struct {
+	err error
+}
+
+type deleteToastTickMsg struct{}
+
+func scheduleDeleteToastTick() tea.Cmd {
+	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
+		return deleteToastTickMsg{}
+	})
+}
+
+// executeDelete runs the bd delete command asynchronously and shows toast.
+func (m *App) executeDelete(issueID string) tea.Cmd {
+	m.displayDeleteToast(issueID)
+	return func() tea.Msg {
+		err := m.client.Delete(context.Background(), issueID)
+		return deleteCompleteMsg{err: err}
+	}
+}
+
+// displayDeleteToast displays a success toast for deletion.
+func (m *App) displayDeleteToast(issueID string) {
+	m.deleteToastBeadID = issueID
+	m.deleteToastVisible = true
+	m.deleteToastStart = time.Now()
 }

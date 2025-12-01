@@ -34,6 +34,7 @@ const (
 	OverlayStatus
 	OverlayLabels
 	OverlayCreate
+	OverlayDelete
 )
 
 // Config configures the UI application.
@@ -114,6 +115,7 @@ type App struct {
 	statusOverlay *StatusOverlay
 	labelsOverlay *LabelsOverlay
 	createOverlay *CreateOverlay
+	deleteOverlay *DeleteOverlay
 
 	// Labels toast state
 	labelsToastVisible bool
@@ -137,6 +139,11 @@ type App struct {
 	newAssigneeToastVisible  bool
 	newAssigneeToastStart    time.Time
 	newAssigneeToastAssignee string
+
+	// Delete toast state
+	deleteToastVisible bool
+	deleteToastStart   time.Time
+	deleteToastBeadID  string
 
 	// Session tracking for exit summary
 	sessionStart time.Time

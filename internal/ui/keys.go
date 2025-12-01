@@ -38,6 +38,9 @@ type KeyMap struct {
 	Escape    key.Binding
 	ShiftTab  key.Binding
 	Backspace key.Binding
+
+	// Delete
+	Delete key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings for Abacus.
@@ -152,6 +155,12 @@ func DefaultKeyMap() KeyMap {
 		Backspace: key.NewBinding(
 			key.WithKeys("backspace"),
 			key.WithHelp("⌫", "Delete char"),
+		),
+
+		// Delete
+		Delete: key.NewBinding(
+			key.WithKeys("delete"),
+			key.WithHelp("Del", "Delete bead"),
 		),
 	}
 }

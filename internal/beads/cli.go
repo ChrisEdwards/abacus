@@ -294,6 +294,17 @@ func (c *cliClient) AddDependency(ctx context.Context, fromID, toID, depType str
 	return nil
 }
 
+func (c *cliClient) Delete(ctx context.Context, issueID string) error {
+	if strings.TrimSpace(issueID) == "" {
+		return fmt.Errorf("issue id is required for delete")
+	}
+	_, err := c.run(ctx, "delete", issueID, "--force")
+	if err != nil {
+		return fmt.Errorf("run bd delete: %w", err)
+	}
+	return nil
+}
+
 func (c *cliClient) run(ctx context.Context, args ...string) ([]byte, error) {
 	finalArgs := make([]string, 0, len(c.dbArgs)+len(args))
 	finalArgs = append(finalArgs, c.dbArgs...)
