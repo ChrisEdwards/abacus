@@ -16,9 +16,12 @@ type footerHint struct {
 
 // Global footer hints (always shown)
 var globalFooterHints = []footerHint{
-	{"/", "Search"},
 	{"⏎", "Detail"},
 	{"⇥", "Focus"},
+	{"/", "Search"},
+	{"n", "New"},
+	{"s", "✎ Status"},
+	{"L", "Labels"},
 	{"q", "Quit"},
 	{"?", "Help"},
 }
@@ -27,8 +30,6 @@ var globalFooterHints = []footerHint{
 var treeFooterHints = []footerHint{
 	{"↑↓", "Navigate"},
 	{"←→", "Expand"},
-	{"s", "✎ Status"},
-	{"L", "Labels"},
 }
 
 var detailsFooterHints = []footerHint{

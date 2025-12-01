@@ -50,7 +50,7 @@ func TestRenderFooter(t *testing.T) {
 	})
 
 	t.Run("ContainsGlobalKeys", func(t *testing.T) {
-		globalKeys := []string{"/", "⏎", "⇥", "q", "?"}
+		globalKeys := []string{"/", "n", "⏎", "⇥", "s", "L", "q", "?"}
 		for _, key := range globalKeys {
 			if !strings.Contains(footer, key) {
 				t.Errorf("expected footer to contain global key %q", key)
@@ -68,7 +68,7 @@ func TestRenderFooter(t *testing.T) {
 
 func TestRenderFooterDetailsFocus(t *testing.T) {
 	m := &App{
-		width:       100,
+		width:       150, // Wider to accommodate 8 global + 1 context hint
 		repoName:    "abacus",
 		focus:       FocusDetails,
 		ShowDetails: true,
@@ -142,14 +142,14 @@ func TestFooterNarrowTerminal(t *testing.T) {
 
 func TestFooterHintSlices(t *testing.T) {
 	t.Run("GlobalHintsCount", func(t *testing.T) {
-		if len(globalFooterHints) != 5 {
-			t.Errorf("expected 5 global hints, got %d", len(globalFooterHints))
+		if len(globalFooterHints) != 8 {
+			t.Errorf("expected 8 global hints, got %d", len(globalFooterHints))
 		}
 	})
 
 	t.Run("TreeHintsCount", func(t *testing.T) {
-		if len(treeFooterHints) != 4 {
-			t.Errorf("expected 4 tree hints, got %d", len(treeFooterHints))
+		if len(treeFooterHints) != 2 {
+			t.Errorf("expected 2 tree hints, got %d", len(treeFooterHints))
 		}
 	})
 
