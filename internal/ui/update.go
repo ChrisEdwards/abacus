@@ -83,28 +83,47 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, scheduleLabelsToastTick()
 	case BeadCreatedMsg:
-		if !msg.StayOpen {
-			// Normal mode: close overlay (spec Section 4.3)
-			m.activeOverlay = OverlayNone
-			m.createOverlay = nil
-		}
-		// else: bulk mode, keep overlay open for next entry
-		m.displayCreateToast(msg.Title)
-		return m, tea.Batch(m.executeCreateBead(msg), scheduleCreateToastTick())
+		// Don't close overlay yet - wait for backend confirmation (spec Section 4.4)
+		// Modal will close in createCompleteMsg if successful
+		return m, m.executeCreateBead(msg)
 	case CreateCancelledMsg:
 		m.activeOverlay = OverlayNone
 		m.createOverlay = nil
 		return m, nil
 	case createCompleteMsg:
 		if msg.err != nil {
+			// Backend error: keep modal open, notify overlay (spec Section 4.4)
+			if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+				// Send error to overlay to show red border
+				cmd := func() tea.Msg {
+					return backendErrorMsg{err: msg.err}
+				}
+				// Also show error toast
+				m.lastError = msg.err.Error()
+				m.showErrorToast = true
+				m.errorToastStart = time.Now()
+				return m, tea.Batch(cmd, scheduleErrorToastTick())
+			}
+			// Fallback if modal somehow closed
 			m.lastError = msg.err.Error()
 			m.showErrorToast = true
 			m.errorToastStart = time.Now()
 			return m, scheduleErrorToastTick()
 		}
-		// Store the new bead ID for toast display
+
+		// Success: NOW close modal if not in bulk mode (spec Section 4.3)
+		if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+			if !msg.stayOpen {
+				m.activeOverlay = OverlayNone
+				m.createOverlay = nil
+			}
+			// else: bulk mode, keep overlay open for next entry
+		}
+
+		// Show success toast and refresh
 		m.createToastBeadID = msg.id
-		return m, m.forceRefresh()
+		m.displayCreateToast("")
+		return m, tea.Batch(m.forceRefresh(), scheduleCreateToastTick())
 	case createToastTickMsg:
 		if !m.createToastVisible {
 			return m, nil
@@ -701,8 +720,9 @@ func (m *App) displayLabelsToast(issueID string, added, removed []string) {
 
 // Message types for create operations
 type createCompleteMsg struct {
-	id  string
-	err error
+	id       string
+	err      error
+	stayOpen bool // from BeadCreatedMsg (Ctrl+Enter bulk mode)
 }
 
 type createToastTickMsg struct{}
@@ -738,15 +758,15 @@ func (m *App) executeCreateBead(msg BeadCreatedMsg) tea.Cmd {
 		ctx := context.Background()
 		newID, err := m.client.Create(ctx, msg.Title, msg.IssueType, msg.Priority, msg.Labels, msg.Assignee)
 		if err != nil {
-			return createCompleteMsg{err: err}
+			return createCompleteMsg{err: err, stayOpen: msg.StayOpen}
 		}
 		// If parent specified, add parent-child dependency
 		if msg.ParentID != "" {
 			if err := m.client.AddDependency(ctx, newID, msg.ParentID, "parent-child"); err != nil {
-				return createCompleteMsg{id: newID, err: err}
+				return createCompleteMsg{id: newID, err: err, stayOpen: msg.StayOpen}
 			}
 		}
-		return createCompleteMsg{id: newID}
+		return createCompleteMsg{id: newID, stayOpen: msg.StayOpen}
 	}
 }
 

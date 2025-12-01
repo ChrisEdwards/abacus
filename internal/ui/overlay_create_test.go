@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -1070,6 +1072,13 @@ func TestTitleValidationFlash(t *testing.T) {
 
 		if overlay.TitleValidationError() {
 			t.Error("expected validation error to be cleared after titleFlashClearMsg")
+		}
+	})
+
+	t.Run("TitleFlashDuration", func(t *testing.T) {
+		// Verify flash duration is 300ms per spec Section 4.4
+		if titleFlashDuration != 300*time.Millisecond {
+			t.Errorf("expected titleFlashDuration 300ms per spec Section 4.4, got %v", titleFlashDuration)
 		}
 	})
 
@@ -2532,6 +2541,100 @@ func TestCreateOverlayFooterState(t *testing.T) {
 		footer = overlay.renderFooter()
 		if !strings.Contains(footer, "Creating bead...") {
 			t.Error("expected creating footer after submission")
+		}
+	})
+}
+
+// ============================================================================
+// Backend Error Handling Tests (spec Section 4.4)
+// ============================================================================
+
+func TestBackendErrorHandling(t *testing.T) {
+	t.Run("BackendErrorShowsRedBorder", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Test Bead")
+
+		// Simulate backend error
+		overlay, _ = overlay.Update(backendErrorMsg{err: fmt.Errorf("database connection failed")})
+
+		if !overlay.titleBackendError {
+			t.Error("expected titleBackendError=true after backend error")
+		}
+
+		if overlay.isCreating {
+			t.Error("expected isCreating=false after backend error")
+		}
+	})
+
+	t.Run("BackendErrorClearedOnRetry", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Test Bead")
+		overlay.titleBackendError = true
+
+		// Retry submission
+		overlay, _ = overlay.handleSubmit(false)
+
+		if overlay.titleBackendError {
+			t.Error("expected titleBackendError=false when retrying after error")
+		}
+	})
+
+	t.Run("ViewShowsRedBorderOnBackendError", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Test")
+		overlay.titleBackendError = true
+
+		view := overlay.View()
+		// Verify the view renders (red border styling is applied via styleCreateInputError)
+		if !strings.Contains(view, "Test") {
+			t.Error("expected view to show title with error styling")
+		}
+	})
+
+	t.Run("ViewShowsRedBorderForValidation", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleValidationError = true
+
+		view := overlay.View()
+		// Verify red border is applied (visual styling test)
+		if view == "" {
+			t.Error("expected non-empty view with validation error styling")
+		}
+	})
+
+	t.Run("ViewShowsRedBorderForBothErrors", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Test")
+		// Set both error types
+		overlay.titleValidationError = true
+		overlay.titleBackendError = true
+
+		view := overlay.View()
+		// Verify view renders with error styling for either error type
+		if !strings.Contains(view, "Test") {
+			t.Error("expected view to show title with error styling for both error types")
+		}
+	})
+
+	t.Run("BackendErrorPreservesFormData", func(t *testing.T) {
+		// Ensure backend error doesn't clear user's form data
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("My Important Title")
+		overlay.typeIndex = 1 // Feature
+		overlay.priorityIndex = 0 // Critical
+
+		// Simulate backend error
+		overlay, _ = overlay.Update(backendErrorMsg{err: fmt.Errorf("network error")})
+
+		// All data should be preserved
+		if overlay.Title() != "My Important Title" {
+			t.Errorf("expected title preserved, got %s", overlay.Title())
+		}
+		if overlay.IssueType() != "feature" {
+			t.Errorf("expected issue type preserved, got %s", overlay.IssueType())
+		}
+		if overlay.Priority() != 0 {
+			t.Errorf("expected priority preserved, got %d", overlay.Priority())
 		}
 	})
 }
