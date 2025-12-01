@@ -142,27 +142,8 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, scheduleNewAssigneeToastTick()
 	}
 
-	// Delegate to status overlay if active
-	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
-		var cmd tea.Cmd
-		m.statusOverlay, cmd = m.statusOverlay.Update(msg)
-		return m, cmd
-	}
-
-	// Delegate to labels overlay if active
-	if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
-		var cmd tea.Cmd
-		m.labelsOverlay, cmd = m.labelsOverlay.Update(msg)
-		return m, cmd
-	}
-
-	// Delegate to create overlay if active
-	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-		var cmd tea.Cmd
-		m.createOverlay, cmd = m.createOverlay.Update(msg)
-		return m, cmd
-	}
-
+	// Handle background messages before delegating to overlays
+	// This ensures auto-refresh continues even when overlays are open
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case spinner.TickMsg:
@@ -431,6 +412,24 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	}
+
+	// Delegate to overlays after processing background messages
+	// This allows auto-refresh to continue even when overlays are open
+	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
+		m.statusOverlay, cmd = m.statusOverlay.Update(msg)
+		return m, cmd
+	}
+
+	if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
+		m.labelsOverlay, cmd = m.labelsOverlay.Update(msg)
+		return m, cmd
+	}
+
+	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+		m.createOverlay, cmd = m.createOverlay.Update(msg)
+		return m, cmd
+	}
+
 	return m, cmd
 }
 
