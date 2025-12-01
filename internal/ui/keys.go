@@ -29,8 +29,9 @@ type KeyMap struct {
 	Status    key.Binding
 	StartWork key.Binding
 	CloseBead key.Binding
-	Labels    key.Binding
-	NewBead   key.Binding
+	Labels      key.Binding
+	NewBead     key.Binding
+	NewRootBead key.Binding
 
 	// Search
 	Search    key.Binding
@@ -129,6 +130,10 @@ func DefaultKeyMap() KeyMap {
 		NewBead: key.NewBinding(
 			key.WithKeys("n"),
 			key.WithHelp("n", "New bead"),
+		),
+		NewRootBead: key.NewBinding(
+			key.WithKeys("N"),
+			key.WithHelp("N", "New root bead"),
 		),
 
 		// Search

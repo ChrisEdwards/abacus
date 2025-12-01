@@ -11,7 +11,7 @@ import (
 
 // fastInjectBead performs fast tree injection of a newly created bead.
 // Returns error if injection fails (caller should fall back to full refresh).
-func (m *App) fastInjectBead(issue beads.FullIssue, stayOpen bool) error {
+func (m *App) fastInjectBead(issue beads.FullIssue) error {
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)

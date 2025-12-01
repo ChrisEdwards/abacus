@@ -119,7 +119,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// NEW: Fast injection path (if fullIssue available)
 		if msg.fullIssue != nil {
-			if err := m.fastInjectBead(*msg.fullIssue, msg.stayOpen); err != nil {
+			if err := m.fastInjectBead(*msg.fullIssue); err != nil {
 				// Fall back to full refresh on error
 				m.lastError = fmt.Sprintf("Fast injection failed: %v, refreshing...", err)
 				// Continue to full refresh below
@@ -479,6 +479,16 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				AvailableLabels:    m.getAllLabels(),
 				AvailableAssignees: m.getAllAssignees(),
 				IsRootMode:         false,
+			})
+			m.activeOverlay = OverlayCreate
+			return m, m.createOverlay.Init()
+		case key.Matches(msg, m.keys.NewRootBead):
+			m.createOverlay = NewCreateOverlay(CreateOverlayOptions{
+				DefaultParentID:    "",
+				AvailableParents:   m.getAvailableParents(),
+				AvailableLabels:    m.getAllLabels(),
+				AvailableAssignees: m.getAllAssignees(),
+				IsRootMode:         true,
 			})
 			m.activeOverlay = OverlayCreate
 			return m, m.createOverlay.Init()

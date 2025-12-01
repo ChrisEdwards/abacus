@@ -80,6 +80,18 @@ func TestDefaultKeyMap(t *testing.T) {
 			t.Error("expected backspace to match Backspace binding")
 		}
 	})
+
+	t.Run("NewBeadBinding", func(t *testing.T) {
+		if !key.Matches(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}, km.NewBead) {
+			t.Error("expected n to match NewBead binding")
+		}
+	})
+
+	t.Run("NewRootBeadBinding", func(t *testing.T) {
+		if !key.Matches(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'N'}}, km.NewRootBead) {
+			t.Error("expected N (Shift+n) to match NewRootBead binding")
+		}
+	})
 }
 
 func TestKeyBindingsHaveHelpText(t *testing.T) {
@@ -109,6 +121,8 @@ func TestKeyBindingsHaveHelpText(t *testing.T) {
 		{"Escape", km.Escape},
 		{"ShiftTab", km.ShiftTab},
 		{"Backspace", km.Backspace},
+		{"NewBead", km.NewBead},
+		{"NewRootBead", km.NewRootBead},
 	}
 
 	for _, b := range bindings {
