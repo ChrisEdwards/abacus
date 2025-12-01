@@ -2638,3 +2638,135 @@ func TestBackendErrorHandling(t *testing.T) {
 		}
 	})
 }
+
+// Tests for ab-ctal: Backend error display and ESC handling
+func TestCreateOverlayBackendErrorDisplay(t *testing.T) {
+	t.Run("BackendErrorMsgStoresErrorAndKeepsModalOpen", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		
+		// Simulate backend error
+		errorMsg := "Database out of sync with JSONL. Run 'bd sync' to fix."
+		msg := backendErrorMsg{
+			err:    fmt.Errorf("db sync error"),
+			errMsg: errorMsg,
+		}
+		
+		overlay, _ = overlay.Update(msg)
+		
+		// Verify error is stored
+		if !overlay.titleBackendError {
+			t.Error("expected titleBackendError to be true")
+		}
+		if overlay.backendErrorMsg != errorMsg {
+			t.Errorf("expected backendErrorMsg %q, got %q", errorMsg, overlay.backendErrorMsg)
+		}
+		if overlay.isCreating {
+			t.Error("expected isCreating to be false after error")
+		}
+	})
+	
+	t.Run("ESCClearsBackendErrorInsteadOfClosingModal", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		
+		// Set backend error state
+		overlay.titleBackendError = true
+		overlay.backendErrorMsg = "Test error"
+		
+		// Press ESC
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		
+		// Verify error is cleared, modal stays open
+		if overlay.titleBackendError {
+			t.Error("expected titleBackendError to be false after ESC")
+		}
+		if overlay.backendErrorMsg != "" {
+			t.Error("expected backendErrorMsg to be cleared after ESC")
+		}
+		
+		// Verify modal is NOT closing (cmd should be nil, not CreateCancelledMsg)
+		if cmd != nil {
+			msg := cmd()
+			if _, ok := msg.(CreateCancelledMsg); ok {
+				t.Error("expected ESC to not close modal when there's a backend error")
+			}
+		}
+	})
+	
+	t.Run("ESCClosesModalWhenNoBackendError", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		
+		// No backend error
+		overlay.titleBackendError = false
+		overlay.backendErrorMsg = ""
+		
+		// Press ESC
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		
+		// Verify modal is closing
+		if cmd == nil {
+			t.Fatal("expected CreateCancelledMsg command")
+		}
+		msg := cmd()
+		if _, ok := msg.(CreateCancelledMsg); !ok {
+			t.Errorf("expected CreateCancelledMsg, got %T", msg)
+		}
+	})
+	
+	t.Run("SubmitClearsBackendError", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Test Title")
+		
+		// Set backend error state
+		overlay.titleBackendError = true
+		overlay.backendErrorMsg = "Previous error"
+		
+		// Submit with Enter
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		
+		// Verify error is cleared when retrying
+		if overlay.titleBackendError {
+			t.Error("expected titleBackendError to be cleared on submit")
+		}
+		if overlay.backendErrorMsg != "" {
+			t.Error("expected backendErrorMsg to be cleared on submit")
+		}
+		if !overlay.isCreating {
+			t.Error("expected isCreating to be true after submit")
+		}
+	})
+	
+	t.Run("ErrorMessageDisplayedInView", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		
+		// Set backend error
+		overlay.titleBackendError = true
+		overlay.backendErrorMsg = "Connection failed"
+		
+		// Render view
+		view := overlay.View()
+		
+		// Verify error message is shown
+		if !strings.Contains(view, "Connection failed") {
+			t.Error("expected error message to be displayed in view")
+		}
+		if !strings.Contains(view, "⚠") {
+			t.Error("expected warning symbol in error display")
+		}
+	})
+	
+	t.Run("NoErrorMessageWhenNoError", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		
+		// No error
+		overlay.titleBackendError = false
+		overlay.backendErrorMsg = ""
+		
+		// Render view
+		view := overlay.View()
+		
+		// Verify no error message shown
+		if strings.Contains(view, "⚠") {
+			t.Error("expected no warning symbol when no error")
+		}
+	})
+}

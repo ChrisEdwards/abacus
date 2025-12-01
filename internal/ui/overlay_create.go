@@ -29,7 +29,8 @@ func titleFlashCmd() tea.Cmd {
 
 // backendErrorMsg signals backend error during create.
 type backendErrorMsg struct {
-	err error
+	err    error
+	errMsg string // Human-readable error message to display
 }
 
 // typeInferenceFlashMsg signals the type was auto-inferred (spec Section 5).
@@ -124,8 +125,9 @@ type CreateOverlay struct {
 
 	// Zone 2: Title (hero element)
 	titleInput           textinput.Model
-	titleValidationError bool // True when flashing red for validation
-	titleBackendError    bool // True when backend error occurred
+	titleValidationError bool   // True when flashing red for validation
+	titleBackendError    bool   // True when backend error occurred
+	backendErrorMsg      string // Backend error message to display
 
 	// Zone 3: Properties (2-column grid)
 	typeIndex            int
@@ -274,8 +276,9 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 		return m, nil
 
 	case backendErrorMsg:
-		// Backend error: keep modal open, show red border (spec Section 4.4)
+		// Backend error: keep modal open, show red border and error message (spec Section 4.4)
 		m.titleBackendError = true
+		m.backendErrorMsg = msg.errMsg
 		m.isCreating = false // Stop showing "Creating..." footer
 		// Keep focus on title so user can fix/retry
 		return m, nil
@@ -356,6 +359,13 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 }
 
 func (m *CreateOverlay) handleEscape() (*CreateOverlay, tea.Cmd) {
+	// If there's a backend error, ESC clears it instead of closing modal
+	if m.titleBackendError {
+		m.titleBackendError = false
+		m.backendErrorMsg = ""
+		return m, nil
+	}
+
 	// Check if any dropdown is open
 	if m.parentCombo.IsDropdownOpen() {
 		m.parentCombo.Blur()
@@ -401,6 +411,7 @@ func (m *CreateOverlay) handleSubmit(stayOpen bool) (*CreateOverlay, tea.Cmd) {
 
 	// Clear any previous backend error (user is retrying)
 	m.titleBackendError = false
+	m.backendErrorMsg = ""
 
 	// Set creating state for footer (spec Section 4.1)
 	m.isCreating = true
@@ -850,6 +861,16 @@ func (m *CreateOverlay) View() string {
 		b.WriteString("\n")
 		b.WriteString(styleCreateError.Render("  required"))
 	}
+
+	// Backend error message
+	if m.titleBackendError && m.backendErrorMsg != "" {
+		b.WriteString("\n")
+		errorStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")).
+			Width(44)
+		b.WriteString(errorStyle.Render("  ⚠ " + m.backendErrorMsg))
+	}
+
 	b.WriteString("\n\n")
 
 	// Zone 3: Properties (2-column grid) - dimmed when parent search active

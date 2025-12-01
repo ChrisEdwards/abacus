@@ -96,15 +96,17 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			// Backend error: keep modal open, notify overlay (spec Section 4.4)
 			if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-				// Send error to overlay to show red border
+				// Send error to overlay to show red border and error message
+				errMsg := msg.err.Error()
 				cmd := func() tea.Msg {
-					return backendErrorMsg{err: msg.err}
+					return backendErrorMsg{
+						err:    msg.err,
+						errMsg: errMsg,
+					}
 				}
-				// Also show error toast
-				m.lastError = msg.err.Error()
-				m.showErrorToast = true
-				m.errorToastStart = time.Now()
-				return m, tea.Batch(cmd, scheduleErrorToastTick())
+				// Also store in app for error toast (shown if modal closes)
+				m.lastError = errMsg
+				return m, cmd
 			}
 			// Fallback if modal somehow closed
 			m.lastError = msg.err.Error()
