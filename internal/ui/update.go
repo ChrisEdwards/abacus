@@ -756,17 +756,12 @@ func (m *App) getAvailableParents() []ParentOption {
 func (m *App) executeCreateBead(msg BeadCreatedMsg) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
-		newID, err := m.client.Create(ctx, msg.Title, msg.IssueType, msg.Priority, msg.Labels, msg.Assignee)
+		issue, err := m.client.CreateFull(ctx, msg.Title, msg.IssueType, msg.Priority, msg.Labels, msg.Assignee, msg.ParentID)
 		if err != nil {
 			return createCompleteMsg{err: err, stayOpen: msg.StayOpen}
 		}
-		// If parent specified, add parent-child dependency
-		if msg.ParentID != "" {
-			if err := m.client.AddDependency(ctx, newID, msg.ParentID, "parent-child"); err != nil {
-				return createCompleteMsg{id: newID, err: err, stayOpen: msg.StayOpen}
-			}
-		}
-		return createCompleteMsg{id: newID, stayOpen: msg.StayOpen}
+		// Note: parent-child dependency is handled by CreateFull via --parent flag
+		return createCompleteMsg{id: issue.ID, stayOpen: msg.StayOpen}
 	}
 }
 

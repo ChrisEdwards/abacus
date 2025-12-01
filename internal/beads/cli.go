@@ -217,6 +217,55 @@ func (c *cliClient) Create(ctx context.Context, title, issueType string, priorit
 	return "", fmt.Errorf("could not parse bead ID from output: %s", output)
 }
 
+func (c *cliClient) CreateFull(ctx context.Context, title, issueType string, priority int, labels []string, assignee string, parentID string) (FullIssue, error) {
+	if strings.TrimSpace(title) == "" {
+		return FullIssue{}, fmt.Errorf("title is required for create")
+	}
+	if strings.TrimSpace(issueType) == "" {
+		issueType = "task"
+	}
+
+	args := []string{
+		"create",
+		"--title", title,
+		"--type", issueType,
+		"--priority", fmt.Sprintf("%d", priority),
+		"--json",
+	}
+
+	// Add labels if provided
+	if len(labels) > 0 {
+		args = append(args, "--labels", strings.Join(labels, ","))
+	}
+
+	// Add assignee if provided
+	if strings.TrimSpace(assignee) != "" {
+		args = append(args, "--assignee", assignee)
+	}
+
+	// Add parent if provided
+	if strings.TrimSpace(parentID) != "" {
+		args = append(args, "--parent", parentID)
+	}
+
+	out, err := c.run(ctx, args...)
+	if err != nil {
+		return FullIssue{}, fmt.Errorf("run bd create: %w", err)
+	}
+
+	// Parse JSON response
+	var issue FullIssue
+	if err := json.Unmarshal(out, &issue); err != nil {
+		snippet := string(out)
+		if len(snippet) > maxErrorSnippetLen {
+			snippet = snippet[:maxErrorSnippetLen] + "..."
+		}
+		return FullIssue{}, fmt.Errorf("decode bd create output: %w (output: %s)", err, strings.TrimSpace(snippet))
+	}
+
+	return issue, nil
+}
+
 func (c *cliClient) AddDependency(ctx context.Context, fromID, toID, depType string) error {
 	if strings.TrimSpace(fromID) == "" {
 		return fmt.Errorf("from ID is required for add dependency")

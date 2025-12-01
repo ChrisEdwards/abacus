@@ -20,6 +20,7 @@ type MockClient struct {
 	AddLabelFn      func(context.Context, string, string) error
 	RemoveLabelFn   func(context.Context, string, string) error
 	CreateFn        func(context.Context, string, string, int, []string, string) (string, error)
+	CreateFullFn    func(context.Context, string, string, int, []string, string, string) (FullIssue, error)
 	AddDependencyFn func(context.Context, string, string, string) error
 
 	mu                      sync.Mutex
@@ -32,6 +33,7 @@ type MockClient struct {
 	AddLabelCallCount       int
 	RemoveLabelCallCount    int
 	CreateCallCount         int
+	CreateFullCallCount     int
 	AddDependencyCallCount  int
 	ShowCallArgs            [][]string
 	CommentIDs              []string
@@ -41,6 +43,7 @@ type MockClient struct {
 	AddLabelCallArgs        [][]string // [issueID, label]
 	RemoveLabelCallArgs     [][]string // [issueID, label]
 	CreateCallArgs          []CreateCallArg
+	CreateFullCallArgs      []CreateFullCallArg
 	AddDependencyCallArgs   [][]string // [fromID, toID, depType]
 }
 
@@ -51,6 +54,16 @@ type CreateCallArg struct {
 	Priority  int
 	Labels    []string
 	Assignee  string
+}
+
+// CreateFullCallArg captures arguments passed to CreateFull.
+type CreateFullCallArg struct {
+	Title     string
+	IssueType string
+	Priority  int
+	Labels    []string
+	Assignee  string
+	ParentID  string
 }
 
 // NewMockClient returns a MockClient with zeroed handlers.
@@ -178,6 +191,35 @@ func (m *MockClient) Create(ctx context.Context, title, issueType string, priori
 		return "ab-mock", nil // Default to returning mock ID
 	}
 	return m.CreateFn(ctx, title, issueType, priority, labels, assignee)
+}
+
+// CreateFull invokes the configured stub or returns a mock FullIssue.
+func (m *MockClient) CreateFull(ctx context.Context, title, issueType string, priority int, labels []string, assignee string, parentID string) (FullIssue, error) {
+	m.mu.Lock()
+	m.CreateFullCallCount++
+	m.CreateFullCallArgs = append(m.CreateFullCallArgs, CreateFullCallArg{
+		Title:     title,
+		IssueType: issueType,
+		Priority:  priority,
+		Labels:    labels,
+		Assignee:  assignee,
+		ParentID:  parentID,
+	})
+	m.mu.Unlock()
+
+	if m.CreateFullFn == nil {
+		// Default to returning mock FullIssue
+		return FullIssue{
+			ID:        "ab-mock",
+			Title:     title,
+			Status:    "open",
+			IssueType: issueType,
+			Priority:  priority,
+			Labels:    labels,
+			Assignee:  assignee,
+		}, nil
+	}
+	return m.CreateFullFn(ctx, title, issueType, priority, labels, assignee, parentID)
 }
 
 // AddDependency invokes the configured stub or returns nil (no-op by default).
