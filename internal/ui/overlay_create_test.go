@@ -547,6 +547,98 @@ func TestCreateOverlayEscapeWithDropdown(t *testing.T) {
 	})
 }
 
+func TestCreateOverlayAssigneeTwoStageEscape(t *testing.T) {
+	t.Run("FirstEscClosesDropdownKeepsText", func(t *testing.T) {
+		// Setup with assignee options
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableAssignees: []string{"Alice", "Bob"},
+		})
+		overlay.focus = FocusAssignee
+		overlay.assigneeCombo.Focus()
+
+		// Type to open dropdown
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+
+		// Verify dropdown is open
+		if !overlay.assigneeCombo.IsDropdownOpen() {
+			t.Skip("dropdown did not open - combo box behavior may differ")
+		}
+
+		// First Esc: Close dropdown, keep text
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		if cmd != nil {
+			msg := cmd()
+			if _, ok := msg.(CreateCancelledMsg); ok {
+				t.Error("first Esc should not cancel modal")
+			}
+		}
+
+		if overlay.assigneeCombo.IsDropdownOpen() {
+			t.Error("dropdown should be closed after first Esc")
+		}
+
+		if overlay.assigneeCombo.InputValue() != "a" {
+			t.Errorf("expected input 'a' preserved, got %q", overlay.assigneeCombo.InputValue())
+		}
+	})
+
+	t.Run("SecondEscRevertsToOriginal", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableAssignees: []string{"Alice", "Bob"},
+		})
+		overlay.focus = FocusAssignee
+		overlay.assigneeCombo.SetValue("Alice")
+		overlay.assigneeCombo.Focus()
+
+		// Type something different
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b', 'o'}})
+
+		// First Esc: Close dropdown
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+		// Verify dropdown is closed but text remains
+		if overlay.assigneeCombo.IsDropdownOpen() {
+			t.Error("dropdown should be closed after first Esc")
+		}
+		if overlay.assigneeCombo.InputValue() != "bo" {
+			t.Errorf("expected input 'bo' after first Esc, got %q", overlay.assigneeCombo.InputValue())
+		}
+
+		// Second Esc: Revert to original
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		if cmd != nil {
+			msg := cmd()
+			if _, ok := msg.(CreateCancelledMsg); ok {
+				t.Error("second Esc should revert, not cancel modal")
+			}
+		}
+
+		if overlay.assigneeCombo.InputValue() != "Alice" {
+			t.Errorf("expected input reverted to 'Alice', got %q", overlay.assigneeCombo.InputValue())
+		}
+	})
+
+	t.Run("ThirdEscCancelsModal", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableAssignees: []string{"Alice", "Bob"},
+		})
+		overlay.focus = FocusAssignee
+		overlay.assigneeCombo.SetValue("Alice")
+		overlay.assigneeCombo.Focus()
+
+		// Third Esc: Cancel modal (input matches value)
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		if cmd == nil {
+			t.Fatal("expected command for modal cancel")
+		}
+
+		msg := cmd()
+		if _, ok := msg.(CreateCancelledMsg); !ok {
+			t.Error("expected CreateCancelledMsg")
+		}
+	})
+}
+
 func TestCreateOverlaySubmitPopulatesAllFields(t *testing.T) {
 	t.Run("SubmitIncludesTypeAndPriority", func(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})

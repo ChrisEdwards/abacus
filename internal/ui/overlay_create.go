@@ -131,10 +131,12 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 		WithPlaceholder("type to search...")
 
 	// Pre-select parent if default exists and not root mode
+	parentOriginal := "" // Track original value for Esc revert
 	if !opts.IsRootMode && opts.DefaultParentID != "" {
 		for _, p := range opts.AvailableParents {
 			if p.ID == opts.DefaultParentID {
 				parentCombo.SetValue(p.Display)
+				parentOriginal = p.Display // Initialize original for Esc revert
 				break
 			}
 		}
@@ -170,6 +172,7 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 		priorityIndex:   2, // Medium
 		parentCombo:     parentCombo,
 		parentOptions:   opts.AvailableParents,
+		parentOriginal:  parentOriginal, // Set original for Esc revert
 		isRootMode:      opts.IsRootMode,
 		defaultParentID: opts.DefaultParentID,
 		labelsCombo:     labelsCombo,
@@ -272,8 +275,13 @@ func (m *CreateOverlay) handleEscape() (*CreateOverlay, tea.Cmd) {
 		return m, nil
 	}
 	if m.assigneeCombo.IsDropdownOpen() {
-		m.assigneeCombo.Blur()
-		m.assigneeCombo.Focus()
+		// First stage: Close dropdown, keep typed text
+		m.assigneeCombo, _ = m.assigneeCombo.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		return m, nil
+	}
+	if m.focus == FocusAssignee && m.assigneeCombo.InputValue() != m.assigneeCombo.Value() {
+		// Second stage: Revert to original value
+		m.assigneeCombo, _ = m.assigneeCombo.Update(tea.KeyMsg{Type: tea.KeyEsc})
 		return m, nil
 	}
 
