@@ -67,6 +67,15 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.activeOverlay = OverlayNone
 		m.labelsOverlay = nil
 		return m, nil
+	case ComboBoxValueSelectedMsg:
+		// Route to labelsOverlay if active (for adding chips)
+		if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
+			var labelCmd tea.Cmd
+			m.labelsOverlay, labelCmd = m.labelsOverlay.Update(msg)
+			return m, labelCmd
+		}
+		// Otherwise fall through to default handling
+		return m, nil
 	case labelUpdateCompleteMsg:
 		if msg.err != nil {
 			m.lastError = msg.err.Error()
@@ -462,10 +471,12 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				allLabels := m.getAllLabels()
 				m.labelsOverlay = NewLabelsOverlay(
 					row.Node.Issue.ID,
+					row.Node.Issue.Title,
 					row.Node.Issue.Labels,
 					allLabels,
 				)
 				m.activeOverlay = OverlayLabels
+				return m, m.labelsOverlay.Init()
 			}
 			return m, nil
 		case key.Matches(msg, m.keys.NewBead):

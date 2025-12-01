@@ -4,18 +4,18 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
-// LabelsOverlay is a compact popup for managing labels on a bead.
+// LabelsOverlay is a chip-based popup for managing labels on a bead.
+// Uses ChipComboBox for a modern, intuitive label management experience.
 type LabelsOverlay struct {
-	issueID     string
-	allLabels   []string        // All labels used in project (sorted)
-	selected    map[string]bool // Currently selected labels
-	original    map[string]bool // Original state (for diff)
-	cursor      int
-	filterInput textinput.Model
+	issueID       string
+	beadTitle     string       // For header display
+	chipCombo     ChipComboBox // Main component
+	originalChips []string     // For cancel/revert
+	allLabels     []string     // All project labels (sorted)
 }
 
 // LabelsUpdatedMsg is sent when label changes are confirmed.
@@ -28,185 +28,169 @@ type LabelsUpdatedMsg struct {
 // LabelsCancelledMsg is sent when the overlay is dismissed without changes.
 type LabelsCancelledMsg struct{}
 
-// NewLabelsOverlay creates a new labels overlay for the given issue.
-func NewLabelsOverlay(issueID string, currentLabels, allProjectLabels []string) *LabelsOverlay {
-	ti := textinput.New()
-	ti.Placeholder = ""
-	ti.Prompt = ""
-	ti.CharLimit = 50
-	ti.Focus()
-
-	selected := make(map[string]bool)
-	original := make(map[string]bool)
-	for _, l := range currentLabels {
-		selected[l] = true
-		original[l] = true
-	}
-
-	// Ensure all labels are sorted
+// NewLabelsOverlay creates a new chip-based labels overlay for the given issue.
+func NewLabelsOverlay(issueID, beadTitle string, currentLabels, allProjectLabels []string) *LabelsOverlay {
+	// Sort all labels for consistent display
 	sortedLabels := make([]string, len(allProjectLabels))
 	copy(sortedLabels, allProjectLabels)
 	sort.Strings(sortedLabels)
 
+	// Store original chips for cancel/revert
+	originalChips := make([]string, len(currentLabels))
+	copy(originalChips, currentLabels)
+
+	// Create ChipComboBox with all labels as options
+	chipCombo := NewChipComboBox(sortedLabels).
+		WithWidth(40).
+		WithMaxVisible(5).
+		WithPlaceholder("type to filter...").
+		WithAllowNew(true, "New label: %s")
+
+	// Pre-populate with current labels
+	chipCombo.SetChips(currentLabels)
+
 	return &LabelsOverlay{
-		issueID:     issueID,
-		allLabels:   sortedLabels,
-		selected:    selected,
-		original:    original,
-		filterInput: ti,
+		issueID:       issueID,
+		beadTitle:     beadTitle,
+		chipCombo:     chipCombo,
+		originalChips: originalChips,
+		allLabels:     sortedLabels,
 	}
 }
 
 // Init implements tea.Model.
 func (m *LabelsOverlay) Init() tea.Cmd {
-	return textinput.Blink
+	return m.chipCombo.Focus()
 }
 
 // Update implements tea.Model.
 func (m *LabelsOverlay) Update(msg tea.Msg) (*LabelsOverlay, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ChipComboBoxTabMsg:
+		// Tab requested - confirm and close (same as Enter when idle)
+		return m, m.confirm()
+
+	case ChipComboBoxChipAddedMsg:
+		// Chip was added - visual feedback already happened, no action needed
+		return m, nil
+
+	case ChipRemovedMsg:
+		// Chip was removed - visual feedback already happened, no action needed
+		return m, nil
+
+	case chipFlashClearMsg:
+		// Pass through to chipCombo
+		m.chipCombo, _ = m.chipCombo.Update(msg)
+		return m, nil
+
+	case ComboBoxValueSelectedMsg:
+		// Forward to chipCombo to add as chip
+		var cmd tea.Cmd
+		m.chipCombo, cmd = m.chipCombo.Update(msg)
+		return m, cmd
+
 	case tea.KeyMsg:
-		// Handle special keys by type first (more reliable when textinput is focused)
+		// Handle global keys first
 		switch msg.Type {
 		case tea.KeyEsc:
-			// If filter has text, clear it first; otherwise close overlay
-			if m.filterInput.Value() != "" {
-				m.filterInput.SetValue("")
-				m.cursor = 0
-				return m, nil
-			}
-			return m, func() tea.Msg { return LabelsCancelledMsg{} }
+			return m.handleEscape()
+
 		case tea.KeyEnter:
-			return m, m.confirm()
-		case tea.KeyUp:
-			m.moveUp()
-			return m, nil
-		case tea.KeyDown:
-			m.moveDown()
-			return m, nil
-		case tea.KeySpace:
-			m.toggleCurrent()
-			return m, nil
-		default:
-			// Handle vim-style navigation by string
-			switch msg.String() {
-			case "j":
-				m.moveDown()
-				return m, nil
-			case "k":
-				m.moveUp()
-				return m, nil
-			default:
-				// Pass other keys to the text input for filtering
-				var cmd tea.Cmd
-				m.filterInput, cmd = m.filterInput.Update(msg)
-				// Reset cursor when filter changes
-				m.cursor = 0
-				return m, cmd
+			// Enter confirms if idle (dropdown closed, input empty, not in chip nav)
+			if m.isIdle() {
+				return m, m.confirm()
 			}
+			// Otherwise pass to ChipComboBox
+
+		case tea.KeyTab:
+			// Tab confirms if idle
+			if m.isIdle() {
+				return m, m.confirm()
+			}
+			// Otherwise pass to ChipComboBox (which will send ChipComboBoxTabMsg)
 		}
+
+		// Pass to ChipComboBox
+		var cmd tea.Cmd
+		m.chipCombo, cmd = m.chipCombo.Update(msg)
+		return m, cmd
 	}
-	return m, nil
+
+	// Pass other messages to ChipComboBox
+	var cmd tea.Cmd
+	m.chipCombo, cmd = m.chipCombo.Update(msg)
+	return m, cmd
 }
 
-// filteredLabels returns the labels matching the current filter.
-func (m *LabelsOverlay) filteredLabels() []string {
-	filter := strings.ToLower(m.filterInput.Value())
-	if filter == "" {
-		return m.allLabels
+// handleEscape implements multi-stage escape:
+// 1. If dropdown open: close dropdown
+// 2. If input has text: clear input
+// 3. If in chip nav mode: exit chip nav
+// 4. Otherwise: cancel and close
+func (m *LabelsOverlay) handleEscape() (*LabelsOverlay, tea.Cmd) {
+	// Check if dropdown is open
+	if m.chipCombo.IsDropdownOpen() {
+		// Close dropdown
+		m.chipCombo, _ = m.chipCombo.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		return m, nil
 	}
-	var filtered []string
-	for _, l := range m.allLabels {
-		if strings.Contains(strings.ToLower(l), filter) {
-			filtered = append(filtered, l)
-		}
+
+	// Check if input has text
+	if m.chipCombo.InputValue() != "" {
+		// Clear input
+		m.chipCombo, _ = m.chipCombo.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		return m, nil
 	}
-	return filtered
+
+	// Check if in chip nav mode
+	if m.chipCombo.InChipNavMode() {
+		// Exit chip nav
+		m.chipCombo, _ = m.chipCombo.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		return m, nil
+	}
+
+	// Cancel and close - discard all changes
+	return m, func() tea.Msg { return LabelsCancelledMsg{} }
 }
 
-// hasExactMatch checks if the filter text exactly matches any existing label.
-func (m *LabelsOverlay) hasExactMatch() bool {
-	filter := strings.ToLower(strings.TrimSpace(m.filterInput.Value()))
-	if filter == "" {
-		return true // No filter means no new label option
-	}
-	for _, l := range m.allLabels {
-		if strings.ToLower(l) == filter {
-			return true
-		}
-	}
-	return false
+// isIdle returns true if the ChipComboBox is in idle state
+// (dropdown closed, input empty, not in chip nav mode).
+func (m *LabelsOverlay) isIdle() bool {
+	return !m.chipCombo.IsDropdownOpen() &&
+		m.chipCombo.InputValue() == "" &&
+		!m.chipCombo.InChipNavMode()
 }
 
-// canAddNew returns true if we should show the "add new" option.
-func (m *LabelsOverlay) canAddNew() bool {
-	filter := strings.TrimSpace(m.filterInput.Value())
-	return filter != "" && !m.hasExactMatch()
-}
-
-// visibleItemCount returns the number of items in the list (labels + add new option).
-func (m *LabelsOverlay) visibleItemCount() int {
-	count := len(m.filteredLabels())
-	if m.canAddNew() {
-		count++
-	}
-	return count
-}
-
-// moveDown moves the cursor down, wrapping around.
-func (m *LabelsOverlay) moveDown() {
-	count := m.visibleItemCount()
-	if count == 0 {
-		return
-	}
-	m.cursor = (m.cursor + 1) % count
-}
-
-// moveUp moves the cursor up, wrapping around.
-func (m *LabelsOverlay) moveUp() {
-	count := m.visibleItemCount()
-	if count == 0 {
-		return
-	}
-	m.cursor = (m.cursor - 1 + count) % count
-}
-
-// toggleCurrent toggles the label at the current cursor position.
-func (m *LabelsOverlay) toggleCurrent() {
-	filtered := m.filteredLabels()
-
-	// Check if cursor is on "add new" option
-	if m.canAddNew() && m.cursor == len(filtered) {
-		// Add the new label
-		newLabel := strings.TrimSpace(m.filterInput.Value())
-		m.allLabels = append(m.allLabels, newLabel)
-		sort.Strings(m.allLabels)
-		m.selected[newLabel] = true
-		m.filterInput.SetValue("")
-		m.cursor = 0
-		return
-	}
-
-	if m.cursor < len(filtered) {
-		label := filtered[m.cursor]
-		m.selected[label] = !m.selected[label]
-	}
-}
-
-// computeDiff calculates which labels were added and removed.
+// computeDiff calculates which labels were added and removed
+// compared to the original state.
 func (m *LabelsOverlay) computeDiff() (added, removed []string) {
-	for label, isSelected := range m.selected {
-		wasSelected := m.original[label]
-		if isSelected && !wasSelected {
-			added = append(added, label)
+	currentChips := m.chipCombo.GetChips()
+
+	// Build sets for comparison
+	originalSet := make(map[string]bool)
+	for _, l := range m.originalChips {
+		originalSet[l] = true
+	}
+
+	currentSet := make(map[string]bool)
+	for _, l := range currentChips {
+		currentSet[l] = true
+	}
+
+	// Find added (in current but not original)
+	for _, l := range currentChips {
+		if !originalSet[l] {
+			added = append(added, l)
 		}
 	}
-	for label, wasSelected := range m.original {
-		isSelected := m.selected[label]
-		if wasSelected && !isSelected {
-			removed = append(removed, label)
+
+	// Find removed (in original but not current)
+	for _, l := range m.originalChips {
+		if !currentSet[l] {
+			removed = append(removed, l)
 		}
 	}
+
 	sort.Strings(added)
 	sort.Strings(removed)
 	return
@@ -228,67 +212,76 @@ func (m *LabelsOverlay) confirm() tea.Cmd {
 func (m *LabelsOverlay) View() string {
 	var b strings.Builder
 
-	// Breadcrumb header: ab-xxx › Labels
-	header := styleID.Render(m.issueID) + styleStatsDim.Render(" › ") + styleStatsDim.Render("Labels")
+	// Header: ab-xxx › Bead Title › Labels
+	// Truncate title if too long
+	title := m.beadTitle
+	maxTitleLen := 25
+	if len(title) > maxTitleLen {
+		title = title[:maxTitleLen-3] + "..."
+	}
+	header := styleID.Render(m.issueID) +
+		styleStatsDim.Render(" › ") +
+		styleStatsDim.Render(title) +
+		styleStatsDim.Render(" › ") +
+		styleHelpSectionHeader.Render("Labels")
 	b.WriteString(header)
 	b.WriteString("\n")
 
 	// Divider
-	divider := styleStatusDivider.Render(strings.Repeat("─", 28))
+	divider := styleStatusDivider.Render(strings.Repeat("─", 44))
+	b.WriteString(divider)
+	b.WriteString("\n\n")
+
+	// ChipComboBox
+	b.WriteString(m.chipCombo.View())
+	b.WriteString("\n\n")
+
+	// Footer
 	b.WriteString(divider)
 	b.WriteString("\n")
+	b.WriteString(m.renderFooter())
 
-	// Filter input - show static prompt when empty to avoid textinput display bugs
-	filterValue := m.filterInput.Value()
-	if filterValue == "" {
-		b.WriteString(styleStatsDim.Render("/ type to filter..."))
-	} else {
-		b.WriteString("/ " + filterValue)
+	return styleStatusOverlay.Render(b.String())
+}
+
+// renderFooter returns the dynamic footer based on current state.
+func (m *LabelsOverlay) renderFooter() string {
+	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
+
+	switch {
+	case m.chipCombo.IsDropdownOpen():
+		// Dropdown open: show selection hints
+		return footerStyle.Render("Enter Select • ↑↓ Navigate • Esc Clear")
+	case m.chipCombo.InChipNavMode():
+		// Chip navigation mode: show chip nav hints
+		return footerStyle.Render("Delete Remove • ←→ Navigate • Esc Exit")
+	default:
+		// Idle state: show confirm/cancel hints
+		return footerStyle.Render("Enter Save • Tab Save • Esc Cancel")
 	}
-	b.WriteString("\n")
+}
 
-	// Another divider
-	b.WriteString(divider)
-	b.WriteString("\n")
+// IssueID returns the issue ID (for testing).
+func (m *LabelsOverlay) IssueID() string {
+	return m.issueID
+}
 
-	// Label list
-	filtered := m.filteredLabels()
-	if len(filtered) == 0 && !m.canAddNew() {
-		b.WriteString(styleStatsDim.Render("  (no labels)"))
-		b.WriteString("\n")
-	} else {
-		for i, label := range filtered {
-			checkbox := "[ ]"
-			style := styleLabelUnchecked
-			if m.selected[label] {
-				checkbox = "[x]"
-				style = styleLabelChecked
-			}
+// BeadTitle returns the bead title (for testing).
+func (m *LabelsOverlay) BeadTitle() string {
+	return m.beadTitle
+}
 
-			line := "  " + checkbox + " " + label
-			if i == m.cursor {
-				// Cursor gets highlight background, overrides other styling
-				style = styleLabelCursor
-			}
+// GetChips returns the current chips (for testing).
+func (m *LabelsOverlay) GetChips() []string {
+	return m.chipCombo.GetChips()
+}
 
-			b.WriteString(style.Render(line))
-			b.WriteString("\n")
-		}
+// OriginalChips returns the original chips (for testing).
+func (m *LabelsOverlay) OriginalChips() []string {
+	return m.originalChips
+}
 
-		// "Add new" option
-		if m.canAddNew() {
-			newLabel := strings.TrimSpace(m.filterInput.Value())
-			line := "  + Add \"" + newLabel + "\""
-			style := styleLabelNewOption
-			if m.cursor == len(filtered) {
-				// Cursor gets highlight background
-				style = styleLabelCursor
-			}
-			b.WriteString(style.Render(line))
-			b.WriteString("\n")
-		}
-	}
-
-	content := b.String()
-	return styleStatusOverlay.Render(content)
+// IsIdle returns whether the overlay is in idle state (for testing).
+func (m *LabelsOverlay) IsIdle() bool {
+	return m.isIdle()
 }

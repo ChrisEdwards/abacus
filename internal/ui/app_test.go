@@ -3349,7 +3349,7 @@ func TestGlobalHotkeysDisabledDuringTextInput(t *testing.T) {
 		}
 		
 		// Create labels overlay
-		labelsOverlay := NewLabelsOverlay("ab-007", []string{"existing"}, []string{"existing", "other"})
+		labelsOverlay := NewLabelsOverlay("ab-007", "Test", []string{"existing"}, []string{"existing", "other"})
 		app.labelsOverlay = labelsOverlay
 		app.activeOverlay = OverlayLabels
 		

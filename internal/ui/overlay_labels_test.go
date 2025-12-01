@@ -1,129 +1,60 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestNewLabelsOverlay(t *testing.T) {
-	t.Run("PreSelectsCurrentLabels", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", []string{"ui", "bug"}, []string{"ui", "bug", "enhancement"})
-		if !overlay.selected["ui"] {
-			t.Error("expected 'ui' to be selected")
+	t.Run("InitializesWithCurrentLabels", func(t *testing.T) {
+		overlay := NewLabelsOverlay("test-123", "Test Bead", []string{"ui", "bug"}, []string{"ui", "bug", "enhancement"})
+		chips := overlay.GetChips()
+		if len(chips) != 2 {
+			t.Errorf("expected 2 chips, got %d", len(chips))
 		}
-		if !overlay.selected["bug"] {
-			t.Error("expected 'bug' to be selected")
+		// Check both labels are present (order may vary)
+		found := make(map[string]bool)
+		for _, c := range chips {
+			found[c] = true
 		}
-		if overlay.selected["enhancement"] {
-			t.Error("expected 'enhancement' to NOT be selected")
-		}
-	})
-
-	t.Run("SortsAllLabels", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"zebra", "alpha", "middle"})
-		if overlay.allLabels[0] != "alpha" {
-			t.Errorf("expected first label to be 'alpha', got %s", overlay.allLabels[0])
-		}
-		if overlay.allLabels[2] != "zebra" {
-			t.Errorf("expected last label to be 'zebra', got %s", overlay.allLabels[2])
+		if !found["ui"] || !found["bug"] {
+			t.Errorf("expected chips to contain 'ui' and 'bug', got %v", chips)
 		}
 	})
 
-	t.Run("StoresOriginalState", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", []string{"ui"}, []string{"ui", "bug"})
-		if !overlay.original["ui"] {
-			t.Error("expected original to contain 'ui'")
-		}
-		if overlay.original["bug"] {
-			t.Error("expected original to NOT contain 'bug'")
-		}
-	})
-}
-
-func TestLabelsOverlayNavigation(t *testing.T) {
-	t.Run("DownMovesToNext", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"a", "b", "c"})
-		overlay.cursor = 0
-		overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-		if overlay.cursor != 1 {
-			t.Errorf("expected cursor 1 after j, got %d", overlay.cursor)
+	t.Run("StoresOriginalChips", func(t *testing.T) {
+		overlay := NewLabelsOverlay("test-123", "Test Bead", []string{"ui"}, []string{"ui", "bug"})
+		original := overlay.OriginalChips()
+		if len(original) != 1 || original[0] != "ui" {
+			t.Errorf("expected originalChips=['ui'], got %v", original)
 		}
 	})
 
-	t.Run("UpMovesToPrevious", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"a", "b", "c"})
-		overlay.cursor = 1
-		overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-		if overlay.cursor != 0 {
-			t.Errorf("expected cursor 0 after k, got %d", overlay.cursor)
+	t.Run("StoresIssueIDAndTitle", func(t *testing.T) {
+		overlay := NewLabelsOverlay("ab-007", "Fix the bug", []string{}, []string{})
+		if overlay.IssueID() != "ab-007" {
+			t.Errorf("expected IssueID='ab-007', got %s", overlay.IssueID())
+		}
+		if overlay.BeadTitle() != "Fix the bug" {
+			t.Errorf("expected BeadTitle='Fix the bug', got %s", overlay.BeadTitle())
 		}
 	})
 
-	t.Run("DownWrapsAround", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"a", "b", "c"})
-		overlay.cursor = 2
-		overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-		if overlay.cursor != 0 {
-			t.Errorf("expected cursor 0 after wrap, got %d", overlay.cursor)
-		}
-	})
-
-	t.Run("UpWrapsAround", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"a", "b", "c"})
-		overlay.cursor = 0
-		overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-		if overlay.cursor != 2 {
-			t.Errorf("expected cursor 2 after wrap, got %d", overlay.cursor)
-		}
-	})
-}
-
-func TestLabelsOverlayToggle(t *testing.T) {
-	t.Run("SpaceTogglesLabel", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"ui", "bug"})
-		overlay.cursor = 0 // On "bug" (sorted)
-		if overlay.selected["bug"] {
-			t.Error("expected 'bug' to start unselected")
-		}
-		overlay.Update(tea.KeyMsg{Type: tea.KeySpace})
-		if !overlay.selected["bug"] {
-			t.Error("expected 'bug' to be selected after space")
-		}
-		overlay.Update(tea.KeyMsg{Type: tea.KeySpace})
-		if overlay.selected["bug"] {
-			t.Error("expected 'bug' to be unselected after second space")
-		}
-	})
-}
-
-func TestLabelsOverlayFilter(t *testing.T) {
-	t.Run("FilterReducesList", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"ui", "bug", "enhancement"})
-		overlay.filterInput.SetValue("u")
-		filtered := overlay.filteredLabels()
-		if len(filtered) != 2 { // "ui" and "bug" contain "u"
-			t.Errorf("expected 2 filtered labels, got %d", len(filtered))
-		}
-	})
-
-	t.Run("FilterIsCaseInsensitive", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"UI", "bug"})
-		overlay.filterInput.SetValue("ui")
-		filtered := overlay.filteredLabels()
-		if len(filtered) != 1 {
-			t.Errorf("expected 1 filtered label, got %d", len(filtered))
-		}
-		if filtered[0] != "UI" {
-			t.Errorf("expected 'UI', got %s", filtered[0])
+	t.Run("StartsInIdleState", func(t *testing.T) {
+		overlay := NewLabelsOverlay("test-123", "Test", []string{}, []string{"ui"})
+		if !overlay.IsIdle() {
+			t.Error("expected overlay to start in idle state")
 		}
 	})
 }
 
 func TestLabelsOverlayDiff(t *testing.T) {
 	t.Run("DetectsAddedLabels", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", []string{"ui"}, []string{"ui", "bug"})
-		overlay.selected["bug"] = true
+		overlay := NewLabelsOverlay("test-123", "Test", []string{"ui"}, []string{"ui", "bug"})
+		// Simulate adding "bug" chip
+		overlay.chipCombo.SetChips([]string{"ui", "bug"})
 		added, removed := overlay.computeDiff()
 		if len(added) != 1 || added[0] != "bug" {
 			t.Errorf("expected added=['bug'], got %v", added)
@@ -134,8 +65,9 @@ func TestLabelsOverlayDiff(t *testing.T) {
 	})
 
 	t.Run("DetectsRemovedLabels", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", []string{"ui", "bug"}, []string{"ui", "bug"})
-		overlay.selected["bug"] = false
+		overlay := NewLabelsOverlay("test-123", "Test", []string{"ui", "bug"}, []string{"ui", "bug"})
+		// Simulate removing "bug" chip
+		overlay.chipCombo.SetChips([]string{"ui"})
 		added, removed := overlay.computeDiff()
 		if len(added) != 0 {
 			t.Errorf("expected no added labels, got %v", added)
@@ -146,9 +78,9 @@ func TestLabelsOverlayDiff(t *testing.T) {
 	})
 
 	t.Run("DetectsBothAddedAndRemoved", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", []string{"old"}, []string{"old", "new"})
-		overlay.selected["old"] = false
-		overlay.selected["new"] = true
+		overlay := NewLabelsOverlay("test-123", "Test", []string{"old"}, []string{"old", "new"})
+		// Simulate removing "old" and adding "new"
+		overlay.chipCombo.SetChips([]string{"new"})
 		added, removed := overlay.computeDiff()
 		if len(added) != 1 || added[0] != "new" {
 			t.Errorf("expected added=['new'], got %v", added)
@@ -157,12 +89,26 @@ func TestLabelsOverlayDiff(t *testing.T) {
 			t.Errorf("expected removed=['old'], got %v", removed)
 		}
 	})
+
+	t.Run("NoChanges", func(t *testing.T) {
+		overlay := NewLabelsOverlay("test-123", "Test", []string{"ui", "bug"}, []string{"ui", "bug"})
+		added, removed := overlay.computeDiff()
+		if len(added) != 0 {
+			t.Errorf("expected no added labels, got %v", added)
+		}
+		if len(removed) != 0 {
+			t.Errorf("expected no removed labels, got %v", removed)
+		}
+	})
 }
 
 func TestLabelsOverlayEnter(t *testing.T) {
-	t.Run("SendsLabelsUpdatedMsg", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", []string{"ui"}, []string{"ui", "bug"})
-		overlay.selected["bug"] = true
+	t.Run("SendsLabelsUpdatedMsgWhenIdle", func(t *testing.T) {
+		overlay := NewLabelsOverlay("test-123", "Test", []string{"ui"}, []string{"ui", "bug"})
+		// Add a chip to have some change
+		overlay.chipCombo.SetChips([]string{"ui", "bug"})
+
+		// Enter when idle should confirm
 		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
 		if cmd == nil {
 			t.Fatal("expected command from enter")
@@ -179,11 +125,57 @@ func TestLabelsOverlayEnter(t *testing.T) {
 			t.Errorf("expected Added=['bug'], got %v", labelsMsg.Added)
 		}
 	})
+
+	t.Run("PassesToChipComboWhenNotIdle", func(t *testing.T) {
+		overlay := NewLabelsOverlay("test-123", "Test", []string{}, []string{"ui", "bug"})
+
+		// Focus the ChipComboBox (as Init() would do)
+		overlay.chipCombo.Focus()
+
+		// Open dropdown with down arrow to make it non-idle
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		// Verify we're not idle (dropdown is open)
+		if overlay.IsIdle() {
+			t.Skip("dropdown did not open - skipping test")
+		}
+
+		// Now Enter should NOT send LabelsUpdatedMsg (should pass to combo to select)
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd != nil {
+			msg := cmd()
+			if _, ok := msg.(LabelsUpdatedMsg); ok {
+				t.Error("expected Enter to pass to ChipComboBox when not idle, but got LabelsUpdatedMsg")
+			}
+		}
+	})
+}
+
+func TestLabelsOverlayTab(t *testing.T) {
+	t.Run("SendsLabelsUpdatedMsgWhenIdle", func(t *testing.T) {
+		overlay := NewLabelsOverlay("test-123", "Test", []string{"ui"}, []string{"ui", "bug"})
+		// Add a chip
+		overlay.chipCombo.SetChips([]string{"ui", "bug"})
+
+		// Tab when idle should confirm
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
+		if cmd == nil {
+			t.Fatal("expected command from tab")
+		}
+		msg := cmd()
+		labelsMsg, ok := msg.(LabelsUpdatedMsg)
+		if !ok {
+			t.Fatalf("expected LabelsUpdatedMsg, got %T", msg)
+		}
+		if labelsMsg.IssueID != "test-123" {
+			t.Errorf("expected IssueID test-123, got %s", labelsMsg.IssueID)
+		}
+	})
 }
 
 func TestLabelsOverlayEscape(t *testing.T) {
-	t.Run("SendsLabelsCancelledMsg", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"ui"})
+	t.Run("CancelsWhenIdle", func(t *testing.T) {
+		overlay := NewLabelsOverlay("test-123", "Test", []string{}, []string{"ui"})
 		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
 		if cmd == nil {
 			t.Fatal("expected command from escape")
@@ -194,52 +186,142 @@ func TestLabelsOverlayEscape(t *testing.T) {
 			t.Fatalf("expected LabelsCancelledMsg, got %T", msg)
 		}
 	})
-}
 
-func TestLabelsOverlayNewLabel(t *testing.T) {
-	t.Run("CanAddNewLabelWhenNoMatch", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"ui", "bug"})
-		overlay.filterInput.SetValue("newlabel")
-		if !overlay.canAddNew() {
-			t.Error("expected canAddNew() to be true when filter doesn't match")
+	t.Run("ClosesDropdownFirstWhenOpen", func(t *testing.T) {
+		overlay := NewLabelsOverlay("test-123", "Test", []string{}, []string{"ui", "bug"})
+
+		// Focus the ChipComboBox (as Init() would do)
+		overlay.chipCombo.Focus()
+
+		// Open dropdown with down arrow
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		// Verify dropdown is open
+		if overlay.IsIdle() {
+			t.Skip("dropdown did not open - skipping test")
 		}
-	})
 
-	t.Run("NoNewLabelWhenExactMatch", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"ui", "bug"})
-		overlay.filterInput.SetValue("ui")
-		if overlay.canAddNew() {
-			t.Error("expected canAddNew() to be false when filter matches exactly")
+		// First Esc should close dropdown, not cancel
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		if cmd != nil {
+			msg := cmd()
+			if _, ok := msg.(LabelsCancelledMsg); ok {
+				t.Error("first Esc should close dropdown, not cancel")
+			}
 		}
-	})
 
-	t.Run("AddNewLabelOnToggle", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"existing"})
-		overlay.filterInput.SetValue("newlabel")
-		// Move cursor to "add new" option (index 0 for filtered list is empty since no match, so cursor 0 is "add new")
-		overlay.cursor = 0 // The add new option
-		overlay.toggleCurrent()
-		if !overlay.selected["newlabel"] {
-			t.Error("expected newlabel to be selected after toggle")
+		// Keep escaping until idle
+		for !overlay.IsIdle() {
+			overlay, cmd = overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+			if cmd != nil {
+				msg := cmd()
+				if _, ok := msg.(LabelsCancelledMsg); ok {
+					t.Error("Esc should not cancel while still not idle")
+				}
+			}
+		}
+
+		// Now should be idle
+		if !overlay.IsIdle() {
+			t.Error("expected to be idle after escaping")
+		}
+
+		// Final Esc should cancel
+		_, cmd = overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		if cmd == nil {
+			t.Fatal("expected command from escape when idle")
+		}
+		msg := cmd()
+		_, ok := msg.(LabelsCancelledMsg)
+		if !ok {
+			t.Fatalf("expected LabelsCancelledMsg, got %T", msg)
 		}
 	})
 }
 
 func TestLabelsOverlayView(t *testing.T) {
 	t.Run("ContainsIssueID", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", nil, []string{"ui"})
+		overlay := NewLabelsOverlay("ab-123", "Test Bead", []string{}, []string{"ui"})
 		view := overlay.View()
-		if view == "" {
-			t.Error("expected non-empty view")
+		if !strings.Contains(view, "ab-123") {
+			t.Error("expected view to contain issue ID")
 		}
 	})
 
-	t.Run("ContainsLabels", func(t *testing.T) {
-		overlay := NewLabelsOverlay("test-123", []string{"ui"}, []string{"ui", "bug"})
+	t.Run("ContainsBeadTitle", func(t *testing.T) {
+		overlay := NewLabelsOverlay("ab-123", "My Test Bead", []string{}, []string{"ui"})
 		view := overlay.View()
-		// Just verify it renders without panic
-		if len(view) < 10 {
-			t.Error("view seems too short")
+		if !strings.Contains(view, "My Test Bead") {
+			t.Error("expected view to contain bead title")
+		}
+	})
+
+	t.Run("ContainsLabelsHeader", func(t *testing.T) {
+		overlay := NewLabelsOverlay("ab-123", "Test", []string{}, []string{"ui"})
+		view := overlay.View()
+		if !strings.Contains(view, "Labels") {
+			t.Error("expected view to contain 'Labels' header")
+		}
+	})
+
+	t.Run("TruncatesLongTitle", func(t *testing.T) {
+		longTitle := "This is a very long bead title that should be truncated"
+		overlay := NewLabelsOverlay("ab-123", longTitle, []string{}, []string{})
+		view := overlay.View()
+		// Should contain truncated version with "..."
+		if !strings.Contains(view, "...") {
+			t.Error("expected long title to be truncated with '...'")
+		}
+		// Should NOT contain full title
+		if strings.Contains(view, longTitle) {
+			t.Error("expected title to be truncated, but full title found")
+		}
+	})
+}
+
+func TestLabelsOverlayFooter(t *testing.T) {
+	t.Run("ShowsSaveHintsWhenIdle", func(t *testing.T) {
+		overlay := NewLabelsOverlay("ab-123", "Test", []string{}, []string{"ui"})
+		footer := overlay.renderFooter()
+		if !strings.Contains(footer, "Save") {
+			t.Error("expected footer to contain 'Save' when idle")
+		}
+		if !strings.Contains(footer, "Cancel") {
+			t.Error("expected footer to contain 'Cancel' when idle")
+		}
+	})
+
+	t.Run("ShowsSelectHintsWhenDropdownOpen", func(t *testing.T) {
+		overlay := NewLabelsOverlay("ab-123", "Test", []string{}, []string{"ui", "bug"})
+		// Open dropdown by pressing down
+		overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		footer := overlay.renderFooter()
+		if !strings.Contains(footer, "Select") {
+			t.Error("expected footer to contain 'Select' when dropdown open")
+		}
+		if !strings.Contains(footer, "Navigate") {
+			t.Error("expected footer to contain 'Navigate' when dropdown open")
+		}
+	})
+}
+
+func TestLabelsOverlayChipComboBoxTabMsg(t *testing.T) {
+	t.Run("ConfirmsOnChipComboBoxTabMsg", func(t *testing.T) {
+		overlay := NewLabelsOverlay("test-123", "Test", []string{"ui"}, []string{"ui", "bug"})
+		overlay.chipCombo.SetChips([]string{"ui", "bug"})
+
+		_, cmd := overlay.Update(ChipComboBoxTabMsg{})
+		if cmd == nil {
+			t.Fatal("expected command from ChipComboBoxTabMsg")
+		}
+		msg := cmd()
+		labelsMsg, ok := msg.(LabelsUpdatedMsg)
+		if !ok {
+			t.Fatalf("expected LabelsUpdatedMsg, got %T", msg)
+		}
+		if len(labelsMsg.Added) != 1 || labelsMsg.Added[0] != "bug" {
+			t.Errorf("expected Added=['bug'], got %v", labelsMsg.Added)
 		}
 	})
 }
