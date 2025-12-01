@@ -121,6 +121,14 @@ func (c ChipList) handleNavigationKey(msg tea.KeyMsg) (ChipList, tea.Cmd) {
 			return ChipNavExitMsg{Reason: ChipNavExitRight}
 		}
 
+	case tea.KeyDown:
+		// Down arrow exits chip nav back to text box (chips are above input)
+		c.state = ChipListInput
+		c.navIndex = -1
+		return c, func() tea.Msg {
+			return ChipNavExitMsg{Reason: ChipNavExitRight} // Reuse Right exit reason
+		}
+
 	case tea.KeyBackspace, tea.KeyDelete:
 		if len(c.Chips) == 0 || c.navIndex < 0 || c.navIndex >= len(c.Chips) {
 			return c, nil

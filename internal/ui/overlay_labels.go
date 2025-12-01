@@ -247,9 +247,9 @@ func (m *LabelsOverlay) renderFooter() string {
 		return footerStyle.Render("Enter Select • ↑↓ Navigate • Esc Clear")
 	case m.chipCombo.InChipNavMode():
 		// Chip navigation mode: show chip nav hints
-		return footerStyle.Render("Delete Remove • ←→ Navigate • Esc Exit")
+		return footerStyle.Render("Del Remove • ←→ Navigate • ↓ Exit")
 	default:
-		// Idle state: show confirm/cancel hints
+		// Idle state: show confirm/cancel hints (↑ enters chip nav if chips exist)
 		return footerStyle.Render("Enter Save • Esc Cancel")
 	}
 }

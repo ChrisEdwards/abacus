@@ -376,12 +376,18 @@ func (c *ComboBox) adjustScrollOffset() {
 func (c ComboBox) View() string {
 	var b strings.Builder
 
-	// Render text input with ghost text if applicable
-	inputView := c.textInput.View()
+	// Build input view - may include inline ghost text
+	var inputView string
 	ghostText := c.GhostText()
-	if ghostText != "" {
-		// Append ghost text in grey after the input
-		inputView = inputView + styleGhostText.Render(ghostText)
+	if ghostText != "" && c.focused {
+		// Build custom view with ghost text inline after typed text
+		// Format: "> typed_text" + ghost_text (grey) + cursor
+		typed := c.textInput.Value()
+		prompt := "> "
+		cursor := "█" // Block cursor when focused
+		inputView = prompt + typed + styleGhostText.Render(ghostText) + cursor
+	} else {
+		inputView = c.textInput.View()
 	}
 
 	inputStyle := styleComboBoxInput.Width(c.Width)

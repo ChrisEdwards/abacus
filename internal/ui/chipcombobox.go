@@ -128,8 +128,8 @@ func (c ChipComboBox) Update(msg tea.Msg) (ChipComboBox, tea.Cmd) {
 
 	// Handle key messages for chip nav entry
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		// Intercept ← for chip nav entry
-		if keyMsg.Type == tea.KeyLeft &&
+		// Intercept ↑ for chip nav entry (chips are above input)
+		if keyMsg.Type == tea.KeyUp &&
 			c.combo.InputValue() == "" &&
 			!c.combo.IsDropdownOpen() &&
 			len(c.chips.Chips) > 0 {
@@ -227,7 +227,7 @@ func (c ChipComboBox) View() string {
 
 	// Get styled chips from ChipList
 	chips := c.chips.RenderChips()
-	if len(chips) == 0 && !c.chips.InNavigationMode() {
+	if len(chips) == 0 {
 		// Empty state indicator when no chips selected
 		emptyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("243")).Italic(true)
 		elements = append(elements, emptyStyle.Render("No labels"))
@@ -235,10 +235,8 @@ func (c ChipComboBox) View() string {
 		elements = append(elements, chips...)
 	}
 
-	// Add input (only if not in chip nav mode)
-	if !c.chips.InNavigationMode() {
-		elements = append(elements, c.combo.View())
-	}
+	// Always show input box (even during chip nav for visual continuity)
+	elements = append(elements, c.combo.View())
 
 	// Word wrap all elements together
 	return c.wrapElements(elements)

@@ -71,7 +71,7 @@ func TestChipComboBoxBuilders(t *testing.T) {
 	})
 }
 
-func TestChipComboBox_LeftArrow_EntersChipNav(t *testing.T) {
+func TestChipComboBox_UpArrow_EntersChipNav(t *testing.T) {
 	options := []string{"backend", "frontend"}
 	cc := NewChipComboBox(options)
 	cc.Focus()
@@ -80,8 +80,8 @@ func TestChipComboBox_LeftArrow_EntersChipNav(t *testing.T) {
 	cc.chips.AddChip("backend")
 	cc.chips.AddChip("frontend")
 
-	// Press left arrow with empty input and dropdown closed
-	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	// Press up arrow with empty input and dropdown closed (chips are above input)
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyUp})
 
 	if !cc.InChipNavMode() {
 		t.Error("expected to enter chip nav mode")
@@ -92,7 +92,7 @@ func TestChipComboBox_LeftArrow_EntersChipNav(t *testing.T) {
 	}
 }
 
-func TestChipComboBox_LeftArrow_IgnoredWhenNotEmpty(t *testing.T) {
+func TestChipComboBox_UpArrow_IgnoredWhenNotEmpty(t *testing.T) {
 	cc := NewChipComboBox([]string{"a", "b"})
 	cc.Focus()
 	cc.chips.AddChip("a")
@@ -100,15 +100,15 @@ func TestChipComboBox_LeftArrow_IgnoredWhenNotEmpty(t *testing.T) {
 	// Type something first
 	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 
-	// Now press left - should not enter chip nav (input not empty)
-	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	// Now press up - should not enter chip nav (input not empty)
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyUp})
 
 	if cc.InChipNavMode() {
 		t.Error("should not enter chip nav when input is not empty")
 	}
 }
 
-func TestChipComboBox_LeftArrow_IgnoredWhenDropdownOpen(t *testing.T) {
+func TestChipComboBox_UpArrow_IgnoredWhenDropdownOpen(t *testing.T) {
 	cc := NewChipComboBox([]string{"backend", "frontend"})
 	cc.Focus()
 	cc.chips.AddChip("backend")
@@ -120,20 +120,20 @@ func TestChipComboBox_LeftArrow_IgnoredWhenDropdownOpen(t *testing.T) {
 		t.Fatal("expected dropdown to be open")
 	}
 
-	// Press left - should not enter chip nav (dropdown open)
-	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	// Press up - should navigate dropdown, not enter chip nav
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyUp})
 
 	if cc.InChipNavMode() {
 		t.Error("should not enter chip nav when dropdown is open")
 	}
 }
 
-func TestChipComboBox_LeftArrow_IgnoredWhenNoChips(t *testing.T) {
+func TestChipComboBox_UpArrow_IgnoredWhenNoChips(t *testing.T) {
 	cc := NewChipComboBox([]string{"a", "b"})
 	cc.Focus()
 
-	// Press left with no chips
-	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	// Press up with no chips
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyUp})
 
 	if cc.InChipNavMode() {
 		t.Error("should not enter chip nav when no chips exist")

@@ -439,12 +439,19 @@ func TestComboBoxFiltering(t *testing.T) {
 			t.Errorf("expected 20 filtered options, got %d", len(cb.filteredOptions))
 		}
 
-		// But View only renders MaxVisible items
+		// But View only renders MaxVisible items in the dropdown
 		view := cb.View()
-		// Count how many "Item" entries appear (should be limited to MaxVisible)
-		itemCount := strings.Count(view, "Item")
+		// Count dropdown items by looking for the marker pattern (▸ or indented items)
+		// The dropdown starts after the input box closes (after ╯)
+		dropdownStart := strings.Index(view, "╯")
+		if dropdownStart == -1 {
+			t.Fatal("expected dropdown in view")
+		}
+		dropdownPart := view[dropdownStart:]
+		// Count how many "Item" entries appear in dropdown (should be limited to MaxVisible)
+		itemCount := strings.Count(dropdownPart, "Item")
 		if itemCount > 5 {
-			t.Errorf("expected max 5 visible items, got %d", itemCount)
+			t.Errorf("expected max 5 visible items in dropdown, got %d", itemCount)
 		}
 	})
 
