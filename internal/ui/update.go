@@ -2,9 +2,11 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
+	"abacus/internal/beads"
 	"abacus/internal/graph"
 
 	"github.com/atotto/clipboard"
@@ -111,7 +113,35 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, scheduleErrorToastTick()
 		}
 
-		// Success: NOW close modal if not in bulk mode (spec Section 4.3)
+		// NEW: Fast injection path (if fullIssue available)
+		if msg.fullIssue != nil {
+			if err := m.fastInjectBead(*msg.fullIssue, msg.stayOpen); err != nil {
+				// Fall back to full refresh on error
+				m.lastError = fmt.Sprintf("Fast injection failed: %v, refreshing...", err)
+				// Continue to full refresh below
+			} else {
+				// Success! Show toast and return
+				m.createToastBeadID = msg.id
+				m.displayCreateToast("")
+
+				// Close modal if not in bulk mode (spec Section 4.3)
+				if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+					if !msg.stayOpen {
+						m.activeOverlay = OverlayNone
+						m.createOverlay = nil
+					}
+					// else: bulk mode, keep overlay open for next entry
+				}
+
+				// Schedule eventual consistency refresh (2 seconds delay)
+				return m, tea.Batch(
+					scheduleCreateToastTick(),
+					m.scheduleEventualRefresh(),
+				)
+			}
+		}
+
+		// Fallback: Success with full refresh (old path or injection failed)
 		if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
 			if !msg.stayOpen {
 				m.activeOverlay = OverlayNone
@@ -199,6 +229,13 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.errorShownOnce = false
 		m.showErrorToast = false
 		m.applyRefresh(msg.roots, msg.digest, msg.dbModTime)
+		return m, nil
+	case eventualRefreshMsg:
+		// Only refresh if not actively creating beads
+		if m.activeOverlay != OverlayCreate {
+			return m, m.forceRefresh()
+		}
+		// If still in create overlay, skip refresh (user is bulk creating)
 		return m, nil
 	case errorToastTickMsg:
 		if !m.showErrorToast {
@@ -720,9 +757,10 @@ func (m *App) displayLabelsToast(issueID string, added, removed []string) {
 
 // Message types for create operations
 type createCompleteMsg struct {
-	id       string
-	err      error
-	stayOpen bool // from BeadCreatedMsg (Ctrl+Enter bulk mode)
+	id        string
+	err       error
+	stayOpen  bool                // from BeadCreatedMsg (Ctrl+Enter bulk mode)
+	fullIssue *beads.FullIssue    // NEW: full issue data for fast injection
 }
 
 type createToastTickMsg struct{}
@@ -761,7 +799,12 @@ func (m *App) executeCreateBead(msg BeadCreatedMsg) tea.Cmd {
 			return createCompleteMsg{err: err, stayOpen: msg.StayOpen}
 		}
 		// Note: parent-child dependency is handled by CreateFull via --parent flag
-		return createCompleteMsg{id: issue.ID, stayOpen: msg.StayOpen}
+		// NEW: Return full issue for fast injection
+		return createCompleteMsg{
+			id:        issue.ID,
+			stayOpen:  msg.StayOpen,
+			fullIssue: &issue, // Pass actual data from database
+		}
 	}
 }
 

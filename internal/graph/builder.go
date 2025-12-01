@@ -224,7 +224,7 @@ const (
 var distantFuture = time.Date(9999, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 func computeSortMetrics(node *Node) (int, time.Time) {
-	priority, ts := nodeSelfSortKey(node)
+	priority, ts := NodeSelfSortKey(node)
 	for _, child := range node.Children {
 		childPriority, childTime := computeSortMetrics(child)
 		if childPriority < priority || (childPriority == priority && childTime.Before(ts)) {
@@ -238,7 +238,9 @@ func computeSortMetrics(node *Node) (int, time.Time) {
 	return priority, ts
 }
 
-func nodeSelfSortKey(node *Node) (int, time.Time) {
+// NodeSelfSortKey computes the sort priority and timestamp for a node based on its status.
+// This is exported for use by the fast tree injection logic.
+func NodeSelfSortKey(node *Node) (int, time.Time) {
 	status := strings.ToLower(strings.TrimSpace(node.Issue.Status))
 	switch status {
 	case "in_progress":

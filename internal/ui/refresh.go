@@ -105,3 +105,16 @@ func (m *App) applyRefresh(newRoots []*graph.Node, newDigest map[string]string, 
 	m.lastRefreshStats = computeDiffStats(oldDigest, newDigest)
 	m.lastRefreshTime = time.Now()
 }
+
+// eventualRefreshMsg is sent after a delay to trigger a background consistency refresh.
+type eventualRefreshMsg struct{}
+
+// scheduleEventualRefresh schedules a delayed consistency refresh after fast injection.
+// This ensures the tree stays consistent with the database without blocking the UI.
+func (m *App) scheduleEventualRefresh() tea.Cmd {
+	// Wait 2 seconds before triggering consistency refresh
+	// This gives user time to interact with the new node
+	return tea.Tick(2*time.Second, func(_ time.Time) tea.Msg {
+		return eventualRefreshMsg{}
+	})
+}
