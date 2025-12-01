@@ -21,6 +21,9 @@ func titleFlashCmd() tea.Cmd {
 	})
 }
 
+// bulkEntryResetMsg signals to reset for next bulk entry (spec Section 4.3).
+type bulkEntryResetMsg struct{}
+
 // CreateFocus represents which zone has focus in the create overlay.
 type CreateFocus int
 
@@ -86,6 +89,7 @@ type BeadCreatedMsg struct {
 	ParentID  string
 	Labels    []string // Selected labels (backend integration in ab-l1k)
 	Assignee  string   // Selected assignee (backend integration in ab-39r)
+	StayOpen  bool     // true for Ctrl+Enter bulk entry (spec Section 4.3)
 }
 
 // CreateCancelledMsg is sent when the overlay is dismissed without action.
@@ -199,6 +203,13 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 		m.titleValidationError = false
 		return m, nil
 
+	case bulkEntryResetMsg:
+		// Clear title only, keep all other fields persistent (spec Section 4.3)
+		m.titleInput.SetValue("")
+		m.titleValidationError = false
+		m.focus = FocusTitle
+		return m, m.titleInput.Focus()
+
 	case ChipComboBoxTabMsg:
 		// Labels combo requested Tab - move to Assignee
 		m.focus = FocusAssignee
@@ -299,16 +310,23 @@ func (m *CreateOverlay) handleEscape() (*CreateOverlay, tea.Cmd) {
 	return m, func() tea.Msg { return CreateCancelledMsg{} }
 }
 
-func (m *CreateOverlay) handleSubmit(_ bool) (*CreateOverlay, tea.Cmd) {
+func (m *CreateOverlay) handleSubmit(stayOpen bool) (*CreateOverlay, tea.Cmd) {
 	// Validate title - flash red if empty (spec Section 4.4)
 	if strings.TrimSpace(m.titleInput.Value()) == "" {
 		m.titleValidationError = true
 		return m, titleFlashCmd()
 	}
 
-	// TODO: implement "Create & Add Another" (Ctrl+Enter) using the stayOpen parameter
-	// For now, both submit and close
-	return m, m.submit
+	if stayOpen {
+		// Bulk entry mode: submit and prepare for next entry (spec Section 4.3)
+		return m, tea.Batch(
+			m.submitWithMode(true),
+			m.prepareForNextEntry(),
+		)
+	}
+
+	// Normal mode: submit and close
+	return m, m.submitWithMode(false)
 }
 
 func (m *CreateOverlay) handleTab() (*CreateOverlay, tea.Cmd) {
@@ -564,35 +582,46 @@ func (m *CreateOverlay) handlePriorityHotkey(r rune) {
 	}
 }
 
-func (m *CreateOverlay) submit() tea.Msg {
-	// Get parent ID from selected parent display
-	parentID := ""
-	selectedParentDisplay := m.parentCombo.Value()
-	if selectedParentDisplay != "" {
-		for _, p := range m.parentOptions {
-			if p.Display == selectedParentDisplay {
-				parentID = p.ID
-				break
+// submitWithMode creates BeadCreatedMsg with the specified StayOpen mode (spec Section 4.3).
+func (m *CreateOverlay) submitWithMode(stayOpen bool) tea.Cmd {
+	return func() tea.Msg {
+		// Get parent ID from selected parent display
+		parentID := ""
+		selectedParentDisplay := m.parentCombo.Value()
+		if selectedParentDisplay != "" {
+			for _, p := range m.parentOptions {
+				if p.Display == selectedParentDisplay {
+					parentID = p.ID
+					break
+				}
 			}
 		}
-	}
 
-	// Get assignee (empty string if "Unassigned", extract username from "Me (username)")
-	assignee := m.assigneeCombo.Value()
-	if assignee == "Unassigned" {
-		assignee = ""
-	} else if strings.HasPrefix(assignee, "Me (") && strings.HasSuffix(assignee, ")") {
-		// Extract username from "Me (username)" format
-		assignee = strings.TrimSuffix(strings.TrimPrefix(assignee, "Me ("), ")")
-	}
+		// Get assignee (empty string if "Unassigned", extract username from "Me (username)")
+		assignee := m.assigneeCombo.Value()
+		if assignee == "Unassigned" {
+			assignee = ""
+		} else if strings.HasPrefix(assignee, "Me (") && strings.HasSuffix(assignee, ")") {
+			// Extract username from "Me (username)" format
+			assignee = strings.TrimSuffix(strings.TrimPrefix(assignee, "Me ("), ")")
+		}
 
-	return BeadCreatedMsg{
-		Title:     strings.TrimSpace(m.titleInput.Value()),
-		IssueType: typeOptions[m.typeIndex],
-		Priority:  m.priorityIndex,
-		ParentID:  parentID,
-		Labels:    m.labelsCombo.GetChips(),
-		Assignee:  assignee,
+		return BeadCreatedMsg{
+			Title:     strings.TrimSpace(m.titleInput.Value()),
+			IssueType: typeOptions[m.typeIndex],
+			Priority:  m.priorityIndex,
+			ParentID:  parentID,
+			Labels:    m.labelsCombo.GetChips(),
+			Assignee:  assignee,
+			StayOpen:  stayOpen,
+		}
+	}
+}
+
+// prepareForNextEntry resets Title only, keeps everything else persistent (spec Section 4.3).
+func (m *CreateOverlay) prepareForNextEntry() tea.Cmd {
+	return func() tea.Msg {
+		return bulkEntryResetMsg{}
 	}
 }
 

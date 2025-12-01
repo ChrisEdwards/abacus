@@ -83,8 +83,12 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, scheduleLabelsToastTick()
 	case BeadCreatedMsg:
-		m.activeOverlay = OverlayNone
-		m.createOverlay = nil
+		if !msg.StayOpen {
+			// Normal mode: close overlay (spec Section 4.3)
+			m.activeOverlay = OverlayNone
+			m.createOverlay = nil
+		}
+		// else: bulk mode, keep overlay open for next entry
 		m.displayCreateToast(msg.Title)
 		return m, tea.Batch(m.executeCreateBead(msg), scheduleCreateToastTick())
 	case CreateCancelledMsg:
