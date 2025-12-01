@@ -89,6 +89,12 @@ type BeadCreatedMsg struct {
 // CreateCancelledMsg is sent when the overlay is dismissed without action.
 type CreateCancelledMsg struct{}
 
+// NewLabelAddedMsg signals a new label was created (not in existing options).
+// Used to trigger a toast notification.
+type NewLabelAddedMsg struct {
+	Label string
+}
+
 // CreateOverlayOptions configures the create overlay.
 type CreateOverlayOptions struct {
 	DefaultParentID    string         // Pre-selected parent (empty for root)
@@ -186,7 +192,22 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 		cmds = append(cmds, m.assigneeCombo.Focus())
 		return m, tea.Batch(cmds...)
 
+	case ChipComboBoxChipAddedMsg:
+		// Chip was added to labels - if new, signal for toast
+		if msg.IsNew {
+			return m, func() tea.Msg {
+				return NewLabelAddedMsg{Label: msg.Label}
+			}
+		}
+		return m, nil
+
 	case ComboBoxValueSelectedMsg:
+		// Forward to labelsCombo if in FocusLabels mode (to add chip)
+		if m.focus == FocusLabels {
+			var cmd tea.Cmd
+			m.labelsCombo, cmd = m.labelsCombo.Update(msg)
+			return m, cmd
+		}
 		// Parent or Assignee combo selected a value
 		// No special action needed, value is already set in the combo
 		return m, nil

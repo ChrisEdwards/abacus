@@ -131,8 +131,11 @@ func (m *App) View() string {
 		return fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
 	}
 
-	// Overlay toast on mainBody if visible (create toast > labels toast > status toast > copy toast > error toast)
+	// Overlay toast on mainBody if visible (create toast > new label toast > labels toast > status toast > copy toast > error toast)
 	if toast := m.renderCreateToast(); toast != "" {
+		containerWidth := lipgloss.Width(mainBody)
+		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
+	} else if toast := m.renderNewLabelToast(); toast != "" {
 		containerWidth := lipgloss.Width(mainBody)
 		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
 	} else if toast := m.renderLabelsToast(); toast != "" {
@@ -375,4 +378,26 @@ func (m *App) renderCreateToast() string {
 
 	content := heroLine + "\n" + infoLine
 	return styleSuccessToast.Render(content)
+}
+
+// renderNewLabelToast renders the new label toast if visible.
+// Shown when a label is created that wasn't in the existing options.
+func (m *App) renderNewLabelToast() string {
+	if !m.newLabelToastVisible || m.newLabelToastLabel == "" {
+		return ""
+	}
+	elapsed := time.Since(m.newLabelToastStart)
+	if elapsed >= 3*time.Second {
+		return ""
+	}
+	remaining := 3 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Simple one-line toast: "New Label Added: [labelname]"
+	content := " ✓ New Label Added: " + styleLabelChecked.Render(m.newLabelToastLabel) + " "
+	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
+
+	return styleSuccessToast.Render(content + countdownStr)
 }

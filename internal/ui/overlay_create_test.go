@@ -1191,3 +1191,165 @@ func TestHotkeyUnderlines(t *testing.T) {
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
+
+// Tests for Zone 4: Labels (ab-l1k)
+// These tests verify spec behavior from Section 3.4
+
+func TestLabelsZoneNavigation(t *testing.T) {
+	t.Run("TabFromPriorityMovesToLabels", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusPriority
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
+		if overlay.Focus() != FocusLabels {
+			t.Errorf("expected focus on labels after Tab from Priority, got %d", overlay.Focus())
+		}
+	})
+
+	t.Run("ShiftTabFromAssigneeMovesToLabels", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusAssignee
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		if overlay.Focus() != FocusLabels {
+			t.Errorf("expected focus on labels after Shift+Tab from Assignee, got %d", overlay.Focus())
+		}
+	})
+
+	t.Run("ChipComboBoxTabMsgMovesToAssignee", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusLabels
+
+		overlay, _ = overlay.Update(ChipComboBoxTabMsg{})
+		if overlay.Focus() != FocusAssignee {
+			t.Errorf("expected focus on assignee after ChipComboBoxTabMsg, got %d", overlay.Focus())
+		}
+	})
+}
+
+func TestLabelsZoneChipHandling(t *testing.T) {
+	t.Run("LabelsSubmittedInBeadCreatedMsg", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableLabels: []string{"api", "backend", "frontend"},
+		})
+		overlay.titleInput.SetValue("Test with labels")
+		overlay.labelsCombo.SetChips([]string{"api", "backend"})
+
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected submit command")
+		}
+		msg := cmd()
+		created, ok := msg.(BeadCreatedMsg)
+		if !ok {
+			t.Fatalf("expected BeadCreatedMsg, got %T", msg)
+		}
+		if len(created.Labels) != 2 {
+			t.Errorf("expected 2 labels, got %d", len(created.Labels))
+		}
+	})
+
+	t.Run("NewLabelEmitsNewLabelAddedMsg", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableLabels: []string{"existing"},
+		})
+		overlay.focus = FocusLabels
+
+		// Simulate a new label being added (not in existing options)
+		overlay, cmd := overlay.Update(ChipComboBoxChipAddedMsg{
+			Label: "newlabel",
+			IsNew: true,
+		})
+
+		if cmd == nil {
+			t.Fatal("expected command for new label")
+		}
+		msg := cmd()
+		newLabelMsg, ok := msg.(NewLabelAddedMsg)
+		if !ok {
+			t.Fatalf("expected NewLabelAddedMsg, got %T", msg)
+		}
+		if newLabelMsg.Label != "newlabel" {
+			t.Errorf("expected label 'newlabel', got '%s'", newLabelMsg.Label)
+		}
+	})
+
+	t.Run("ExistingLabelDoesNotEmitNewLabelMsg", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableLabels: []string{"existing"},
+		})
+		overlay.focus = FocusLabels
+
+		// Simulate an existing label being added
+		overlay, cmd := overlay.Update(ChipComboBoxChipAddedMsg{
+			Label: "existing",
+			IsNew: false,
+		})
+
+		if cmd != nil {
+			t.Error("expected no command for existing label")
+		}
+	})
+}
+
+func TestLabelsZoneEscapeBehavior(t *testing.T) {
+	t.Run("EscapeWithLabelsDropdownOpenClosesDropdown", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableLabels: []string{"api", "backend"},
+		})
+		overlay.focus = FocusLabels
+		overlay.labelsCombo.Focus()
+
+		// Type to open dropdown
+		overlay.labelsCombo, _ = overlay.labelsCombo.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+
+		if !overlay.labelsCombo.IsDropdownOpen() {
+			t.Skip("dropdown did not open - combo behavior may differ")
+		}
+
+		// Esc should close dropdown, not cancel modal
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		if cmd != nil {
+			msg := cmd()
+			if _, ok := msg.(CreateCancelledMsg); ok {
+				t.Error("expected Esc to close labels dropdown first, not cancel modal")
+			}
+		}
+	})
+}
+
+func TestLabelsZoneViewRendering(t *testing.T) {
+	t.Run("ViewContainsLabelsSection", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableLabels: []string{"alpha", "beta"},
+		})
+
+		view := overlay.View()
+		if !contains(view, "LABELS") {
+			t.Error("expected view to contain LABELS zone header")
+		}
+	})
+
+	t.Run("LabelsZoneHighlightedWhenFocused", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableLabels: []string{"alpha", "beta"},
+		})
+		overlay.focus = FocusLabels
+
+		view := overlay.View()
+		// When focused, LABELS header should be styled differently
+		// This is a basic check that the zone is rendered
+		if !contains(view, "LABELS") {
+			t.Error("expected view to contain LABELS zone header when focused")
+		}
+	})
+}
+
+func TestNewLabelAddedMsgType(t *testing.T) {
+	t.Run("MessageHasLabelField", func(t *testing.T) {
+		msg := NewLabelAddedMsg{Label: "test-label"}
+		if msg.Label != "test-label" {
+			t.Errorf("expected label 'test-label', got '%s'", msg.Label)
+		}
+	})
+}

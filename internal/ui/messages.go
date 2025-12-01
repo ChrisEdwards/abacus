@@ -39,3 +39,11 @@ func scheduleCopyToastTick() tea.Cmd {
 		return copyToastTickMsg{}
 	})
 }
+
+type newLabelToastTickMsg struct{}
+
+func scheduleNewLabelToastTick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+		return newLabelToastTickMsg{}
+	})
+}

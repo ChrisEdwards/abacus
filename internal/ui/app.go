@@ -128,6 +128,11 @@ type App struct {
 	createToastBeadID  string
 	createToastTitle   string
 
+	// New label toast state (shown during create overlay when new label added)
+	newLabelToastVisible bool
+	newLabelToastStart   time.Time
+	newLabelToastLabel   string
+
 	// Session tracking for exit summary
 	sessionStart time.Time
 	initialStats Stats

@@ -110,6 +110,19 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, scheduleCreateToastTick()
+	case NewLabelAddedMsg:
+		// New label was created during bead creation - show toast
+		m.displayNewLabelToast(msg.Label)
+		return m, scheduleNewLabelToastTick()
+	case newLabelToastTickMsg:
+		if !m.newLabelToastVisible {
+			return m, nil
+		}
+		if time.Since(m.newLabelToastStart) >= 3*time.Second {
+			m.newLabelToastVisible = false
+			return m, nil
+		}
+		return m, scheduleNewLabelToastTick()
 	}
 
 	// Delegate to status overlay if active
@@ -704,4 +717,11 @@ func (m *App) displayCreateToast(title string) {
 	m.createToastTitle = title
 	m.createToastVisible = true
 	m.createToastStart = time.Now()
+}
+
+// displayNewLabelToast displays a toast for a newly created label (not in existing options).
+func (m *App) displayNewLabelToast(label string) {
+	m.newLabelToastLabel = label
+	m.newLabelToastVisible = true
+	m.newLabelToastStart = time.Now()
 }
