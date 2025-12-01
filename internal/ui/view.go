@@ -122,6 +122,11 @@ func (m *App) View() string {
 			overlay,
 			lipgloss.WithWhitespaceChars(" "),
 		)
+		// Show error toast over the overlay if visible
+		if toast := m.renderErrorToast(); toast != "" {
+			containerWidth := lipgloss.Width(centered)
+			centered = overlayBottomRight(centered, toast, containerWidth, 1)
+		}
 		return fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
 	}
 

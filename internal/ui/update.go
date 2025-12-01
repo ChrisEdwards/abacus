@@ -92,26 +92,28 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.activeOverlay = OverlayNone
 		m.createOverlay = nil
 		return m, nil
+	case DismissErrorToastMsg:
+		// Dismiss the global error toast (sent from overlay when ESC pressed with error)
+		m.showErrorToast = false
+		return m, nil
 	case createCompleteMsg:
 		if msg.err != nil {
-			// Backend error: keep modal open, notify overlay (spec Section 4.4)
+			// Backend error: show toast and notify overlay (spec Section 4.4)
+			errMsg := msg.err.Error()
+			m.lastError = errMsg
+			m.showErrorToast = true
+			m.errorToastStart = time.Now()
+
 			if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-				// Send error to overlay to show red border and error message
-				errMsg := msg.err.Error()
+				// Also notify overlay so it knows ESC should dismiss toast first
 				cmd := func() tea.Msg {
 					return backendErrorMsg{
 						err:    msg.err,
 						errMsg: errMsg,
 					}
 				}
-				// Also store in app for error toast (shown if modal closes)
-				m.lastError = errMsg
-				return m, cmd
+				return m, tea.Batch(cmd, scheduleErrorToastTick())
 			}
-			// Fallback if modal somehow closed
-			m.lastError = msg.err.Error()
-			m.showErrorToast = true
-			m.errorToastStart = time.Now()
 			return m, scheduleErrorToastTick()
 		}
 
