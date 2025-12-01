@@ -701,3 +701,221 @@ func TestComboBoxHelperMethods(t *testing.T) {
 		}
 	})
 }
+
+// ============================================================================
+// Scroll Indicator Tests (ab-ouvw - spec Section 3.5 ComboBox behavior)
+// ============================================================================
+
+func TestComboBoxScrollIndicators(t *testing.T) {
+	t.Run("ShowsMoreBelowIndicator", func(t *testing.T) {
+		// Create list longer than MaxVisible (default 5)
+		options := []string{"A", "B", "C", "D", "E", "F", "G", "H"}
+		cb := NewComboBox(options)
+		cb.Focus()
+
+		// Open dropdown
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		view := cb.View()
+		// Should show "more below" indicator
+		if !strings.Contains(view, "▼ more below") {
+			t.Error("expected '▼ more below' indicator when more items exist below")
+		}
+	})
+
+	t.Run("ShowsMoreAboveIndicator", func(t *testing.T) {
+		// Create list longer than MaxVisible
+		options := []string{"A", "B", "C", "D", "E", "F", "G", "H"}
+		cb := NewComboBox(options)
+		cb.Focus()
+
+		// Open dropdown
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		// Navigate down past visible window
+		for i := 0; i < 6; i++ {
+			cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+		}
+
+		view := cb.View()
+		// Should show "more above" indicator
+		if !strings.Contains(view, "▲ more above") {
+			t.Error("expected '▲ more above' indicator when more items exist above")
+		}
+	})
+
+	t.Run("NoIndicatorsWhenAllFit", func(t *testing.T) {
+		// Create list that fits within MaxVisible
+		options := []string{"A", "B", "C"}
+		cb := NewComboBox(options).WithMaxVisible(5)
+		cb.Focus()
+
+		// Open dropdown
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		view := cb.View()
+		if strings.Contains(view, "more below") || strings.Contains(view, "more above") {
+			t.Error("expected no scroll indicators when all items fit")
+		}
+	})
+
+	t.Run("BothIndicatorsInMiddle", func(t *testing.T) {
+		// Create list much longer than MaxVisible
+		options := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"}
+		cb := NewComboBox(options).WithMaxVisible(3)
+		cb.Focus()
+
+		// Open dropdown
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		// Navigate to middle
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		view := cb.View()
+		// Should show both indicators
+		if !strings.Contains(view, "▲ more above") {
+			t.Error("expected '▲ more above' indicator in middle of list")
+		}
+		if !strings.Contains(view, "▼ more below") {
+			t.Error("expected '▼ more below' indicator in middle of list")
+		}
+	})
+}
+
+func TestComboBoxScrollOffsetAdjustment(t *testing.T) {
+	t.Run("ScrollsDownWhenNavigatingPastVisible", func(t *testing.T) {
+		options := []string{"A", "B", "C", "D", "E", "F", "G"}
+		cb := NewComboBox(options).WithMaxVisible(3)
+		cb.Focus()
+
+		// Open dropdown
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		// Navigate past visible (index 0, 1, 2 visible initially)
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown}) // index 1
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown}) // index 2
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown}) // index 3 - should scroll
+
+		if cb.highlightIndex != 3 {
+			t.Errorf("expected highlight at 3, got %d", cb.highlightIndex)
+		}
+		if cb.scrollOffset < 1 {
+			t.Errorf("expected scrollOffset >= 1, got %d", cb.scrollOffset)
+		}
+	})
+
+	t.Run("ScrollsUpWhenNavigatingAboveVisible", func(t *testing.T) {
+		options := []string{"A", "B", "C", "D", "E", "F", "G"}
+		cb := NewComboBox(options).WithMaxVisible(3)
+		cb.Focus()
+
+		// Open dropdown and scroll down
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+		for i := 0; i < 5; i++ {
+			cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+		}
+
+		// Verify we've scrolled
+		initialOffset := cb.scrollOffset
+
+		// Navigate back up
+		for i := 0; i < 5; i++ {
+			cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyUp})
+		}
+
+		if cb.scrollOffset >= initialOffset {
+			t.Errorf("expected scrollOffset to decrease, was %d, now %d", initialOffset, cb.scrollOffset)
+		}
+	})
+
+	t.Run("ScrollOffsetClampedToValidRange", func(t *testing.T) {
+		options := []string{"A", "B", "C", "D", "E"}
+		cb := NewComboBox(options).WithMaxVisible(3)
+		cb.Focus()
+
+		// Open dropdown
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		// Navigate all the way down
+		for i := 0; i < 10; i++ {
+			cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+		}
+
+		// scrollOffset should not exceed (total - MaxVisible)
+		maxOffset := len(options) - cb.MaxVisible
+		if cb.scrollOffset > maxOffset {
+			t.Errorf("expected scrollOffset <= %d, got %d", maxOffset, cb.scrollOffset)
+		}
+	})
+}
+
+func TestComboBoxDownArrowPreservesSelection(t *testing.T) {
+	t.Run("HighlightsCurrentValueWhenOpening", func(t *testing.T) {
+		options := []string{"Alice", "Bob", "Carlos", "Diana"}
+		cb := NewComboBox(options)
+		cb.SetValue("Carlos")
+		cb.Focus()
+
+		// Open dropdown with Down arrow
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		// Should highlight Carlos (index 2)
+		if cb.highlightIndex != 2 {
+			t.Errorf("expected highlight index 2 (Carlos), got %d", cb.highlightIndex)
+		}
+	})
+
+	t.Run("HighlightsFirstWhenNoValue", func(t *testing.T) {
+		options := []string{"Alice", "Bob", "Carlos"}
+		cb := NewComboBox(options)
+		// No value set
+		cb.Focus()
+
+		// Open dropdown
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		// Should highlight first (index 0)
+		if cb.highlightIndex != 0 {
+			t.Errorf("expected highlight index 0, got %d", cb.highlightIndex)
+		}
+	})
+
+	t.Run("HighlightsFirstWhenValueNotInList", func(t *testing.T) {
+		options := []string{"Alice", "Bob", "Carlos"}
+		cb := NewComboBox(options)
+		cb.SetValue("Unknown")
+		cb.Focus()
+
+		// Open dropdown
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		// Should highlight first since "Unknown" isn't in list
+		if cb.highlightIndex != 0 {
+			t.Errorf("expected highlight index 0, got %d", cb.highlightIndex)
+		}
+	})
+
+	t.Run("ScrollsToCurrentValueWhenOpening", func(t *testing.T) {
+		// Create list longer than MaxVisible
+		options := []string{"A", "B", "C", "D", "E", "F", "G", "H"}
+		cb := NewComboBox(options).WithMaxVisible(3)
+		cb.SetValue("G") // Near the end
+		cb.Focus()
+
+		// Open dropdown
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		// G is at index 6, should scroll to make it visible
+		if cb.highlightIndex != 6 {
+			t.Errorf("expected highlight index 6 (G), got %d", cb.highlightIndex)
+		}
+
+		// scrollOffset should be adjusted to show G
+		// G at index 6 with MaxVisible 3 means offset should be at least 4
+		if cb.scrollOffset < 4 {
+			t.Errorf("expected scrollOffset >= 4 to show G, got %d", cb.scrollOffset)
+		}
+	})
+}
