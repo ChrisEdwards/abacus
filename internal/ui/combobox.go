@@ -253,6 +253,16 @@ func (c ComboBox) handleFilteringKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 		c.state = ComboBoxIdle
 		return c, nil
 
+	case tea.KeyDelete:
+		// Delete with ghost text visible: reject autocomplete (clear highlight)
+		// This lets user keep their typed text without accepting the suggestion
+		if c.HasGhostText() {
+			c.highlightIndex = -1
+			return c, nil
+		}
+		// No ghost text - ignore delete (nothing to reject)
+		return c, nil
+
 	default:
 		// Continue filtering
 		if msg.Type == tea.KeyRunes || msg.Type == tea.KeyBackspace {
@@ -269,7 +279,7 @@ func (c ComboBox) handleFilteringKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 }
 
 func (c ComboBox) selectHighlighted() (ComboBox, tea.Cmd) {
-	if len(c.filteredOptions) > 0 && c.highlightIndex < len(c.filteredOptions) {
+	if len(c.filteredOptions) > 0 && c.highlightIndex >= 0 && c.highlightIndex < len(c.filteredOptions) {
 		selected := c.filteredOptions[c.highlightIndex]
 		c.value = selected
 		c.textInput.SetValue(selected)
@@ -284,8 +294,8 @@ func (c ComboBox) selectHighlighted() (ComboBox, tea.Cmd) {
 }
 
 func (c ComboBox) selectHighlightedOrNew() (ComboBox, tea.Cmd) {
-	// If we have matches, select highlighted
-	if len(c.filteredOptions) > 0 && c.highlightIndex < len(c.filteredOptions) {
+	// If we have matches and a valid highlight, select highlighted
+	if len(c.filteredOptions) > 0 && c.highlightIndex >= 0 && c.highlightIndex < len(c.filteredOptions) {
 		return c.selectHighlighted()
 	}
 
@@ -366,12 +376,19 @@ func (c *ComboBox) adjustScrollOffset() {
 func (c ComboBox) View() string {
 	var b strings.Builder
 
-	// Render text input
+	// Render text input with ghost text if applicable
+	inputView := c.textInput.View()
+	ghostText := c.GhostText()
+	if ghostText != "" {
+		// Append ghost text in grey after the input
+		inputView = inputView + styleGhostText.Render(ghostText)
+	}
+
 	inputStyle := styleComboBoxInput.Width(c.Width)
 	if c.focused {
 		inputStyle = styleComboBoxInputFocused.Width(c.Width)
 	}
-	b.WriteString(inputStyle.Render(c.textInput.View()))
+	b.WriteString(inputStyle.Render(inputView))
 
 	// Render dropdown if open
 	if c.state != ComboBoxIdle {
@@ -494,6 +511,41 @@ func (c ComboBox) InputValue() string {
 	return c.textInput.Value()
 }
 
+// GhostText returns the autocomplete ghost text if applicable.
+// Returns empty string if no ghost text should be shown.
+func (c ComboBox) GhostText() string {
+	// Only show ghost text when filtering and have a highlighted match
+	if c.state != ComboBoxFiltering {
+		return ""
+	}
+	if c.highlightIndex < 0 || c.highlightIndex >= len(c.filteredOptions) {
+		return ""
+	}
+
+	typed := c.textInput.Value()
+	highlighted := c.filteredOptions[c.highlightIndex]
+
+	// Check if highlighted option starts with typed text (case-insensitive)
+	typedLower := strings.ToLower(typed)
+	highlightedLower := strings.ToLower(highlighted)
+	if !strings.HasPrefix(highlightedLower, typedLower) {
+		return ""
+	}
+
+	// Return the completion portion
+	return highlighted[len(typed):]
+}
+
+// HasGhostText returns whether ghost text is currently visible.
+func (c ComboBox) HasGhostText() bool {
+	return c.GhostText() != ""
+}
+
+// ClearHighlight deselects the current highlight (reject autocomplete).
+func (c *ComboBox) ClearHighlight() {
+	c.highlightIndex = -1
+}
+
 // ComboBox styles
 var (
 	styleComboBoxInput = lipgloss.NewStyle().
@@ -521,4 +573,7 @@ var (
 
 	styleComboBoxHint = lipgloss.NewStyle().
 				Foreground(cBrightGray)
+
+	styleGhostText = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("243"))
 )

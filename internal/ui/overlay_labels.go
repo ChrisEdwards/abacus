@@ -67,8 +67,9 @@ func (m *LabelsOverlay) Init() tea.Cmd {
 func (m *LabelsOverlay) Update(msg tea.Msg) (*LabelsOverlay, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ChipComboBoxTabMsg:
-		// Tab requested - confirm and close (same as Enter when idle)
-		return m, m.confirm()
+		// Tab in labels overlay does nothing (unlike create modal)
+		// Just pass through - no confirm
+		return m, nil
 
 	case ChipComboBoxChipAddedMsg:
 		// Chip was added - visual feedback already happened, no action needed
@@ -101,13 +102,6 @@ func (m *LabelsOverlay) Update(msg tea.Msg) (*LabelsOverlay, tea.Cmd) {
 				return m, m.confirm()
 			}
 			// Otherwise pass to ChipComboBox
-
-		case tea.KeyTab:
-			// Tab confirms if idle
-			if m.isIdle() {
-				return m, m.confirm()
-			}
-			// Otherwise pass to ChipComboBox (which will send ChipComboBoxTabMsg)
 		}
 
 		// Pass to ChipComboBox
@@ -212,19 +206,18 @@ func (m *LabelsOverlay) confirm() tea.Cmd {
 func (m *LabelsOverlay) View() string {
 	var b strings.Builder
 
-	// Header: ab-xxx › Bead Title › Labels
+	// Header: Line 1 = "Edit Labels", Line 2 = "ab-xxx: Bead Title"
+	b.WriteString(styleHelpSectionHeader.Render("Edit Labels"))
+	b.WriteString("\n")
+
 	// Truncate title if too long
 	title := m.beadTitle
-	maxTitleLen := 25
+	maxTitleLen := 30
 	if len(title) > maxTitleLen {
 		title = title[:maxTitleLen-3] + "..."
 	}
-	header := styleID.Render(m.issueID) +
-		styleStatsDim.Render(" › ") +
-		styleStatsDim.Render(title) +
-		styleStatsDim.Render(" › ") +
-		styleHelpSectionHeader.Render("Labels")
-	b.WriteString(header)
+	contextLine := styleID.Render(m.issueID) + styleStatsDim.Render(": ") + styleStatsDim.Render(title)
+	b.WriteString(contextLine)
 	b.WriteString("\n")
 
 	// Divider
@@ -257,7 +250,7 @@ func (m *LabelsOverlay) renderFooter() string {
 		return footerStyle.Render("Delete Remove • ←→ Navigate • Esc Exit")
 	default:
 		// Idle state: show confirm/cancel hints
-		return footerStyle.Render("Enter Save • Tab Save • Esc Cancel")
+		return footerStyle.Render("Enter Save • Esc Cancel")
 	}
 }
 

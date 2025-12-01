@@ -226,7 +226,14 @@ func (c ChipComboBox) View() string {
 	var elements []string
 
 	// Get styled chips from ChipList
-	elements = append(elements, c.chips.RenderChips()...)
+	chips := c.chips.RenderChips()
+	if len(chips) == 0 && !c.chips.InNavigationMode() {
+		// Empty state indicator when no chips selected
+		emptyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("243")).Italic(true)
+		elements = append(elements, emptyStyle.Render("No labels"))
+	} else {
+		elements = append(elements, chips...)
+	}
 
 	// Add input (only if not in chip nav mode)
 	if !c.chips.InNavigationMode() {

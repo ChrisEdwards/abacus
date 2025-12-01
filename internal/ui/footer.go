@@ -44,9 +44,7 @@ var statusOverlayFooterHints = []footerHint{
 }
 
 var labelsOverlayFooterHints = []footerHint{
-	{"↑↓", "Navigate"},
-	{"Space", "Toggle"},
-	{"⏎", "Apply"},
+	{"⏎", "Save"},
 	{"esc", "Cancel"},
 }
 

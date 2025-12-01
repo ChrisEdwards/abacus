@@ -152,23 +152,21 @@ func TestLabelsOverlayEnter(t *testing.T) {
 }
 
 func TestLabelsOverlayTab(t *testing.T) {
-	t.Run("SendsLabelsUpdatedMsgWhenIdle", func(t *testing.T) {
+	t.Run("TabDoesNotConfirmInLabelsOverlay", func(t *testing.T) {
 		overlay := NewLabelsOverlay("test-123", "Test", []string{"ui"}, []string{"ui", "bug"})
 		// Add a chip
 		overlay.chipCombo.SetChips([]string{"ui", "bug"})
 
-		// Tab when idle should confirm
+		// Tab when idle should NOT confirm (unlike create modal)
+		// It should pass through to ChipComboBox which sends ChipComboBoxTabMsg
 		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
-		if cmd == nil {
-			t.Fatal("expected command from tab")
-		}
-		msg := cmd()
-		labelsMsg, ok := msg.(LabelsUpdatedMsg)
-		if !ok {
-			t.Fatalf("expected LabelsUpdatedMsg, got %T", msg)
-		}
-		if labelsMsg.IssueID != "test-123" {
-			t.Errorf("expected IssueID test-123, got %s", labelsMsg.IssueID)
+
+		// Verify it doesn't send LabelsUpdatedMsg
+		if cmd != nil {
+			msg := cmd()
+			if _, ok := msg.(LabelsUpdatedMsg); ok {
+				t.Error("expected Tab NOT to send LabelsUpdatedMsg in labels overlay")
+			}
 		}
 	})
 }
@@ -307,21 +305,18 @@ func TestLabelsOverlayFooter(t *testing.T) {
 }
 
 func TestLabelsOverlayChipComboBoxTabMsg(t *testing.T) {
-	t.Run("ConfirmsOnChipComboBoxTabMsg", func(t *testing.T) {
+	t.Run("TabMsgDoesNotConfirmInLabelsOverlay", func(t *testing.T) {
 		overlay := NewLabelsOverlay("test-123", "Test", []string{"ui"}, []string{"ui", "bug"})
 		overlay.chipCombo.SetChips([]string{"ui", "bug"})
 
+		// ChipComboBoxTabMsg in labels overlay should NOT confirm (returns nil)
+		// Unlike create modal where Tab moves to next field
 		_, cmd := overlay.Update(ChipComboBoxTabMsg{})
-		if cmd == nil {
-			t.Fatal("expected command from ChipComboBoxTabMsg")
-		}
-		msg := cmd()
-		labelsMsg, ok := msg.(LabelsUpdatedMsg)
-		if !ok {
-			t.Fatalf("expected LabelsUpdatedMsg, got %T", msg)
-		}
-		if len(labelsMsg.Added) != 1 || labelsMsg.Added[0] != "bug" {
-			t.Errorf("expected Added=['bug'], got %v", labelsMsg.Added)
+		if cmd != nil {
+			msg := cmd()
+			if _, ok := msg.(LabelsUpdatedMsg); ok {
+				t.Error("expected ChipComboBoxTabMsg NOT to confirm in labels overlay")
+			}
 		}
 	})
 }
