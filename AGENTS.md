@@ -37,11 +37,11 @@ We use beads for issue tracking and work planning. If you need more information,
 
 ### Dependencies
 ```bash
-bd dep add <parent> <child> --type parent-child   # Make child a subtask of parent
-bd dep add <blocker> <blocked> --type blocks      # blocker blocks blocked
+bd dep add <child> <parent> --type parent-child   # Make child a subtask of parent
+bd dep add <blocked> <blocker> --type blocks      # blocker blocks blocked
 bd dep remove <from> <to>                         # Remove dependency
 ```
-**Note**: Use `bd dep add`, not `bd dep` directly.
+**Note**: Use `bd dep add`, not `bd dep` directly. First arg depends on second arg.
 
 ### Bead ID Format
 **IMPORTANT**: Always use standard bead IDs (e.g., `ab-xyz`, `ab-4aw`). Do NOT use dotted notation like `ab-4aw.1` or `ab-4aw.2` for bead names. Each bead should have its own unique ID from the beads system.
