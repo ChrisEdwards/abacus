@@ -8,3 +8,5 @@ Implement clean code, well factored. Favor simplicity, intuitiveness, and functi
 
 Ensure you write tests for any code you change or create. This is important.
 Ensure you update documentation if applicable. 
+
+Ensure you test the changes using tmux if applicable.
