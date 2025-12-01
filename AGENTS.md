@@ -35,6 +35,14 @@ Fast code search tool available via command line. Common patterns:
 ## Issue Tracking with Beads
 We use beads for issue tracking and work planning. If you need more information, execute `bd quickstart`
 
+### Dependencies
+```bash
+bd dep add <parent> <child> --type parent-child   # Make child a subtask of parent
+bd dep add <blocker> <blocked> --type blocks      # blocker blocks blocked
+bd dep remove <from> <to>                         # Remove dependency
+```
+**Note**: Use `bd dep add`, not `bd dep` directly.
+
 ### Bead ID Format
 **IMPORTANT**: Always use standard bead IDs (e.g., `ab-xyz`, `ab-4aw`). Do NOT use dotted notation like `ab-4aw.1` or `ab-4aw.2` for bead names. Each bead should have its own unique ID from the beads system.
 
@@ -71,3 +79,6 @@ You must complete ALL of the following steps before marking a bead as closed:
 **IMPORTANT**: Do not mark parent beads as closed until ALL child beads are closed. Parent beads represent collections of work and can only be considered complete when all subtasks are finished.
 
 Other AI's may be working in this codebase in parallel on other files. Do not revert those files. Ignore them. Only stage and commit the files you changed or added.
+
+### Testing Beads
+If you need to create or modify beads to test some functionality, do it in a bead that is a child (or descendant) of ab-cj3. That is the test beads parent.
