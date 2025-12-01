@@ -247,3 +247,72 @@ func TestCLIClient_CreateFull_OptionalParameters(t *testing.T) {
 		t.Errorf("expected args to include --assignee, got: %q", args)
 	}
 }
+
+func TestExtractJSON(t *testing.T) {
+	t.Run("ExtractsJSONFromCleanOutput", func(t *testing.T) {
+		input := []byte(`{"id":"ab-123","title":"Test"}`)
+		result := extractJSON(input)
+		if string(result) != `{"id":"ab-123","title":"Test"}` {
+			t.Errorf("expected clean JSON, got: %s", result)
+		}
+	})
+
+	t.Run("ExtractsJSONWithPrefix", func(t *testing.T) {
+		input := []byte("⚠ Warning: creating in production\n{\"id\":\"ab-123\",\"title\":\"Test\"}")
+		result := extractJSON(input)
+		if string(result) != `{"id":"ab-123","title":"Test"}` {
+			t.Errorf("expected JSON without prefix, got: %s", result)
+		}
+	})
+
+	t.Run("ExtractsJSONWithSuffix", func(t *testing.T) {
+		input := []byte(`{"id":"ab-123","title":"Test"}` + "\nsome trailing text")
+		result := extractJSON(input)
+		if string(result) != `{"id":"ab-123","title":"Test"}` {
+			t.Errorf("expected JSON without suffix, got: %s", result)
+		}
+	})
+
+	t.Run("ExtractsNestedJSON", func(t *testing.T) {
+		input := []byte(`prefix{"id":"ab-123","nested":{"key":"value"}}suffix`)
+		result := extractJSON(input)
+		if string(result) != `{"id":"ab-123","nested":{"key":"value"}}` {
+			t.Errorf("expected nested JSON, got: %s", result)
+		}
+	})
+
+	t.Run("ReturnsNilForNoJSON", func(t *testing.T) {
+		input := []byte("no json here")
+		result := extractJSON(input)
+		if result != nil {
+			t.Errorf("expected nil for no JSON, got: %s", result)
+		}
+	})
+}
+
+func TestCLIClient_CreateFull_HandlesOutputWithPrefix(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	script := filepath.Join(dir, "fakebd.sh")
+
+	// Fake bd script that outputs warning before JSON (simulates production db warning)
+	scriptBody := "#!/bin/sh\n" +
+		"echo '⚠ Creating issue with Test prefix in production database.'\n" +
+		"echo '{\"id\":\"ab-prefix\",\"title\":\"Test\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\"}'\n"
+	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
+		t.Fatalf("write fake bd: %v", err)
+	}
+
+	client := NewCLIClient(WithBinaryPath(script))
+
+	ctx := context.Background()
+	issue, err := client.CreateFull(ctx, "Test Title", "task", 2, nil, "", "")
+	if err != nil {
+		t.Fatalf("CreateFull should handle output with prefix: %v", err)
+	}
+
+	if issue.ID != "ab-prefix" {
+		t.Errorf("expected ID 'ab-prefix', got %q", issue.ID)
+	}
+}

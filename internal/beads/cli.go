@@ -1,6 +1,7 @@
 package beads
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -253,9 +254,19 @@ func (c *cliClient) CreateFull(ctx context.Context, title, issueType string, pri
 		return FullIssue{}, fmt.Errorf("run bd create: %w", err)
 	}
 
+	// Extract JSON from output (bd may print warnings before the JSON)
+	jsonBytes := extractJSON(out)
+	if jsonBytes == nil {
+		snippet := string(out)
+		if len(snippet) > maxErrorSnippetLen {
+			snippet = snippet[:maxErrorSnippetLen] + "..."
+		}
+		return FullIssue{}, fmt.Errorf("no JSON found in bd create output: %s", strings.TrimSpace(snippet))
+	}
+
 	// Parse JSON response
 	var issue FullIssue
-	if err := json.Unmarshal(out, &issue); err != nil {
+	if err := json.Unmarshal(jsonBytes, &issue); err != nil {
 		snippet := string(out)
 		if len(snippet) > maxErrorSnippetLen {
 			snippet = snippet[:maxErrorSnippetLen] + "..."
@@ -305,4 +316,29 @@ func formatCommandError(bin string, args []string, cmdErr error, out []byte) err
 	msg := fmt.Sprintf("%s failed", strings.Join(command, " "))
 	err := classifyCLIError(command, appErrors.New(appErrors.CodeCLIFailed, msg, cmdErr), snippet)
 	return err
+}
+
+// extractJSON finds and returns the first JSON object in the output.
+// bd commands may print warnings or other text before the actual JSON response.
+func extractJSON(out []byte) []byte {
+	// Find the first '{' which starts the JSON object
+	start := bytes.IndexByte(out, '{')
+	if start == -1 {
+		return nil
+	}
+	// Find the matching closing brace by counting braces
+	depth := 0
+	for i := start; i < len(out); i++ {
+		switch out[i] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return out[start : i+1]
+			}
+		}
+	}
+	// No matching closing brace found, return from start to end
+	return out[start:]
 }
