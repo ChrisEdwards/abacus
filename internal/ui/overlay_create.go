@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -124,7 +124,7 @@ type CreateOverlay struct {
 	parentOriginal  string // Value when Parent field focused, for Esc revert (spec Section 12)
 
 	// Zone 2: Title (hero element)
-	titleInput           textinput.Model
+	titleInput           textarea.Model
 	titleValidationError bool // True when flashing red for validation
 	hasBackendError      bool // True when backend error occurred (for ESC handling)
 
@@ -189,11 +189,13 @@ type CreateOverlayOptions struct {
 
 // NewCreateOverlay creates a new 5-zone create overlay.
 func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
-	// Zone 2: Title input (hero element)
-	ti := textinput.New()
+	// Zone 2: Title input (hero element) - uses textarea for proper wrapping
+	ti := textarea.New()
 	ti.Placeholder = ""
 	ti.CharLimit = 100
-	ti.Width = 44
+	ti.SetWidth(44)
+	ti.SetHeight(3) // Allow 3 lines for wrapping long titles
+	ti.ShowLineNumbers = false
 
 	// Zone 1: Parent combo box
 	parentDisplays := make([]string, len(opts.AvailableParents))
@@ -261,7 +263,7 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 
 // Init implements tea.Model.
 func (m *CreateOverlay) Init() tea.Cmd {
-	return textinput.Blink
+	return textarea.Blink
 }
 
 // Update implements tea.Model.
