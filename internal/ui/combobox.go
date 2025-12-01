@@ -380,12 +380,19 @@ func (c ComboBox) View() string {
 	var inputView string
 	ghostText := c.GhostText()
 	if ghostText != "" && c.focused {
-		// Build custom view with ghost text after cursor
-		// Use line cursor | (not block █) so ghost text is clearly visible
+		// Build custom view with ghost text in block cursor style
+		// First ghost char is inside inverted block cursor (grey on bright bg)
+		// Rest of ghost text in grey
 		typed := c.textInput.Value()
 		prompt := "> "
-		cursor := "|"
-		inputView = prompt + typed + cursor + styleGhostText.Render(ghostText)
+		firstGhostChar := string([]rune(ghostText)[0])
+		restGhostText := ""
+		if len([]rune(ghostText)) > 1 {
+			restGhostText = string([]rune(ghostText)[1:])
+		}
+		// Inverted cursor: grey text on bright background
+		cursorWithChar := styleGhostCursor.Render(firstGhostChar)
+		inputView = prompt + typed + cursorWithChar + styleGhostText.Render(restGhostText)
 	} else {
 		inputView = c.textInput.View()
 	}
@@ -529,6 +536,11 @@ func (c ComboBox) GhostText() string {
 	}
 
 	typed := c.textInput.Value()
+	// Don't show ghost text when input is empty
+	if typed == "" {
+		return ""
+	}
+
 	highlighted := c.filteredOptions[c.highlightIndex]
 
 	// Check if highlighted option starts with typed text (case-insensitive)
@@ -582,4 +594,9 @@ var (
 
 	styleGhostText = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("243"))
+
+	// Ghost cursor: grey text on bright background (inverted block cursor)
+	styleGhostCursor = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("243")).
+				Background(lipgloss.Color("250"))
 )
