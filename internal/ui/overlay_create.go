@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -18,6 +19,16 @@ type titleFlashClearMsg struct{}
 func titleFlashCmd() tea.Cmd {
 	return tea.Tick(flashDuration, func(_ time.Time) tea.Msg {
 		return titleFlashClearMsg{}
+	})
+}
+
+// typeInferenceFlashMsg signals the type was auto-inferred (spec Section 5).
+type typeInferenceFlashMsg struct{}
+
+// typeInferenceFlashCmd returns a command that clears the type inference flash after a delay.
+func typeInferenceFlashCmd() tea.Cmd {
+	return tea.Tick(flashDuration, func(_ time.Time) tea.Msg {
+		return typeInferenceFlashMsg{}
 	})
 }
 
@@ -44,6 +55,50 @@ var typeLabels = []string{"Task", "Feature", "Bug", "Epic", "Chore"}
 // Priority options
 var priorityLabels = []string{"Crit", "High", "Med", "Low", "Back"}
 
+// Type inference patterns for auto-detecting bead type from title (spec Section 5).
+// Patterns are checked in order; first match wins.
+var typeInferencePatterns = []struct {
+	pattern *regexp.Regexp
+	typeIdx int
+}{
+	// Bug patterns - check first (most specific)
+	{regexp.MustCompile(`(?i)\b(fix|broken|bug|error|crash|issue with)\b`), 2},
+	// Feature patterns
+	{regexp.MustCompile(`(?i)\b(add|implement|create|build|new)\b`), 1},
+	// Chore patterns
+	{regexp.MustCompile(`(?i)\b(refactor|clean up|reorganize|simplify|extract)\b`), 4},
+	{regexp.MustCompile(`(?i)\b(update|upgrade|bump|migrate)\b`), 4},
+	{regexp.MustCompile(`(?i)\b(document|docs|readme)\b`), 4},
+}
+
+// inferTypeFromTitle analyzes the title and returns the inferred type index.
+// Returns -1 if no pattern matches.
+// Uses word boundaries (\b) to avoid false matches (e.g., "Prefix" won't match "fix").
+// First match wins: returns the type for the keyword that appears earliest in the title.
+func inferTypeFromTitle(title string) int {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return -1
+	}
+
+	// Find the earliest match by position (spec Section 5: first match wins)
+	earliestPos := -1
+	earliestType := -1
+
+	for _, p := range typeInferencePatterns {
+		loc := p.pattern.FindStringIndex(title)
+		if loc != nil {
+			// loc[0] is the start position of the match
+			if earliestPos == -1 || loc[0] < earliestPos {
+				earliestPos = loc[0]
+				earliestType = p.typeIdx
+			}
+		}
+	}
+
+	return earliestType
+}
+
 // CreateOverlay is a 5-zone HUD for creating a new bead.
 // See docs/CREATE_BEAD_SPEC.md Section 3 for zone layout.
 type CreateOverlay struct {
@@ -62,9 +117,10 @@ type CreateOverlay struct {
 	titleValidationError bool // True when flashing red for validation
 
 	// Zone 3: Properties (2-column grid)
-	typeIndex       int
-	priorityIndex   int
-	typeManuallySet bool // Disables auto-inference when true
+	typeIndex            int
+	priorityIndex        int
+	typeManuallySet      bool // Disables auto-inference when true
+	typeInferenceActive  bool // True during flash animation (150ms)
 
 	// Zone 4: Labels (multi-select chips)
 	labelsCombo   ChipComboBox
@@ -201,6 +257,10 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 	switch msg := msg.(type) {
 	case titleFlashClearMsg:
 		m.titleValidationError = false
+		return m, nil
+
+	case typeInferenceFlashMsg:
+		m.typeInferenceActive = false
 		return m, nil
 
 	case bulkEntryResetMsg:
@@ -435,7 +495,26 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 		return m, cmd
 
 	case FocusTitle:
+		// Capture old title for comparison (spec Section 5: type auto-inference)
+		oldTitle := m.titleInput.Value()
+
+		// Update title input
 		m.titleInput, cmd = m.titleInput.Update(msg)
+
+		// Auto-infer type if title changed and not manually set (spec Section 5)
+		newTitle := m.titleInput.Value()
+		if newTitle != oldTitle && !m.typeManuallySet {
+			if inferredIdx := inferTypeFromTitle(newTitle); inferredIdx != -1 {
+				// Only update if inference actually changed the type
+				if inferredIdx != m.typeIndex {
+					m.typeIndex = inferredIdx
+					m.typeInferenceActive = true
+					// Return command to trigger visual feedback
+					return m, tea.Batch(cmd, typeInferenceFlashCmd())
+				}
+			}
+		}
+
 		return m, cmd
 
 	case FocusType:
@@ -444,8 +523,10 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 		case tea.KeyUp, tea.KeyDown:
 			if msg.Type == tea.KeyUp && m.typeIndex > 0 {
 				m.typeIndex--
+				m.typeManuallySet = true // Disable auto-inference (spec Section 5)
 			} else if msg.Type == tea.KeyDown && m.typeIndex < len(typeOptions)-1 {
 				m.typeIndex++
+				m.typeManuallySet = true // Disable auto-inference (spec Section 5)
 			}
 		case tea.KeyLeft:
 			m.focus = FocusType // Stay in type (leftmost column)
@@ -458,10 +539,12 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 				case 'j': // Vim down
 					if m.typeIndex < len(typeOptions)-1 {
 						m.typeIndex++
+						m.typeManuallySet = true // Disable auto-inference (spec Section 5)
 					}
 				case 'k': // Vim up
 					if m.typeIndex > 0 {
 						m.typeIndex--
+						m.typeManuallySet = true // Disable auto-inference (spec Section 5)
 					}
 				case 'h': // Vim left - stay in type (leftmost)
 					// Already in leftmost column
@@ -829,6 +912,10 @@ func (m *CreateOverlay) renderTypeColumn() string {
 	headerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	if m.focus == FocusType {
 		headerStyle = lipgloss.NewStyle().Foreground(cCyan).Bold(true)
+	}
+	// Add flash animation when type was auto-inferred (spec Section 5)
+	if m.typeInferenceActive {
+		headerStyle = lipgloss.NewStyle().Foreground(cOrange).Bold(true)
 	}
 	b.WriteString(headerStyle.Render("TYPE"))
 	b.WriteString("\n")
