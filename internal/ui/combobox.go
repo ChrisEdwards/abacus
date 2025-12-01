@@ -401,10 +401,20 @@ func (c ComboBox) View() string {
 			// Render only visible items
 			for i := c.scrollOffset; i < endIndex; i++ {
 				opt := c.filteredOptions[i]
+				// Style "Unassigned" as muted per spec Section 8
+				isMuted := opt == "Unassigned"
 				if i == c.highlightIndex {
-					b.WriteString(styleComboBoxHighlight.Render("\u25b8 " + opt))
+					if isMuted {
+						b.WriteString(styleComboBoxHighlight.Foreground(cGray).Render("\u25b8 " + opt))
+					} else {
+						b.WriteString(styleComboBoxHighlight.Render("\u25b8 " + opt))
+					}
 				} else {
-					b.WriteString(styleComboBoxOption.Render("  " + opt))
+					if isMuted {
+						b.WriteString(styleComboBoxOption.Foreground(cGray).Render("  " + opt))
+					} else {
+						b.WriteString(styleComboBoxOption.Render("  " + opt))
+					}
 				}
 				if i < endIndex-1 {
 					b.WriteString("\n")

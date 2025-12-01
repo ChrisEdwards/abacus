@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -95,6 +97,12 @@ type NewLabelAddedMsg struct {
 	Label string
 }
 
+// NewAssigneeAddedMsg signals a new assignee was created (not in existing options).
+// Used to trigger a toast notification.
+type NewAssigneeAddedMsg struct {
+	Assignee string
+}
+
 // CreateOverlayOptions configures the create overlay.
 type CreateOverlayOptions struct {
 	DefaultParentID    string         // Pre-selected parent (empty for root)
@@ -139,8 +147,11 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 		WithPlaceholder("type to filter...")
 
 	// Zone 5: Assignee combo box (single-select)
-	// Prepend "Unassigned" and "Me" options
+	// Prepend "Unassigned" and "Me ($USER)" options per spec Section 3.5
 	assigneeOpts := []string{"Unassigned"}
+	if user := os.Getenv("USER"); user != "" {
+		assigneeOpts = append(assigneeOpts, fmt.Sprintf("Me (%s)", user))
+	}
 	assigneeOpts = append(assigneeOpts, opts.AvailableAssignees...)
 	assigneeCombo := NewComboBox(assigneeOpts).
 		WithWidth(44).
@@ -208,8 +219,13 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 			m.labelsCombo, cmd = m.labelsCombo.Update(msg)
 			return m, cmd
 		}
-		// Parent or Assignee combo selected a value
-		// No special action needed, value is already set in the combo
+		// Assignee combo - check if new assignee was created
+		if m.focus == FocusAssignee && msg.IsNew {
+			return m, func() tea.Msg {
+				return NewAssigneeAddedMsg{Assignee: msg.Value}
+			}
+		}
+		// Parent combo - no special action needed
 		return m, nil
 
 	case tea.KeyMsg:
@@ -535,10 +551,13 @@ func (m *CreateOverlay) submit() tea.Msg {
 		}
 	}
 
-	// Get assignee (empty string if "Unassigned")
+	// Get assignee (empty string if "Unassigned", extract username from "Me (username)")
 	assignee := m.assigneeCombo.Value()
 	if assignee == "Unassigned" {
 		assignee = ""
+	} else if strings.HasPrefix(assignee, "Me (") && strings.HasSuffix(assignee, ")") {
+		// Extract username from "Me (username)" format
+		assignee = strings.TrimSuffix(strings.TrimPrefix(assignee, "Me ("), ")")
 	}
 
 	return BeadCreatedMsg{

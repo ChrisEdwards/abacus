@@ -19,7 +19,7 @@ type MockClient struct {
 	ReopenFn        func(context.Context, string) error
 	AddLabelFn      func(context.Context, string, string) error
 	RemoveLabelFn   func(context.Context, string, string) error
-	CreateFn        func(context.Context, string, string, int) (string, error)
+	CreateFn        func(context.Context, string, string, int, []string, string) (string, error)
 	AddDependencyFn func(context.Context, string, string, string) error
 
 	mu                      sync.Mutex
@@ -49,6 +49,8 @@ type CreateCallArg struct {
 	Title     string
 	IssueType string
 	Priority  int
+	Labels    []string
+	Assignee  string
 }
 
 // NewMockClient returns a MockClient with zeroed handlers.
@@ -160,20 +162,22 @@ func (m *MockClient) RemoveLabel(ctx context.Context, issueID, label string) err
 }
 
 // Create invokes the configured stub or returns a mock bead ID.
-func (m *MockClient) Create(ctx context.Context, title, issueType string, priority int) (string, error) {
+func (m *MockClient) Create(ctx context.Context, title, issueType string, priority int, labels []string, assignee string) (string, error) {
 	m.mu.Lock()
 	m.CreateCallCount++
 	m.CreateCallArgs = append(m.CreateCallArgs, CreateCallArg{
 		Title:     title,
 		IssueType: issueType,
 		Priority:  priority,
+		Labels:    labels,
+		Assignee:  assignee,
 	})
 	m.mu.Unlock()
 
 	if m.CreateFn == nil {
 		return "ab-mock", nil // Default to returning mock ID
 	}
-	return m.CreateFn(ctx, title, issueType, priority)
+	return m.CreateFn(ctx, title, issueType, priority, labels, assignee)
 }
 
 // AddDependency invokes the configured stub or returns nil (no-op by default).

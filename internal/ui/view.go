@@ -131,8 +131,11 @@ func (m *App) View() string {
 		return fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
 	}
 
-	// Overlay toast on mainBody if visible (create toast > new label toast > labels toast > status toast > copy toast > error toast)
+	// Overlay toast on mainBody if visible (create toast > new assignee toast > new label toast > labels toast > status toast > copy toast > error toast)
 	if toast := m.renderCreateToast(); toast != "" {
+		containerWidth := lipgloss.Width(mainBody)
+		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
+	} else if toast := m.renderNewAssigneeToast(); toast != "" {
 		containerWidth := lipgloss.Width(mainBody)
 		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
 	} else if toast := m.renderNewLabelToast(); toast != "" {
@@ -397,6 +400,28 @@ func (m *App) renderNewLabelToast() string {
 
 	// Simple one-line toast: "New Label Added: [labelname]"
 	content := " ✓ New Label Added: " + styleLabelChecked.Render(m.newLabelToastLabel) + " "
+	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
+
+	return styleSuccessToast.Render(content + countdownStr)
+}
+
+// renderNewAssigneeToast renders the new assignee toast if visible.
+// Shown when an assignee is created that wasn't in the existing options.
+func (m *App) renderNewAssigneeToast() string {
+	if !m.newAssigneeToastVisible || m.newAssigneeToastAssignee == "" {
+		return ""
+	}
+	elapsed := time.Since(m.newAssigneeToastStart)
+	if elapsed >= 3*time.Second {
+		return ""
+	}
+	remaining := 3 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Simple one-line toast: "New Assignee Added: [name]"
+	content := " ✓ New Assignee Added: " + styleLabelChecked.Render(m.newAssigneeToastAssignee) + " "
 	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
 
 	return styleSuccessToast.Render(content + countdownStr)

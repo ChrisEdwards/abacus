@@ -41,6 +41,7 @@ type FullIssue struct {
 	UpdatedAt          string       `json:"updated_at"`
 	ClosedAt           string       `json:"closed_at"`
 	ExternalRef        string       `json:"external_ref"`
+	Assignee           string       `json:"assignee"`
 	Labels             []string     `json:"labels"`
 	Comments           []Comment    `json:"comments"`
 	Dependencies       []Dependency `json:"dependencies"`

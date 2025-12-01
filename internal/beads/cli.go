@@ -168,18 +168,32 @@ func (c *cliClient) RemoveLabel(ctx context.Context, issueID, label string) erro
 	return nil
 }
 
-func (c *cliClient) Create(ctx context.Context, title, issueType string, priority int) (string, error) {
+func (c *cliClient) Create(ctx context.Context, title, issueType string, priority int, labels []string, assignee string) (string, error) {
 	if strings.TrimSpace(title) == "" {
 		return "", fmt.Errorf("title is required for create")
 	}
 	if strings.TrimSpace(issueType) == "" {
 		issueType = "task"
 	}
-	out, err := c.run(ctx, "create",
+
+	args := []string{
+		"create",
 		"--title", title,
 		"--type", issueType,
 		"--priority", fmt.Sprintf("%d", priority),
-	)
+	}
+
+	// Add labels if provided
+	if len(labels) > 0 {
+		args = append(args, "--labels", strings.Join(labels, ","))
+	}
+
+	// Add assignee if provided
+	if strings.TrimSpace(assignee) != "" {
+		args = append(args, "--assignee", assignee)
+	}
+
+	out, err := c.run(ctx, args...)
 	if err != nil {
 		return "", fmt.Errorf("run bd create: %w", err)
 	}

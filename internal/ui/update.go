@@ -123,6 +123,19 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, scheduleNewLabelToastTick()
+	case NewAssigneeAddedMsg:
+		// New assignee was created during bead creation - show toast
+		m.displayNewAssigneeToast(msg.Assignee)
+		return m, scheduleNewAssigneeToastTick()
+	case newAssigneeToastTickMsg:
+		if !m.newAssigneeToastVisible {
+			return m, nil
+		}
+		if time.Since(m.newAssigneeToastStart) >= 3*time.Second {
+			m.newAssigneeToastVisible = false
+			return m, nil
+		}
+		return m, scheduleNewAssigneeToastTick()
 	}
 
 	// Delegate to status overlay if active
@@ -402,7 +415,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				DefaultParentID:    defaultParent,
 				AvailableParents:   m.getAvailableParents(),
 				AvailableLabels:    m.getAllLabels(),
-				AvailableAssignees: nil, // Backend integration deferred to ab-39r
+				AvailableAssignees: m.getAllAssignees(),
 				IsRootMode:         false,
 			})
 			m.activeOverlay = OverlayCreate
@@ -634,6 +647,28 @@ func (m *App) getAllLabels() []string {
 	return labels
 }
 
+// getAllAssignees collects all unique assignees from all issues in the tree.
+func (m *App) getAllAssignees() []string {
+	assigneeSet := make(map[string]bool)
+	var collectAssignees func([]*graph.Node)
+	collectAssignees = func(nodes []*graph.Node) {
+		for _, n := range nodes {
+			if a := n.Issue.Assignee; a != "" {
+				assigneeSet[a] = true
+			}
+			collectAssignees(n.Children)
+		}
+	}
+	collectAssignees(m.roots)
+
+	assignees := make([]string, 0, len(assigneeSet))
+	for a := range assigneeSet {
+		assignees = append(assignees, a)
+	}
+	sort.Strings(assignees)
+	return assignees
+}
+
 // executeLabelsUpdate runs the bd label add/remove commands asynchronously.
 func (m *App) executeLabelsUpdate(msg LabelsUpdatedMsg) tea.Cmd {
 	return func() tea.Msg {
@@ -698,7 +733,7 @@ func (m *App) getAvailableParents() []ParentOption {
 func (m *App) executeCreateBead(msg BeadCreatedMsg) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
-		newID, err := m.client.Create(ctx, msg.Title, msg.IssueType, msg.Priority)
+		newID, err := m.client.Create(ctx, msg.Title, msg.IssueType, msg.Priority, msg.Labels, msg.Assignee)
 		if err != nil {
 			return createCompleteMsg{err: err}
 		}
@@ -724,4 +759,11 @@ func (m *App) displayNewLabelToast(label string) {
 	m.newLabelToastLabel = label
 	m.newLabelToastVisible = true
 	m.newLabelToastStart = time.Now()
+}
+
+// displayNewAssigneeToast displays a toast for a newly created assignee (not in existing options).
+func (m *App) displayNewAssigneeToast(assignee string) {
+	m.newAssigneeToastAssignee = assignee
+	m.newAssigneeToastVisible = true
+	m.newAssigneeToastStart = time.Now()
 }

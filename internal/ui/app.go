@@ -133,6 +133,11 @@ type App struct {
 	newLabelToastStart   time.Time
 	newLabelToastLabel   string
 
+	// New assignee toast state (shown during create overlay when new assignee added)
+	newAssigneeToastVisible  bool
+	newAssigneeToastStart    time.Time
+	newAssigneeToastAssignee string
+
 	// Session tracking for exit summary
 	sessionStart time.Time
 	initialStats Stats

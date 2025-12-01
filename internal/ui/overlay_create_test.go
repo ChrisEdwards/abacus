@@ -1353,3 +1353,129 @@ func TestNewLabelAddedMsgType(t *testing.T) {
 		}
 	})
 }
+
+func TestNewAssigneeAddedMsgType(t *testing.T) {
+	t.Run("MessageHasAssigneeField", func(t *testing.T) {
+		msg := NewAssigneeAddedMsg{Assignee: "test-user"}
+		if msg.Assignee != "test-user" {
+			t.Errorf("expected assignee 'test-user', got '%s'", msg.Assignee)
+		}
+	})
+}
+
+func TestAssigneeZone(t *testing.T) {
+	t.Run("AssigneeZoneRendered", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableAssignees: []string{"alice", "bob"},
+		})
+
+		view := overlay.View()
+		if !contains(view, "ASSIGNEE") {
+			t.Error("expected view to contain ASSIGNEE zone header")
+		}
+	})
+
+	t.Run("UnassignedIsDefault", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableAssignees: []string{"alice", "bob"},
+		})
+
+		view := overlay.View()
+		if !contains(view, "Unassigned") {
+			t.Error("expected view to show Unassigned as default")
+		}
+	})
+
+	t.Run("AssigneeOptionsIncludeProvided", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableAssignees: []string{"alice", "bob"},
+		})
+
+		// Focus assignee and open dropdown
+		overlay.focus = FocusAssignee
+		overlay.assigneeCombo.Focus()
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		view := overlay.View()
+		if !contains(view, "alice") {
+			t.Error("expected dropdown to contain 'alice'")
+		}
+		if !contains(view, "bob") {
+			t.Error("expected dropdown to contain 'bob'")
+		}
+	})
+
+	t.Run("AssigneeSubmitsCorrectly", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{
+			AvailableAssignees: []string{"alice"},
+		})
+
+		// Set title
+		overlay.titleInput.SetValue("Test Bead")
+
+		// Navigate to assignee
+		overlay.focus = FocusAssignee
+		overlay.assigneeCombo.Focus()
+		overlay.assigneeCombo.SetValue("alice")
+
+		// Submit
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected command from submit")
+		}
+		msg := cmd()
+		created, ok := msg.(BeadCreatedMsg)
+		if !ok {
+			t.Fatalf("expected BeadCreatedMsg, got %T", msg)
+		}
+		if created.Assignee != "alice" {
+			t.Errorf("expected assignee 'alice', got '%s'", created.Assignee)
+		}
+	})
+
+	t.Run("UnassignedConvertsToEmptyString", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+
+		// Set title
+		overlay.titleInput.SetValue("Test Bead")
+
+		// Leave assignee as default "Unassigned"
+		// Submit
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected command from submit")
+		}
+		msg := cmd()
+		created, ok := msg.(BeadCreatedMsg)
+		if !ok {
+			t.Fatalf("expected BeadCreatedMsg, got %T", msg)
+		}
+		if created.Assignee != "" {
+			t.Errorf("expected empty assignee for Unassigned, got '%s'", created.Assignee)
+		}
+	})
+
+	t.Run("MeOptionExtractsUsername", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+
+		// Set title
+		overlay.titleInput.SetValue("Test Bead")
+
+		// Set assignee to "Me (username)" format
+		overlay.assigneeCombo.SetValue("Me (testuser)")
+
+		// Submit
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected command from submit")
+		}
+		msg := cmd()
+		created, ok := msg.(BeadCreatedMsg)
+		if !ok {
+			t.Fatalf("expected BeadCreatedMsg, got %T", msg)
+		}
+		if created.Assignee != "testuser" {
+			t.Errorf("expected assignee 'testuser' (extracted from Me format), got '%s'", created.Assignee)
+		}
+	})
+}
