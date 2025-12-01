@@ -3168,3 +3168,202 @@ func TestToastRendering(t *testing.T) {
 		}
 	})
 }
+
+// Tests for ab-8sgz: Disable global hotkeys when entering text
+func TestGlobalHotkeysDisabledDuringTextInput(t *testing.T) {
+	t.Run("nKeyIgnoredWhenCreateOverlayActive", func(t *testing.T) {
+		// Setup app with create overlay active
+		node := &graph.Node{Issue: beads.FullIssue{ID: "ab-001", Title: "Test"}}
+		app := &App{
+			visibleRows: nodesToRows(node),
+			keys:        DefaultKeyMap(),
+			ready:       true,
+		}
+		
+		// Create initial overlay
+		createOverlay := NewCreateOverlay(CreateOverlayOptions{
+			DefaultParentID:  "ab-001",
+			AvailableParents: []ParentOption{{ID: "ab-001", Display: "ab-001 Test"}},
+		})
+		app.createOverlay = createOverlay
+		app.activeOverlay = OverlayCreate
+		
+		// Press 'n' key - should be passed to overlay, not create new overlay
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
+		result, _ := app.Update(msg)
+		app = result.(*App)
+		
+		// Verify: Still only one overlay, not a new one created
+		if app.activeOverlay != OverlayCreate {
+			t.Error("expected CreateOverlay to remain active")
+		}
+		if app.createOverlay == nil {
+			t.Error("expected createOverlay to still exist")
+		}
+	})
+	
+	t.Run("nKeyWorksNormallyWhenNoOverlayActive", func(t *testing.T) {
+		// Setup app without any overlay
+		node := &graph.Node{Issue: beads.FullIssue{ID: "ab-002", Title: "Test"}}
+		app := &App{
+			visibleRows:   nodesToRows(node),
+			keys:          DefaultKeyMap(),
+			ready:         true,
+			activeOverlay: OverlayNone,
+		}
+		
+		// Press 'n' key - should create new overlay
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
+		result, _ := app.Update(msg)
+		app = result.(*App)
+		
+		// Verify: CreateOverlay was created
+		if app.activeOverlay != OverlayCreate {
+			t.Error("expected CreateOverlay to be active")
+		}
+		if app.createOverlay == nil {
+			t.Error("expected createOverlay to be created")
+		}
+	})
+	
+	t.Run("sKeyIgnoredWhenCreateOverlayActive", func(t *testing.T) {
+		// Setup app with create overlay active
+		node := &graph.Node{Issue: beads.FullIssue{ID: "ab-003", Title: "Test", Status: "open"}}
+		app := &App{
+			visibleRows: nodesToRows(node),
+			keys:        DefaultKeyMap(),
+			ready:       true,
+		}
+		
+		// Create overlay
+		createOverlay := NewCreateOverlay(CreateOverlayOptions{})
+		app.createOverlay = createOverlay
+		app.activeOverlay = OverlayCreate
+		
+		// Press 's' key - should be passed to overlay, not open status overlay
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}
+		result, _ := app.Update(msg)
+		app = result.(*App)
+		
+		// Verify: Still in CreateOverlay, not StatusOverlay
+		if app.activeOverlay != OverlayCreate {
+			t.Error("expected CreateOverlay to remain active")
+		}
+		if app.statusOverlay != nil {
+			t.Error("expected statusOverlay to not be created")
+		}
+	})
+	
+	t.Run("CapitalLKeyIgnoredWhenCreateOverlayActive", func(t *testing.T) {
+		// Setup app with create overlay active
+		node := &graph.Node{Issue: beads.FullIssue{ID: "ab-004", Title: "Test", Labels: []string{"test"}}}
+		app := &App{
+			visibleRows: nodesToRows(node),
+			keys:        DefaultKeyMap(),
+			ready:       true,
+		}
+		
+		// Create overlay
+		createOverlay := NewCreateOverlay(CreateOverlayOptions{})
+		app.createOverlay = createOverlay
+		app.activeOverlay = OverlayCreate
+		
+		// Press 'L' key - should be passed to overlay, not open labels overlay
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'L'}}
+		result, _ := app.Update(msg)
+		app = result.(*App)
+		
+		// Verify: Still in CreateOverlay, not LabelsOverlay
+		if app.activeOverlay != OverlayCreate {
+			t.Error("expected CreateOverlay to remain active")
+		}
+		if app.labelsOverlay != nil {
+			t.Error("expected labelsOverlay to not be created")
+		}
+	})
+	
+	t.Run("xKeyIgnoredWhenCreateOverlayActive", func(t *testing.T) {
+		// Setup app with create overlay active and mock client
+		node := &graph.Node{Issue: beads.FullIssue{ID: "ab-005", Title: "Test", Status: "open"}}
+		mock := beads.NewMockClient()
+		app := &App{
+			visibleRows: nodesToRows(node),
+			keys:        DefaultKeyMap(),
+			ready:       true,
+			client:      mock,
+		}
+		
+		// Create overlay
+		createOverlay := NewCreateOverlay(CreateOverlayOptions{})
+		app.createOverlay = createOverlay
+		app.activeOverlay = OverlayCreate
+		
+		// Press 'x' key - should be passed to overlay, not trigger close
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}
+		result, _ := app.Update(msg)
+		app = result.(*App)
+		
+		// Verify: Still in CreateOverlay, close was not triggered
+		if app.activeOverlay != OverlayCreate {
+			t.Error("expected CreateOverlay to remain active")
+		}
+		// No way to directly check if close wasn't called, but overlay remaining active is sufficient
+	})
+	
+	t.Run("StatusOverlayBlocksGlobalHotkeys", func(t *testing.T) {
+		// Setup app with status overlay active
+		node := &graph.Node{Issue: beads.FullIssue{ID: "ab-006", Title: "Test", Status: "open"}}
+		app := &App{
+			visibleRows: nodesToRows(node),
+			keys:        DefaultKeyMap(),
+			ready:       true,
+		}
+		
+		// Create status overlay
+		statusOverlay := NewStatusOverlay("ab-006", "Test", "open")
+		app.statusOverlay = statusOverlay
+		app.activeOverlay = OverlayStatus
+		
+		// Press 'n' key - should be passed to overlay, not create new bead overlay
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
+		result, _ := app.Update(msg)
+		app = result.(*App)
+		
+		// Verify: Still in StatusOverlay, CreateOverlay not created
+		if app.activeOverlay != OverlayStatus {
+			t.Error("expected StatusOverlay to remain active")
+		}
+		if app.createOverlay != nil {
+			t.Error("expected createOverlay to not be created")
+		}
+	})
+	
+	t.Run("LabelsOverlayBlocksGlobalHotkeys", func(t *testing.T) {
+		// Setup app with labels overlay active
+		node := &graph.Node{Issue: beads.FullIssue{ID: "ab-007", Title: "Test", Labels: []string{"existing"}}}
+		app := &App{
+			visibleRows: nodesToRows(node),
+			keys:        DefaultKeyMap(),
+			ready:       true,
+			roots:       []*graph.Node{node},
+		}
+		
+		// Create labels overlay
+		labelsOverlay := NewLabelsOverlay("ab-007", []string{"existing"}, []string{"existing", "other"})
+		app.labelsOverlay = labelsOverlay
+		app.activeOverlay = OverlayLabels
+		
+		// Press 'n' key - should be passed to overlay, not create new bead overlay
+		msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
+		result, _ := app.Update(msg)
+		app = result.(*App)
+		
+		// Verify: Still in LabelsOverlay, CreateOverlay not created
+		if app.activeOverlay != OverlayLabels {
+			t.Error("expected LabelsOverlay to remain active")
+		}
+		if app.createOverlay != nil {
+			t.Error("expected createOverlay to not be created")
+		}
+	})
+}

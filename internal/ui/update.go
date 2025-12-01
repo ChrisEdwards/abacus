@@ -298,6 +298,23 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		// Delegate to overlays BEFORE global keys (overlays get priority)
+		// This prevents global hotkeys from interfering with text input
+		if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
+			m.statusOverlay, cmd = m.statusOverlay.Update(msg)
+			return m, cmd
+		}
+
+		if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
+			m.labelsOverlay, cmd = m.labelsOverlay.Update(msg)
+			return m, cmd
+		}
+
+		if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+			m.createOverlay, cmd = m.createOverlay.Update(msg)
+			return m, cmd
+		}
+
 		if handled, detailCmd := m.handleDetailNavigationKey(msg); handled {
 			return m, detailCmd
 		}
@@ -467,23 +484,6 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport, cmd = m.viewport.Update(msg)
 			return m, cmd
 		}
-	}
-
-	// Delegate to overlays after processing background messages
-	// This allows auto-refresh to continue even when overlays are open
-	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
-		m.statusOverlay, cmd = m.statusOverlay.Update(msg)
-		return m, cmd
-	}
-
-	if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
-		m.labelsOverlay, cmd = m.labelsOverlay.Update(msg)
-		return m, cmd
-	}
-
-	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-		m.createOverlay, cmd = m.createOverlay.Update(msg)
-		return m, cmd
 	}
 
 	return m, cmd
