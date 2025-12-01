@@ -202,8 +202,8 @@ func (c ComboBox) handleBrowsingKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 		return c.selectHighlighted()
 
 	case tea.KeyTab:
-		newC, _ := c.selectHighlighted()
-		return newC, nil
+		// Return the cmd to allow toast notifications for new values
+		return c.selectHighlighted()
 
 	case tea.KeyEsc:
 		// Close dropdown
@@ -245,8 +245,8 @@ func (c ComboBox) handleFilteringKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 		return c.selectHighlightedOrNew()
 
 	case tea.KeyTab:
-		newC, _ := c.selectHighlightedOrNew()
-		return newC, nil
+		// Return the cmd to allow toast notifications for new values
+		return c.selectHighlightedOrNew()
 
 	case tea.KeyEsc:
 		// First Esc: close dropdown, keep typed text

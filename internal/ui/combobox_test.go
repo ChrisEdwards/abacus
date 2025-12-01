@@ -241,6 +241,94 @@ func TestComboBoxSelection(t *testing.T) {
 		}
 	})
 
+	t.Run("TabReturnsCommand", func(t *testing.T) {
+		options := []string{"Alice", "Bob", "Carlos"}
+		cb := NewComboBox(options)
+		cb.Focus()
+
+		// Open dropdown
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+		// Navigate to Bob
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		// Press Tab - should return ComboBoxValueSelectedMsg
+		var cmd tea.Cmd
+		cb, cmd = cb.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+		if cb.Value() != "Bob" {
+			t.Errorf("expected value 'Bob', got '%s'", cb.Value())
+		}
+		if cmd == nil {
+			t.Fatal("expected command to be returned from Tab")
+		}
+		msg := cmd()
+		selected, ok := msg.(ComboBoxValueSelectedMsg)
+		if !ok {
+			t.Fatalf("expected ComboBoxValueSelectedMsg, got %T", msg)
+		}
+		if selected.Value != "Bob" {
+			t.Errorf("expected selected value 'Bob', got '%s'", selected.Value)
+		}
+	})
+
+	t.Run("TabWithFilteringReturnsCommand", func(t *testing.T) {
+		options := []string{"Alice", "Bob"}
+		cb := NewComboBox(options).WithAllowNew(true, "New: %s")
+		cb.Focus()
+
+		// Type to filter
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'A'}})
+
+		// Press Tab - should select Alice and return command
+		var cmd tea.Cmd
+		cb, cmd = cb.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+		if cb.Value() != "Alice" {
+			t.Errorf("expected value 'Alice', got '%s'", cb.Value())
+		}
+		if cmd == nil {
+			t.Fatal("expected command to be returned")
+		}
+		msg := cmd()
+		selected, ok := msg.(ComboBoxValueSelectedMsg)
+		if !ok {
+			t.Fatalf("expected ComboBoxValueSelectedMsg, got %T", msg)
+		}
+		if selected.IsNew {
+			t.Error("expected IsNew to be false for existing option")
+		}
+	})
+
+	t.Run("TabWithNoMatchCreatesNew", func(t *testing.T) {
+		options := []string{"Alice", "Bob"}
+		cb := NewComboBox(options).WithAllowNew(true, "New: %s")
+		cb.Focus()
+
+		// Type new value with no match
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Z'}})
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+
+		// Press Tab - should create new value
+		var cmd tea.Cmd
+		cb, cmd = cb.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+		if cb.Value() != "Zed" {
+			t.Errorf("expected value 'Zed', got '%s'", cb.Value())
+		}
+		if cmd == nil {
+			t.Fatal("expected command to be returned")
+		}
+		msg := cmd()
+		selected, ok := msg.(ComboBoxValueSelectedMsg)
+		if !ok {
+			t.Fatalf("expected ComboBoxValueSelectedMsg, got %T", msg)
+		}
+		if !selected.IsNew {
+			t.Error("expected IsNew to be true for new value")
+		}
+	})
+
 	t.Run("SelectionPreservesValue", func(t *testing.T) {
 		options := []string{"Alice", "Bob", "Carlos"}
 		cb := NewComboBox(options)

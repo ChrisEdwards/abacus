@@ -306,9 +306,8 @@ func (m *CreateOverlay) handleSubmit(_ bool) (*CreateOverlay, tea.Cmd) {
 func (m *CreateOverlay) handleTab() (*CreateOverlay, tea.Cmd) {
 	var cmds []tea.Cmd
 
-	// Close any open dropdowns
+	// Close parent dropdown (assignee is handled in its case to allow Tab commit)
 	m.parentCombo.Blur()
-	m.assigneeCombo.Blur()
 
 	// Tab order: Title -> Type -> Priority -> Labels -> Assignee -> (wrap to Title)
 	switch m.focus {
@@ -332,6 +331,21 @@ func (m *CreateOverlay) handleTab() (*CreateOverlay, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 	case FocusAssignee:
+		// Let ComboBox process Tab to commit any pending value (spec Section 6)
+		var cmd tea.Cmd
+		m.assigneeCombo, cmd = m.assigneeCombo.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+		// Process value selection inline to capture new assignee toast
+		// (focus will have moved by the time the msg would normally be processed)
+		if cmd != nil {
+			msg := cmd()
+			if vsm, ok := msg.(ComboBoxValueSelectedMsg); ok && vsm.IsNew {
+				cmds = append(cmds, func() tea.Msg {
+					return NewAssigneeAddedMsg{Assignee: vsm.Value}
+				})
+			}
+		}
+
 		m.assigneeCombo.Blur()
 		m.focus = FocusTitle
 		cmds = append(cmds, m.titleInput.Focus())
