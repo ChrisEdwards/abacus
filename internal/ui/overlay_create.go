@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -124,7 +124,7 @@ type CreateOverlay struct {
 	parentOriginal  string // Value when Parent field focused, for Esc revert (spec Section 12)
 
 	// Zone 2: Title (hero element)
-	titleInput           textarea.Model
+	titleInput           textinput.Model
 	titleValidationError bool // True when flashing red for validation
 	hasBackendError      bool // True when backend error occurred (for ESC handling)
 
@@ -189,13 +189,11 @@ type CreateOverlayOptions struct {
 
 // NewCreateOverlay creates a new 5-zone create overlay.
 func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
-	// Zone 2: Title input (hero element) - uses textarea for proper wrapping
-	ti := textarea.New()
+	// Zone 2: Title input (hero element) - uses textinput with custom wrapping in View
+	ti := textinput.New()
 	ti.Placeholder = ""
 	ti.CharLimit = 100
-	ti.SetWidth(44)
-	ti.SetHeight(3) // Allow 3 lines for wrapping long titles
-	ti.ShowLineNumbers = false
+	ti.Width = 42 // Slightly narrower to account for cursor
 
 	// Zone 1: Parent combo box
 	parentDisplays := make([]string, len(opts.AvailableParents))
@@ -263,7 +261,7 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 
 // Init implements tea.Model.
 func (m *CreateOverlay) Init() tea.Cmd {
-	return textarea.Blink
+	return textinput.Blink
 }
 
 // Update implements tea.Model.
@@ -798,6 +796,38 @@ var (
 				Foreground(lipgloss.Color("239"))
 )
 
+// wrapText wraps text at the given width, breaking on word boundaries.
+func wrapText(text string, width int) string {
+	if len(text) <= width {
+		return text
+	}
+
+	var result strings.Builder
+	words := strings.Fields(text)
+	lineLen := 0
+
+	for i, word := range words {
+		wordLen := len(word)
+		if lineLen+wordLen > width && lineLen > 0 {
+			result.WriteString("\n")
+			lineLen = 0
+		}
+		if lineLen > 0 {
+			result.WriteString(" ")
+			lineLen++
+		}
+		result.WriteString(word)
+		lineLen += wordLen
+
+		// Handle very long words that exceed width
+		if lineLen > width && i < len(words)-1 {
+			result.WriteString("\n")
+			lineLen = 0
+		}
+	}
+	return result.String()
+}
+
 // View implements tea.Model - 5-zone HUD layout per spec Section 3.
 func (m *CreateOverlay) View() string {
 	var b strings.Builder
@@ -852,9 +882,21 @@ func (m *CreateOverlay) View() string {
 	if m.titleValidationError {
 		titleStyle = styleCreateInputError
 	}
-	titleView := titleStyle.Render(m.titleInput.View())
+
+	// Render title with word wrapping (max width ~40 to fit in border)
+	titleText := m.titleInput.Value()
+	wrappedTitle := wrapText(titleText, 40)
+	if m.focus == FocusTitle {
+		// Add cursor when focused
+		if titleText == "" {
+			wrappedTitle = "│" // Cursor only
+		} else {
+			wrappedTitle += "│"
+		}
+	}
+	titleView := titleStyle.Render(wrappedTitle)
 	if parentSearchActive {
-		titleView = styleCreateDimmed.Render(m.titleInput.View())
+		titleView = styleCreateDimmed.Render(wrappedTitle)
 	}
 	b.WriteString(titleView)
 
