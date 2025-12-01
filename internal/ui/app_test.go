@@ -2810,3 +2810,361 @@ func TestHelpOverlayInView(t *testing.T) {
 		t.Error("expected view to contain 'NAVIGATION' section when help is shown")
 	}
 }
+
+// Toast Tests for ab-1t3
+
+func TestNewLabelToastDisplay(t *testing.T) {
+	t.Run("NewLabelAddedMsgTriggersToast", func(t *testing.T) {
+		app := &App{
+			ready: true,
+			roots: []*graph.Node{},
+		}
+
+		// Send NewLabelAddedMsg
+		msg := NewLabelAddedMsg{Label: "test-label"}
+		model, cmd := app.Update(msg)
+
+		app = model.(*App)
+
+		// Verify toast is visible
+		if !app.newLabelToastVisible {
+			t.Error("expected newLabelToastVisible to be true")
+		}
+
+		// Verify label name is set
+		if app.newLabelToastLabel != "test-label" {
+			t.Errorf("expected label 'test-label', got '%s'", app.newLabelToastLabel)
+		}
+
+		// Verify toast start time is recent (within last second)
+		if time.Since(app.newLabelToastStart) > time.Second {
+			t.Error("expected newLabelToastStart to be recent")
+		}
+
+		// Verify tick scheduler was returned
+		if cmd == nil {
+			t.Error("expected command to schedule toast tick")
+		}
+	})
+}
+
+func TestNewLabelToastTimeout(t *testing.T) {
+	t.Run("ToastClearsAfter3Seconds", func(t *testing.T) {
+		app := &App{
+			ready:                 true,
+			roots:                 []*graph.Node{},
+			newLabelToastVisible:  true,
+			newLabelToastLabel:    "test-label",
+			newLabelToastStart:    time.Now().Add(-4 * time.Second), // 4 seconds ago
+		}
+
+		// Send tick message
+		msg := newLabelToastTickMsg{}
+		model, cmd := app.Update(msg)
+
+		app = model.(*App)
+
+		// Verify toast is cleared
+		if app.newLabelToastVisible {
+			t.Error("expected newLabelToastVisible to be false after timeout")
+		}
+
+		// Verify no further ticks scheduled
+		if cmd != nil {
+			t.Error("expected no command after toast cleared")
+		}
+	})
+
+	t.Run("ToastRemainsVisibleBefore3Seconds", func(t *testing.T) {
+		app := &App{
+			ready:                 true,
+			roots:                 []*graph.Node{},
+			newLabelToastVisible:  true,
+			newLabelToastLabel:    "test-label",
+			newLabelToastStart:    time.Now().Add(-1 * time.Second), // 1 second ago
+		}
+
+		// Send tick message
+		msg := newLabelToastTickMsg{}
+		model, cmd := app.Update(msg)
+
+		app = model.(*App)
+
+		// Verify toast is still visible
+		if !app.newLabelToastVisible {
+			t.Error("expected newLabelToastVisible to remain true before timeout")
+		}
+
+		// Verify tick is rescheduled
+		if cmd == nil {
+			t.Error("expected command to reschedule toast tick")
+		}
+	})
+
+	t.Run("TickHandlerReturnsEarlyWhenNotVisible", func(t *testing.T) {
+		app := &App{
+			ready:                 true,
+			roots:                 []*graph.Node{},
+			newLabelToastVisible:  false,
+			newLabelToastLabel:    "",
+		}
+
+		// Send tick message when toast not visible
+		msg := newLabelToastTickMsg{}
+		model, cmd := app.Update(msg)
+
+		app = model.(*App)
+
+		// Verify no command returned
+		if cmd != nil {
+			t.Error("expected no command when toast not visible")
+		}
+	})
+}
+
+func TestNewAssigneeToastDisplay(t *testing.T) {
+	t.Run("NewAssigneeAddedMsgTriggersToast", func(t *testing.T) {
+		app := &App{
+			ready: true,
+			roots: []*graph.Node{},
+		}
+
+		// Send NewAssigneeAddedMsg
+		msg := NewAssigneeAddedMsg{Assignee: "test-user"}
+		model, cmd := app.Update(msg)
+
+		app = model.(*App)
+
+		// Verify toast is visible
+		if !app.newAssigneeToastVisible {
+			t.Error("expected newAssigneeToastVisible to be true")
+		}
+
+		// Verify assignee name is set
+		if app.newAssigneeToastAssignee != "test-user" {
+			t.Errorf("expected assignee 'test-user', got '%s'", app.newAssigneeToastAssignee)
+		}
+
+		// Verify toast start time is recent
+		if time.Since(app.newAssigneeToastStart) > time.Second {
+			t.Error("expected newAssigneeToastStart to be recent")
+		}
+
+		// Verify tick scheduler was returned
+		if cmd == nil {
+			t.Error("expected command to schedule toast tick")
+		}
+	})
+}
+
+func TestNewAssigneeToastTimeout(t *testing.T) {
+	t.Run("ToastClearsAfter3Seconds", func(t *testing.T) {
+		app := &App{
+			ready:                    true,
+			roots:                    []*graph.Node{},
+			newAssigneeToastVisible:  true,
+			newAssigneeToastAssignee: "test-user",
+			newAssigneeToastStart:    time.Now().Add(-4 * time.Second), // 4 seconds ago
+		}
+
+		// Send tick message
+		msg := newAssigneeToastTickMsg{}
+		model, cmd := app.Update(msg)
+
+		app = model.(*App)
+
+		// Verify toast is cleared
+		if app.newAssigneeToastVisible {
+			t.Error("expected newAssigneeToastVisible to be false after timeout")
+		}
+
+		// Verify no further ticks scheduled
+		if cmd != nil {
+			t.Error("expected no command after toast cleared")
+		}
+	})
+
+	t.Run("ToastRemainsVisibleBefore3Seconds", func(t *testing.T) {
+		app := &App{
+			ready:                    true,
+			roots:                    []*graph.Node{},
+			newAssigneeToastVisible:  true,
+			newAssigneeToastAssignee: "test-user",
+			newAssigneeToastStart:    time.Now().Add(-1 * time.Second), // 1 second ago
+		}
+
+		// Send tick message
+		msg := newAssigneeToastTickMsg{}
+		model, cmd := app.Update(msg)
+
+		app = model.(*App)
+
+		// Verify toast is still visible
+		if !app.newAssigneeToastVisible {
+			t.Error("expected newAssigneeToastVisible to remain true before timeout")
+		}
+
+		// Verify tick is rescheduled
+		if cmd == nil {
+			t.Error("expected command to reschedule toast tick")
+		}
+	})
+
+	t.Run("TickHandlerReturnsEarlyWhenNotVisible", func(t *testing.T) {
+		app := &App{
+			ready:                    true,
+			roots:                    []*graph.Node{},
+			newAssigneeToastVisible:  false,
+			newAssigneeToastAssignee: "",
+		}
+
+		// Send tick message when toast not visible
+		msg := newAssigneeToastTickMsg{}
+		model, cmd := app.Update(msg)
+
+		app = model.(*App)
+
+		// Verify no command returned
+		if cmd != nil {
+			t.Error("expected no command when toast not visible")
+		}
+	})
+}
+
+func TestToastRendering(t *testing.T) {
+	t.Run("RenderNewLabelToastReturnsEmptyWhenNotVisible", func(t *testing.T) {
+		app := &App{
+			newLabelToastVisible: false,
+		}
+
+		result := app.renderNewLabelToast()
+
+		if result != "" {
+			t.Error("expected empty string when toast not visible")
+		}
+	})
+
+	t.Run("RenderNewLabelToastReturnsEmptyWhenLabelEmpty", func(t *testing.T) {
+		app := &App{
+			newLabelToastVisible: true,
+			newLabelToastLabel:   "",
+		}
+
+		result := app.renderNewLabelToast()
+
+		if result != "" {
+			t.Error("expected empty string when label is empty")
+		}
+	})
+
+	t.Run("RenderNewLabelToastReturnsFormattedToast", func(t *testing.T) {
+		app := &App{
+			newLabelToastVisible: true,
+			newLabelToastLabel:   "test-label",
+			newLabelToastStart:   time.Now(),
+		}
+
+		result := app.renderNewLabelToast()
+
+		if result == "" {
+			t.Error("expected non-empty toast when visible")
+		}
+
+		// Check for label name in output
+		if !strings.Contains(result, "test-label") {
+			t.Error("expected toast to contain label name")
+		}
+
+		// Check for checkmark symbol
+		if !strings.Contains(result, "✓") {
+			t.Error("expected toast to contain checkmark")
+		}
+
+		// Check for "New Label Added" text
+		if !strings.Contains(result, "New Label Added") {
+			t.Error("expected toast to contain 'New Label Added' text")
+		}
+	})
+
+	t.Run("RenderNewLabelToastReturnsEmptyAfterTimeout", func(t *testing.T) {
+		app := &App{
+			newLabelToastVisible: true,
+			newLabelToastLabel:   "test-label",
+			newLabelToastStart:   time.Now().Add(-4 * time.Second), // 4 seconds ago
+		}
+
+		result := app.renderNewLabelToast()
+
+		if result != "" {
+			t.Error("expected empty string when toast has timed out")
+		}
+	})
+
+	t.Run("RenderNewAssigneeToastReturnsEmptyWhenNotVisible", func(t *testing.T) {
+		app := &App{
+			newAssigneeToastVisible: false,
+		}
+
+		result := app.renderNewAssigneeToast()
+
+		if result != "" {
+			t.Error("expected empty string when toast not visible")
+		}
+	})
+
+	t.Run("RenderNewAssigneeToastReturnsEmptyWhenAssigneeEmpty", func(t *testing.T) {
+		app := &App{
+			newAssigneeToastVisible: true,
+			newAssigneeToastAssignee: "",
+		}
+
+		result := app.renderNewAssigneeToast()
+
+		if result != "" {
+			t.Error("expected empty string when assignee is empty")
+		}
+	})
+
+	t.Run("RenderNewAssigneeToastReturnsFormattedToast", func(t *testing.T) {
+		app := &App{
+			newAssigneeToastVisible:  true,
+			newAssigneeToastAssignee: "test-user",
+			newAssigneeToastStart:    time.Now(),
+		}
+
+		result := app.renderNewAssigneeToast()
+
+		if result == "" {
+			t.Error("expected non-empty toast when visible")
+		}
+
+		// Check for assignee name in output
+		if !strings.Contains(result, "test-user") {
+			t.Error("expected toast to contain assignee name")
+		}
+
+		// Check for checkmark symbol
+		if !strings.Contains(result, "✓") {
+			t.Error("expected toast to contain checkmark")
+		}
+
+		// Check for "New Assignee Added" text
+		if !strings.Contains(result, "New Assignee Added") {
+			t.Error("expected toast to contain 'New Assignee Added' text")
+		}
+	})
+
+	t.Run("RenderNewAssigneeToastReturnsEmptyAfterTimeout", func(t *testing.T) {
+		app := &App{
+			newAssigneeToastVisible:  true,
+			newAssigneeToastAssignee: "test-user",
+			newAssigneeToastStart:    time.Now().Add(-4 * time.Second), // 4 seconds ago
+		}
+
+		result := app.renderNewAssigneeToast()
+
+		if result != "" {
+			t.Error("expected empty string when toast has timed out")
+		}
+	})
+}
