@@ -380,12 +380,13 @@ func (c ComboBox) View() string {
 	var inputView string
 	ghostText := c.GhostText()
 	if ghostText != "" && c.focused {
-		// Build custom view with ghost text inline after typed text
-		// Format: "> typed_text" + ghost_text (grey) + cursor
+		// Build custom view with ghost text after cursor
+		// Format: "> typed_text" + cursor + ghost_text (grey)
+		// Cursor stays at typing position, ghost text shows completion preview
 		typed := c.textInput.Value()
 		prompt := "> "
 		cursor := "█" // Block cursor when focused
-		inputView = prompt + typed + styleGhostText.Render(ghostText) + cursor
+		inputView = prompt + typed + cursor + styleGhostText.Render(ghostText)
 	} else {
 		inputView = c.textInput.View()
 	}
