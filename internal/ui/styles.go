@@ -59,7 +59,7 @@ func styleID() lipgloss.Style {
 func styleSelected() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Background(theme.Current().BackgroundSecondary()).
-		Foreground(theme.Current().Text()).
+		Foreground(theme.Current().Primary()).
 		Bold(true)
 }
 
@@ -74,7 +74,7 @@ func styleCrossHighlight() lipgloss.Style {
 
 func styleAppHeader() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Foreground(theme.Current().Primary()).
+		Foreground(theme.Current().Accent()).
 		Background(theme.Current().BackgroundSecondary()).
 		Bold(true).
 		Padding(0, 1)
@@ -216,7 +216,7 @@ func styleHelpUnderline() lipgloss.Style {
 
 func styleHelpKey() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Foreground(theme.Current().Secondary()).
+		Foreground(theme.Current().Accent()).
 		Bold(true)
 }
 
@@ -236,7 +236,7 @@ func styleHelpFooter() lipgloss.Style {
 func styleKeyPill() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Background(theme.Current().BackgroundSecondary()).
-		Foreground(theme.Current().Primary()).
+		Foreground(theme.Current().Accent()).
 		Bold(true)
 }
 
@@ -278,7 +278,7 @@ func styleStatusOption() lipgloss.Style {
 
 func styleStatusSelected() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Foreground(theme.Current().Secondary()).
+		Foreground(theme.Current().Primary()).
 		Bold(true)
 }
 
