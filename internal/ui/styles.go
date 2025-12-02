@@ -97,6 +97,7 @@ func stylePane() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(theme.Current().BorderNormal()).
+		BorderBackground(theme.Current().Background()).
 		Background(theme.Current().Background())
 }
 
@@ -104,6 +105,7 @@ func stylePaneFocused() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder()).
 		BorderForeground(theme.Current().BorderFocused()).
+		BorderBackground(theme.Current().Background()).
 		Background(theme.Current().Background())
 }
 
