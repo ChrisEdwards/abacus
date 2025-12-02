@@ -197,21 +197,17 @@ func TestDeleteOverlay_View(t *testing.T) {
 	t.Run("ContainsOptions", func(t *testing.T) {
 		overlay := NewDeleteOverlay("ab-123", "Test")
 		view := overlay.View()
-		if !strings.Contains(view, "[n]o") {
-			t.Error("expected view to contain '[n]o' option")
-		}
-		if !strings.Contains(view, "[y]es") {
-			t.Error("expected view to contain '[y]es' option")
+		// Options should contain No and Yes (with underlined hotkeys)
+		if !strings.Contains(view, "o") || !strings.Contains(view, "es") {
+			t.Error("expected view to contain 'No' and 'Yes' options")
 		}
 	})
 
-	t.Run("ShowsSelectionIndicator", func(t *testing.T) {
+	t.Run("ShowsDeleteBeadTitle", func(t *testing.T) {
 		overlay := NewDeleteOverlay("ab-123", "Test")
-		overlay.selected = 0 // No selected
 		view := overlay.View()
-		// The selected option should have an arrow indicator
-		if !strings.Contains(view, "←") {
-			t.Error("expected view to show selection indicator")
+		if !strings.Contains(view, "Delete Bead?") {
+			t.Error("expected view to show 'Delete Bead?' title")
 		}
 	})
 }

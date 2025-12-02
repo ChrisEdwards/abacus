@@ -76,20 +76,39 @@ func (m *DeleteOverlay) View() string {
 
 	var b strings.Builder
 
-	// Header: ab-xxx › Delete
-	header := styleID.Render(m.issueID) + styleStatsDim.Render(" › ") + styleErrorIndicator.Render("Delete")
-	b.WriteString(header)
+	// Title: "Delete Bead?" centered
+	title := styleErrorIndicator.Render("Delete Bead?")
+	titlePadding := (maxWidth - 12) / 2 // "Delete Bead?" is 12 chars
+	b.WriteString(strings.Repeat(" ", titlePadding))
+	b.WriteString(title)
 	b.WriteString("\n")
 
-	// Divider - match content width
-	dividerWidth := maxWidth
-	divider := styleStatusDivider.Render(strings.Repeat("─", dividerWidth))
+	// Divider
+	divider := styleStatusDivider.Render(strings.Repeat("─", maxWidth))
 	b.WriteString(divider)
 	b.WriteString("\n")
 
-	// Title with word wrapping
-	wrappedTitle := wrapText(m.issueTitle, maxWidth)
-	b.WriteString(styleNormalText.Render(wrappedTitle))
+	// Bead info: icon + ID + title (like tree view)
+	icon := "○" // Open status icon
+	beadLine := styleIconOpen.Render(icon) + " " + styleID.Render(m.issueID) + "  " + styleNormalText.Render(m.issueTitle)
+
+	// Wrap if too long
+	if len(m.issueID)+len(m.issueTitle)+4 > maxWidth {
+		// Show ID on first line, wrapped title below
+		b.WriteString(styleIconOpen.Render(icon) + " " + styleID.Render(m.issueID))
+		b.WriteString("\n")
+		wrappedTitle := wrapText(m.issueTitle, maxWidth-2)
+		// Indent continuation lines
+		for i, line := range strings.Split(wrappedTitle, "\n") {
+			if i == 0 {
+				b.WriteString("  " + styleNormalText.Render(line))
+			} else {
+				b.WriteString("\n  " + styleNormalText.Render(line))
+			}
+		}
+	} else {
+		b.WriteString(beadLine)
+	}
 	b.WriteString("\n\n")
 
 	// Warning message
@@ -97,22 +116,25 @@ func (m *DeleteOverlay) View() string {
 	b.WriteString(warning)
 	b.WriteString("\n\n")
 
-	// Options: [n]o  [y]es
-	noLabel := "[n]o"
-	yesLabel := "[y]es"
+	// Centered options with underlined hotkey letters (N and Y)
+	// Use lipgloss Underline for the hotkey letter
 
+	var noLabel, yesLabel string
 	if m.selected == 0 {
-		noLabel = styleStatusSelected.Render(noLabel + " ←")
-		yesLabel = styleStatusOption.Render(yesLabel)
+		// No selected - fully highlighted, N underlined
+		noLabel = styleStatusSelected.Copy().Underline(true).Render("N") + styleStatusSelected.Render("o")
+		yesLabel = styleStatsDim.Copy().Underline(true).Render("Y") + styleStatsDim.Render("es")
 	} else {
-		noLabel = styleStatusOption.Render(noLabel)
-		yesLabel = styleErrorIndicator.Render(yesLabel + " ←")
+		// Yes selected - highlighted in red, Y underlined
+		noLabel = styleStatsDim.Copy().Underline(true).Render("N") + styleStatsDim.Render("o")
+		yesLabel = styleErrorIndicator.Copy().Underline(true).Render("Y") + styleErrorIndicator.Render("es")
 	}
 
-	b.WriteString("  ")
-	b.WriteString(noLabel)
-	b.WriteString("    ")
-	b.WriteString(yesLabel)
+	// Center the options (No=2 chars, gap=6 spaces, Yes=3 chars)
+	optionsWidth := 2 + 6 + 3
+	optionsPadding := (maxWidth - optionsWidth) / 2
+	b.WriteString(strings.Repeat(" ", optionsPadding))
+	b.WriteString(noLabel + "      " + yesLabel)
 
 	content := b.String()
 	return styleStatusOverlay.Render(content)
