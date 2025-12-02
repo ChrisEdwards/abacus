@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"abacus/internal/ui/theme"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -748,53 +750,70 @@ func (m *CreateOverlay) prepareForNextEntry() tea.Cmd {
 }
 
 // Styles for the create overlay
-var (
-	styleCreateLabel = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("241")).
-				MarginRight(1)
 
-	styleCreatePill = lipgloss.NewStyle().
-				Padding(0, 1).
-				Foreground(lipgloss.Color("241"))
+func styleCreateLabel() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().TextMuted()).
+		MarginRight(1)
+}
 
-	styleCreatePillSelected = lipgloss.NewStyle().
-				Padding(0, 1).
-				Bold(true).
-				Foreground(lipgloss.Color("212"))
+func styleCreatePill() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Padding(0, 1).
+		Foreground(theme.Current().TextMuted())
+}
 
-	styleCreatePillFocused = lipgloss.NewStyle().
-				Padding(0, 1).
-				Bold(true).
-				Foreground(lipgloss.Color("86")).
-				Background(lipgloss.Color("236"))
+func styleCreatePillSelected() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Padding(0, 1).
+		Bold(true).
+		Foreground(theme.Current().Primary())
+}
 
-	styleCreateInput = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("236")).
-				Padding(0, 1).
-				Width(44)
+func styleCreatePillFocused() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Padding(0, 1).
+		Bold(true).
+		Foreground(theme.Current().Success()).
+		Background(theme.Current().BorderDim())
+}
 
-	styleCreateInputFocused = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("86")).
-				Padding(0, 1).
-				Width(44)
+func styleCreateInput() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Current().BorderDim()).
+		Padding(0, 1).
+		Width(44)
+}
 
-	// Error state for title validation (spec Section 4.4 - red border flash)
-	styleCreateInputError = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("196")). // Red
-				Padding(0, 1).
-				Width(44)
+func styleCreateInputFocused() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Current().Success()).
+		Padding(0, 1).
+		Width(44)
+}
 
-	styleCreateError = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("196")).
-				Italic(true)
+// Error state for title validation (spec Section 4.4 - red border flash)
+func styleCreateInputError() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Current().Error()).
+		Padding(0, 1).
+		Width(44)
+}
 
-	// Dimmed style for modal depth effect (spec Section 2.4)
-	styleCreateDimmed = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("239"))
-)
+func styleCreateError() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Error()).
+		Italic(true)
+}
+
+// Dimmed style for modal depth effect (spec Section 2.4)
+func styleCreateDimmed() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().BorderNormal())
+}
 
 // wrapText wraps text at the given width, breaking on word boundaries.
 func wrapText(text string, width int) string {
@@ -836,8 +855,8 @@ func (m *CreateOverlay) View() string {
 	parentSearchActive := m.parentCombo.IsDropdownOpen()
 
 	// Header
-	title := styleHelpTitle.Render("NEW BEAD")
-	divider := styleHelpDivider.Render(strings.Repeat("─", 52))
+	title := styleHelpTitle().Render("NEW BEAD")
+	divider := styleHelpDivider().Render(strings.Repeat("─", 52))
 
 	b.WriteString(title)
 	b.WriteString("\n")
@@ -845,42 +864,42 @@ func (m *CreateOverlay) View() string {
 	b.WriteString("\n\n")
 
 	// Zone 1: Parent (anchor at top) - never dimmed
-	parentLabel := styleCreateLabel.Render("PARENT")
+	parentLabel := styleCreateLabel().Render("PARENT")
 	if m.focus == FocusParent {
-		parentLabel = styleHelpSectionHeader.Render("PARENT")
+		parentLabel = styleHelpSectionHeader().Render("PARENT")
 	}
 	b.WriteString(parentLabel)
-	hintStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	hintStyle := lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
 	b.WriteString(hintStyle.Render("                                    Shift+Tab"))
 	b.WriteString("\n")
 
 	// Parent combo box or root indicator
 	if m.isRootMode && m.parentCombo.Value() == "" {
-		rootStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("201")) // Magenta
-		b.WriteString(styleCreateInput.Render(rootStyle.Render("◇ No Parent (Root Item)")))
+		rootStyle := lipgloss.NewStyle().Foreground(theme.Current().Primary())
+		b.WriteString(styleCreateInput().Render(rootStyle.Render("◇ No Parent (Root Item)")))
 	} else {
 		b.WriteString(m.parentCombo.View())
 	}
 	b.WriteString("\n\n")
 
 	// Zone 2: Title (hero element) - dimmed when parent search active
-	titleLabel := styleCreateLabel.Render("TITLE")
+	titleLabel := styleCreateLabel().Render("TITLE")
 	if m.focus == FocusTitle {
-		titleLabel = styleHelpSectionHeader.Render("TITLE")
+		titleLabel = styleHelpSectionHeader().Render("TITLE")
 	}
 	if parentSearchActive {
-		titleLabel = styleCreateDimmed.Render("TITLE")
+		titleLabel = styleCreateDimmed().Render("TITLE")
 	}
 	b.WriteString(titleLabel)
 	b.WriteString("\n")
 
-	titleStyle := styleCreateInput
+	titleStyle := styleCreateInput()
 	if m.focus == FocusTitle {
-		titleStyle = styleCreateInputFocused
+		titleStyle = styleCreateInputFocused()
 	}
 	// Show red border for both validation and backend errors
 	if m.titleValidationError {
-		titleStyle = styleCreateInputError
+		titleStyle = styleCreateInputError()
 	}
 
 	// Render title with word wrapping (max width ~40 to fit in border)
@@ -896,28 +915,18 @@ func (m *CreateOverlay) View() string {
 	}
 	titleView := titleStyle.Render(wrappedTitle)
 	if parentSearchActive {
-		titleView = styleCreateDimmed.Render(wrappedTitle)
+		titleView = styleCreateDimmed().Render(wrappedTitle)
 	}
 	b.WriteString(titleView)
 
 	// Validation hint
 	if m.focus == FocusTitle && strings.TrimSpace(m.titleInput.Value()) == "" {
 		b.WriteString("\n")
-		b.WriteString(styleCreateError.Render("  required"))
+		b.WriteString(styleCreateError().Render("  required"))
 	}
 	b.WriteString("\n\n")
 
-	// Zone 3: Properties (2-column grid) - dimmed when parent search active
-	propsLabel := styleCreateLabel.Render("PROPERTIES")
-	if m.focus == FocusType || m.focus == FocusPriority {
-		propsLabel = styleHelpSectionHeader.Render("PROPERTIES")
-	}
-	if parentSearchActive {
-		propsLabel = styleCreateDimmed.Render("PROPERTIES")
-	}
-	b.WriteString(propsLabel)
-	b.WriteString("\n")
-
+	// Zone 3: Type and Priority (2-column grid) - dimmed when parent search active
 	// Type and Priority columns side-by-side
 	propsGrid := lipgloss.JoinHorizontal(lipgloss.Top,
 		m.renderTypeColumn(),
@@ -925,41 +934,41 @@ func (m *CreateOverlay) View() string {
 		m.renderPriorityColumn(),
 	)
 	if parentSearchActive {
-		propsGrid = styleCreateDimmed.Render(propsGrid)
+		propsGrid = styleCreateDimmed().Render(propsGrid)
 	}
 	b.WriteString(propsGrid)
 	b.WriteString("\n\n")
 
 	// Zone 4: Labels (inline chips) - dimmed when parent search active
-	labelsLabel := styleCreateLabel.Render("LABELS")
+	labelsLabel := styleCreateLabel().Render("LABELS")
 	if m.focus == FocusLabels {
-		labelsLabel = styleHelpSectionHeader.Render("LABELS")
+		labelsLabel = styleHelpSectionHeader().Render("LABELS")
 	}
 	if parentSearchActive {
-		labelsLabel = styleCreateDimmed.Render("LABELS")
+		labelsLabel = styleCreateDimmed().Render("LABELS")
 	}
 	b.WriteString(labelsLabel)
 	b.WriteString("\n")
 	labelsView := m.labelsCombo.View()
 	if parentSearchActive {
-		labelsView = styleCreateDimmed.Render(labelsView)
+		labelsView = styleCreateDimmed().Render(labelsView)
 	}
 	b.WriteString(labelsView)
 	b.WriteString("\n\n")
 
 	// Zone 5: Assignee - dimmed when parent search active
-	assigneeLabel := styleCreateLabel.Render("ASSIGNEE")
+	assigneeLabel := styleCreateLabel().Render("ASSIGNEE")
 	if m.focus == FocusAssignee {
-		assigneeLabel = styleHelpSectionHeader.Render("ASSIGNEE")
+		assigneeLabel = styleHelpSectionHeader().Render("ASSIGNEE")
 	}
 	if parentSearchActive {
-		assigneeLabel = styleCreateDimmed.Render("ASSIGNEE")
+		assigneeLabel = styleCreateDimmed().Render("ASSIGNEE")
 	}
 	b.WriteString(assigneeLabel)
 	b.WriteString("\n")
 	assigneeView := m.assigneeCombo.View()
 	if parentSearchActive {
-		assigneeView = styleCreateDimmed.Render(assigneeView)
+		assigneeView = styleCreateDimmed().Render(assigneeView)
 	}
 	b.WriteString(assigneeView)
 	b.WriteString("\n\n")
@@ -969,7 +978,7 @@ func (m *CreateOverlay) View() string {
 	b.WriteString("\n")
 	b.WriteString(m.renderFooter())
 
-	return styleHelpOverlay.Render(b.String())
+	return styleHelpOverlay().Render(b.String())
 }
 
 // underlineFirstChar adds a combining underline (U+0332) after the first character.
@@ -987,13 +996,13 @@ func (m *CreateOverlay) renderTypeColumn() string {
 	var b strings.Builder
 
 	// Column header
-	headerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	headerStyle := lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
 	if m.focus == FocusType {
-		headerStyle = lipgloss.NewStyle().Foreground(cCyan).Bold(true)
+		headerStyle = lipgloss.NewStyle().Foreground(theme.Current().Secondary()).Bold(true)
 	}
 	// Add flash animation when type was auto-inferred (spec Section 5)
 	if m.typeInferenceActive {
-		headerStyle = lipgloss.NewStyle().Foreground(cOrange).Bold(true)
+		headerStyle = lipgloss.NewStyle().Foreground(theme.Current().Warning()).Bold(true)
 	}
 	b.WriteString(headerStyle.Render("TYPE"))
 	b.WriteString("\n")
@@ -1001,16 +1010,16 @@ func (m *CreateOverlay) renderTypeColumn() string {
 	// Options
 	for i, label := range typeLabels {
 		prefix := "  "
-		style := styleCreatePill
+		style := styleCreatePill()
 		displayLabel := label
 		if i == m.typeIndex {
 			prefix = "► "
 			if m.focus == FocusType {
-				style = styleCreatePillFocused
+				style = styleCreatePillFocused()
 				// Underline hotkey letter when focused (spec Section 3.3)
 				displayLabel = underlineFirstChar(label)
 			} else {
-				style = styleCreatePillSelected
+				style = styleCreatePillSelected()
 			}
 		} else if m.focus == FocusType {
 			// Underline hotkey letter for all options when column is focused
@@ -1029,9 +1038,9 @@ func (m *CreateOverlay) renderPriorityColumn() string {
 	var b strings.Builder
 
 	// Column header
-	headerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	headerStyle := lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
 	if m.focus == FocusPriority {
-		headerStyle = lipgloss.NewStyle().Foreground(cCyan).Bold(true)
+		headerStyle = lipgloss.NewStyle().Foreground(theme.Current().Secondary()).Bold(true)
 	}
 	b.WriteString(headerStyle.Render("PRIORITY"))
 	b.WriteString("\n")
@@ -1039,16 +1048,16 @@ func (m *CreateOverlay) renderPriorityColumn() string {
 	// Options
 	for i, label := range priorityLabels {
 		prefix := "  "
-		style := styleCreatePill
+		style := styleCreatePill()
 		displayLabel := label
 		if i == m.priorityIndex {
 			prefix = "► "
 			if m.focus == FocusPriority {
-				style = styleCreatePillFocused
+				style = styleCreatePillFocused()
 				// Underline hotkey letter when focused (spec Section 3.3)
 				displayLabel = underlineFirstChar(label)
 			} else {
-				style = styleCreatePillSelected
+				style = styleCreatePillSelected()
 			}
 		} else if m.focus == FocusPriority {
 			// Underline hotkey letter for all options when column is focused
@@ -1065,23 +1074,44 @@ func (m *CreateOverlay) renderPriorityColumn() string {
 
 // renderFooter returns the dynamic footer based on current context (spec Section 4.1).
 // Footer "flips" between states to eliminate ambiguity of intent.
+// Uses keyPill() for consistency with the global footer styling.
 func (m *CreateOverlay) renderFooter() string {
-	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
+	var hints []footerHint
 
 	switch {
 	case m.isCreating:
-		// Creating state: user must wait
-		return footerStyle.Render("Creating bead...")
+		// Creating state: user must wait (no hints, just message)
+		return styleFooterMuted().Render("Creating bead...")
 	case m.parentCombo.IsDropdownOpen() || m.labelsCombo.IsDropdownOpen() || m.assigneeCombo.IsDropdownOpen():
 		// Dropdown search active: Enter selects, Esc reverts
-		return footerStyle.Render("Enter Select   Esc Revert")
+		hints = []footerHint{
+			{"⏎", "Select"},
+			{"esc", "Revert"},
+		}
 	case m.focus == FocusParent || m.focus == FocusLabels || m.focus == FocusAssignee:
 		// Combo box field focused (but dropdown closed): show browse hint
-		return footerStyle.Render("↓ Browse   Enter Create   Tab Next   Esc Cancel")
+		hints = []footerHint{
+			{"↓", "Browse"},
+			{"⏎", "Create"},
+			{"Tab", "Next"},
+			{"esc", "Cancel"},
+		}
 	default:
 		// Default state: Title, Type, Priority fields
-		return footerStyle.Render("Enter Create   ^Enter Create & Add Another   Tab Next   Esc Cancel")
+		hints = []footerHint{
+			{"⏎", "Create"},
+			{"^⏎", "Create+Add"},
+			{"Tab", "Next"},
+			{"esc", "Cancel"},
+		}
 	}
+
+	// Render hints as pills (same as global footer)
+	var parts []string
+	for _, h := range hints {
+		parts = append(parts, keyPill(h.key, h.desc))
+	}
+	return strings.Join(parts, "  ")
 }
 
 // Title returns the current title value.

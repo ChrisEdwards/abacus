@@ -6,6 +6,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"abacus/internal/ui/theme"
 )
 
 // ComboBoxState represents the current state of the combo box.
@@ -391,15 +393,15 @@ func (c ComboBox) View() string {
 			restGhostText = string([]rune(ghostText)[1:])
 		}
 		// Inverted cursor: grey text on bright background
-		cursorWithChar := styleGhostCursor.Render(firstGhostChar)
-		inputView = prompt + typed + cursorWithChar + styleGhostText.Render(restGhostText)
+		cursorWithChar := styleGhostCursor().Render(firstGhostChar)
+		inputView = prompt + typed + cursorWithChar + styleGhostText().Render(restGhostText)
 	} else {
 		inputView = c.textInput.View()
 	}
 
-	inputStyle := styleComboBoxInput.Width(c.Width)
+	inputStyle := styleComboBoxInput().Width(c.Width)
 	if c.focused {
-		inputStyle = styleComboBoxInputFocused.Width(c.Width)
+		inputStyle = styleComboBoxInputFocused().Width(c.Width)
 	}
 	b.WriteString(inputStyle.Render(inputView))
 
@@ -409,16 +411,16 @@ func (c ComboBox) View() string {
 		if len(c.filteredOptions) == 0 {
 			if c.AllowNew && strings.TrimSpace(c.textInput.Value()) != "" {
 				// No matches state with AllowNew
-				b.WriteString(styleComboBoxNoMatch.Render("  No matches"))
+				b.WriteString(styleComboBoxNoMatch().Render("  No matches"))
 				b.WriteString("\n")
-				b.WriteString(styleComboBoxHint.Render("  \u23ce to add new"))
+				b.WriteString(styleComboBoxHint().Render("  \u23ce to add new"))
 			} else {
-				b.WriteString(styleComboBoxNoMatch.Render("  No matches"))
+				b.WriteString(styleComboBoxNoMatch().Render("  No matches"))
 			}
 		} else {
 			// Show scroll-up indicator if there are items above
 			if c.scrollOffset > 0 {
-				b.WriteString(styleComboBoxHint.Render("  ▲ more above"))
+				b.WriteString(styleComboBoxHint().Render("  ▲ more above"))
 				b.WriteString("\n")
 			}
 
@@ -435,15 +437,15 @@ func (c ComboBox) View() string {
 				isMuted := opt == "Unassigned"
 				if i == c.highlightIndex {
 					if isMuted {
-						b.WriteString(styleComboBoxHighlight.Foreground(cGray).Render("\u25b8 " + opt))
+						b.WriteString(styleComboBoxHighlight().Foreground(theme.Current().BorderNormal()).Render("\u25b8 " + opt))
 					} else {
-						b.WriteString(styleComboBoxHighlight.Render("\u25b8 " + opt))
+						b.WriteString(styleComboBoxHighlight().Render("\u25b8 " + opt))
 					}
 				} else {
 					if isMuted {
-						b.WriteString(styleComboBoxOption.Foreground(cGray).Render("  " + opt))
+						b.WriteString(styleComboBoxOption().Foreground(theme.Current().BorderNormal()).Render("  " + opt))
 					} else {
-						b.WriteString(styleComboBoxOption.Render("  " + opt))
+						b.WriteString(styleComboBoxOption().Render("  " + opt))
 					}
 				}
 				if i < endIndex-1 {
@@ -454,7 +456,7 @@ func (c ComboBox) View() string {
 			// Show scroll-down indicator if there are items below
 			if endIndex < len(c.filteredOptions) {
 				b.WriteString("\n")
-				b.WriteString(styleComboBoxHint.Render("  ▼ more below"))
+				b.WriteString(styleComboBoxHint().Render("  ▼ more below"))
 			}
 		}
 	}
@@ -565,38 +567,53 @@ func (c *ComboBox) ClearHighlight() {
 }
 
 // ComboBox styles
-var (
-	styleComboBoxInput = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("236")).
-				Padding(0, 1)
 
-	styleComboBoxInputFocused = lipgloss.NewStyle().
-					Border(lipgloss.RoundedBorder()).
-					BorderForeground(cCyan).
-					Padding(0, 1)
+func styleComboBoxInput() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Current().BorderDim()).
+		Padding(0, 1)
+}
 
-	styleComboBoxOption = lipgloss.NewStyle().
-				Foreground(cWhite).
-				PaddingLeft(2)
+func styleComboBoxInputFocused() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Current().Secondary()).
+		Padding(0, 1)
+}
 
-	styleComboBoxHighlight = lipgloss.NewStyle().
-				Foreground(cCyan).
-				Bold(true).
-				PaddingLeft(1)
+func styleComboBoxOption() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Text()).
+		PaddingLeft(2)
+}
 
-	styleComboBoxNoMatch = lipgloss.NewStyle().
-				Foreground(cGray).
-				Italic(true)
+func styleComboBoxHighlight() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Secondary()).
+		Bold(true).
+		PaddingLeft(1)
+}
 
-	styleComboBoxHint = lipgloss.NewStyle().
-				Foreground(cBrightGray)
+func styleComboBoxNoMatch() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().BorderNormal()).
+		Italic(true)
+}
 
-	styleGhostText = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("243"))
+func styleComboBoxHint() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().TextMuted())
+}
 
-	// Ghost cursor: grey text on bright background (inverted block cursor)
-	styleGhostCursor = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("243")).
-				Background(lipgloss.Color("250"))
-)
+func styleGhostText() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().TextMuted())
+}
+
+// styleGhostCursor: grey text on bright background (inverted block cursor)
+func styleGhostCursor() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().TextMuted()).
+		Background(theme.Current().TextMuted())
+}

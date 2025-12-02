@@ -36,7 +36,7 @@ func (m *App) View() string {
 
 	if m.filterText != "" {
 		filterLabel := fmt.Sprintf("Filter: %s", m.filterText)
-		status += " " + styleFilterInfo.Render(filterLabel)
+		status += " " + styleFilterInfo().Render(filterLabel)
 	}
 
 	title := "ABACUS"
@@ -45,8 +45,8 @@ func (m *App) View() string {
 	}
 
 	// Build header with repo name on right
-	leftContent := styleAppHeader.Render(title) + " " + status
-	rightContent := styleFooterMuted.Render("Repo: " + m.repoName)
+	leftContent := styleAppHeader().Render(title) + " " + status
+	rightContent := styleFooterMuted().Render("Repo: " + m.repoName)
 	availableWidth := m.width - lipgloss.Width(leftContent) - lipgloss.Width(rightContent) - 2
 	var header string
 	if availableWidth > 0 {
@@ -59,12 +59,12 @@ func (m *App) View() string {
 	var mainBody string
 	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
 	if m.ShowDetails {
-		leftStyle := stylePane
-		rightStyle := stylePane
+		leftStyle := stylePane()
+		rightStyle := stylePane()
 		if m.focus == FocusTree {
-			leftStyle = stylePaneFocused
+			leftStyle = stylePaneFocused()
 		} else {
-			rightStyle = stylePaneFocused
+			rightStyle = stylePaneFocused()
 		}
 
 		leftWidth := m.width - m.viewport.Width - 4
@@ -84,7 +84,7 @@ func (m *App) View() string {
 		if singleWidth < 1 {
 			singleWidth = 1
 		}
-		mainBody = stylePane.Width(singleWidth).Height(listHeight).Render(treeViewStr)
+		mainBody = stylePane().Width(singleWidth).Height(listHeight).Render(treeViewStr)
 	}
 
 	var bottomBar string
@@ -211,7 +211,7 @@ func (m *App) renderErrorToast() string {
 	}
 	content := fmt.Sprintf("%s\n%s\n%s%s", titleLine, bdErrLine, strings.Repeat(" ", padding), countdownStr)
 
-	return styleErrorToast.Render(content)
+	return styleErrorToast().Render(content)
 }
 
 // renderCopyToast renders the copy success toast content if visible.
@@ -241,7 +241,7 @@ func (m *App) renderCopyToast() string {
 	}
 	content := fmt.Sprintf("%s\n%s%s", msgLine, strings.Repeat(" ", padding), countdownStr)
 
-	return styleSuccessToast.Render(content)
+	return styleSuccessToast().Render(content)
 }
 
 // renderStatusToast renders the status change success toast if visible.
@@ -257,13 +257,13 @@ func (m *App) renderStatusToast() string {
 
 	// Line 1: "Status → ◐ In Progress" - label + new status as hero
 	newIcon, newIconStyle, newTextStyle := statusPresentation(m.statusToastNewStatus)
-	label := styleStatsDim.Render("Status →")
+	label := styleStatsDim().Render("Status →")
 	status := newIconStyle.Render(newIcon) + " " + newTextStyle.Render(formatStatusLabel(m.statusToastNewStatus))
 	heroLine := " " + label + " " + status
 
 	// Line 2: bead ID + right-aligned countdown
-	beadID := styleID.Render(m.statusToastBeadID)
-	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
+	beadID := styleID().Render(m.statusToastBeadID)
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
 
 	// Calculate spacing for right-aligned countdown
 	leftPart := " " + beadID
@@ -284,18 +284,18 @@ func (m *App) renderStatusToast() string {
 	infoLine := leftPart + strings.Repeat(" ", padding) + countdownStr
 
 	content := heroLine + "\n" + infoLine
-	return styleSuccessToast.Render(content)
+	return styleSuccessToast().Render(content)
 }
 
 // statusPresentation returns icon, icon style, and text style for a status.
 func statusPresentation(status string) (string, lipgloss.Style, lipgloss.Style) {
 	switch status {
 	case "in_progress":
-		return "◐", styleIconInProgress, styleInProgressText
+		return "◐", styleIconInProgress(), styleInProgressText()
 	case "closed":
-		return "✔", styleIconDone, styleDoneText
+		return "✔", styleIconDone(), styleDoneText()
 	default: // open
-		return "○", styleIconOpen, styleNormalText
+		return "○", styleIconOpen(), styleNormalText()
 	}
 }
 
@@ -314,20 +314,20 @@ func (m *App) renderLabelsToast() string {
 	// Added labels in green, removed labels in red
 	var parts []string
 	for _, l := range m.labelsToastAdded {
-		parts = append(parts, styleLabelChecked.Render("+"+l))
+		parts = append(parts, styleLabelChecked().Render("+"+l))
 	}
 	for _, l := range m.labelsToastRemoved {
-		parts = append(parts, styleBlockedText.Render("-"+l))
+		parts = append(parts, styleBlockedText().Render("-"+l))
 	}
 
 	// Line 1: "Labels: +ui, +bug, -old"
-	label := styleStatsDim.Render("Labels:")
-	changes := strings.Join(parts, styleStatsDim.Render(", "))
+	label := styleStatsDim().Render("Labels:")
+	changes := strings.Join(parts, styleStatsDim().Render(", "))
 	heroLine := " " + label + " " + changes
 
 	// Line 2: bead ID + right-aligned countdown
-	beadID := styleID.Render(m.labelsToastBeadID)
-	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
+	beadID := styleID().Render(m.labelsToastBeadID)
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
 
 	// Calculate spacing for right-aligned countdown
 	leftPart := " " + beadID
@@ -348,7 +348,7 @@ func (m *App) renderLabelsToast() string {
 	infoLine := leftPart + strings.Repeat(" ", padding) + countdownStr
 
 	content := heroLine + "\n" + infoLine
-	return styleSuccessToast.Render(content)
+	return styleSuccessToast().Render(content)
 }
 
 // renderCreateToast renders the bead creation success toast if visible.
@@ -367,15 +367,15 @@ func (m *App) renderCreateToast() string {
 	if beadID == "" {
 		beadID = "..."
 	}
-	heroLine := " ✓ " + styleStatsDim.Render("Created") + " " + styleID.Render(beadID)
+	heroLine := " ✓ " + styleStatsDim().Render("Created") + " " + styleID().Render(beadID)
 
 	// Line 2: title (up to 45 chars) + right-aligned countdown
 	titleDisplay := m.createToastTitle
 	if len(titleDisplay) > 45 {
 		titleDisplay = titleDisplay[:42] + "..."
 	}
-	titlePart := " " + styleLabelChecked.Render(titleDisplay)
-	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
+	titlePart := " " + styleLabelChecked().Render(titleDisplay)
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
 
 	// Calculate spacing for right-aligned countdown
 	heroWidth := lipgloss.Width(heroLine)
@@ -398,7 +398,7 @@ func (m *App) renderCreateToast() string {
 	infoLine := titlePart + strings.Repeat(" ", padding) + countdownStr
 
 	content := heroLine + "\n" + infoLine
-	return styleSuccessToast.Render(content)
+	return styleSuccessToast().Render(content)
 }
 
 // renderNewLabelToast renders the new label toast if visible.
@@ -417,10 +417,10 @@ func (m *App) renderNewLabelToast() string {
 	}
 
 	// Simple one-line toast: "New Label Added: [labelname]"
-	content := " ✓ New Label Added: " + styleLabelChecked.Render(m.newLabelToastLabel) + " "
-	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
+	content := " ✓ New Label Added: " + styleLabelChecked().Render(m.newLabelToastLabel) + " "
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
 
-	return styleSuccessToast.Render(content + countdownStr)
+	return styleSuccessToast().Render(content + countdownStr)
 }
 
 // renderNewAssigneeToast renders the new assignee toast if visible.
@@ -439,10 +439,10 @@ func (m *App) renderNewAssigneeToast() string {
 	}
 
 	// Simple one-line toast: "New Assignee Added: [name]"
-	content := " ✓ New Assignee Added: " + styleLabelChecked.Render(m.newAssigneeToastAssignee) + " "
-	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
+	content := " ✓ New Assignee Added: " + styleLabelChecked().Render(m.newAssigneeToastAssignee) + " "
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
 
-	return styleSuccessToast.Render(content + countdownStr)
+	return styleSuccessToast().Render(content + countdownStr)
 }
 
 // renderDeleteToast renders the delete success toast if visible.
@@ -457,8 +457,8 @@ func (m *App) renderDeleteToast() string {
 	}
 
 	// Line 1: "✓ Deleted ab-xyz"
-	heroLine := " ✓ " + styleStatsDim.Render("Deleted") + " " + styleID.Render(m.deleteToastBeadID)
-	countdownStr := styleStatsDim.Render(fmt.Sprintf("[%ds]", remaining))
+	heroLine := " ✓ " + styleStatsDim().Render("Deleted") + " " + styleID().Render(m.deleteToastBeadID)
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
 
 	// Calculate spacing for right-aligned countdown
 	heroWidth := lipgloss.Width(heroLine)
@@ -474,5 +474,5 @@ func (m *App) renderDeleteToast() string {
 	}
 
 	content := heroLine + "\n" + strings.Repeat(" ", padding) + countdownStr
-	return styleSuccessToast.Render(content)
+	return styleSuccessToast().Render(content)
 }

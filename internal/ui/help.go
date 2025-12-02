@@ -73,13 +73,13 @@ func renderHelpOverlay(keys KeyMap, width, height int) string {
 	columns := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, "    ", rightCol)
 
 	// Build complete overlay content
-	title := styleHelpTitle.Render("✦ ABACUS HELP ✦")
+	title := styleHelpTitle().Render("✦ ABACUS HELP ✦")
 	dividerWidth := lipgloss.Width(columns)
 	if dividerWidth < 40 {
 		dividerWidth = 40
 	}
-	divider := styleHelpDivider.Render(strings.Repeat("─", dividerWidth))
-	footer := styleHelpFooter.Render("Press ? or Esc to close")
+	divider := styleHelpDivider().Render(strings.Repeat("─", dividerWidth))
+	footer := styleHelpFooter().Render("Press ? or Esc to close")
 
 	content := lipgloss.JoinVertical(lipgloss.Center,
 		title,
@@ -91,7 +91,7 @@ func renderHelpOverlay(keys KeyMap, width, height int) string {
 	)
 
 	// Apply overlay styling with border
-	styled := styleHelpOverlay.Render(content)
+	styled := styleHelpOverlay().Render(content)
 
 	// Center on screen using lipgloss.Place()
 	return lipgloss.Place(width, height,
@@ -104,14 +104,14 @@ func renderHelpOverlay(keys KeyMap, width, height int) string {
 // renderHelpSectionTable renders a single help section with styled rows.
 func renderHelpSectionTable(section helpSection) string {
 	// Build section header and underline
-	header := styleHelpSectionHeader.Render(section.title)
-	underline := styleHelpUnderline.Render(strings.Repeat("─", len(section.title)))
+	header := styleHelpSectionHeader().Render(section.title)
+	underline := styleHelpUnderline().Render(strings.Repeat("─", len(section.title)))
 
 	// Build rows manually to avoid table border spacing issues
 	var rowStrings []string
 	for _, row := range section.rows {
-		key := styleHelpKey.Width(14).Render(row[0])
-		desc := styleHelpDesc.Render(row[1])
+		key := styleHelpKey().Width(14).Render(row[0])
+		desc := styleHelpDesc().Render(row[1])
 		rowStrings = append(rowStrings, key+desc)
 	}
 

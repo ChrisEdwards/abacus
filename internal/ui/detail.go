@@ -8,6 +8,7 @@ import (
 
 	"abacus/internal/domain"
 	"abacus/internal/graph"
+	"abacus/internal/ui/theme"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
@@ -40,7 +41,7 @@ func (m *App) updateViewportContent() {
 	}
 	vpWidth := m.viewport.Width
 
-	headerContentWidth := vpWidth - styleDetailHeaderBlock.GetHorizontalFrameSize()
+	headerContentWidth := vpWidth - styleDetailHeaderBlock().GetHorizontalFrameSize()
 	if headerContentWidth < 1 {
 		headerContentWidth = 1
 	}
@@ -49,14 +50,14 @@ func (m *App) updateViewportContent() {
 		iss.ID,
 		iss.Title,
 		headerContentWidth,
-		styleDetailHeaderCombined.Foreground(cGold),
-		styleDetailHeaderCombined.Foreground(cWhite),
-		cHighlight,
+		styleDetailHeaderCombined().Foreground(theme.Current().Accent()),
+		styleDetailHeaderCombined().Foreground(theme.Current().Text()),
+		theme.Current().BackgroundSecondary(),
 	)
-	headerBlock := styleDetailHeaderBlock.Width(vpWidth).Render(headerContent)
+	headerBlock := styleDetailHeaderBlock().Width(vpWidth).Render(headerContent)
 
 	makeRow := func(k, v string) string {
-		return lipgloss.JoinHorizontal(lipgloss.Left, styleField.Render(k), styleVal.Render(v))
+		return lipgloss.JoinHorizontal(lipgloss.Left, styleField().Render(k), styleVal().Render(v))
 	}
 
 	col1 := []string{
@@ -73,7 +74,7 @@ func (m *App) updateViewportContent() {
 
 	prioLabel := fmt.Sprintf("P%d", iss.Priority)
 	col2 := []string{
-		makeRow("Priority:", stylePrio.Render(prioLabel)),
+		makeRow("Priority:", stylePrio().Render(prioLabel)),
 	}
 	if iss.ExternalRef != "" {
 		col2 = append(col2, makeRow("Ext Ref:", iss.ExternalRef))
@@ -90,7 +91,7 @@ func (m *App) updateViewportContent() {
 		}
 
 		for _, l := range iss.Labels {
-			rendered := styleLabel.Render(l)
+			rendered := styleLabel().Render(l)
 			w := lipgloss.Width(rendered)
 			if currentLen+w > availableLabelWidth && currentLen > 0 {
 				labelRows = append(labelRows, currentRow)
@@ -104,7 +105,7 @@ func (m *App) updateViewportContent() {
 			labelRows = append(labelRows, currentRow)
 		}
 
-		firstRow := lipgloss.JoinHorizontal(lipgloss.Left, styleField.Render("Labels:"), labelRows[0])
+		firstRow := lipgloss.JoinHorizontal(lipgloss.Left, styleField().Render("Labels:"), labelRows[0])
 		finalLabelBlock := firstRow
 		padding := strings.Repeat(" ", labelPrefixWidth)
 		for i := 1; i < len(labelRows); i++ {
@@ -146,7 +147,7 @@ func (m *App) updateViewportContent() {
 				item.Issue.ID,
 				item.Issue.Title,
 				rowWidth,
-				styleID,
+				styleID(),
 				titleStyle,
 			)
 			rows = append(rows, row)
@@ -209,14 +210,14 @@ func (m *App) updateViewportContent() {
 		descSections = append(descSections, renderContentSection("Notes:", renderMarkdown(iss.Notes)))
 	}
 	if node.CommentError != "" {
-		errorBody := styleBlockedText.Render("Failed to load comments. Press 'c' to retry.") + "\n" +
+		errorBody := styleBlockedText().Render("Failed to load comments. Press 'c' to retry.") + "\n" +
 			indentBlock(wordwrap.String(node.CommentError, vpWidth-4), 2)
 		descSections = append(descSections, renderContentSection("Comments:", errorBody))
 	} else if len(iss.Comments) > 0 {
 		var commentBlocks []string
 		for _, c := range iss.Comments {
 			header := fmt.Sprintf("  %s  %s", c.Author, formatTime(c.CreatedAt))
-			body := styleCommentHeader.Render(header) + "\n" + indentBlock(renderMarkdown(c.Text), 2)
+			body := styleCommentHeader().Render(header) + "\n" + indentBlock(renderMarkdown(c.Text), 2)
 			commentBlocks = append(commentBlocks, body)
 		}
 		descSections = append(descSections, renderContentSection("Comments:", strings.Join(commentBlocks, "\n\n")))
@@ -238,7 +239,7 @@ func renderContentSection(label, body string) string {
 	cleanBody := normalizeSectionBody(body)
 	indentedBody := alignSectionBody(cleanBody, detailSectionContentIndent)
 	var sb strings.Builder
-	sb.WriteString(styleSectionHeader.Render(label))
+	sb.WriteString(styleSectionHeader().Render(label))
 	sb.WriteString("\n")
 	sb.WriteString(indentedBody)
 	return sb.String()
@@ -373,7 +374,7 @@ func isVisualBlankLine(line string) bool {
 	return strings.TrimSpace(stripANSI(line)) == ""
 }
 
-func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipgloss.Style, bgColor lipgloss.Color) string {
+func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipgloss.Style, bgColor lipgloss.TerminalColor) string {
 	const gap = "  "
 
 	idStyled := idStyle.Background(bgColor)
@@ -457,14 +458,14 @@ func relatedStatusPresentation(node *graph.Node) (string, lipgloss.Style, lipglo
 	}
 	switch status {
 	case "in_progress":
-		return "◐", styleIconInProgress, styleInProgressText
+		return "◐", styleIconInProgress(), styleInProgressText()
 	case "closed":
-		return "✔", styleIconDone, styleDoneText
+		return "✔", styleIconDone(), styleDoneText()
 	default:
 		if node.IsBlocked {
-			return "⛔", styleIconBlocked, styleBlockedText
+			return "⛔", styleIconBlocked(), styleBlockedText()
 		}
-		return "○", styleIconOpen, styleNormalText
+		return "○", styleIconOpen(), styleNormalText()
 	}
 }
 

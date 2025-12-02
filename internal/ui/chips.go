@@ -6,6 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"abacus/internal/ui/theme"
 )
 
 // ChipListState represents the current mode of the chip list.
@@ -432,18 +434,19 @@ const (
 // renderPillChip renders a label as a pill-shaped chip using powerline glyphs.
 // The pill has curved edges and a solid background color for the label text.
 func renderPillChip(label string, state chipState) string {
-	var bgColor, fgColor lipgloss.Color
+	var bgColor, fgColor lipgloss.TerminalColor
 
+	t := theme.Current()
 	switch state {
 	case chipStateHighlight:
-		bgColor = cHighlight // Purple for selection
-		fgColor = cWhite
+		bgColor = t.BackgroundSecondary() // Purple for selection
+		fgColor = t.Text()
 	case chipStateFlash:
-		bgColor = cOrange // Orange flash for duplicate
-		fgColor = cWhite
+		bgColor = t.Warning() // Orange flash for duplicate
+		fgColor = t.Text()
 	default:
-		bgColor = lipgloss.Color("25") // Blue, same as styleLabel
-		fgColor = cWhite
+		bgColor = t.BackgroundDarker() // Blue chip background
+		fgColor = t.Text()
 	}
 
 	// Left cap: foreground is the chip color (creates the curved colored edge)

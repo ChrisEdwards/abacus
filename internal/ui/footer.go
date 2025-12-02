@@ -110,23 +110,23 @@ func (m *App) renderFooter() string {
 // Priority: error > refreshing > delta metrics (if changed) > empty
 func (m *App) renderRefreshStatus() string {
 	if m.lastError != "" {
-		return styleErrorIndicator.Render("⚠ Error (!)")
+		return styleErrorIndicator().Render("⚠ Error (!)")
 	}
 	if m.refreshInFlight {
-		return styleFooterMuted.Render(m.spinner.View() + " Refreshing...")
+		return styleFooterMuted().Render(m.spinner.View() + " Refreshing...")
 	}
 	// Only show delta if something changed and within display duration
 	if m.lastRefreshStats != "" &&
 		m.lastRefreshStats != "+0 / Δ0 / -0" &&
 		time.Since(m.lastRefreshTime) < refreshDisplayDuration {
-		return styleFooterMuted.Render("Δ " + m.lastRefreshStats)
+		return styleFooterMuted().Render("Δ " + m.lastRefreshStats)
 	}
 	return ""
 }
 
 // keyPill renders a single key hint as a pill with description.
 func keyPill(key, desc string) string {
-	return styleKeyPill.Render(" "+key+" ") + " " + styleKeyDesc.Render(desc)
+	return styleKeyPill().Render(" "+key+" ") + " " + styleKeyDesc().Render(desc)
 }
 
 // trimHintsToFit progressively removes hints to fit available width.

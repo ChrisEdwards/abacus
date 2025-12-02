@@ -6,217 +6,333 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
+
+	"abacus/internal/ui/theme"
 )
 
-var (
-	cPurple     = lipgloss.Color("99")
-	cCyan       = lipgloss.Color("39")
-	cNeonGreen  = lipgloss.Color("118")
-	cRed        = lipgloss.Color("203")
-	cOrange     = lipgloss.Color("208")
-	cGold       = lipgloss.Color("220")
-	cGray       = lipgloss.Color("240")
-	cBrightGray = lipgloss.Color("246")
-	cLightGray  = lipgloss.Color("250")
-	cWhite      = lipgloss.Color("255")
-	cHighlight  = lipgloss.Color("57")
-	cField      = lipgloss.Color("63")
+// Status text styles
 
-	styleInProgressText = lipgloss.NewStyle().Foreground(cCyan).Bold(true)
-	styleNormalText     = lipgloss.NewStyle().Foreground(cWhite)
-	styleDoneText       = lipgloss.NewStyle().Foreground(cBrightGray)
-	styleBlockedText    = lipgloss.NewStyle().Foreground(cRed)
-	styleStatsDim       = lipgloss.NewStyle().Foreground(cBrightGray)
+func styleInProgressText() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(theme.Current().Success()).Bold(true)
+}
 
-	styleIconOpen       = lipgloss.NewStyle().Foreground(cWhite)
-	styleIconInProgress = lipgloss.NewStyle().Foreground(cNeonGreen)
-	styleIconDone       = lipgloss.NewStyle().Foreground(cBrightGray)
-	styleIconBlocked    = lipgloss.NewStyle().Foreground(cRed)
+func styleNormalText() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(theme.Current().Text())
+}
 
-	styleID = lipgloss.NewStyle().Foreground(cGold).Bold(true)
+func styleDoneText() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
+}
 
-	styleSelected = lipgloss.NewStyle().
-			Background(cHighlight).
-			Foreground(cWhite).
-			Bold(true)
+func styleBlockedText() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(theme.Current().Error())
+}
 
-	// styleCrossHighlight is a muted version for duplicate instances of the same node
-	styleCrossHighlight = lipgloss.NewStyle().
-				Background(lipgloss.Color("240")).
-				Foreground(cLightGray)
+func styleStatsDim() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
+}
 
-	styleAppHeader = lipgloss.NewStyle().
-			Foreground(cWhite).
-			Background(cPurple).
-			Bold(true).
-			Padding(0, 1)
+// Status icon styles
 
-	styleFilterInfo = lipgloss.NewStyle().
-			Foreground(cLightGray).
-			Background(cPurple)
+func styleIconOpen() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(theme.Current().Text())
+}
 
-	stylePane = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(cGray)
+func styleIconInProgress() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(theme.Current().Success())
+}
 
-	stylePaneFocused = lipgloss.NewStyle().
-				Border(lipgloss.ThickBorder()).
-				BorderForeground(cPurple)
+func styleIconDone() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
+}
 
-	styleDetailHeaderBlock = lipgloss.NewStyle().
-				Background(cHighlight).
-				Foreground(cWhite).
-				Bold(true).
-				Padding(0, 1)
+func styleIconBlocked() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(theme.Current().Error())
+}
 
-	styleDetailHeaderCombined = lipgloss.NewStyle().
-					Background(cHighlight).
-					Bold(true)
+// Tree and list styles
 
-	styleField = lipgloss.NewStyle().
-			Foreground(cField).
-			Bold(true).
-			Width(12)
+func styleID() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(theme.Current().Accent()).Bold(true)
+}
 
-	styleVal = lipgloss.NewStyle().Foreground(cWhite)
+func styleSelected() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Foreground(theme.Current().Text()).
+		Bold(true)
+}
 
-	styleSectionHeader = lipgloss.NewStyle().
-				Foreground(cGold).
-				Bold(true).
-				MarginLeft(detailSectionLabelIndent)
+// styleCrossHighlight is a muted version for duplicate instances of the same node
+func styleCrossHighlight() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BorderNormal()).
+		Foreground(theme.Current().TextMuted())
+}
 
-	styleLabel = lipgloss.NewStyle().
-			Foreground(cWhite).
-			Background(lipgloss.Color("25")).
-			Padding(0, 1).
-			MarginRight(1).
-			Bold(true)
+// App header styles
 
-	stylePrio = lipgloss.NewStyle().
-			Foreground(cWhite).
-			Background(cOrange).
-			Padding(0, 1).
-			Bold(true)
+func styleAppHeader() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Text()).
+		Background(theme.Current().Primary()).
+		Bold(true).
+		Padding(0, 1)
+}
 
-	styleCommentHeader = lipgloss.NewStyle().
-				Foreground(cBrightGray).
-				Bold(true)
+func styleFilterInfo() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().TextMuted()).
+		Background(theme.Current().Primary())
+}
 
-	styleErrorToast = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(cRed).
-			Foreground(cWhite).
-			Padding(0, 1)
+// Pane styles
 
-	styleErrorIndicator = lipgloss.NewStyle().
-				Foreground(cRed).
-				Bold(true)
+func stylePane() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(theme.Current().BorderNormal())
+}
 
-	styleSuccessToast = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#00FF00")). // Green
-				Foreground(cWhite).
-				Padding(0, 1)
+func stylePaneFocused() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.ThickBorder()).
+		BorderForeground(theme.Current().BorderFocused())
+}
 
-	// Help overlay styles
-	styleHelpOverlay = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(cPurple).
-				Padding(1, 2)
+// Detail view styles
 
-	styleHelpTitle = lipgloss.NewStyle().
-			Foreground(cGold).
-			Bold(true)
+func styleDetailHeaderBlock() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Foreground(theme.Current().Text()).
+		Bold(true).
+		Padding(0, 1)
+}
 
-	styleHelpDivider = lipgloss.NewStyle().
-				Foreground(cPurple)
+func styleDetailHeaderCombined() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Bold(true)
+}
 
-	styleHelpSectionHeader = lipgloss.NewStyle().
-				Foreground(cField).
-				Bold(true)
+func styleField() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Secondary()).
+		Bold(true).
+		Width(12)
+}
 
-	styleHelpUnderline = lipgloss.NewStyle().
-				Foreground(cField)
+func styleVal() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(theme.Current().Text())
+}
 
-	styleHelpKey = lipgloss.NewStyle().
-			Foreground(cCyan).
-			Bold(true)
+func styleSectionHeader() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Accent()).
+		Bold(true).
+		MarginLeft(detailSectionLabelIndent)
+}
 
-	styleHelpDesc = lipgloss.NewStyle().
-			Foreground(cLightGray)
+// Label and priority badge styles
 
-	styleHelpFooter = lipgloss.NewStyle().
-			Foreground(cBrightGray).
-			Italic(true)
+func styleLabel() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Text()).
+		Background(theme.Current().BackgroundDarker()).
+		Padding(0, 1).
+		MarginRight(1).
+		Bold(true)
+}
 
-	// Footer bar styles
-	styleKeyPill = lipgloss.NewStyle().
-			Background(cPurple).
-			Foreground(cWhite).
-			Bold(true)
+func stylePrio() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Text()).
+		Background(theme.Current().Warning()).
+		Padding(0, 1).
+		Bold(true)
+}
 
-	styleKeyDesc = lipgloss.NewStyle().
-			Foreground(cBrightGray)
+func styleCommentHeader() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().TextMuted()).
+		Bold(true)
+}
 
-	styleFooterMuted = lipgloss.NewStyle().
-			Foreground(cBrightGray)
+// Toast styles
 
-	// Status overlay styles
-	styleStatusOverlay = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(cPurple).
-				Padding(1, 2)
+func styleErrorToast() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Current().Error()).
+		Foreground(theme.Current().Text()).
+		Padding(0, 1)
+}
 
-	// Delete overlay style
-	styleDeleteOverlay = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(cRed).
-				Padding(1, 2)
+func styleErrorIndicator() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Error()).
+		Bold(true)
+}
 
-	styleStatusDivider = lipgloss.NewStyle().
-				Foreground(cPurple)
+func styleSuccessToast() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Current().Success()).
+		Foreground(theme.Current().Text()).
+		Padding(0, 1)
+}
 
-	styleStatusOption = lipgloss.NewStyle().
-				Foreground(cWhite)
+// Help overlay styles
 
-	styleStatusSelected = lipgloss.NewStyle().
-				Foreground(cCyan).
-				Bold(true)
+func styleHelpOverlay() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Current().BorderFocused()).
+		Padding(1, 2)
+}
 
-	styleStatusDisabled = lipgloss.NewStyle().
-				Foreground(cGray)
+func styleHelpTitle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Accent()).
+		Bold(true)
+}
 
-	// Labels overlay styles
-	styleLabelChecked = lipgloss.NewStyle().
-				Foreground(cNeonGreen).
-				Bold(true)
+func styleHelpDivider() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Primary())
+}
 
-	styleLabelUnchecked = lipgloss.NewStyle().
-				Foreground(cWhite)
+func styleHelpSectionHeader() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Secondary()).
+		Bold(true)
+}
 
-	styleLabelCursor = lipgloss.NewStyle().
-				Background(cHighlight).
-				Foreground(cWhite).
-				Bold(true)
+func styleHelpUnderline() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Secondary())
+}
 
-	styleLabelNewOption = lipgloss.NewStyle().
-				Foreground(cGold)
+func styleHelpKey() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Secondary()).
+		Bold(true)
+}
 
-	// Chip styles for label tokens
-	styleChip = lipgloss.NewStyle().
-			Foreground(cWhite).
-			Background(lipgloss.Color("25")) // Same as styleLabel
+func styleHelpDesc() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().TextMuted())
+}
 
-	styleChipHighlight = lipgloss.NewStyle().
-				Foreground(cWhite).
-				Background(cHighlight). // Purple
-				Bold(true)
+func styleHelpFooter() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().TextMuted()).
+		Italic(true)
+}
 
-	styleChipFlash = lipgloss.NewStyle().
-			Foreground(cWhite).
-			Background(cOrange). // Orange flash for duplicate
-			Bold(true)
-)
+// Footer bar styles
+
+func styleKeyPill() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().Primary()).
+		Foreground(theme.Current().Text()).
+		Bold(true)
+}
+
+func styleKeyDesc() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().TextMuted())
+}
+
+func styleFooterMuted() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().TextMuted())
+}
+
+// Status overlay styles
+
+func styleStatusOverlay() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Current().BorderFocused()).
+		Padding(1, 2)
+}
+
+func styleDeleteOverlay() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.Current().Error()).
+		Padding(1, 2)
+}
+
+func styleStatusDivider() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Primary())
+}
+
+func styleStatusOption() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Text())
+}
+
+func styleStatusSelected() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Secondary()).
+		Bold(true)
+}
+
+func styleStatusDisabled() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().BorderNormal())
+}
+
+// Labels overlay styles
+
+func styleLabelChecked() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Success()).
+		Bold(true)
+}
+
+func styleLabelUnchecked() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Text())
+}
+
+func styleLabelCursor() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Foreground(theme.Current().Text()).
+		Bold(true)
+}
+
+func styleLabelNewOption() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Accent())
+}
+
+// Chip styles for label tokens
+
+func styleChip() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Text()).
+		Background(theme.Current().BackgroundDarker())
+}
+
+func styleChipHighlight() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Text()).
+		Background(theme.Current().BackgroundSecondary()).
+		Bold(true)
+}
+
+func styleChipFlash() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Foreground(theme.Current().Text()).
+		Background(theme.Current().Warning()).
+		Bold(true)
+}
 
 func buildMarkdownRenderer(format string, width int) func(string) string {
 	fallback := func(input string) string {

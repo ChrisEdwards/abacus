@@ -291,18 +291,45 @@ func TestChipComboBox_Tab_AddsChipIfText(t *testing.T) {
 	cc := NewChipComboBox([]string{"backend", "frontend"})
 	cc.Focus()
 
-	// Type something
+	// Type something that matches "backend"
 	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
 	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
 	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 
-	// Press Tab
-	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyTab})
+	// Verify dropdown is open with "backend" highlighted
+	if !cc.IsDropdownOpen() {
+		t.Fatal("expected dropdown to be open after typing")
+	}
 
-	// Should have added chip
+	// Press Tab - this selects the highlighted item ("backend") and returns a cmd
+	cc, cmd := cc.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+	// Process the batched commands to get the ComboBoxValueSelectedMsg
+	if cmd != nil {
+		msg := cmd()
+		// The cmd returns a batch, so we need to handle it
+		if batchMsg, ok := msg.(tea.BatchMsg); ok {
+			for _, c := range batchMsg {
+				if c != nil {
+					innerMsg := c()
+					cc, _ = cc.Update(innerMsg)
+				}
+			}
+		} else {
+			cc, _ = cc.Update(msg)
+		}
+	}
+
+	// Should have added "backend" chip (the highlighted completion, not raw "back")
 	if cc.ChipCount() != 1 {
 		t.Errorf("expected 1 chip after Tab, got %d", cc.ChipCount())
+	}
+
+	// Verify it added the full matched label, not just the typed text
+	chips := cc.GetChips()
+	if len(chips) > 0 && chips[0] != "backend" {
+		t.Errorf("expected chip 'backend', got '%s'", chips[0])
 	}
 }
 
@@ -319,6 +346,99 @@ func TestChipComboBox_Tab_SendsTabMsg(t *testing.T) {
 
 	// The command is returned - actual TabMsg verification is done via
 	// integration testing since tea.Batch wraps commands in a complex way
+}
+
+func TestChipComboBox_GhostText_TabAcceptsCompletion(t *testing.T) {
+	// When ghost text is showing (highlighted match starts with typed text),
+	// Tab should accept the full completion, not just the typed text
+	cc := NewChipComboBox([]string{"requires-review", "requires-testing", "bug"})
+	cc.Focus()
+
+	// Type "req" which matches both "requires-review" and "requires-testing"
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+
+	// Dropdown should be open
+	if !cc.IsDropdownOpen() {
+		t.Fatal("expected dropdown to be open after typing")
+	}
+
+	// Press Tab to accept highlighted completion
+	cc, cmd := cc.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+	// Process the batched commands
+	if cmd != nil {
+		msg := cmd()
+		if batchMsg, ok := msg.(tea.BatchMsg); ok {
+			for _, c := range batchMsg {
+				if c != nil {
+					innerMsg := c()
+					cc, _ = cc.Update(innerMsg)
+				}
+			}
+		} else {
+			cc, _ = cc.Update(msg)
+		}
+	}
+
+	// Should have 1 chip
+	if cc.ChipCount() != 1 {
+		t.Errorf("expected 1 chip, got %d", cc.ChipCount())
+	}
+
+	// Chip should be full match "requires-review" (first match), not "req"
+	chips := cc.GetChips()
+	if len(chips) > 0 && chips[0] == "req" {
+		t.Errorf("Tab should accept ghost text completion, not raw input; got '%s'", chips[0])
+	}
+	if len(chips) > 0 && chips[0] != "requires-review" {
+		t.Errorf("expected 'requires-review', got '%s'", chips[0])
+	}
+}
+
+func TestChipComboBox_GhostText_DeleteRejectsCompletion(t *testing.T) {
+	// When ghost text is showing, Delete should reject the completion
+	// allowing user to add their partial text as a new label
+	cc := NewChipComboBox([]string{"requires-review", "bug"})
+	cc = cc.WithAllowNew(true, "New: %s")
+	cc.Focus()
+
+	// Type "req" which matches "requires-review"
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+
+	// Press Delete to reject ghost text
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyDelete})
+
+	// Press Enter to add raw text "req" as new label
+	cc, cmd := cc.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Process the commands
+	if cmd != nil {
+		msg := cmd()
+		if batchMsg, ok := msg.(tea.BatchMsg); ok {
+			for _, c := range batchMsg {
+				if c != nil {
+					innerMsg := c()
+					cc, _ = cc.Update(innerMsg)
+				}
+			}
+		} else {
+			cc, _ = cc.Update(msg)
+		}
+	}
+
+	// Should have 1 chip with the raw text "req"
+	if cc.ChipCount() != 1 {
+		t.Errorf("expected 1 chip after Delete+Enter, got %d", cc.ChipCount())
+	}
+
+	chips := cc.GetChips()
+	if len(chips) > 0 && chips[0] != "req" {
+		t.Errorf("after Delete, Enter should add raw text 'req', got '%s'", chips[0])
+	}
 }
 
 func TestChipComboBox_ChipNavExit_ForwardsCharacter(t *testing.T) {

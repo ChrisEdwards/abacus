@@ -8,6 +8,7 @@ import (
 
 	"abacus/internal/beads"
 	"abacus/internal/graph"
+	"abacus/internal/ui/theme"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
@@ -36,7 +37,7 @@ func TestDetailHeaderWrappingAcrossWidths(t *testing.T) {
 	title := "Research Beads repository structure and CI/CD setup"
 	widths := []int{34, 40, 50, 60, 80, 120}
 	for _, width := range widths {
-		headerWidth := width - styleDetailHeaderBlock.GetHorizontalFrameSize()
+		headerWidth := width - styleDetailHeaderBlock().GetHorizontalFrameSize()
 		if headerWidth < 1 {
 			headerWidth = 1
 		}
@@ -44,11 +45,11 @@ func TestDetailHeaderWrappingAcrossWidths(t *testing.T) {
 			id,
 			title,
 			headerWidth,
-			styleDetailHeaderCombined.Foreground(cGold),
-			styleDetailHeaderCombined.Foreground(cWhite),
-			cHighlight,
+			styleDetailHeaderCombined().Foreground(theme.Current().Warning()),
+			styleDetailHeaderCombined().Foreground(theme.Current().Text()),
+			theme.Current().BackgroundSecondary(),
 		)
-		headerBlock := styleDetailHeaderBlock.Width(width).Render(headerContent)
+		headerBlock := styleDetailHeaderBlock().Width(width).Render(headerContent)
 		lines := splitStripANSI(headerBlock)
 		validateWrappedLines(t, lines, id)
 	}
@@ -125,7 +126,7 @@ func TestDetailHeaderRegression_ab176(t *testing.T) {
 	}
 
 	for width, want := range cases {
-		headerWidth := width - styleDetailHeaderBlock.GetHorizontalFrameSize()
+		headerWidth := width - styleDetailHeaderBlock().GetHorizontalFrameSize()
 		if headerWidth < 1 {
 			headerWidth = 1
 		}
@@ -133,11 +134,11 @@ func TestDetailHeaderRegression_ab176(t *testing.T) {
 			id,
 			title,
 			headerWidth,
-			styleDetailHeaderCombined.Foreground(cGold),
-			styleDetailHeaderCombined.Foreground(cWhite),
-			cHighlight,
+			styleDetailHeaderCombined().Foreground(theme.Current().Warning()),
+			styleDetailHeaderCombined().Foreground(theme.Current().Text()),
+			theme.Current().BackgroundSecondary(),
 		)
-		block := styleDetailHeaderBlock.Width(width).Render(headerContent)
+		block := styleDetailHeaderBlock().Width(width).Render(headerContent)
 		lines := splitStripANSI(block)
 		if len(lines) != len(want) {
 			t.Fatalf("width %d: expected %d lines, got %d: %v", width, len(want), len(lines), lines)

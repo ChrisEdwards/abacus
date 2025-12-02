@@ -78,7 +78,7 @@ func (m *App) buildTreeLines(treeWidth int) ([]string, int, int) {
 			}
 		}
 
-		iconStr, iconStyle, textStyle := "○", styleNormalText, styleNormalText
+		iconStr, iconStyle, textStyle := "○", styleNormalText(), styleNormalText()
 		domainIssue, err := domain.NewIssueFromFull(node.Issue, node.IsBlocked)
 		status := node.Issue.Status
 		if err == nil {
@@ -86,12 +86,12 @@ func (m *App) buildTreeLines(treeWidth int) ([]string, int, int) {
 		}
 		switch status {
 		case "in_progress":
-			iconStr, iconStyle, textStyle = "◐", styleIconInProgress, styleInProgressText
+			iconStr, iconStyle, textStyle = "◐", styleIconInProgress(), styleInProgressText()
 		case "closed":
-			iconStr, iconStyle, textStyle = "✔", styleIconDone, styleDoneText
+			iconStr, iconStyle, textStyle = "✔", styleIconDone(), styleDoneText()
 		default:
 			if node.IsBlocked {
-				iconStr, iconStyle, textStyle = "⛔", styleIconBlocked, styleBlockedText
+				iconStr, iconStyle, textStyle = "⛔", styleIconBlocked(), styleBlockedText()
 			}
 		}
 
@@ -117,17 +117,17 @@ func (m *App) buildTreeLines(treeWidth int) ([]string, int, int) {
 
 		if i == m.cursor {
 			cursorStart = len(lines)
-			highlightedPrefix := styleSelected.Render(fmt.Sprintf(" %s%s", indent, marker))
-			line1Rest := fmt.Sprintf(" %s %s %s", iconStyle.Render(iconStr), styleID.Render(idDisplay), textStyle.Render(titleLines[0]))
+			highlightedPrefix := styleSelected().Render(fmt.Sprintf(" %s%s", indent, marker))
+			line1Rest := fmt.Sprintf(" %s %s %s", iconStyle.Render(iconStr), styleID().Render(idDisplay), textStyle.Render(titleLines[0]))
 			lines = append(lines, highlightedPrefix+line1Rest)
 		} else if isCrossHighlight {
 			// Cross-highlight style for duplicate instances
-			crossPrefix := styleCrossHighlight.Render(fmt.Sprintf(" %s%s", indent, marker))
-			line1Rest := fmt.Sprintf(" %s %s %s", iconStyle.Render(iconStr), styleID.Render(idDisplay), textStyle.Render(titleLines[0]))
+			crossPrefix := styleCrossHighlight().Render(fmt.Sprintf(" %s%s", indent, marker))
+			line1Rest := fmt.Sprintf(" %s %s %s", iconStyle.Render(iconStr), styleID().Render(idDisplay), textStyle.Render(titleLines[0]))
 			lines = append(lines, crossPrefix+line1Rest)
 		} else {
 			line1Prefix := fmt.Sprintf(" %s%s %s ", indent, iconStyle.Render(marker), iconStyle.Render(iconStr))
-			line1 := fmt.Sprintf("%s%s %s", line1Prefix, styleID.Render(idDisplay), textStyle.Render(titleLines[0]))
+			line1 := fmt.Sprintf("%s%s %s", line1Prefix, styleID().Render(idDisplay), textStyle.Render(titleLines[0]))
 			lines = append(lines, line1)
 		}
 

@@ -180,7 +180,21 @@ func (c ChipComboBox) handleSelection(msg ComboBoxValueSelectedMsg) (ChipComboBo
 func (c ChipComboBox) handleTab() (ChipComboBox, tea.Cmd) {
 	var cmds []tea.Cmd
 
-	// If there's text in the input, try to add it as a chip
+	// If dropdown is open, forward Tab to ComboBox to select highlighted item
+	// This handles ghost text completion correctly
+	if c.combo.IsDropdownOpen() {
+		// Forward Tab to ComboBox which will call selectHighlightedOrNew()
+		var cmd tea.Cmd
+		c.combo, cmd = c.combo.Update(tea.KeyMsg{Type: tea.KeyTab})
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		// Signal move to next field
+		cmds = append(cmds, func() tea.Msg { return ChipComboBoxTabMsg{} })
+		return c, tea.Batch(cmds...)
+	}
+
+	// Dropdown closed - if there's text in the input, try to add it as a chip
 	inputVal := strings.TrimSpace(c.combo.InputValue())
 	if inputVal != "" {
 		// Check for duplicate

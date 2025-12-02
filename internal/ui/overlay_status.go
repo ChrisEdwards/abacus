@@ -155,12 +155,12 @@ func (m *StatusOverlay) View() string {
 	var b strings.Builder
 
 	// Breadcrumb header: ab-6s4 › Status
-	header := styleID.Render(m.issueID) + styleStatsDim.Render(" › ") + styleStatsDim.Render("Status")
+	header := styleID().Render(m.issueID) + styleStatsDim().Render(" › ") + styleStatsDim().Render("Status")
 	b.WriteString(header)
 	b.WriteString("\n")
 
 	// Divider
-	divider := styleStatusDivider.Render(strings.Repeat("─", 20))
+	divider := styleStatusDivider().Render(strings.Repeat("─", 20))
 	b.WriteString(divider)
 	b.WriteString("\n")
 
@@ -178,11 +178,11 @@ func (m *StatusOverlay) View() string {
 		}
 
 		if opt.disabled {
-			line = styleStatusDisabled.Render("  " + indicator + " " + label)
+			line = styleStatusDisabled().Render("  " + indicator + " " + label)
 		} else if i == m.selected {
-			line = styleStatusSelected.Render("  " + indicator + " " + label)
+			line = styleStatusSelected().Render("  " + indicator + " " + label)
 		} else {
-			line = styleStatusOption.Render("  " + indicator + " " + label)
+			line = styleStatusOption().Render("  " + indicator + " " + label)
 		}
 
 		b.WriteString(line)
@@ -192,7 +192,7 @@ func (m *StatusOverlay) View() string {
 	}
 
 	content := b.String()
-	return styleStatusOverlay.Render(content)
+	return styleStatusOverlay().Render(content)
 }
 
 // truncateTitle shortens a title to maxLen characters with ellipsis.

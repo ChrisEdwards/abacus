@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // LabelsOverlay is a chip-based popup for managing labels on a bead.
@@ -207,7 +206,7 @@ func (m *LabelsOverlay) View() string {
 	var b strings.Builder
 
 	// Header: Line 1 = "Edit Labels", Line 2 = "ab-xxx: Bead Title"
-	b.WriteString(styleHelpSectionHeader.Render("Edit Labels"))
+	b.WriteString(styleHelpSectionHeader().Render("Edit Labels"))
 	b.WriteString("\n")
 
 	// Truncate title if too long
@@ -216,12 +215,12 @@ func (m *LabelsOverlay) View() string {
 	if len(title) > maxTitleLen {
 		title = title[:maxTitleLen-3] + "..."
 	}
-	contextLine := styleID.Render(m.issueID) + styleStatsDim.Render(": ") + styleStatsDim.Render(title)
+	contextLine := styleID().Render(m.issueID) + styleStatsDim().Render(": ") + styleStatsDim().Render(title)
 	b.WriteString(contextLine)
 	b.WriteString("\n")
 
 	// Divider
-	divider := styleStatusDivider.Render(strings.Repeat("─", 44))
+	divider := styleStatusDivider().Render(strings.Repeat("─", 44))
 	b.WriteString(divider)
 	b.WriteString("\n\n")
 
@@ -234,24 +233,43 @@ func (m *LabelsOverlay) View() string {
 	b.WriteString("\n")
 	b.WriteString(m.renderFooter())
 
-	return styleStatusOverlay.Render(b.String())
+	return styleStatusOverlay().Render(b.String())
 }
 
 // renderFooter returns the dynamic footer based on current state.
+// Uses keyPill() for consistency with the global footer styling.
 func (m *LabelsOverlay) renderFooter() string {
-	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("246"))
+	var hints []footerHint
 
 	switch {
 	case m.chipCombo.IsDropdownOpen():
 		// Dropdown open: show selection hints
-		return footerStyle.Render("Enter Select • ↑↓ Navigate • Esc Clear")
+		hints = []footerHint{
+			{"⏎", "Select"},
+			{"↑↓", "Navigate"},
+			{"esc", "Clear"},
+		}
 	case m.chipCombo.InChipNavMode():
 		// Chip navigation mode: show chip nav hints
-		return footerStyle.Render("Del Remove • ←→ Navigate • ↓ Exit")
+		hints = []footerHint{
+			{"Del", "Remove"},
+			{"←→", "Navigate"},
+			{"↓", "Exit"},
+		}
 	default:
-		// Idle state: show confirm/cancel hints (↑ enters chip nav if chips exist)
-		return footerStyle.Render("Enter Save • Esc Cancel")
+		// Idle state: show confirm/cancel hints
+		hints = []footerHint{
+			{"⏎", "Save"},
+			{"esc", "Cancel"},
+		}
 	}
+
+	// Render hints as pills (same as global footer)
+	var parts []string
+	for _, h := range hints {
+		parts = append(parts, keyPill(h.key, h.desc))
+	}
+	return strings.Join(parts, "  ")
 }
 
 // IssueID returns the issue ID (for testing).
