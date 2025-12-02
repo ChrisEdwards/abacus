@@ -233,8 +233,11 @@ func (m *App) updateViewportContent() {
 		descBlock,
 	)
 
-	// Use lipgloss.Place with WithWhitespaceBackground to fill ALL whitespace
-	// This handles gaps from style resets, not just right-side padding
+	// Fill background gaps: replace ANSI resets with ones that preserve theme background
+	// This handles gaps from style resets within styled content
+	finalContent = fillBackground(finalContent)
+
+	// Also use lipgloss.Place for outer padding
 	contentHeight := lipgloss.Height(finalContent)
 	if vpWidth > 0 && contentHeight > 0 {
 		finalContent = lipgloss.Place(

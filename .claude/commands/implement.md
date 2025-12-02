@@ -8,5 +8,6 @@ Implement clean code, well factored. Favor simplicity, intuitiveness, and functi
 
 Ensure you write tests for any code you change or create. This is important.
 Ensure you update documentation if applicable. 
-
 Ensure you test the changes using tmux if applicable.
+
+When you complete the bead, write the details of what you did and the commit hashes to the bead comments.

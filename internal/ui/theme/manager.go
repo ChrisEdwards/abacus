@@ -1,6 +1,9 @@
 package theme
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 var globalManager = &manager{
 	themes: make(map[string]Theme),
@@ -36,13 +39,6 @@ func SetTheme(name string) bool {
 		return true
 	}
 	return false
-}
-
-// Current returns the active theme.
-func Current() Theme {
-	globalManager.mu.RLock()
-	defer globalManager.mu.RUnlock()
-	return globalManager.currentTheme
 }
 
 // CurrentName returns the name of the active theme.
@@ -108,4 +104,42 @@ func sortStrings(s []string) {
 			}
 		}
 	}
+}
+
+// ThemeWrapper wraps a Theme to provide additional utility methods.
+type ThemeWrapper struct {
+	Theme
+}
+
+// BackgroundANSI returns the ANSI escape sequence for the theme's background color.
+// This is used for post-processing rendered content to fill background gaps.
+func (w ThemeWrapper) BackgroundANSI() string {
+	bg := w.Background()
+	// Use Dark color (we're always in a dark terminal context for this app)
+	hex := bg.Dark
+	if hex == "" {
+		hex = bg.Light
+	}
+	r, g, b := hexToRGB(hex)
+	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r, g, b)
+}
+
+// hexToRGB converts a hex color string to RGB values.
+func hexToRGB(hex string) (r, g, b uint8) {
+	if len(hex) > 0 && hex[0] == '#' {
+		hex = hex[1:]
+	}
+	if len(hex) != 6 {
+		return 0, 0, 0
+	}
+	var ri, gi, bi int
+	fmt.Sscanf(hex, "%02x%02x%02x", &ri, &gi, &bi)
+	return uint8(ri), uint8(gi), uint8(bi)
+}
+
+// Current returns the active theme wrapped with utility methods.
+func Current() ThemeWrapper {
+	globalManager.mu.RLock()
+	defer globalManager.mu.RUnlock()
+	return ThemeWrapper{globalManager.currentTheme}
 }
