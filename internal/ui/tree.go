@@ -115,24 +115,28 @@ func (m *App) buildTreeLines(treeWidth int) ([]string, int, int) {
 		// Cross-highlighting: same node appears under multiple parents
 		isCrossHighlight := i != m.cursor && node.Issue.ID == selectedID
 
+		// Style for spacing/separators to maintain background
+		sp := styleNormalText().Render(" ")
+
 		if i == m.cursor {
 			cursorStart = len(lines)
 			highlightedPrefix := styleSelected().Render(fmt.Sprintf(" %s%s", indent, marker))
-			line1Rest := fmt.Sprintf(" %s %s %s", iconStyle.Render(iconStr), styleID().Render(idDisplay), textStyle.Render(titleLines[0]))
+			line1Rest := sp + iconStyle.Render(iconStr) + sp + styleID().Render(idDisplay) + sp + textStyle.Render(titleLines[0])
 			lines = append(lines, highlightedPrefix+line1Rest)
 		} else if isCrossHighlight {
 			// Cross-highlight style for duplicate instances
 			crossPrefix := styleCrossHighlight().Render(fmt.Sprintf(" %s%s", indent, marker))
-			line1Rest := fmt.Sprintf(" %s %s %s", iconStyle.Render(iconStr), styleID().Render(idDisplay), textStyle.Render(titleLines[0]))
+			line1Rest := sp + iconStyle.Render(iconStr) + sp + styleID().Render(idDisplay) + sp + textStyle.Render(titleLines[0])
 			lines = append(lines, crossPrefix+line1Rest)
 		} else {
-			line1Prefix := fmt.Sprintf(" %s%s %s ", indent, iconStyle.Render(marker), iconStyle.Render(iconStr))
-			line1 := fmt.Sprintf("%s%s %s", line1Prefix, styleID().Render(idDisplay), textStyle.Render(titleLines[0]))
+			// Style the indent and all spacing with background
+			styledIndent := styleNormalText().Render(" " + indent)
+			line1 := styledIndent + iconStyle.Render(marker) + sp + iconStyle.Render(iconStr) + sp + styleID().Render(idDisplay) + sp + textStyle.Render(titleLines[0])
 			lines = append(lines, line1)
 		}
 
 		for k := 1; k < len(titleLines); k++ {
-			lines = append(lines, " "+textStyle.Render(titleLines[k]))
+			lines = append(lines, sp+textStyle.Render(titleLines[k]))
 		}
 
 		if i == m.cursor {

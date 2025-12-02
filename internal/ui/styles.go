@@ -10,50 +10,55 @@ import (
 	"abacus/internal/ui/theme"
 )
 
+// baseStyle returns a style with the theme background - use as foundation for all styles
+func baseStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Background(theme.Current().Background())
+}
+
 // Status text styles
 
 func styleInProgressText() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(theme.Current().Success()).Bold(true)
+	return baseStyle().Foreground(theme.Current().Success()).Bold(true)
 }
 
 func styleNormalText() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(theme.Current().Text())
+	return baseStyle().Foreground(theme.Current().Text())
 }
 
 func styleDoneText() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
+	return baseStyle().Foreground(theme.Current().TextMuted())
 }
 
 func styleBlockedText() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(theme.Current().Error())
+	return baseStyle().Foreground(theme.Current().Error())
 }
 
 func styleStatsDim() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
+	return baseStyle().Foreground(theme.Current().TextMuted())
 }
 
 // Status icon styles
 
 func styleIconOpen() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(theme.Current().Text())
+	return baseStyle().Foreground(theme.Current().Text())
 }
 
 func styleIconInProgress() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(theme.Current().Success())
+	return baseStyle().Foreground(theme.Current().Success())
 }
 
 func styleIconDone() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
+	return baseStyle().Foreground(theme.Current().TextMuted())
 }
 
 func styleIconBlocked() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(theme.Current().Error())
+	return baseStyle().Foreground(theme.Current().Error())
 }
 
 // Tree and list styles
 
 func styleID() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(theme.Current().Accent()).Bold(true)
+	return baseStyle().Foreground(theme.Current().Accent()).Bold(true)
 }
 
 func styleSelected() lipgloss.Style {
@@ -91,13 +96,15 @@ func styleFilterInfo() lipgloss.Style {
 func stylePane() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
-		BorderForeground(theme.Current().BorderNormal())
+		BorderForeground(theme.Current().BorderNormal()).
+		Background(theme.Current().Background())
 }
 
 func stylePaneFocused() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.ThickBorder()).
-		BorderForeground(theme.Current().BorderFocused())
+		BorderForeground(theme.Current().BorderFocused()).
+		Background(theme.Current().Background())
 }
 
 // Detail view styles
