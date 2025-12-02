@@ -55,3 +55,11 @@ func scheduleNewAssigneeToastTick() tea.Cmd {
 		return newAssigneeToastTickMsg{}
 	})
 }
+
+type themeToastTickMsg struct{}
+
+func scheduleThemeToastTick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+		return themeToastTickMsg{}
+	})
+}

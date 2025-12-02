@@ -8,6 +8,7 @@ import (
 
 	"abacus/internal/beads"
 	"abacus/internal/graph"
+	"abacus/internal/ui/theme"
 
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/key"
@@ -202,6 +203,15 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, scheduleNewAssigneeToastTick()
+	case themeToastTickMsg:
+		if !m.themeToastVisible {
+			return m, nil
+		}
+		if time.Since(m.themeToastStart) >= 3*time.Second {
+			m.themeToastVisible = false
+			return m, nil
+		}
+		return m, scheduleThemeToastTick()
 	case DeleteConfirmedMsg:
 		m.activeOverlay = OverlayNone
 		m.deleteOverlay = nil
@@ -484,6 +494,13 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, scheduleCopyToastTick()
 				}
 			}
+		case key.Matches(msg, m.keys.Theme):
+			// Cycle to next theme and show toast
+			newTheme := theme.CycleTheme()
+			m.themeToastVisible = true
+			m.themeToastStart = time.Now()
+			m.themeToastName = newTheme
+			return m, scheduleThemeToastTick()
 		case key.Matches(msg, m.keys.Error):
 			// Show error toast if there's an error and toast isn't already visible
 			if m.lastError != "" && !m.showErrorToast {

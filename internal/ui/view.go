@@ -146,8 +146,11 @@ func (m *App) View() string {
 		return fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
 	}
 
-	// Overlay toast on mainBody if visible (delete toast > create toast > new assignee toast > new label toast > labels toast > status toast > copy toast > error toast)
-	if toast := m.renderDeleteToast(); toast != "" {
+	// Overlay toast on mainBody if visible (theme toast > delete toast > create toast > new assignee toast > new label toast > labels toast > status toast > copy toast > error toast)
+	if toast := m.renderThemeToast(); toast != "" {
+		containerWidth := lipgloss.Width(mainBody)
+		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
+	} else if toast := m.renderDeleteToast(); toast != "" {
 		containerWidth := lipgloss.Width(mainBody)
 		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
 	} else if toast := m.renderCreateToast(); toast != "" {
@@ -458,6 +461,44 @@ func (m *App) renderDeleteToast() string {
 
 	// Line 1: "✓ Deleted ab-xyz"
 	heroLine := " ✓ " + styleStatsDim().Render("Deleted") + " " + styleID().Render(m.deleteToastBeadID)
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
+
+	// Calculate spacing for right-aligned countdown
+	heroWidth := lipgloss.Width(heroLine)
+	countdownWidth := lipgloss.Width(countdownStr)
+
+	targetWidth := heroWidth
+	if targetWidth < 25 {
+		targetWidth = 25
+	}
+	padding := targetWidth - countdownWidth
+	if padding < 2 {
+		padding = 2
+	}
+
+	content := heroLine + "\n" + strings.Repeat(" ", padding) + countdownStr
+	return styleSuccessToast().Render(content)
+}
+
+// renderThemeToast renders the theme change toast if visible.
+func (m *App) renderThemeToast() string {
+	if !m.themeToastVisible || m.themeToastName == "" {
+		return ""
+	}
+	elapsed := time.Since(m.themeToastStart)
+	remaining := 3 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Format theme name nicely (capitalize first letter)
+	themeName := m.themeToastName
+	if len(themeName) > 0 {
+		themeName = strings.ToUpper(themeName[:1]) + themeName[1:]
+	}
+
+	// Line 1: "Theme: Dracula"
+	heroLine := " 🎨 " + styleStatsDim().Render("Theme:") + " " + styleID().Render(themeName)
 	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
 
 	// Calculate spacing for right-aligned countdown

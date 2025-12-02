@@ -145,6 +145,11 @@ type App struct {
 	deleteToastStart   time.Time
 	deleteToastBeadID  string
 
+	// Theme toast state
+	themeToastVisible bool
+	themeToastStart   time.Time
+	themeToastName    string
+
 	// Session tracking for exit summary
 	sessionStart time.Time
 	initialStats Stats

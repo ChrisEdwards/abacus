@@ -42,6 +42,7 @@ func getHelpSections(keys KeyMap) []helpSection {
 				{keys.StartWork.Help().Key, keys.StartWork.Help().Desc},
 				{keys.CloseBead.Help().Key, keys.CloseBead.Help().Desc},
 				{keys.Error.Help().Key, keys.Error.Help().Desc},
+				{keys.Theme.Help().Key, keys.Theme.Help().Desc},
 			},
 		},
 		{

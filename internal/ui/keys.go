@@ -41,6 +41,9 @@ type KeyMap struct {
 
 	// Delete
 	Delete key.Binding
+
+	// Theme
+	Theme key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings for Abacus.
@@ -161,6 +164,12 @@ func DefaultKeyMap() KeyMap {
 		Delete: key.NewBinding(
 			key.WithKeys("delete"),
 			key.WithHelp("Del", "Delete bead"),
+		),
+
+		// Theme
+		Theme: key.NewBinding(
+			key.WithKeys("t"),
+			key.WithHelp("t", "Cycle theme"),
 		),
 	}
 }
