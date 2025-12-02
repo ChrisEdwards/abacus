@@ -74,16 +74,16 @@ func styleCrossHighlight() lipgloss.Style {
 
 func styleAppHeader() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Foreground(theme.Current().Text()).
-		Background(theme.Current().Primary()).
+		Foreground(theme.Current().Primary()).
+		Background(theme.Current().BackgroundSecondary()).
 		Bold(true).
 		Padding(0, 1)
 }
 
 func styleFilterInfo() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Foreground(theme.Current().TextMuted()).
-		Background(theme.Current().Primary())
+		Foreground(theme.Current().Secondary()).
+		Background(theme.Current().BackgroundSecondary())
 }
 
 // Pane styles
@@ -235,8 +235,8 @@ func styleHelpFooter() lipgloss.Style {
 
 func styleKeyPill() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Background(theme.Current().Primary()).
-		Foreground(theme.Current().Text()).
+		Background(theme.Current().BackgroundSecondary()).
+		Foreground(theme.Current().Primary()).
 		Bold(true)
 }
 
