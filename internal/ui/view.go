@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"abacus/internal/ui/theme"
+
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -100,10 +102,14 @@ func (m *App) View() string {
 		centered := lipgloss.Place(m.width, m.height-2,
 			lipgloss.Center, lipgloss.Center,
 			overlay,
-			lipgloss.WithWhitespaceChars(" "),
+			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
 		)
 		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return styleAppBackground(m.width, m.height).Render(content)
+		return lipgloss.Place(m.width, m.height,
+			lipgloss.Left, lipgloss.Top,
+			content,
+			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
+		)
 	}
 
 	if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
@@ -111,10 +117,14 @@ func (m *App) View() string {
 		centered := lipgloss.Place(m.width, m.height-2,
 			lipgloss.Center, lipgloss.Center,
 			overlay,
-			lipgloss.WithWhitespaceChars(" "),
+			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
 		)
 		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return styleAppBackground(m.width, m.height).Render(content)
+		return lipgloss.Place(m.width, m.height,
+			lipgloss.Left, lipgloss.Top,
+			content,
+			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
+		)
 	}
 
 	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
@@ -122,7 +132,7 @@ func (m *App) View() string {
 		centered := lipgloss.Place(m.width, m.height-2,
 			lipgloss.Center, lipgloss.Center,
 			overlay,
-			lipgloss.WithWhitespaceChars(" "),
+			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
 		)
 		// Show error toast over the overlay if visible
 		if toast := m.renderErrorToast(); toast != "" {
@@ -130,7 +140,11 @@ func (m *App) View() string {
 			centered = overlayBottomRight(centered, toast, containerWidth, 1)
 		}
 		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return styleAppBackground(m.width, m.height).Render(content)
+		return lipgloss.Place(m.width, m.height,
+			lipgloss.Left, lipgloss.Top,
+			content,
+			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
+		)
 	}
 
 	if m.activeOverlay == OverlayDelete && m.deleteOverlay != nil {
@@ -138,17 +152,25 @@ func (m *App) View() string {
 		centered := lipgloss.Place(m.width, m.height-2,
 			lipgloss.Center, lipgloss.Center,
 			overlay,
-			lipgloss.WithWhitespaceChars(" "),
+			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
 		)
 		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return styleAppBackground(m.width, m.height).Render(content)
+		return lipgloss.Place(m.width, m.height,
+			lipgloss.Left, lipgloss.Top,
+			content,
+			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
+		)
 	}
 
 	// Help overlay takes visual precedence over everything else
 	if m.showHelp {
 		helpOverlay := renderHelpOverlay(m.keys, m.width, m.height-2)
 		content := fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
-		return styleAppBackground(m.width, m.height).Render(content)
+		return lipgloss.Place(m.width, m.height,
+			lipgloss.Left, lipgloss.Top,
+			content,
+			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
+		)
 	}
 
 	// Overlay toast on mainBody if visible (theme toast > delete toast > create toast > new assignee toast > new label toast > labels toast > status toast > copy toast > error toast)
@@ -183,7 +205,11 @@ func (m *App) View() string {
 	}
 
 	content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
-	return styleAppBackground(m.width, m.height).Render(content)
+	return lipgloss.Place(m.width, m.height,
+		lipgloss.Left, lipgloss.Top,
+		content,
+		lipgloss.WithWhitespaceBackground(theme.Current().Background()),
+	)
 }
 
 // renderErrorToast renders the error toast content if visible.
