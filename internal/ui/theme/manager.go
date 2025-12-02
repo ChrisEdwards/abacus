@@ -133,8 +133,20 @@ func hexToRGB(hex string) (r, g, b uint8) {
 		return 0, 0, 0
 	}
 	var ri, gi, bi int
-	fmt.Sscanf(hex, "%02x%02x%02x", &ri, &gi, &bi)
-	return uint8(ri), uint8(gi), uint8(bi)
+	if n, err := fmt.Sscanf(hex, "%02x%02x%02x", &ri, &gi, &bi); err != nil || n != 3 {
+		return 0, 0, 0
+	}
+	return clampToUint8(ri), clampToUint8(gi), clampToUint8(bi)
+}
+
+func clampToUint8(v int) uint8 {
+	if v < 0 {
+		return 0
+	}
+	if v > 255 {
+		return 255
+	}
+	return uint8(v)
 }
 
 // Current returns the active theme wrapped with utility methods.

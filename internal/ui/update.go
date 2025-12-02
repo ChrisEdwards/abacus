@@ -315,6 +315,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		rawViewportHeight := msg.Height - 5
 		maxViewportHeight := msg.Height - 2
 		m.viewport.Height = clampDimension(rawViewportHeight, minViewportHeight, maxViewportHeight)
+		m.applyViewportTheme()
 		m.updateViewportContent()
 
 	case tea.KeyMsg:
@@ -497,6 +498,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Theme):
 			// Cycle to next theme and show toast
 			newTheme := theme.CycleTheme()
+			m.applyViewportTheme()
 			m.themeToastVisible = true
 			m.themeToastStart = time.Now()
 			m.themeToastName = newTheme
@@ -850,8 +852,8 @@ func (m *App) displayLabelsToast(issueID string, added, removed []string) {
 type createCompleteMsg struct {
 	id        string
 	err       error
-	stayOpen  bool                // from BeadCreatedMsg (Ctrl+Enter bulk mode)
-	fullIssue *beads.FullIssue    // NEW: full issue data for fast injection
+	stayOpen  bool             // from BeadCreatedMsg (Ctrl+Enter bulk mode)
+	fullIssue *beads.FullIssue // NEW: full issue data for fast injection
 }
 
 type createToastTickMsg struct{}

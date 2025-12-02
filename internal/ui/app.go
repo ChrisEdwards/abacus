@@ -240,6 +240,7 @@ func NewApp(cfg Config) (*App, error) {
 	app.recalcVisibleRows()
 	// Capture initial stats for session summary
 	app.initialStats = app.getStats()
+	app.applyViewportTheme()
 	if reporter != nil {
 		reporter.Stage(StartupStageReady, "Ready!")
 	}
@@ -254,3 +255,6 @@ func (m *App) Init() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+func (m *App) applyViewportTheme() {
+	m.viewport.Style = baseStyle()
+}

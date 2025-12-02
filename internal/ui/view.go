@@ -107,61 +107,34 @@ func (m *App) View() string {
 			Render(content)
 	}
 
-	// Overlays take visual precedence over help
+	// Determine whether we need to show an overlay (status, labels, create, delete, help)
+	var overlayContent string
+	showOverlayErrorToast := false
 	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
-		overlay := m.statusOverlay.View()
-		centered := lipgloss.Place(m.width, m.height-2,
-			lipgloss.Center, lipgloss.Center,
-			overlay,
-			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
-		)
-		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return wrapWithBackground(content)
+		overlayContent = m.statusOverlay.View()
+	} else if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
+		overlayContent = m.labelsOverlay.View()
+	} else if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+		overlayContent = m.createOverlay.View()
+		showOverlayErrorToast = true
+	} else if m.activeOverlay == OverlayDelete && m.deleteOverlay != nil {
+		overlayContent = m.deleteOverlay.View()
+	} else if m.showHelp {
+		overlayContent = renderHelpOverlay(m.keys, m.width, m.height-2)
 	}
 
-	if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
-		overlay := m.labelsOverlay.View()
-		centered := lipgloss.Place(m.width, m.height-2,
-			lipgloss.Center, lipgloss.Center,
-			overlay,
-			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
-		)
-		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return wrapWithBackground(content)
-	}
-
-	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-		overlay := m.createOverlay.View()
-		centered := lipgloss.Place(m.width, m.height-2,
-			lipgloss.Center, lipgloss.Center,
-			overlay,
-			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
-		)
-		// Show error toast over the overlay if visible
-		if toast := m.renderErrorToast(); toast != "" {
-			containerWidth := lipgloss.Width(centered)
-			centered = overlayBottomRight(centered, toast, containerWidth, 1)
+	// If an overlay is active, dim the base view and render the overlay on top.
+	if overlayContent != "" {
+		content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
+		base := wrapWithBackground(content)
+		dimmed := applyDimmer(base)
+		layered := overlayCenterOnContent(dimmed, overlayContent, m.width, m.height, 1, 1)
+		if showOverlayErrorToast {
+			if toast := m.renderErrorToast(); toast != "" {
+				layered = overlayBottomRight(layered, toast, m.width, 1)
+			}
 		}
-		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return wrapWithBackground(content)
-	}
-
-	if m.activeOverlay == OverlayDelete && m.deleteOverlay != nil {
-		overlay := m.deleteOverlay.View()
-		centered := lipgloss.Place(m.width, m.height-2,
-			lipgloss.Center, lipgloss.Center,
-			overlay,
-			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
-		)
-		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return wrapWithBackground(content)
-	}
-
-	// Help overlay takes visual precedence over everything else
-	if m.showHelp {
-		helpOverlay := renderHelpOverlay(m.keys, m.width, m.height-2)
-		content := fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
-		return wrapWithBackground(content)
+		return layered
 	}
 
 	// Overlay toast on mainBody if visible (theme toast > delete toast > create toast > new assignee toast > new label toast > labels toast > status toast > copy toast > error toast)

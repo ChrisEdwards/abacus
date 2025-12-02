@@ -233,19 +233,34 @@ func (m *App) updateViewportContent() {
 		descBlock,
 	)
 
-	// Fill background gaps: replace ANSI resets with ones that preserve theme background
-	// This handles gaps from style resets within styled content
+	// Fill background gaps before applying placement padding
+	finalContent = padLinesToWidth(finalContent, vpWidth)
 	finalContent = fillBackground(finalContent)
 
 	// Also use lipgloss.Place for outer padding
 	contentHeight := lipgloss.Height(finalContent)
-	if vpWidth > 0 && contentHeight > 0 {
+	targetHeight := contentHeight
+	if m.viewport.Height > targetHeight {
+		targetHeight = m.viewport.Height
+	}
+	if targetHeight == 0 {
+		targetHeight = 1
+	}
+
+	if vpWidth > 0 && targetHeight > 0 {
+		width := vpWidth
+		if width < 1 {
+			width = 1
+		}
 		finalContent = lipgloss.Place(
-			vpWidth, contentHeight,
+			width, targetHeight,
 			lipgloss.Left, lipgloss.Top,
 			finalContent,
 			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
 		)
+		// lipgloss.Place can insert additional escape sequences, so reapply background fills
+		finalContent = padLinesToWidth(finalContent, width)
+		finalContent = fillBackground(finalContent)
 	}
 
 	m.viewport.SetContent(finalContent)

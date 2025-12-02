@@ -12,7 +12,12 @@ import (
 
 // baseStyle returns a style with the theme background - use as foundation for all styles
 func baseStyle() lipgloss.Style {
-	return lipgloss.NewStyle().Background(theme.Current().Background())
+	bg := theme.Current().Background()
+	return lipgloss.NewStyle().Background(bg)
+}
+
+func styleDimmedSurface() lipgloss.Style {
+	return lipgloss.NewStyle().Faint(true)
 }
 
 // Status text styles
@@ -299,45 +304,6 @@ func styleStatusDisabled() lipgloss.Style {
 func styleLabelChecked() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Foreground(theme.Current().Success()).
-		Bold(true)
-}
-
-func styleLabelUnchecked() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Foreground(theme.Current().Text())
-}
-
-func styleLabelCursor() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Background(theme.Current().BackgroundSecondary()).
-		Foreground(theme.Current().Text()).
-		Bold(true)
-}
-
-func styleLabelNewOption() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Foreground(theme.Current().Accent())
-}
-
-// Chip styles for label tokens
-
-func styleChip() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Foreground(theme.Current().Text()).
-		Background(theme.Current().BackgroundDarker())
-}
-
-func styleChipHighlight() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Foreground(theme.Current().Text()).
-		Background(theme.Current().BackgroundSecondary()).
-		Bold(true)
-}
-
-func styleChipFlash() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Foreground(theme.Current().Text()).
-		Background(theme.Current().Warning()).
 		Bold(true)
 }
 

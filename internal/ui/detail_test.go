@@ -298,6 +298,138 @@ func TestDetailPaneLimitsBlankLinesBetweenSections(t *testing.T) {
 	}
 }
 
+func TestDetailViewportWhitespaceUsesThemeBackground(t *testing.T) {
+	now := time.Now().Format(time.RFC3339)
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-bg1",
+			Title:     "Background padding audit",
+			Status:    "open",
+			IssueType: "task",
+			Priority:  2,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []graph.TreeRow{{Node: node}},
+		viewport:     viewport.New(70, 40),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+
+	bgSeq := theme.Current().BackgroundANSI()
+	if bgSeq == "" {
+		t.Fatalf("theme did not provide background sequence")
+	}
+
+	content := app.viewport.View()
+	lines := strings.Split(content, "\n")
+
+	var missing int
+	for _, line := range lines {
+		if strings.TrimSpace(stripANSI(line)) != "" {
+			continue
+		}
+		if !strings.Contains(line, bgSeq) {
+			missing++
+		}
+	}
+	if missing > 0 {
+		t.Fatalf("found %d whitespace lines without theme background:\n%s", missing, content)
+	}
+}
+
+func TestDetailViewportAllLinesHaveThemeBackground(t *testing.T) {
+	now := time.Now().Format(time.RFC3339)
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-bg2",
+			Title:     "Full background coverage",
+			Status:    "open",
+			IssueType: "bug",
+			Priority:  1,
+			CreatedAt: now,
+			UpdatedAt: now,
+			Comments: []beads.Comment{
+				{Author: "qa", Text: "Looks good", CreatedAt: now},
+			},
+			Labels: []string{"release"},
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []graph.TreeRow{{Node: node}},
+		viewport:     viewport.New(90, 45),
+		outputFormat: "rich",
+	}
+	app.updateViewportContent()
+
+	bgSeq := theme.Current().BackgroundANSI()
+	if bgSeq == "" {
+		t.Fatalf("theme did not provide background sequence")
+	}
+
+	content := app.viewport.View()
+	lines := strings.Split(content, "\n")
+	var missing []string
+	for i, line := range lines {
+		if !strings.Contains(line, bgSeq) {
+			missing = append(missing, fmt.Sprintf("%d:%q", i, line))
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("lines missing theme background:\n%s", strings.Join(missing, "\n"))
+	}
+}
+
+func TestDetailViewportWhitespaceLinesFillViewportWidth(t *testing.T) {
+	now := time.Now().Format(time.RFC3339)
+	const width = 76
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-bg3",
+			Title:     "Whitespace padding audit",
+			Status:    "open",
+			IssueType: "task",
+			Priority:  3,
+			CreatedAt: now,
+			UpdatedAt: now,
+			Description: strings.Join([]string{
+				"Line one of description.",
+				"",
+				"Line three to create whitespace gap.",
+			}, "\n"),
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []graph.TreeRow{{Node: node}},
+		viewport:     viewport.New(width, 40),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+
+	content := app.viewport.View()
+	lines := strings.Split(content, "\n")
+	var shortLines []string
+	for i, line := range lines {
+		if strings.TrimSpace(stripANSI(line)) != "" {
+			continue
+		}
+		if lipgloss.Width(stripANSI(line)) < width {
+			shortLines = append(shortLines, fmt.Sprintf("%d:%q", i, line))
+		}
+	}
+	if len(shortLines) > 0 {
+		t.Fatalf("whitespace lines not padded to viewport width %d:\n%s", width, strings.Join(shortLines, "\n"))
+	}
+}
+
 func TestDetailSectionsUseConsistentIndentation(t *testing.T) {
 	now := time.Now().Format(time.RFC3339)
 	parent := &graph.Node{Issue: beads.FullIssue{ID: "ab-par", Title: "Parent", Status: "open"}}
