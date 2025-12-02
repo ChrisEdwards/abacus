@@ -70,6 +70,14 @@ func styleCrossHighlight() lipgloss.Style {
 		Foreground(theme.Current().TextMuted())
 }
 
+// App background style - fills entire terminal with theme background
+func styleAppBackground(width, height int) lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().Background()).
+		Width(width).
+		Height(height)
+}
+
 // App header styles
 
 func styleAppHeader() lipgloss.Style {

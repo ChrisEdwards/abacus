@@ -102,7 +102,8 @@ func (m *App) View() string {
 			overlay,
 			lipgloss.WithWhitespaceChars(" "),
 		)
-		return fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+		return styleAppBackground(m.width, m.height).Render(content)
 	}
 
 	if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
@@ -112,7 +113,8 @@ func (m *App) View() string {
 			overlay,
 			lipgloss.WithWhitespaceChars(" "),
 		)
-		return fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+		return styleAppBackground(m.width, m.height).Render(content)
 	}
 
 	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
@@ -127,7 +129,8 @@ func (m *App) View() string {
 			containerWidth := lipgloss.Width(centered)
 			centered = overlayBottomRight(centered, toast, containerWidth, 1)
 		}
-		return fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+		return styleAppBackground(m.width, m.height).Render(content)
 	}
 
 	if m.activeOverlay == OverlayDelete && m.deleteOverlay != nil {
@@ -137,13 +140,15 @@ func (m *App) View() string {
 			overlay,
 			lipgloss.WithWhitespaceChars(" "),
 		)
-		return fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
+		return styleAppBackground(m.width, m.height).Render(content)
 	}
 
 	// Help overlay takes visual precedence over everything else
 	if m.showHelp {
 		helpOverlay := renderHelpOverlay(m.keys, m.width, m.height-2)
-		return fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
+		content := fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
+		return styleAppBackground(m.width, m.height).Render(content)
 	}
 
 	// Overlay toast on mainBody if visible (theme toast > delete toast > create toast > new assignee toast > new label toast > labels toast > status toast > copy toast > error toast)
@@ -177,7 +182,8 @@ func (m *App) View() string {
 		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
 	}
 
-	return fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
+	content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
+	return styleAppBackground(m.width, m.height).Render(content)
 }
 
 // renderErrorToast renders the error toast content if visible.
