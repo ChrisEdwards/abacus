@@ -500,6 +500,9 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.themeToastVisible = true
 			m.themeToastStart = time.Now()
 			m.themeToastName = newTheme
+			// Force viewport refresh to apply new theme colors
+			m.detailIssueID = ""
+			m.updateViewportContent()
 			return m, scheduleThemeToastTick()
 		case key.Matches(msg, m.keys.Error):
 			// Show error toast if there's an error and toast isn't already visible

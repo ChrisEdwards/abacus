@@ -46,16 +46,18 @@ func (m *App) View() string {
 		title = fmt.Sprintf("ABACUS v%s", m.version)
 	}
 
-	// Build header with repo name on right
-	leftContent := styleAppHeader().Render(title) + " " + status
+	// Build header with repo name on right - all with theme background
+	leftContent := styleAppHeader().Render(title) + " " + styleNormalText().Render(status)
 	rightContent := styleFooterMuted().Render("Repo: " + m.repoName)
 	availableWidth := m.width - lipgloss.Width(leftContent) - lipgloss.Width(rightContent) - 2
 	var header string
 	if availableWidth > 0 {
-		header = leftContent + strings.Repeat(" ", availableWidth) + rightContent
+		header = leftContent + styleNormalText().Render(strings.Repeat(" ", availableWidth)) + rightContent
 	} else {
-		header = leftContent + " " + rightContent
+		header = leftContent + styleNormalText().Render(" ") + rightContent
 	}
+	// Ensure header fills full width with background
+	header = baseStyle().Width(m.width).Render(header)
 	treeViewStr := m.renderTreeView()
 
 	var mainBody string

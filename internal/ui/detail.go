@@ -59,6 +59,7 @@ func (m *App) updateViewportContent() {
 	makeRow := func(k, v string) string {
 		return lipgloss.JoinHorizontal(lipgloss.Left, styleField().Render(k), styleVal().Render(v))
 	}
+	bgStyle := baseStyle()
 
 	col1 := []string{
 		makeRow("Status:", iss.Status),
@@ -107,7 +108,7 @@ func (m *App) updateViewportContent() {
 
 		firstRow := lipgloss.JoinHorizontal(lipgloss.Left, styleField().Render("Labels:"), labelRows[0])
 		finalLabelBlock := firstRow
-		padding := strings.Repeat(" ", labelPrefixWidth)
+		padding := bgStyle.Render(strings.Repeat(" ", labelPrefixWidth))
 		for i := 1; i < len(labelRows); i++ {
 			finalLabelBlock += "\n" + padding + labelRows[i]
 		}
@@ -123,9 +124,9 @@ func (m *App) updateViewportContent() {
 	if vpWidth < 60 {
 		metaBlock = lipgloss.JoinVertical(lipgloss.Left, leftStack, rightStack)
 	} else {
-		metaBlock = lipgloss.JoinHorizontal(lipgloss.Top, leftStack, "    ", rightStack)
+		metaBlock = lipgloss.JoinHorizontal(lipgloss.Top, leftStack, bgStyle.Render("    "), rightStack)
 	}
-	metaBlock = lipgloss.NewStyle().MarginLeft(1).Render(metaBlock)
+	metaBlock = bgStyle.MarginLeft(1).Render(metaBlock)
 
 	relSections := make([]string, 0, 6)
 
@@ -284,7 +285,7 @@ func alignSectionBody(body string, indent int) string {
 	if len(lines) == 0 {
 		return ""
 	}
-	padding := strings.Repeat(" ", indent)
+	padding := baseStyle().Render(strings.Repeat(" ", indent))
 	common := commonLeadingSpaces(lines)
 	for i, line := range lines {
 		if strings.TrimSpace(stripANSI(line)) == "" {
@@ -417,9 +418,11 @@ func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipglos
 
 func renderRefRowWithIcon(icon string, iconStyle lipgloss.Style, id, title string, targetWidth int, idStyle, titleStyle lipgloss.Style) string {
 	const gap = "  "
+	bgStyle := baseStyle()
 	iconRendered := iconStyle.Render(icon)
 	idRendered := idStyle.Render(id)
-	gapRendered := gap
+	gapRendered := bgStyle.Render(gap)
+	spaceRendered := bgStyle.Render(" ")
 	iconWidth := lipgloss.Width(iconRendered)
 	idWidth := lipgloss.Width(idRendered)
 	gapWidth := lipgloss.Width(gapRendered)
@@ -434,11 +437,11 @@ func renderRefRowWithIcon(icon string, iconStyle lipgloss.Style, id, title strin
 	}
 	prefixFirst := lipgloss.JoinHorizontal(lipgloss.Left,
 		iconRendered,
-		lipgloss.NewStyle().Render(" "),
+		spaceRendered,
 		idRendered,
 		gapRendered,
 	)
-	prefixBlank := strings.Repeat(" ", lipgloss.Width(prefixFirst))
+	prefixBlank := bgStyle.Render(strings.Repeat(" ", lipgloss.Width(prefixFirst)))
 	lines := make([]string, len(titleLines))
 	for i, line := range titleLines {
 		prefix := prefixBlank
@@ -524,7 +527,7 @@ func wrapTitleWithoutHyphenBreaks(title string, width int) []string {
 }
 
 func indentBlock(text string, spaces int) string {
-	padding := strings.Repeat(" ", spaces)
+	padding := baseStyle().Render(strings.Repeat(" ", spaces))
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
 		if line != "" {

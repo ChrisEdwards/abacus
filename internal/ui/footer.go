@@ -94,7 +94,9 @@ func (m *App) renderFooter() string {
 		parts = append(parts, keyPill(h.key, h.desc))
 	}
 
-	left := strings.Join(parts, "  ")
+	// Join with styled separators
+	sp := baseStyle().Render("  ")
+	left := strings.Join(parts, sp)
 	leftWidth := lipgloss.Width(left)
 
 	// Calculate spacing for right-alignment
@@ -103,7 +105,8 @@ func (m *App) renderFooter() string {
 		spacing = 2
 	}
 
-	return left + strings.Repeat(" ", spacing) + rightContent
+	spacer := baseStyle().Render(strings.Repeat(" ", spacing))
+	return baseStyle().Width(m.width).Render(left + spacer + rightContent)
 }
 
 // renderRefreshStatus returns the current refresh status for the footer.
@@ -126,7 +129,7 @@ func (m *App) renderRefreshStatus() string {
 
 // keyPill renders a single key hint as a pill with description.
 func keyPill(key, desc string) string {
-	return styleKeyPill().Render(" "+key+" ") + " " + styleKeyDesc().Render(desc)
+	return styleKeyPill().Render(" "+key+" ") + baseStyle().Render(" ") + styleKeyDesc().Render(desc)
 }
 
 // trimHintsToFit progressively removes hints to fit available width.

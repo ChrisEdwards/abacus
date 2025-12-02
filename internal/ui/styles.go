@@ -124,18 +124,18 @@ func styleDetailHeaderCombined() lipgloss.Style {
 }
 
 func styleField() lipgloss.Style {
-	return lipgloss.NewStyle().
+	return baseStyle().
 		Foreground(theme.Current().Secondary()).
 		Bold(true).
 		Width(12)
 }
 
 func styleVal() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(theme.Current().Text())
+	return baseStyle().Foreground(theme.Current().Text())
 }
 
 func styleSectionHeader() lipgloss.Style {
-	return lipgloss.NewStyle().
+	return baseStyle().
 		Foreground(theme.Current().Accent()).
 		Bold(true).
 		MarginLeft(detailSectionLabelIndent)
@@ -161,7 +161,7 @@ func stylePrio() lipgloss.Style {
 }
 
 func styleCommentHeader() lipgloss.Style {
-	return lipgloss.NewStyle().
+	return baseStyle().
 		Foreground(theme.Current().TextMuted()).
 		Bold(true)
 }
@@ -248,12 +248,12 @@ func styleKeyPill() lipgloss.Style {
 }
 
 func styleKeyDesc() lipgloss.Style {
-	return lipgloss.NewStyle().
+	return baseStyle().
 		Foreground(theme.Current().TextMuted())
 }
 
 func styleFooterMuted() lipgloss.Style {
-	return lipgloss.NewStyle().
+	return baseStyle().
 		Foreground(theme.Current().TextMuted())
 }
 
