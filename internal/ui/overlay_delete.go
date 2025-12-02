@@ -72,70 +72,80 @@ func (m *DeleteOverlay) confirm() tea.Cmd {
 
 // View implements tea.Model.
 func (m *DeleteOverlay) View() string {
-	const maxWidth = 50
+	const innerWidth = 39 // Content width inside borders
+
+	// Helper to pad line to innerWidth
+	padLine := func(content string, contentLen int) string {
+		padding := innerWidth - contentLen
+		if padding < 0 {
+			padding = 0
+		}
+		return content + strings.Repeat(" ", padding)
+	}
 
 	var b strings.Builder
 
-	// Title: "Delete Bead?" centered
-	title := styleErrorIndicator.Render("Delete Bead?")
-	titlePadding := (maxWidth - 12) / 2 // "Delete Bead?" is 12 chars
-	b.WriteString(strings.Repeat(" ", titlePadding))
-	b.WriteString(title)
-	b.WriteString("\n")
+	// Top border: ╭───────────────────────────────────────╮
+	b.WriteString("╭" + strings.Repeat("─", innerWidth) + "╮\n")
 
-	// Divider
-	divider := styleStatusDivider.Render(strings.Repeat("─", maxWidth))
-	b.WriteString(divider)
-	b.WriteString("\n")
+	// Title row: │ Delete Bead                           │
+	title := styleErrorIndicator.Render("Delete Bead")
+	titleRow := " " + title
+	b.WriteString("│" + padLine(titleRow, 12) + "│\n") // "Delete Bead" = 11 chars + 1 space
 
-	// Bead info: icon + ID + title (like tree view)
-	icon := "○" // Open status icon
-	beadLine := styleIconOpen.Render(icon) + " " + styleID.Render(m.issueID) + "  " + styleNormalText.Render(m.issueTitle)
+	// Divider: ├───────────────────────────────────────┤
+	b.WriteString("├" + strings.Repeat("─", innerWidth) + "┤\n")
 
-	// Wrap if too long
-	if len(m.issueID)+len(m.issueTitle)+4 > maxWidth {
-		// Show ID on first line, wrapped title below
-		b.WriteString(styleIconOpen.Render(icon) + " " + styleID.Render(m.issueID))
-		b.WriteString("\n")
-		wrappedTitle := wrapText(m.issueTitle, maxWidth-2)
-		// Indent continuation lines
-		for i, line := range strings.Split(wrappedTitle, "\n") {
-			if i == 0 {
-				b.WriteString("  " + styleNormalText.Render(line))
-			} else {
-				b.WriteString("\n  " + styleNormalText.Render(line))
-			}
-		}
-	} else {
-		b.WriteString(beadLine)
+	// Empty line
+	b.WriteString("│" + strings.Repeat(" ", innerWidth) + "│\n")
+
+	// "Are you sure you want to delete:" line
+	prompt := "  Are you sure you want to delete:"
+	b.WriteString("│" + padLine(prompt, len(prompt)) + "│\n")
+
+	// Empty line
+	b.WriteString("│" + strings.Repeat(" ", innerWidth) + "│\n")
+
+	// Bead line: ●  ab-fg2  test flag check
+	icon := "●"
+	beadContent := "  " + icon + " " + m.issueID + "  " + m.issueTitle
+	// Truncate if too long
+	if len(beadContent) > innerWidth {
+		beadContent = beadContent[:innerWidth-3] + "..."
 	}
-	b.WriteString("\n\n")
+	b.WriteString("│" + padLine(beadContent, len(beadContent)) + "│\n")
 
-	// Warning message
-	warning := styleStatsDim.Render("This cannot be undone.")
-	b.WriteString(warning)
-	b.WriteString("\n\n")
+	// Empty line
+	b.WriteString("│" + strings.Repeat(" ", innerWidth) + "│\n")
 
-	// Centered options with underlined hotkey letters (N and Y)
-	// Use lipgloss Underline for the hotkey letter
+	// Warning line
+	warning := "  This action cannot be undone."
+	b.WriteString("│" + padLine(warning, len(warning)) + "│\n")
 
-	var noLabel, yesLabel string
+	// Empty line
+	b.WriteString("│" + strings.Repeat(" ", innerWidth) + "│\n")
+
+	// Buttons: [ Cancel ]  [ Delete ]
+	var cancelBtn, deleteBtn string
 	if m.selected == 0 {
-		// No selected - fully highlighted, N underlined
-		noLabel = styleStatusSelected.Copy().Underline(true).Render("N") + styleStatusSelected.Render("o")
-		yesLabel = styleStatsDim.Copy().Underline(true).Render("Y") + styleStatsDim.Render("es")
+		// Cancel selected
+		cancelBtn = styleStatusSelected.Render("[ Cancel ]")
+		deleteBtn = styleStatsDim.Render("[ Delete ]")
 	} else {
-		// Yes selected - highlighted in red, Y underlined
-		noLabel = styleStatsDim.Copy().Underline(true).Render("N") + styleStatsDim.Render("o")
-		yesLabel = styleErrorIndicator.Copy().Underline(true).Render("Y") + styleErrorIndicator.Render("es")
+		// Delete selected
+		cancelBtn = styleStatsDim.Render("[ Cancel ]")
+		deleteBtn = styleErrorIndicator.Render("[ Delete ]")
 	}
+	buttons := cancelBtn + "  " + deleteBtn
+	// Center buttons (10 + 2 + 10 = 22 chars visible)
+	btnPadding := (innerWidth - 22) / 2
+	btnLine := strings.Repeat(" ", btnPadding) + buttons
+	// Pad to innerWidth (account for ANSI codes by using fixed padding)
+	btnLinePadded := btnLine + strings.Repeat(" ", innerWidth-btnPadding-22)
+	b.WriteString("│" + btnLinePadded + "│\n")
 
-	// Center the options (No=2 chars, gap=6 spaces, Yes=3 chars)
-	optionsWidth := 2 + 6 + 3
-	optionsPadding := (maxWidth - optionsWidth) / 2
-	b.WriteString(strings.Repeat(" ", optionsPadding))
-	b.WriteString(noLabel + "      " + yesLabel)
+	// Bottom border: ╰───────────────────────────────────────╯
+	b.WriteString("╰" + strings.Repeat("─", innerWidth) + "╯")
 
-	content := b.String()
-	return styleStatusOverlay.Render(content)
+	return b.String()
 }
