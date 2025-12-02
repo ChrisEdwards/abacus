@@ -41,11 +41,11 @@ func (m *DeleteOverlay) Update(msg tea.Msg) (*DeleteOverlay, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, key.NewBinding(key.WithKeys("y"))):
-			// Direct confirm with 'y'
+		case key.Matches(msg, key.NewBinding(key.WithKeys("y", "d"))):
+			// Direct confirm with 'y' or 'd' (Delete)
 			return m, m.confirm()
-		case key.Matches(msg, key.NewBinding(key.WithKeys("n"))):
-			// Direct cancel with 'n'
+		case key.Matches(msg, key.NewBinding(key.WithKeys("n", "c"))):
+			// Direct cancel with 'n' or 'c' (Cancel)
 			return m, func() tea.Msg { return DeleteCancelledMsg{} }
 		case key.Matches(msg, key.NewBinding(key.WithKeys("esc"))):
 			return m, func() tea.Msg { return DeleteCancelledMsg{} }
@@ -53,12 +53,12 @@ func (m *DeleteOverlay) Update(msg tea.Msg) (*DeleteOverlay, tea.Cmd) {
 			if m.selected == 1 {
 				return m, m.confirm()
 			}
-			// Enter on "No" cancels
+			// Enter on "Cancel" cancels
 			return m, func() tea.Msg { return DeleteCancelledMsg{} }
 		case key.Matches(msg, key.NewBinding(key.WithKeys("j", "down", "l", "right", "tab"))):
-			m.selected = 1 // Move to Yes
+			m.selected = 1 // Move to Delete
 		case key.Matches(msg, key.NewBinding(key.WithKeys("k", "up", "h", "left", "shift+tab"))):
-			m.selected = 0 // Move to No
+			m.selected = 0 // Move to Cancel
 		}
 	}
 	return m, nil
@@ -99,14 +99,24 @@ func (m *DeleteOverlay) View() string {
 	b.WriteString(styleStatsDim.Render("This action cannot be undone."))
 	b.WriteString("\n\n")
 
-	// Buttons
+	// Buttons with underlined hotkeys (C and D)
 	var cancelBtn, deleteBtn string
 	if m.selected == 0 {
-		cancelBtn = styleStatusSelected.Render("[ Cancel ]")
-		deleteBtn = styleStatsDim.Render("[ Delete ]")
+		// Cancel selected
+		cancelBtn = styleStatusSelected.Render("[ ") +
+			styleStatusSelected.Underline(true).Render("C") +
+			styleStatusSelected.Render("ancel ]")
+		deleteBtn = styleStatsDim.Render("[ ") +
+			styleStatsDim.Underline(true).Render("D") +
+			styleStatsDim.Render("elete ]")
 	} else {
-		cancelBtn = styleStatsDim.Render("[ Cancel ]")
-		deleteBtn = styleErrorIndicator.Render("[ Delete ]")
+		// Delete selected
+		cancelBtn = styleStatsDim.Render("[ ") +
+			styleStatsDim.Underline(true).Render("C") +
+			styleStatsDim.Render("ancel ]")
+		deleteBtn = styleErrorIndicator.Render("[ ") +
+			styleErrorIndicator.Underline(true).Render("D") +
+			styleErrorIndicator.Render("elete ]")
 	}
 	b.WriteString("        " + cancelBtn + "  " + deleteBtn)
 

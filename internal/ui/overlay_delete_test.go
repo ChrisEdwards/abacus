@@ -42,6 +42,22 @@ func TestDeleteOverlay_YKeyConfirms(t *testing.T) {
 	}
 }
 
+func TestDeleteOverlay_DKeyConfirms(t *testing.T) {
+	overlay := NewDeleteOverlay("ab-xyz", "Test Issue")
+	_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	if cmd == nil {
+		t.Fatal("expected command from 'd' key")
+	}
+	msg := cmd()
+	confirmMsg, ok := msg.(DeleteConfirmedMsg)
+	if !ok {
+		t.Fatalf("expected DeleteConfirmedMsg, got %T", msg)
+	}
+	if confirmMsg.IssueID != "ab-xyz" {
+		t.Errorf("expected IssueID 'ab-xyz', got %s", confirmMsg.IssueID)
+	}
+}
+
 func TestDeleteOverlay_EnterConfirms(t *testing.T) {
 	t.Run("EnterOnYesConfirms", func(t *testing.T) {
 		overlay := NewDeleteOverlay("ab-123", "Test")
@@ -72,12 +88,25 @@ func TestDeleteOverlay_EnterConfirms(t *testing.T) {
 	})
 }
 
-func TestDeleteOverlay_NKeyOrEscCancels(t *testing.T) {
+func TestDeleteOverlay_CancelKeys(t *testing.T) {
 	t.Run("NKeyCancels", func(t *testing.T) {
 		overlay := NewDeleteOverlay("ab-123", "Test")
 		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
 		if cmd == nil {
 			t.Fatal("expected command from 'n' key")
+		}
+		msg := cmd()
+		_, ok := msg.(DeleteCancelledMsg)
+		if !ok {
+			t.Fatalf("expected DeleteCancelledMsg, got %T", msg)
+		}
+	})
+
+	t.Run("CKeyCancels", func(t *testing.T) {
+		overlay := NewDeleteOverlay("ab-123", "Test")
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+		if cmd == nil {
+			t.Fatal("expected command from 'c' key")
 		}
 		msg := cmd()
 		_, ok := msg.(DeleteCancelledMsg)
