@@ -125,6 +125,7 @@ func (m *App) View() string {
 
 	// If an overlay is active, dim the base view and render the overlay on top.
 	if overlayContent != "" {
+		overlayContent = prepareOverlayContent(overlayContent)
 		content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
 		base := wrapWithBackground(content)
 		dimmed := applyDimmer(base)
@@ -508,4 +509,12 @@ func (m *App) renderThemeToast() string {
 
 	content := heroLine + "\n" + strings.Repeat(" ", padding) + countdownStr
 	return styleSuccessToast().Render(content)
+}
+
+func prepareOverlayContent(content string) string {
+	if strings.TrimSpace(content) == "" {
+		return content
+	}
+	padded := padLinesToMaxWidth(content)
+	return fillSecondaryBackground(padded)
 }

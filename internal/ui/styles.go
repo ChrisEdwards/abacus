@@ -16,10 +16,6 @@ func baseStyle() lipgloss.Style {
 	return lipgloss.NewStyle().Background(bg)
 }
 
-func styleDimmedSurface() lipgloss.Style {
-	return lipgloss.NewStyle().Faint(true)
-}
-
 // Status text styles
 
 func styleInProgressText() lipgloss.Style {
@@ -198,7 +194,8 @@ func styleSuccessToast() lipgloss.Style {
 // Help overlay styles
 
 func styleHelpOverlay() lipgloss.Style {
-	return lipgloss.NewStyle().
+	return baseStyle().
+		Background(theme.Current().BackgroundSecondary()).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.Current().BorderFocused()).
 		Padding(1, 2)
@@ -265,14 +262,16 @@ func styleFooterMuted() lipgloss.Style {
 // Status overlay styles
 
 func styleStatusOverlay() lipgloss.Style {
-	return lipgloss.NewStyle().
+	return baseStyle().
+		Background(theme.Current().BackgroundSecondary()).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.Current().BorderFocused()).
 		Padding(1, 2)
 }
 
 func styleDeleteOverlay() lipgloss.Style {
-	return lipgloss.NewStyle().
+	return baseStyle().
+		Background(theme.Current().BackgroundSecondary()).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.Current().Error()).
 		Padding(1, 2)

@@ -53,6 +53,39 @@ func fillBackground(s string) string {
 	return s
 }
 
+// fillSecondaryBackground ensures secondary-surface whitespace (e.g., overlays) use the secondary background color.
+func fillSecondaryBackground(s string) string {
+	if s == "" {
+		return s
+	}
+
+	bgSeq := theme.Current().BackgroundSecondaryANSI()
+	if bgSeq == "" {
+		return s
+	}
+
+	replacements := []struct {
+		old string
+		new string
+	}{
+		{"\x1b[0K", bgSeq},
+		{"\x1b[0J", bgSeq},
+		{"\x1b[39;49m", "\x1b[39m" + bgSeq},
+		{"\x1b[49m", bgSeq},
+		{"\x1b[0m", "\x1b[0m" + bgSeq},
+		{"\x1b[m", "\x1b[m" + bgSeq},
+	}
+	for _, repl := range replacements {
+		s = strings.ReplaceAll(s, repl.old, repl.new)
+	}
+
+	if !strings.HasPrefix(s, bgSeq) {
+		s = bgSeq + s
+	}
+	s = strings.ReplaceAll(s, "\n", "\n"+bgSeq)
+	return s
+}
+
 // applyDimmer inserts ANSI dim sequences throughout the string so nested content remains dim.
 func applyDimmer(s string) string {
 	if s == "" {

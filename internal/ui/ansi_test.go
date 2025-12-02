@@ -85,3 +85,37 @@ func TestApplyDimmerReappliesAfterResets(t *testing.T) {
 		t.Fatalf("expected dimmer to reapply after \\x1b[22m: %q", got)
 	}
 }
+
+func TestFillSecondaryBackgroundPrefixesLines(t *testing.T) {
+	input := "overlay line\n\nsecond line"
+	got := fillSecondaryBackground(input)
+	bgSeq := theme.Current().BackgroundSecondaryANSI()
+	if bgSeq == "" {
+		t.Fatalf("secondary background sequence missing")
+	}
+
+	lines := strings.Split(got, "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d", len(lines))
+	}
+	for i, line := range lines {
+		if !strings.HasPrefix(line, bgSeq) {
+			t.Fatalf("line %d missing secondary background prefix: %q", i, line)
+		}
+	}
+}
+
+func TestFillSecondaryBackgroundReappliesAfterResets(t *testing.T) {
+	input := "foo\x1b[0mbar\nbaz\x1b[49mqux"
+	got := fillSecondaryBackground(input)
+	bgSeq := theme.Current().BackgroundSecondaryANSI()
+	if bgSeq == "" {
+		t.Fatalf("secondary background sequence missing")
+	}
+	if !strings.Contains(got, "\x1b[0m"+bgSeq) {
+		t.Fatalf("expected \\x1b[0m reset to reapply background: %q", got)
+	}
+	if strings.Contains(got, "\x1b[49m") {
+		t.Fatalf("expected \\x1b[49m to be replaced, got: %q", got)
+	}
+}

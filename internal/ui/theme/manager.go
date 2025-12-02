@@ -3,6 +3,8 @@ package theme
 import (
 	"fmt"
 	"sync"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 var globalManager = &manager{
@@ -114,14 +116,12 @@ type ThemeWrapper struct {
 // BackgroundANSI returns the ANSI escape sequence for the theme's background color.
 // This is used for post-processing rendered content to fill background gaps.
 func (w ThemeWrapper) BackgroundANSI() string {
-	bg := w.Background()
-	// Use Dark color (we're always in a dark terminal context for this app)
-	hex := bg.Dark
-	if hex == "" {
-		hex = bg.Light
-	}
-	r, g, b := hexToRGB(hex)
-	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r, g, b)
+	return colorToANSIBackground(w.Background())
+}
+
+// BackgroundSecondaryANSI returns the ANSI escape sequence for the theme's secondary background color.
+func (w ThemeWrapper) BackgroundSecondaryANSI() string {
+	return colorToANSIBackground(w.BackgroundSecondary())
 }
 
 // hexToRGB converts a hex color string to RGB values.
@@ -147,6 +147,15 @@ func clampToUint8(v int) uint8 {
 		return 255
 	}
 	return uint8(v)
+}
+
+func colorToANSIBackground(color lipgloss.AdaptiveColor) string {
+	hex := color.Dark
+	if hex == "" {
+		hex = color.Light
+	}
+	r, g, b := hexToRGB(hex)
+	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r, g, b)
 }
 
 // Current returns the active theme wrapped with utility methods.

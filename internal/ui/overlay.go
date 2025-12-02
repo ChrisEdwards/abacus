@@ -235,13 +235,3 @@ func overlayLineAt(baseLine, overlayLine string, startCol, width int) string {
 
 	return left + overlayLine + right
 }
-
-func maxLineWidth(lines []string) int {
-	max := 0
-	for _, line := range lines {
-		if w := lipgloss.Width(line); w > max {
-			max = w
-		}
-	}
-	return max
-}

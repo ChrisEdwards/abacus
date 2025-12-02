@@ -18,6 +18,16 @@ func padLinesToWidth(content string, width int) string {
 	return strings.Join(lines, "\n")
 }
 
+// padLinesToMaxWidth pads each line so the content reaches its widest visual width.
+func padLinesToMaxWidth(content string) string {
+	lines := strings.Split(content, "\n")
+	width := maxLineWidth(lines)
+	if width <= 0 {
+		return content
+	}
+	return padLinesToWidth(content, width)
+}
+
 // padLineToWidth pads a single line with the base background so it reaches the provided width.
 func padLineToWidth(line string, width int) string {
 	if width <= 0 {
@@ -37,4 +47,14 @@ func blankLine(width int) string {
 		return ""
 	}
 	return baseStyle().Render(strings.Repeat(" ", width))
+}
+
+func maxLineWidth(lines []string) int {
+	max := 0
+	for _, line := range lines {
+		if w := lipgloss.Width(line); w > max {
+			max = w
+		}
+	}
+	return max
 }
