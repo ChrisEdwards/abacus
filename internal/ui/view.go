@@ -96,6 +96,15 @@ func (m *App) View() string {
 		bottomBar = m.renderFooter()
 	}
 
+	// Helper to wrap content with theme background
+	wrapWithBackground := func(content string) string {
+		return lipgloss.NewStyle().
+			Background(theme.Current().Background()).
+			Width(m.width).
+			Height(m.height).
+			Render(content)
+	}
+
 	// Overlays take visual precedence over help
 	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
 		overlay := m.statusOverlay.View()
@@ -105,11 +114,7 @@ func (m *App) View() string {
 			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
 		)
 		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return lipgloss.Place(m.width, m.height,
-			lipgloss.Left, lipgloss.Top,
-			content,
-			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
-		)
+		return wrapWithBackground(content)
 	}
 
 	if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
@@ -120,11 +125,7 @@ func (m *App) View() string {
 			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
 		)
 		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return lipgloss.Place(m.width, m.height,
-			lipgloss.Left, lipgloss.Top,
-			content,
-			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
-		)
+		return wrapWithBackground(content)
 	}
 
 	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
@@ -140,11 +141,7 @@ func (m *App) View() string {
 			centered = overlayBottomRight(centered, toast, containerWidth, 1)
 		}
 		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return lipgloss.Place(m.width, m.height,
-			lipgloss.Left, lipgloss.Top,
-			content,
-			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
-		)
+		return wrapWithBackground(content)
 	}
 
 	if m.activeOverlay == OverlayDelete && m.deleteOverlay != nil {
@@ -155,22 +152,14 @@ func (m *App) View() string {
 			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
 		)
 		content := fmt.Sprintf("%s\n%s\n%s", header, centered, bottomBar)
-		return lipgloss.Place(m.width, m.height,
-			lipgloss.Left, lipgloss.Top,
-			content,
-			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
-		)
+		return wrapWithBackground(content)
 	}
 
 	// Help overlay takes visual precedence over everything else
 	if m.showHelp {
 		helpOverlay := renderHelpOverlay(m.keys, m.width, m.height-2)
 		content := fmt.Sprintf("%s\n%s\n%s", header, helpOverlay, bottomBar)
-		return lipgloss.Place(m.width, m.height,
-			lipgloss.Left, lipgloss.Top,
-			content,
-			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
-		)
+		return wrapWithBackground(content)
 	}
 
 	// Overlay toast on mainBody if visible (theme toast > delete toast > create toast > new assignee toast > new label toast > labels toast > status toast > copy toast > error toast)
@@ -205,11 +194,7 @@ func (m *App) View() string {
 	}
 
 	content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
-	return lipgloss.Place(m.width, m.height,
-		lipgloss.Left, lipgloss.Top,
-		content,
-		lipgloss.WithWhitespaceBackground(theme.Current().Background()),
-	)
+	return wrapWithBackground(content)
 }
 
 // renderErrorToast renders the error toast content if visible.
