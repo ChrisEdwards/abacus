@@ -91,8 +91,9 @@ func (m *App) updateViewportContent() {
 			availableLabelWidth = 10
 		}
 
+		labelSpacer := bgStyle.Render(" ")
 		for _, l := range iss.Labels {
-			rendered := styleLabel().Render(l)
+			rendered := styleLabel().Render(l) + labelSpacer
 			w := lipgloss.Width(rendered)
 			if currentLen+w > availableLabelWidth && currentLen > 0 {
 				labelRows = append(labelRows, currentRow)
@@ -232,6 +233,20 @@ func (m *App) updateViewportContent() {
 		descBlock,
 	)
 
+	// Right-pad each line to viewport width with styled spaces
+	if vpWidth > 0 {
+		padStyle := baseStyle()
+		lines := strings.Split(finalContent, "\n")
+		for i, line := range lines {
+			lineWidth := lipgloss.Width(line)
+			if lineWidth < vpWidth {
+				pad := padStyle.Render(strings.Repeat(" ", vpWidth-lineWidth))
+				lines[i] = line + pad
+			}
+		}
+		finalContent = strings.Join(lines, "\n")
+	}
+
 	m.viewport.SetContent(finalContent)
 	m.detailIssueID = iss.ID
 }
@@ -240,6 +255,9 @@ func renderContentSection(label, body string) string {
 	cleanBody := normalizeSectionBody(body)
 	indentedBody := alignSectionBody(cleanBody, detailSectionContentIndent)
 	var sb strings.Builder
+	// Add styled indentation before section header
+	indent := baseStyle().Render(strings.Repeat(" ", detailSectionLabelIndent))
+	sb.WriteString(indent)
 	sb.WriteString(styleSectionHeader().Render(label))
 	sb.WriteString("\n")
 	sb.WriteString(indentedBody)
@@ -419,10 +437,14 @@ func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipglos
 func renderRefRowWithIcon(icon string, iconStyle lipgloss.Style, id, title string, targetWidth int, idStyle, titleStyle lipgloss.Style) string {
 	const gap = "  "
 	bgStyle := baseStyle()
-	iconRendered := iconStyle.Render(icon)
-	idRendered := idStyle.Render(id)
+	bg := theme.Current().Background()
+	// Ensure icon and id styles have background
+	iconRendered := iconStyle.Background(bg).Render(icon)
+	sp := bgStyle.Render(" ")
+	idRendered := idStyle.Background(bg).Render(id)
 	gapRendered := bgStyle.Render(gap)
-	spaceRendered := bgStyle.Render(" ")
+
+	// Calculate widths for alignment
 	iconWidth := lipgloss.Width(iconRendered)
 	idWidth := lipgloss.Width(idRendered)
 	gapWidth := lipgloss.Width(gapRendered)
@@ -435,20 +457,22 @@ func renderRefRowWithIcon(icon string, iconStyle lipgloss.Style, id, title strin
 	if len(titleLines) == 0 {
 		titleLines = []string{""}
 	}
-	prefixFirst := lipgloss.JoinHorizontal(lipgloss.Left,
-		iconRendered,
-		spaceRendered,
-		idRendered,
-		gapRendered,
-	)
+
+	// Build prefix by direct concatenation (avoids JoinHorizontal resets)
+	prefixFirst := iconRendered + sp + idRendered + gapRendered
 	prefixBlank := bgStyle.Render(strings.Repeat(" ", lipgloss.Width(prefixFirst)))
+
+	// Ensure title style has background
+	titleStyleWithBg := titleStyle.Background(bg)
+
 	lines := make([]string, len(titleLines))
 	for i, line := range titleLines {
 		prefix := prefixBlank
 		if i == 0 {
 			prefix = prefixFirst
 		}
-		lines[i] = lipgloss.JoinHorizontal(lipgloss.Left, prefix, titleStyle.Width(titleWidth).Render(line))
+		// Direct concatenation instead of JoinHorizontal
+		lines[i] = prefix + titleStyleWithBg.Render(line)
 	}
 	return strings.Join(lines, "\n")
 }

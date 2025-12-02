@@ -139,8 +139,7 @@ func styleVal() lipgloss.Style {
 func styleSectionHeader() lipgloss.Style {
 	return baseStyle().
 		Foreground(theme.Current().Accent()).
-		Bold(true).
-		MarginLeft(detailSectionLabelIndent)
+		Bold(true)
 }
 
 // Label and priority badge styles
@@ -150,7 +149,6 @@ func styleLabel() lipgloss.Style {
 		Foreground(theme.Current().Text()).
 		Background(theme.Current().BackgroundDarker()).
 		Padding(0, 1).
-		MarginRight(1).
 		Bold(true)
 }
 
