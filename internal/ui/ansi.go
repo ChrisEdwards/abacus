@@ -16,15 +16,36 @@ func stripANSI(s string) string {
 // fillBackground replaces ANSI reset codes with sequences that preserve the theme background.
 // This ensures all whitespace between styled segments has the correct background color.
 func fillBackground(s string) string {
+	if s == "" {
+		return s
+	}
+
 	// Get the background color escape sequence from the theme
 	bgSeq := theme.Current().BackgroundANSI()
+	if bgSeq == "" {
+		return s
+	}
 
-	// Replace full reset (\x1b[0m) with reset + background
-	// This preserves the background after any style reset
-	s = strings.ReplaceAll(s, "\x1b[0m", "\x1b[0m"+bgSeq)
+	// Replace common reset sequences so the theme background persists
+	replacements := []struct {
+		old string
+		new string
+	}{
+		{"\x1b[39;49m", "\x1b[39m" + bgSeq},
+		{"\x1b[49m", bgSeq},
+		{"\x1b[0m", "\x1b[0m" + bgSeq},
+		{"\x1b[m", "\x1b[m" + bgSeq},
+	}
+	for _, repl := range replacements {
+		s = strings.ReplaceAll(s, repl.old, repl.new)
+	}
 
-	// Replace background-only reset (\x1b[49m) with the theme background
-	s = strings.ReplaceAll(s, "\x1b[49m", bgSeq)
+	// Ensure each line begins with the background color so plain text lines
+	// don't reveal the terminal default background between styled spans.
+	if !strings.HasPrefix(s, bgSeq) {
+		s = bgSeq + s
+	}
+	s = strings.ReplaceAll(s, "\n", "\n"+bgSeq)
 
 	return s
 }
