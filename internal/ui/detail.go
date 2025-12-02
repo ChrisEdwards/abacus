@@ -233,18 +233,16 @@ func (m *App) updateViewportContent() {
 		descBlock,
 	)
 
-	// Right-pad each line to viewport width with styled spaces
-	if vpWidth > 0 {
-		padStyle := baseStyle()
-		lines := strings.Split(finalContent, "\n")
-		for i, line := range lines {
-			lineWidth := lipgloss.Width(line)
-			if lineWidth < vpWidth {
-				pad := padStyle.Render(strings.Repeat(" ", vpWidth-lineWidth))
-				lines[i] = line + pad
-			}
-		}
-		finalContent = strings.Join(lines, "\n")
+	// Use lipgloss.Place with WithWhitespaceBackground to fill ALL whitespace
+	// This handles gaps from style resets, not just right-side padding
+	contentHeight := lipgloss.Height(finalContent)
+	if vpWidth > 0 && contentHeight > 0 {
+		finalContent = lipgloss.Place(
+			vpWidth, contentHeight,
+			lipgloss.Left, lipgloss.Top,
+			finalContent,
+			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
+		)
 	}
 
 	m.viewport.SetContent(finalContent)
