@@ -167,6 +167,12 @@ var (
 				BorderForeground(cPurple).
 				Padding(1, 2)
 
+	// Delete overlay style
+	styleDeleteOverlay = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(cRed).
+				Padding(1, 2)
+
 	styleStatusDivider = lipgloss.NewStyle().
 				Foreground(cPurple)
 

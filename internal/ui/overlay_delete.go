@@ -72,80 +72,44 @@ func (m *DeleteOverlay) confirm() tea.Cmd {
 
 // View implements tea.Model.
 func (m *DeleteOverlay) View() string {
-	const innerWidth = 39 // Content width inside borders
-
-	// Helper to pad line to innerWidth
-	padLine := func(content string, contentLen int) string {
-		padding := innerWidth - contentLen
-		if padding < 0 {
-			padding = 0
-		}
-		return content + strings.Repeat(" ", padding)
-	}
-
 	var b strings.Builder
 
-	// Top border: ╭───────────────────────────────────────╮
-	b.WriteString("╭" + strings.Repeat("─", innerWidth) + "╮\n")
+	// Title
+	b.WriteString(styleErrorIndicator.Render("Delete Bead"))
+	b.WriteString("\n")
 
-	// Title row: │ Delete Bead                           │
-	title := styleErrorIndicator.Render("Delete Bead")
-	titleRow := " " + title
-	b.WriteString("│" + padLine(titleRow, 12) + "│\n") // "Delete Bead" = 11 chars + 1 space
+	// Divider
+	b.WriteString(styleStatusDivider.Render(strings.Repeat("─", 38)))
+	b.WriteString("\n\n")
 
-	// Divider: ├───────────────────────────────────────┤
-	b.WriteString("├" + strings.Repeat("─", innerWidth) + "┤\n")
+	// Prompt
+	b.WriteString("Are you sure you want to delete:\n\n")
 
-	// Empty line
-	b.WriteString("│" + strings.Repeat(" ", innerWidth) + "│\n")
-
-	// "Are you sure you want to delete:" line
-	prompt := "  Are you sure you want to delete:"
-	b.WriteString("│" + padLine(prompt, len(prompt)) + "│\n")
-
-	// Empty line
-	b.WriteString("│" + strings.Repeat(" ", innerWidth) + "│\n")
-
-	// Bead line: ●  ab-fg2  test flag check
-	icon := "●"
-	beadContent := "  " + icon + " " + m.issueID + "  " + m.issueTitle
-	// Truncate if too long
-	if len(beadContent) > innerWidth {
-		beadContent = beadContent[:innerWidth-3] + "..."
+	// Bead line using same pattern as tree view: icon + ID + title
+	icon := styleIconOpen.Render("●")
+	id := styleID.Render(m.issueID)
+	title := m.issueTitle
+	if len(title) > 25 {
+		title = title[:22] + "..."
 	}
-	b.WriteString("│" + padLine(beadContent, len(beadContent)) + "│\n")
+	b.WriteString(icon + " " + id + "  " + styleNormalText.Render(title))
+	b.WriteString("\n\n")
 
-	// Empty line
-	b.WriteString("│" + strings.Repeat(" ", innerWidth) + "│\n")
+	// Warning
+	b.WriteString(styleStatsDim.Render("This action cannot be undone."))
+	b.WriteString("\n\n")
 
-	// Warning line
-	warning := "  This action cannot be undone."
-	b.WriteString("│" + padLine(warning, len(warning)) + "│\n")
-
-	// Empty line
-	b.WriteString("│" + strings.Repeat(" ", innerWidth) + "│\n")
-
-	// Buttons: [ Cancel ]  [ Delete ]
+	// Buttons
 	var cancelBtn, deleteBtn string
 	if m.selected == 0 {
-		// Cancel selected
 		cancelBtn = styleStatusSelected.Render("[ Cancel ]")
 		deleteBtn = styleStatsDim.Render("[ Delete ]")
 	} else {
-		// Delete selected
 		cancelBtn = styleStatsDim.Render("[ Cancel ]")
 		deleteBtn = styleErrorIndicator.Render("[ Delete ]")
 	}
-	buttons := cancelBtn + "  " + deleteBtn
-	// Center buttons (10 + 2 + 10 = 22 chars visible)
-	btnPadding := (innerWidth - 22) / 2
-	btnLine := strings.Repeat(" ", btnPadding) + buttons
-	// Pad to innerWidth (account for ANSI codes by using fixed padding)
-	btnLinePadded := btnLine + strings.Repeat(" ", innerWidth-btnPadding-22)
-	b.WriteString("│" + btnLinePadded + "│\n")
+	b.WriteString("        " + cancelBtn + "  " + deleteBtn)
 
-	// Bottom border: ╰───────────────────────────────────────╯
-	b.WriteString("╰" + strings.Repeat("─", innerWidth) + "╯")
-
-	return b.String()
+	// Use lipgloss border style (same as other overlays)
+	return styleDeleteOverlay.Render(b.String())
 }
