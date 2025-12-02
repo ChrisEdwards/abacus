@@ -78,8 +78,8 @@ func (m *DeleteOverlay) View() string {
 	b.WriteString(styleErrorIndicator.Render("Delete Bead"))
 	b.WriteString("\n")
 
-	// Divider
-	b.WriteString(styleStatusDivider.Render(strings.Repeat("─", 38)))
+	// Divider (red to match border)
+	b.WriteString(styleErrorIndicator.Render(strings.Repeat("─", 38)))
 	b.WriteString("\n\n")
 
 	// Prompt
