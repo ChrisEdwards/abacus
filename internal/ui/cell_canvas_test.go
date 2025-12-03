@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func TestCellCanvasNormalizesNewlines(t *testing.T) {
-	canvas := newCellCanvas(8, 4)
-	canvas.drawStringAt(0, 0, "A\nB")
+func TestCanvasNormalizesNewlines(t *testing.T) {
+	canvas := NewCanvas(8, 4)
+	canvas.DrawStringAt(0, 0, "A\nB")
 
 	output := canvas.Render()
 	lines := strings.Split(output, "\n")
@@ -22,10 +22,10 @@ func TestCellCanvasNormalizesNewlines(t *testing.T) {
 	}
 }
 
-func TestCellCanvasCenterOverlayPositionsContent(t *testing.T) {
+func TestCanvasCenterOverlayPositionsContent(t *testing.T) {
 	const width, height = 20, 10
-	canvas := newCellCanvas(width, height)
-	canvas.drawStringAt(0, 0, baseStyle().Width(width).Height(height).Render(""))
+	canvas := NewCanvas(width, height)
+	canvas.DrawStringAt(0, 0, baseStyle().Width(width).Height(height).Render(""))
 
 	canvas.centerOverlay("AA\nBB", 1, 1)
 	lines := strings.Split(canvas.Render(), "\n")
@@ -45,10 +45,10 @@ func TestCellCanvasCenterOverlayPositionsContent(t *testing.T) {
 	}
 }
 
-func TestCellCanvasBottomRightOverlayAnchorsToast(t *testing.T) {
+func TestCanvasBottomRightOverlayAnchorsToast(t *testing.T) {
 	const width, height = 30, 6
-	canvas := newCellCanvas(width, height)
-	canvas.drawStringAt(0, 0, baseStyle().Width(width).Height(height).Render(""))
+	canvas := NewCanvas(width, height)
+	canvas.DrawStringAt(0, 0, baseStyle().Width(width).Height(height).Render(""))
 
 	canvas.bottomRightOverlay("ERR", 1)
 	lines := strings.Split(canvas.Render(), "\n")

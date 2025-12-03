@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"abacus/internal/ui/theme"
-
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -98,15 +96,6 @@ func (m *App) View() string {
 		bottomBar = m.renderFooter()
 	}
 
-	// Helper to wrap content with theme background
-	wrapWithBackground := func(content string) string {
-		return lipgloss.NewStyle().
-			Background(theme.Current().Background()).
-			Width(m.width).
-			Height(m.height).
-			Render(content)
-	}
-
 	// Determine whether we need to show an overlay (status, labels, create, delete, help)
 	var overlayContent string
 	showOverlayErrorToast := false
@@ -154,13 +143,30 @@ func (m *App) View() string {
 		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
 	}
 
-	content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
-	base := wrapWithBackground(content)
+	primarySurface := NewPrimarySurface(m.width, m.height)
+	headerHeight := lipgloss.Height(header)
+	if headerHeight <= 0 {
+		headerHeight = 1
+	}
+	primarySurface.Draw(0, 0, header)
+	mainBodyStart := headerHeight
+	primarySurface.Draw(0, mainBodyStart, mainBody)
+	mainBodyHeight := lipgloss.Height(mainBody)
+	if mainBodyHeight <= 0 {
+		mainBodyHeight = 1
+	}
+	bottomStart := mainBodyStart + mainBodyHeight
+	if bottomStart >= m.height {
+		bottomStart = m.height - 1
+	}
+	primarySurface.Draw(0, bottomStart, bottomBar)
+
+	base := primarySurface.Render()
 
 	// If an overlay is active, dim the base view and render via the canvas helper.
 	if overlayContent != "" {
-		canvas := newCellCanvas(m.width, m.height)
-		canvas.drawStringAt(0, 0, applyDimmer(base))
+		canvas := NewCanvas(m.width, m.height)
+		canvas.DrawStringAt(0, 0, applyDimmer(base))
 		canvas.centerOverlay(prepareOverlayContent(overlayContent), 1, 1)
 		if showOverlayErrorToast {
 			if toast := m.renderErrorToast(); toast != "" {
@@ -170,8 +176,8 @@ func (m *App) View() string {
 		return canvas.Render()
 	}
 
-	canvas := newCellCanvas(m.width, m.height)
-	canvas.drawStringAt(0, 0, base)
+	canvas := NewCanvas(m.width, m.height)
+	canvas.DrawStringAt(0, 0, base)
 	return canvas.Render()
 }
 

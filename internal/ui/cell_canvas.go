@@ -4,20 +4,21 @@ import (
 	"io"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/cellbuf"
 )
 
-// cellCanvas is a lightweight helper around cellbuf.Screen that lets us compose
+// Canvas is a lightweight helper around cellbuf.Screen that lets us compose
 // lipgloss-rendered strings into a cell buffer before turning the frame back
 // into a string for Bubble Tea.
-type cellCanvas struct {
+type Canvas struct {
 	screen *cellbuf.Screen
 	writer *cellbuf.ScreenWriter
 	width  int
 	height int
 }
 
-func newCellCanvas(width, height int) *cellCanvas {
+func NewCanvas(width, height int) *Canvas {
 	if width <= 0 {
 		width = 1
 	}
@@ -28,7 +29,7 @@ func newCellCanvas(width, height int) *cellCanvas {
 		ShowCursor: false,
 		AltScreen:  false,
 	})
-	return &cellCanvas{
+	return &Canvas{
 		screen: screen,
 		writer: cellbuf.NewScreenWriter(screen),
 		width:  width,
@@ -36,9 +37,22 @@ func newCellCanvas(width, height int) *cellCanvas {
 	}
 }
 
-// drawStringAt writes the provided block starting at x,y. Newlines are
+// Fill paints the entire canvas with the provided background color.
+func (c *Canvas) Fill(bg lipgloss.TerminalColor) {
+	if c == nil {
+		return
+	}
+	fill := lipgloss.NewStyle().
+		Background(bg).
+		Width(c.width).
+		Height(c.height).
+		Render("")
+	c.DrawStringAt(0, 0, fill)
+}
+
+// DrawStringAt writes the provided block starting at x,y. Newlines are
 // normalized so each line begins at column 0 relative to x.
-func (c *cellCanvas) drawStringAt(x, y int, content string) {
+func (c *Canvas) DrawStringAt(x, y int, content string) {
 	if content == "" || c == nil || c.writer == nil {
 		return
 	}
@@ -48,7 +62,7 @@ func (c *cellCanvas) drawStringAt(x, y int, content string) {
 
 // centerOverlay renders the provided overlay centered within the canvas,
 // respecting the top/bottom margins so headers/footers remain visible.
-func (c *cellCanvas) centerOverlay(overlay string, topMargin, bottomMargin int) {
+func (c *Canvas) centerOverlay(overlay string, topMargin, bottomMargin int) {
 	lines := splitOverlayLines(overlay)
 	if len(lines) == 0 || c == nil {
 		return
@@ -97,7 +111,7 @@ func (c *cellCanvas) centerOverlay(overlay string, topMargin, bottomMargin int) 
 
 // bottomRightOverlay positions the overlay anchored to the bottom-right corner
 // with the provided padding inside the canvas.
-func (c *cellCanvas) bottomRightOverlay(overlay string, padding int) {
+func (c *Canvas) bottomRightOverlay(overlay string, padding int) {
 	lines := splitOverlayLines(overlay)
 	if len(lines) == 0 || c == nil {
 		return
@@ -121,7 +135,7 @@ func (c *cellCanvas) bottomRightOverlay(overlay string, padding int) {
 	c.drawBlockAt(startX, startY, lines)
 }
 
-func (c *cellCanvas) drawBlockAt(x, y int, lines []string) {
+func (c *Canvas) drawBlockAt(x, y int, lines []string) {
 	if x < 0 {
 		x = 0
 	}
@@ -142,7 +156,7 @@ func (c *cellCanvas) drawBlockAt(x, y int, lines []string) {
 
 // Render returns the composed frame as a newline-delimited string suitable for
 // Bubble Tea consumption.
-func (c *cellCanvas) Render() string {
+func (c *Canvas) Render() string {
 	if c == nil || c.screen == nil {
 		return ""
 	}
