@@ -98,6 +98,48 @@ func TestCycleTheme(t *testing.T) {
 	}
 }
 
+// TestCyclePreviousTheme verifies that backward theme cycling works correctly.
+func TestCyclePreviousTheme(t *testing.T) {
+	// Set to a known starting point
+	SetTheme("dracula")
+
+	// Cycle backwards through themes and ensure we get different names
+	seen := make(map[string]bool)
+	seen[CurrentName()] = true
+
+	for i := 0; i < 30; i++ { // Cycle more than total themes to test wraparound
+		name := CyclePreviousTheme()
+		seen[name] = true
+	}
+
+	// We should have seen multiple themes
+	if len(seen) < 23 {
+		t.Errorf("expected to cycle through at least 23 themes, only saw %d", len(seen))
+	}
+}
+
+// TestCycleThemeRoundTrip verifies that cycling forward then backward returns to the same theme.
+func TestCycleThemeRoundTrip(t *testing.T) {
+	// Set to a known starting point
+	SetTheme("github")
+	start := CurrentName()
+
+	// Cycle forward 5 times
+	for i := 0; i < 5; i++ {
+		CycleTheme()
+	}
+
+	// Cycle backward 5 times
+	for i := 0; i < 5; i++ {
+		CyclePreviousTheme()
+	}
+
+	// Should be back at start
+	if CurrentName() != start {
+		t.Errorf("expected to return to %q after round trip, got %q", start, CurrentName())
+	}
+}
+
 // TestThemeColorsNotEmpty verifies that all theme methods return non-empty colors.
 func TestThemeColorsNotEmpty(t *testing.T) {
 	for _, name := range Available() {

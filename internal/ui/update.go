@@ -509,6 +509,17 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.detailIssueID = ""
 			m.updateViewportContent()
 			return m, scheduleThemeToastTick()
+		case key.Matches(msg, m.keys.ThemePrev):
+			// Cycle to previous theme and show toast
+			newTheme := theme.CyclePreviousTheme()
+			m.applyViewportTheme()
+			m.themeToastVisible = true
+			m.themeToastStart = time.Now()
+			m.themeToastName = newTheme
+			// Force viewport refresh to apply new theme colors
+			m.detailIssueID = ""
+			m.updateViewportContent()
+			return m, scheduleThemeToastTick()
 		case key.Matches(msg, m.keys.Error):
 			// Show error toast if there's an error and toast isn't already visible
 			if m.lastError != "" && !m.showErrorToast {

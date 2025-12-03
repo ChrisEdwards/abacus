@@ -66,6 +66,17 @@ func Available() []string {
 // CycleTheme switches to the next theme in the sorted list.
 // Returns the name of the new active theme.
 func CycleTheme() string {
+	return cycleThemeByOffset(1)
+}
+
+// CyclePreviousTheme switches to the previous theme in the sorted list.
+// Returns the name of the new active theme.
+func CyclePreviousTheme() string {
+	return cycleThemeByOffset(-1)
+}
+
+// cycleThemeByOffset cycles the theme by the given offset (positive = forward, negative = backward).
+func cycleThemeByOffset(offset int) string {
 	globalManager.mu.Lock()
 	defer globalManager.mu.Unlock()
 
@@ -88,8 +99,8 @@ func CycleTheme() string {
 		}
 	}
 
-	// Cycle to next
-	nextIdx := (currentIdx + 1) % len(names)
+	// Cycle by offset (handle negative wraparound)
+	nextIdx := (currentIdx + offset + len(names)) % len(names)
 	nextName := names[nextIdx]
 	globalManager.currentName = nextName
 	globalManager.currentTheme = globalManager.themes[nextName]
