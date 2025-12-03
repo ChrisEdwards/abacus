@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"abacus/internal/domain"
+	"abacus/internal/ui/theme"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
@@ -120,27 +121,30 @@ func (m *App) buildTreeLines(treeWidth int) ([]string, int, int) {
 
 		if i == m.cursor {
 			cursorStart = len(lines)
-			highlightedPrefix := styleSelected().Render(fmt.Sprintf(" %s%s", indent, marker))
-			line1Rest := sp + iconStyle.Render(iconStr) + sp + styleID().Render(idDisplay) + sp + textStyle.Render(titleLines[0])
-			lines = append(lines, highlightedPrefix+line1Rest)
+			// Build full-width selected row
+			line := buildSelectedRow(indent, marker, iconStr, iconStyle, idDisplay, titleLines[0], textStyle, treeWidth)
+			lines = append(lines, line)
+			// Handle wrapped continuation lines with selection background
+			for k := 1; k < len(titleLines); k++ {
+				contLine := buildSelectedContinuation(titleLines[k], textStyle, treeWidth)
+				lines = append(lines, contLine)
+			}
+			cursorEnd = len(lines)
 		} else if isCrossHighlight {
-			// Cross-highlight style for duplicate instances
-			crossPrefix := styleCrossHighlight().Render(fmt.Sprintf(" %s%s", indent, marker))
-			line1Rest := sp + iconStyle.Render(iconStr) + sp + styleID().Render(idDisplay) + sp + textStyle.Render(titleLines[0])
-			lines = append(lines, crossPrefix+line1Rest)
+			// Cross-highlight style for duplicate instances - also full width
+			line := buildCrossHighlightRow(indent, marker, iconStr, iconStyle, idDisplay, titleLines[0], textStyle, treeWidth)
+			lines = append(lines, line)
+			for k := 1; k < len(titleLines); k++ {
+				lines = append(lines, sp+textStyle.Render(titleLines[k]))
+			}
 		} else {
 			// Style the indent and all spacing with background
 			styledIndent := styleNormalText().Render(" " + indent)
 			line1 := styledIndent + iconStyle.Render(marker) + sp + iconStyle.Render(iconStr) + sp + styleID().Render(idDisplay) + sp + textStyle.Render(titleLines[0])
 			lines = append(lines, line1)
-		}
-
-		for k := 1; k < len(titleLines); k++ {
-			lines = append(lines, sp+textStyle.Render(titleLines[k]))
-		}
-
-		if i == m.cursor {
-			cursorEnd = len(lines)
+			for k := 1; k < len(titleLines); k++ {
+				lines = append(lines, sp+textStyle.Render(titleLines[k]))
+			}
 		}
 	}
 	return lines, cursorStart, cursorEnd
@@ -225,4 +229,73 @@ func treePrefixWidth(indent, marker, icon, id string) int {
 		return 0
 	}
 	return width
+}
+
+// buildSelectedRow creates a full-width row with selection background.
+// It preserves the icon's status color while applying selection background to all elements.
+func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, id, title string, textStyle lipgloss.Style, width int) string {
+	t := theme.Current()
+	bg := t.BackgroundSecondary()
+
+	// Create styles with selection background
+	selectedBase := lipgloss.NewStyle().Background(bg)
+	selectedPrefix := selectedBase.Bold(true).Foreground(t.Primary())
+	selectedIcon := selectedBase.Foreground(iconStyle.GetForeground())
+	selectedID := selectedBase.Foreground(t.Accent()).Bold(true)
+	selectedText := selectedBase.Bold(true).Foreground(textStyle.GetForeground())
+
+	// Build the row content
+	content := selectedPrefix.Render(fmt.Sprintf(" %s%s ", indent, marker)) +
+		selectedIcon.Render(icon) + selectedBase.Render(" ") +
+		selectedID.Render(id) + selectedBase.Render(" ") +
+		selectedText.Render(title)
+
+	// Pad to full width with selection background
+	return lipgloss.NewStyle().
+		Background(bg).
+		Width(width).
+		Render(content)
+}
+
+// buildSelectedContinuation creates a continuation line for wrapped titles with selection background.
+func buildSelectedContinuation(text string, textStyle lipgloss.Style, width int) string {
+	t := theme.Current()
+	bg := t.BackgroundSecondary()
+
+	selectedText := lipgloss.NewStyle().
+		Background(bg).
+		Bold(true).
+		Foreground(textStyle.GetForeground())
+
+	content := lipgloss.NewStyle().Background(bg).Render(" ") + selectedText.Render(text)
+
+	return lipgloss.NewStyle().
+		Background(bg).
+		Width(width).
+		Render(content)
+}
+
+// buildCrossHighlightRow creates a full-width row with cross-highlight background.
+func buildCrossHighlightRow(indent, marker, icon string, iconStyle lipgloss.Style, id, title string, textStyle lipgloss.Style, width int) string {
+	t := theme.Current()
+	bg := t.BorderNormal()
+
+	// Create styles with cross-highlight background
+	crossBase := lipgloss.NewStyle().Background(bg)
+	crossPrefix := crossBase.Foreground(t.TextMuted())
+	crossIcon := crossBase.Foreground(iconStyle.GetForeground())
+	crossID := crossBase.Foreground(t.Accent()).Bold(true)
+	crossText := crossBase.Foreground(textStyle.GetForeground())
+
+	// Build the row content
+	content := crossPrefix.Render(fmt.Sprintf(" %s%s ", indent, marker)) +
+		crossIcon.Render(icon) + crossBase.Render(" ") +
+		crossID.Render(id) + crossBase.Render(" ") +
+		crossText.Render(title)
+
+	// Pad to full width with cross-highlight background
+	return lipgloss.NewStyle().
+		Background(bg).
+		Width(width).
+		Render(content)
 }

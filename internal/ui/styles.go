@@ -62,20 +62,6 @@ func styleID() lipgloss.Style {
 	return baseStyle().Foreground(theme.Current().Accent()).Bold(true)
 }
 
-func styleSelected() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Background(theme.Current().BackgroundSecondary()).
-		Foreground(theme.Current().Primary()).
-		Bold(true)
-}
-
-// styleCrossHighlight is a muted version for duplicate instances of the same node
-func styleCrossHighlight() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Background(theme.Current().BorderNormal()).
-		Foreground(theme.Current().TextMuted())
-}
-
 // App header styles
 
 func styleAppHeader() lipgloss.Style {
