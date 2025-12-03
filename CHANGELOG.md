@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Exit summary displayed when quitting: shows session duration and bead stats with change deltas highlighted (ab-0hc)
+- Surface layering regression guardrails: Dracula/Solarized/Nord golden snapshots, App.View reset integration test, and documented perf benchmark notes (ab-smg0)
 
 ## [0.3.0] - 2025-11-28
 

@@ -21,3 +21,9 @@ Author: ChartreuseCastle
 1. Introduce shared `Surface` style sets so components stop calling the legacy `styleFoo` helpers directly.
 2. Port toast overlays to the Canvas helpers so we can delete the string-based `overlayBottomRight` path.
 3. Create unit/golden tests that snapshot the centered overlay output per theme once styles move fully onto surfaces.
+
+## Follow-up Measurements (2025-12-04)
+
+- `TestOverlayAndToastGoldenSnapshots` now records Dracula/Solarized/Nord overlays and toasts under `testdata/ui/golden/`; refresh them with `go test ./internal/ui -run TestOverlayAndToastGoldenSnapshots -update-golden`.
+- A new integration check (`TestViewOmitsDefaultResetGaps`) ensures the composed frame never falls back to raw `\x1b[0m ` sequences.
+- `BenchmarkAppViewLayering` (Apple M1 Max) reports **~1.76 ms/op** (646 iters, 2.1 MB/op, 16.7K allocs), leaving >1 ms of headroom beneath the 3 ms/frame budget.

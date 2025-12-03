@@ -44,3 +44,23 @@ func TestHeaderVersionGapUsesBackground(t *testing.T) {
 		t.Fatalf("expected themed gap after header title, got: %q", view)
 	}
 }
+
+func TestViewOmitsDefaultResetGaps(t *testing.T) {
+	app := &App{
+		ready:                true,
+		width:                100,
+		height:               30,
+		repoName:             "abacus",
+		activeOverlay:        OverlayStatus,
+		statusOverlay:        NewStatusOverlay("ab-smg0", "Snapshot", "in_progress"),
+		statusToastVisible:   true,
+		statusToastStart:     time.Now(),
+		statusToastBeadID:    "ab-smg0",
+		statusToastNewStatus: "in_progress",
+	}
+
+	view := app.View()
+	if strings.Contains(view, "\x1b[0m ") {
+		t.Fatalf("view contains default reset gap: %q", view)
+	}
+}

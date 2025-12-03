@@ -64,6 +64,28 @@ Use universal color associations for instant comprehension:
 
 ---
 
+## Surface + Layering System
+
+All UI rendering now flows through the Canvas/Surface pipeline described in `docs/SURFACE_RENDERING_REDESIGN.md`.
+
+1. **Pick a surface** – `NewPrimarySurface(width, height)` for base/toasts, `NewSecondarySurface` for overlays. Each surface fills the backing canvas with the correct theme background instantly.
+2. **Draw once** – call `surface.Draw(x, y, block)` with Lip Gloss output. Every style already includes the baked background, so legacy `fillBackground*` helpers should never show up in new code.
+3. **Return a Layer** – set offsets on the canvas and return it via `LayerFunc` so the view compositor can stack it along with dimming, overlays, and toasts.
+
+Example overlay:
+```go
+surf := NewSecondarySurface(popupWidth, popupHeight)
+surf.Draw(0, 0, popupContents)
+return LayerFunc(func() *Canvas {
+    surf.Canvas.SetOffset(centerX, centerY)
+    return surf.Canvas
+})
+```
+
+Toast helpers follow the same pattern via `newToastLayer`: draw onto a primary surface, then let the compositor place it near the bottom-right. No manual `"   "` padding or `lipgloss.Place` gap fillers are required.
+
+---
+
 ## Component Patterns
 
 ### Toast Notifications
@@ -185,6 +207,13 @@ func formatStatusLabel(status string) string
 3. **Start with user need** - What do they actually need to know?
 4. **Iterate on feedback** - Refine based on real usage
 5. **Test behavior changes** - Update tests when logic changes
+
+---
+
+## Testing Guardrails
+
+- **Golden snapshots**: `TestOverlayAndToastGoldenSnapshots` captures Dracula/Solarized/Nord overlays and toasts straight from the cell buffer. Intentionally refresh files with `go test ./internal/ui -run TestOverlayAndToastGoldenSnapshots -update-golden`.
+- **Integration guard**: `TestViewOmitsDefaultResetGaps` fails anytime `App.View()` emits the old `\x1b[0m ` pattern, preventing regressions to the string post-processing era.
 
 ---
 
