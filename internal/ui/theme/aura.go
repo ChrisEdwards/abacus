@@ -88,7 +88,7 @@ func (t AuraTheme) Background() lipgloss.AdaptiveColor {
 }
 
 func (t AuraTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: "#f5f5f5", Dark: aura.DarkBgPanel}
+	return lipgloss.AdaptiveColor{Light: "#f5f5f5", Dark: "#252530"}
 }
 
 func (t AuraTheme) BackgroundDarker() lipgloss.AdaptiveColor {

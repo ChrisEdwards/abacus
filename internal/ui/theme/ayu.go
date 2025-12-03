@@ -88,7 +88,7 @@ func (t AyuTheme) Background() lipgloss.AdaptiveColor {
 }
 
 func (t AyuTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: "#f8f9fa", Dark: ayu.DarkPanel}
+	return lipgloss.AdaptiveColor{Light: "#f8f9fa", Dark: "#1a1f28"}
 }
 
 func (t AyuTheme) BackgroundDarker() lipgloss.AdaptiveColor {

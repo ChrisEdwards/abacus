@@ -112,7 +112,7 @@ func (t GitHubTheme) Background() lipgloss.AdaptiveColor {
 }
 
 func (t GitHubTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: github.LightBgAlt, Dark: github.DarkBgPanel}
+	return lipgloss.AdaptiveColor{Light: github.LightBgAlt, Dark: "#21262d"}
 }
 
 func (t GitHubTheme) BackgroundDarker() lipgloss.AdaptiveColor {

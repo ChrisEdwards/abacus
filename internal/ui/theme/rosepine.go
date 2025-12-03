@@ -102,7 +102,7 @@ func (t RosepineTheme) Background() lipgloss.AdaptiveColor {
 }
 
 func (t RosepineTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: rosepine.DawnSurface, Dark: rosepine.Surface}
+	return lipgloss.AdaptiveColor{Light: rosepine.DawnSurface, Dark: rosepine.Overlay}
 }
 
 func (t RosepineTheme) BackgroundDarker() lipgloss.AdaptiveColor {

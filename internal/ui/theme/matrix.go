@@ -103,7 +103,7 @@ func (t MatrixTheme) Background() lipgloss.AdaptiveColor {
 }
 
 func (t MatrixTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: matrix.LightPaper, Dark: matrix.MatrixInk1}
+	return lipgloss.AdaptiveColor{Light: matrix.LightPaper, Dark: matrix.MatrixInk3}
 }
 
 func (t MatrixTheme) BackgroundDarker() lipgloss.AdaptiveColor {
