@@ -10,11 +10,11 @@ import (
 
 func TestConstructNodeFromIssue(t *testing.T) {
 	tests := []struct {
-		name           string
-		issue          beads.FullIssue
-		wantPriority   int
-		wantIsBlocked  bool
-		wantHasReady   bool
+		name              string
+		issue             beads.FullIssue
+		wantPriority      int
+		wantIsBlocked     bool
+		wantHasReady      bool
 		wantHasInProgress bool
 	}{
 		{
@@ -27,9 +27,9 @@ func TestConstructNodeFromIssue(t *testing.T) {
 				CreatedAt: "2025-12-01T10:00:00Z",
 				UpdatedAt: "2025-12-01T11:00:00Z",
 			},
-			wantPriority:   1, // sortPriorityInProgress
-			wantIsBlocked:  false,
-			wantHasReady:   false,
+			wantPriority:      1, // sortPriorityInProgress
+			wantIsBlocked:     false,
+			wantHasReady:      false,
 			wantHasInProgress: true,
 		},
 		{
@@ -41,9 +41,9 @@ func TestConstructNodeFromIssue(t *testing.T) {
 				Priority:  2,
 				CreatedAt: "2025-12-01T10:00:00Z",
 			},
-			wantPriority:   2, // sortPriorityReady
-			wantIsBlocked:  false,
-			wantHasReady:   true,
+			wantPriority:      2, // sortPriorityReady
+			wantIsBlocked:     false,
+			wantHasReady:      true,
 			wantHasInProgress: false,
 		},
 		{
@@ -56,9 +56,9 @@ func TestConstructNodeFromIssue(t *testing.T) {
 				CreatedAt: "2025-12-01T10:00:00Z",
 				ClosedAt:  "2025-12-01T12:00:00Z",
 			},
-			wantPriority:   4, // sortPriorityClosed
-			wantIsBlocked:  false,
-			wantHasReady:   false,
+			wantPriority:      4, // sortPriorityClosed
+			wantIsBlocked:     false,
+			wantHasReady:      false,
 			wantHasInProgress: false,
 		},
 	}
@@ -126,10 +126,10 @@ func TestFindInsertPosition(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		nodes    []*graph.Node
-		newNode  *graph.Node
-		wantPos  int
+		name    string
+		nodes   []*graph.Node
+		newNode *graph.Node
+		wantPos int
 	}{
 		{
 			name:    "insert at beginning (highest priority)",
@@ -138,8 +138,8 @@ func TestFindInsertPosition(t *testing.T) {
 			wantPos: 0,
 		},
 		{
-			name: "insert in middle (same priority, earlier timestamp)",
-			nodes: []*graph.Node{node1, node3, node4},
+			name:    "insert in middle (same priority, earlier timestamp)",
+			nodes:   []*graph.Node{node1, node3, node4},
 			newNode: node2,
 			wantPos: 1,
 		},
@@ -201,9 +201,9 @@ func TestInsertNodeIntoParent(t *testing.T) {
 			name: "insert as child of existing node",
 			setup: func() (*App, *graph.Node, string) {
 				parent := &graph.Node{
-					Issue:    beads.FullIssue{ID: "ab-parent"},
-					Children: []*graph.Node{},
-					Depth:    0,
+					Issue:     beads.FullIssue{ID: "ab-parent"},
+					Children:  []*graph.Node{},
+					Depth:     0,
 					TreeDepth: 0,
 				}
 				app := &App{
@@ -291,8 +291,8 @@ func TestPropagateStateChanges(t *testing.T) {
 				grandparent.Children = []*graph.Node{parent}
 
 				child := &graph.Node{
-					Issue:    beads.FullIssue{ID: "ab-c", Status: "in_progress"},
-					Parent:   parent,
+					Issue:     beads.FullIssue{ID: "ab-c", Status: "in_progress"},
+					Parent:    parent,
 					IsBlocked: false,
 				}
 				parent.Children = []*graph.Node{child}
@@ -322,8 +322,8 @@ func TestPropagateStateChanges(t *testing.T) {
 					HasReady: false,
 				}
 				child := &graph.Node{
-					Issue:    beads.FullIssue{ID: "ab-c", Status: "open"},
-					Parent:   parent,
+					Issue:     beads.FullIssue{ID: "ab-c", Status: "open"},
+					Parent:    parent,
 					IsBlocked: false,
 				}
 				parent.Children = []*graph.Node{child}
@@ -513,5 +513,68 @@ func TestPropagateStateChangesSortPriority(t *testing.T) {
 			propagateStateChanges(node)
 			tt.validate(t, node)
 		})
+	}
+}
+
+func TestFastInjectBeadUsesParentHint(t *testing.T) {
+	parent := &graph.Node{
+		Issue: beads.FullIssue{ID: "ab-parent", Status: "open"},
+		Depth: 0,
+	}
+	app := &App{roots: []*graph.Node{parent}}
+	app.recalcVisibleRows()
+
+	issue := beads.FullIssue{
+		ID:     "ab-child",
+		Status: "open",
+	}
+
+	if err := app.fastInjectBead(issue, "ab-parent"); err != nil {
+		t.Fatalf("fastInjectBead returned error: %v", err)
+	}
+
+	if len(parent.Children) != 1 {
+		t.Fatalf("expected parent to have 1 child, got %d", len(parent.Children))
+	}
+	child := parent.Children[0]
+	if child.Issue.ID != "ab-child" {
+		t.Fatalf("child ID = %s, want ab-child", child.Issue.ID)
+	}
+	if child.Parent == nil || child.Parent.Issue.ID != "ab-parent" {
+		t.Fatalf("child parent mismatch: %+v", child.Parent)
+	}
+	if len(app.roots) != 1 {
+		t.Fatalf("expected roots to stay at 1, got %d", len(app.roots))
+	}
+}
+
+func TestFastInjectBeadFallsBackToDependencies(t *testing.T) {
+	parent := &graph.Node{
+		Issue: beads.FullIssue{ID: "ab-parent", Status: "open"},
+		Depth: 0,
+	}
+	app := &App{roots: []*graph.Node{parent}}
+	app.recalcVisibleRows()
+
+	issue := beads.FullIssue{
+		ID:     "ab-child",
+		Status: "in_progress",
+		Dependencies: []beads.Dependency{
+			{TargetID: "ab-parent", Type: "parent-child"},
+		},
+	}
+
+	if err := app.fastInjectBead(issue, ""); err != nil {
+		t.Fatalf("fastInjectBead returned error: %v", err)
+	}
+	if len(parent.Children) != 1 {
+		t.Fatalf("expected parent to have 1 child, got %d", len(parent.Children))
+	}
+	child := parent.Children[0]
+	if child.Issue.ID != "ab-child" {
+		t.Fatalf("child ID = %s, want ab-child", child.Issue.ID)
+	}
+	if !parent.Expanded {
+		t.Fatalf("expected parent to auto-expand when child in progress")
 	}
 }

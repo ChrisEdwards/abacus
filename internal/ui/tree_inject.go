@@ -10,8 +10,10 @@ import (
 )
 
 // fastInjectBead performs fast tree injection of a newly created bead.
+// parentHint allows callers to pass the known parent ID when dependency
+// metadata isn't yet populated (e.g., immediate create responses).
 // Returns error if injection fails (caller should fall back to full refresh).
-func (m *App) fastInjectBead(issue beads.FullIssue) error {
+func (m *App) fastInjectBead(issue beads.FullIssue, parentHint string) error {
 	start := time.Now()
 	defer func() {
 		elapsed := time.Since(start)
@@ -24,12 +26,14 @@ func (m *App) fastInjectBead(issue beads.FullIssue) error {
 	// 1. Construct node from issue
 	newNode := constructNodeFromIssue(issue)
 
-	// 2. Determine parent ID from dependencies
-	parentID := ""
-	for _, dep := range issue.Dependencies {
-		if dep.Type == "parent-child" {
-			parentID = dep.TargetID
-			break
+	// 2. Determine parent ID: prefer explicit hint, fall back to dependencies
+	parentID := parentHint
+	if parentID == "" {
+		for _, dep := range issue.Dependencies {
+			if dep.Type == "parent-child" {
+				parentID = dep.TargetID
+				break
+			}
 		}
 	}
 

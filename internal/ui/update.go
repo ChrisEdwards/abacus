@@ -129,7 +129,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// NEW: Fast injection path (if fullIssue available)
 		if msg.fullIssue != nil {
-			if err := m.fastInjectBead(*msg.fullIssue); err != nil {
+			if err := m.fastInjectBead(*msg.fullIssue, msg.parentID); err != nil {
 				// Fall back to full refresh on error
 				m.lastError = fmt.Sprintf("Fast injection failed: %v, refreshing...", err)
 				// Continue to full refresh below
@@ -871,6 +871,7 @@ type createCompleteMsg struct {
 	err       error
 	stayOpen  bool             // from BeadCreatedMsg (Ctrl+Enter bulk mode)
 	fullIssue *beads.FullIssue // NEW: full issue data for fast injection
+	parentID  string           // Explicit parent context for fast injection
 }
 
 type createToastTickMsg struct{}
@@ -914,6 +915,7 @@ func (m *App) executeCreateBead(msg BeadCreatedMsg) tea.Cmd {
 			id:        issue.ID,
 			stayOpen:  msg.StayOpen,
 			fullIssue: &issue, // Pass actual data from database
+			parentID:  msg.ParentID,
 		}
 	}
 }
