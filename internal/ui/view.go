@@ -490,8 +490,12 @@ func (m *App) renderThemeToast() string {
 		themeName = strings.ToUpper(themeName[:1]) + themeName[1:]
 	}
 
-	// Line 1: "Theme: Dracula"
-	heroLine := " 🎨 " + styleStatsDim().Render("Theme:") + " " + styleID().Render(themeName)
+	// Line 1: "Theme: Dracula" with background-safe spacing
+	icon := baseStyle().Render(" 🎨 ")
+	label := styleStatsDim().Render("Theme:")
+	space := baseStyle().Render(" ")
+	name := styleID().Render(themeName)
+	heroLine := lipgloss.JoinHorizontal(lipgloss.Left, icon, label, space, name)
 	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
 
 	// Calculate spacing for right-aligned countdown
@@ -507,7 +511,11 @@ func (m *App) renderThemeToast() string {
 		padding = 2
 	}
 
-	content := heroLine + "\n" + strings.Repeat(" ", padding) + countdownStr
+	paddingSpaces := ""
+	if padding > 0 {
+		paddingSpaces = baseStyle().Render(strings.Repeat(" ", padding))
+	}
+	content := heroLine + "\n" + paddingSpaces + countdownStr
 	return styleSuccessToast().Render(content)
 }
 
