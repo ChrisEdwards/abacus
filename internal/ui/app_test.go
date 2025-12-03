@@ -2840,8 +2840,11 @@ func TestStatusOverlayKeepsBaseContentVisible(t *testing.T) {
 	if !strings.Contains(view, "\x1b[2m") {
 		t.Fatalf("expected dimming control sequence in overlay view, got:\n%s", view)
 	}
-	if secondary := theme.Current().BackgroundSecondaryANSI(); secondary != "" && !strings.Contains(view, secondary) {
-		t.Fatalf("expected secondary background sequence in overlay view:\n%s", view)
+	if secondary := theme.Current().BackgroundSecondaryANSI(); secondary != "" {
+		withReset := strings.TrimSuffix(secondary, "m") + ";22m"
+		if !strings.Contains(view, secondary) && !strings.Contains(view, strings.TrimSuffix(secondary, "m")) && !strings.Contains(view, withReset) {
+			t.Fatalf("expected secondary background sequence in overlay view:\n%s", view)
+		}
 	}
 }
 
@@ -2875,8 +2878,11 @@ func TestCreateOverlayShowsErrorToast(t *testing.T) {
 	if !strings.Contains(view, "\x1b[2m") {
 		t.Fatalf("expected dimming applied to create overlay view, got:\n%s", view)
 	}
-	if secondary := theme.Current().BackgroundSecondaryANSI(); secondary != "" && !strings.Contains(view, secondary) {
-		t.Fatalf("expected secondary background sequence in create overlay view:\n%s", view)
+	if secondary := theme.Current().BackgroundSecondaryANSI(); secondary != "" {
+		withReset := strings.TrimSuffix(secondary, "m") + ";22m"
+		if !strings.Contains(view, secondary) && !strings.Contains(view, strings.TrimSuffix(secondary, "m")) && !strings.Contains(view, withReset) {
+			t.Fatalf("expected secondary background sequence in create overlay view:\n%s", view)
+		}
 	}
 }
 

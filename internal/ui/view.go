@@ -123,21 +123,6 @@ func (m *App) View() string {
 		overlayContent = renderHelpOverlay(m.keys, m.width, m.height-2)
 	}
 
-	// If an overlay is active, dim the base view and render the overlay on top.
-	if overlayContent != "" {
-		overlayContent = prepareOverlayContent(overlayContent)
-		content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
-		base := wrapWithBackground(content)
-		dimmed := applyDimmer(base)
-		layered := overlayCenterOnContent(dimmed, overlayContent, m.width, m.height, 1, 1)
-		if showOverlayErrorToast {
-			if toast := m.renderErrorToast(); toast != "" {
-				layered = overlayBottomRight(layered, toast, m.width, 1)
-			}
-		}
-		return layered
-	}
-
 	// Overlay toast on mainBody if visible (theme toast > delete toast > create toast > new assignee toast > new label toast > labels toast > status toast > copy toast > error toast)
 	if toast := m.renderThemeToast(); toast != "" {
 		containerWidth := lipgloss.Width(mainBody)
@@ -170,7 +155,24 @@ func (m *App) View() string {
 	}
 
 	content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
-	return wrapWithBackground(content)
+	base := wrapWithBackground(content)
+
+	// If an overlay is active, dim the base view and render via the canvas helper.
+	if overlayContent != "" {
+		canvas := newCellCanvas(m.width, m.height)
+		canvas.drawStringAt(0, 0, applyDimmer(base))
+		canvas.centerOverlay(prepareOverlayContent(overlayContent), 1, 1)
+		if showOverlayErrorToast {
+			if toast := m.renderErrorToast(); toast != "" {
+				canvas.bottomRightOverlay(toast, 1)
+			}
+		}
+		return canvas.Render()
+	}
+
+	canvas := newCellCanvas(m.width, m.height)
+	canvas.drawStringAt(0, 0, base)
+	return canvas.Render()
 }
 
 // renderErrorToast renders the error toast content if visible.

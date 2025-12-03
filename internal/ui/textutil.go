@@ -41,14 +41,6 @@ func padLineToWidth(line string, width int) string {
 	return line + padding
 }
 
-// blankLine returns a background-filled blank line with the given width.
-func blankLine(width int) string {
-	if width <= 0 {
-		return ""
-	}
-	return baseStyle().Render(strings.Repeat(" ", width))
-}
-
 func maxLineWidth(lines []string) int {
 	max := 0
 	for _, line := range lines {
