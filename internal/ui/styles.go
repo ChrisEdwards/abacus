@@ -172,6 +172,7 @@ func styleCommentHeader() lipgloss.Style {
 func styleErrorToast() lipgloss.Style {
 	return baseStyle().
 		Border(lipgloss.RoundedBorder()).
+		BorderBackground(theme.Current().Background()).
 		BorderForeground(theme.Current().Error()).
 		Foreground(theme.Current().Text()).
 		Padding(0, 1)
@@ -186,6 +187,7 @@ func styleErrorIndicator() lipgloss.Style {
 func styleSuccessToast() lipgloss.Style {
 	return baseStyle().
 		Border(lipgloss.RoundedBorder()).
+		BorderBackground(theme.Current().Background()).
 		BorderForeground(theme.Current().Success()).
 		Foreground(theme.Current().Text()).
 		Padding(0, 1)
