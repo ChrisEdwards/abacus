@@ -13,11 +13,16 @@ func TestRenderThemeToastSpacerKeepsBackground(t *testing.T) {
 		themeToastStart:   time.Now(),
 	}
 
-	out := app.renderThemeToast()
-	if out == "" {
+	layer := app.themeToastLayer(80, 24, 2, 10)
+	if layer == nil {
 		t.Fatal("expected theme toast to render")
 	}
 
+	canvas := layer.Render()
+	if canvas == nil {
+		t.Fatal("expected canvas from theme toast layer")
+	}
+	out := canvas.Render()
 	if strings.Contains(out, "Theme:\x1b[0m ") {
 		t.Fatalf("found raw space with default background: %q", out)
 	}

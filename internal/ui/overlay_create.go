@@ -131,10 +131,10 @@ type CreateOverlay struct {
 	hasBackendError      bool // True when backend error occurred (for ESC handling)
 
 	// Zone 3: Properties (2-column grid)
-	typeIndex            int
-	priorityIndex        int
-	typeManuallySet      bool // Disables auto-inference when true
-	typeInferenceActive  bool // True during flash animation (150ms)
+	typeIndex           int
+	priorityIndex       int
+	typeManuallySet     bool // Disables auto-inference when true
+	typeInferenceActive bool // True during flash animation (150ms)
 
 	// Zone 4: Labels (multi-select chips)
 	labelsCombo   ChipComboBox
@@ -979,6 +979,32 @@ func (m *CreateOverlay) View() string {
 	b.WriteString(m.renderFooter())
 
 	return styleHelpOverlay().Render(b.String())
+}
+
+// Layer returns a centered layer for the create overlay.
+func (m *CreateOverlay) Layer(width, height, topMargin, bottomMargin int) Layer {
+	return LayerFunc(func() *Canvas {
+		content := m.View()
+		if strings.TrimSpace(content) == "" {
+			return nil
+		}
+
+		overlayWidth := lipgloss.Width(content)
+		if overlayWidth <= 0 {
+			return nil
+		}
+		overlayHeight := lipgloss.Height(content)
+		if overlayHeight <= 0 {
+			return nil
+		}
+
+		surface := NewSecondarySurface(overlayWidth, overlayHeight)
+		surface.Draw(0, 0, content)
+
+		x, y := centeredOffsets(width, height, overlayWidth, overlayHeight, topMargin, bottomMargin)
+		surface.Canvas.SetOffset(x, y)
+		return surface.Canvas
+	})
 }
 
 // underlineFirstChar adds a combining underline (U+0332) after the first character.

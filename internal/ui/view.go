@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"abacus/internal/ui/theme"
+
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -96,95 +98,117 @@ func (m *App) View() string {
 		bottomBar = m.renderFooter()
 	}
 
-	// Determine whether we need to show an overlay (status, labels, create, delete, help)
-	var overlayContent string
-	showOverlayErrorToast := false
-	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
-		overlayContent = m.statusOverlay.View()
-	} else if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
-		overlayContent = m.labelsOverlay.View()
-	} else if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-		overlayContent = m.createOverlay.View()
-		showOverlayErrorToast = true
-	} else if m.activeOverlay == OverlayDelete && m.deleteOverlay != nil {
-		overlayContent = m.deleteOverlay.View()
-	} else if m.showHelp {
-		overlayContent = renderHelpOverlay(m.keys, m.width, m.height-2)
+	wrapWithBackground := func(content string) string {
+		return lipgloss.NewStyle().
+			Background(theme.Current().Background()).
+			Width(m.width).
+			Height(m.height).
+			Render(content)
 	}
 
-	// Overlay toast on mainBody if visible (theme toast > delete toast > create toast > new assignee toast > new label toast > labels toast > status toast > copy toast > error toast)
-	if toast := m.renderThemeToast(); toast != "" {
-		containerWidth := lipgloss.Width(mainBody)
-		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
-	} else if toast := m.renderDeleteToast(); toast != "" {
-		containerWidth := lipgloss.Width(mainBody)
-		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
-	} else if toast := m.renderCreateToast(); toast != "" {
-		containerWidth := lipgloss.Width(mainBody)
-		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
-	} else if toast := m.renderNewAssigneeToast(); toast != "" {
-		containerWidth := lipgloss.Width(mainBody)
-		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
-	} else if toast := m.renderNewLabelToast(); toast != "" {
-		containerWidth := lipgloss.Width(mainBody)
-		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
-	} else if toast := m.renderLabelsToast(); toast != "" {
-		containerWidth := lipgloss.Width(mainBody)
-		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
-	} else if toast := m.renderStatusToast(); toast != "" {
-		containerWidth := lipgloss.Width(mainBody)
-		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
-	} else if toast := m.renderCopyToast(); toast != "" {
-		containerWidth := lipgloss.Width(mainBody)
-		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
-	} else if toast := m.renderErrorToast(); toast != "" {
-		// Measure actual rendered width for proper right-alignment
-		containerWidth := lipgloss.Width(mainBody)
-		mainBody = overlayBottomRight(mainBody, toast, containerWidth, 1)
-	}
-
-	primarySurface := NewPrimarySurface(m.width, m.height)
 	headerHeight := lipgloss.Height(header)
 	if headerHeight <= 0 {
 		headerHeight = 1
 	}
-	primarySurface.Draw(0, 0, header)
 	mainBodyStart := headerHeight
-	primarySurface.Draw(0, mainBodyStart, mainBody)
 	mainBodyHeight := lipgloss.Height(mainBody)
 	if mainBodyHeight <= 0 {
-		mainBodyHeight = 1
+		mainBodyHeight = listHeight
 	}
-	bottomStart := mainBodyStart + mainBodyHeight
-	if bottomStart >= m.height {
-		bottomStart = m.height - 1
+	bottomMargin := lipgloss.Height(bottomBar)
+	if bottomMargin <= 0 {
+		bottomMargin = 1
 	}
-	primarySurface.Draw(0, bottomStart, bottomBar)
 
-	base := primarySurface.Render()
+	// Determine whether we need to show an overlay (status, labels, create, delete, help)
+	var overlayLayers []Layer
+	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
+		if layer := m.statusOverlay.Layer(m.width, m.height, headerHeight, bottomMargin); layer != nil {
+			overlayLayers = append(overlayLayers, layer)
+		}
+	} else if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
+		if layer := m.labelsOverlay.Layer(m.width, m.height, headerHeight, bottomMargin); layer != nil {
+			overlayLayers = append(overlayLayers, layer)
+		}
+	} else if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+		if layer := m.createOverlay.Layer(m.width, m.height, headerHeight, bottomMargin); layer != nil {
+			overlayLayers = append(overlayLayers, layer)
+		}
+	} else if m.activeOverlay == OverlayDelete && m.deleteOverlay != nil {
+		if layer := m.deleteOverlay.Layer(m.width, m.height, headerHeight, bottomMargin); layer != nil {
+			overlayLayers = append(overlayLayers, layer)
+		}
+	} else if m.showHelp {
+		overlayLayers = append(overlayLayers, newHelpOverlayLayer(m.keys, m.width, m.height, headerHeight, bottomMargin))
+	}
 
-	// If an overlay is active, dim the base view and render via the canvas helper.
-	if overlayContent != "" {
+	content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
+	base := wrapWithBackground(content)
+
+	var overlayErrorLayer Layer
+	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+		overlayErrorLayer = m.errorToastLayer(m.width, m.height, mainBodyStart, mainBodyHeight)
+	}
+
+	var toastLayer Layer
+	toastFactories := []func(int, int, int, int) Layer{
+		m.themeToastLayer,
+		m.deleteToastLayer,
+		m.createToastLayer,
+		m.newAssigneeToastLayer,
+		m.newLabelToastLayer,
+		m.labelsToastLayer,
+		m.statusToastLayer,
+		m.copyToastLayer,
+		m.errorToastLayer,
+	}
+	for _, factory := range toastFactories {
+		if layer := factory(m.width, m.height, mainBodyStart, mainBodyHeight); layer != nil {
+			toastLayer = layer
+			break
+		}
+	}
+
+	if len(overlayLayers) > 0 {
 		canvas := NewCanvas(m.width, m.height)
 		canvas.DrawStringAt(0, 0, applyDimmer(base))
-		canvas.centerOverlay(prepareOverlayContent(overlayContent), 1, 1)
-		if showOverlayErrorToast {
-			if toast := m.renderErrorToast(); toast != "" {
-				canvas.bottomRightOverlay(toast, 1)
+		for _, layer := range overlayLayers {
+			if layer == nil {
+				continue
+			}
+			if c := layer.Render(); c != nil {
+				canvas.OverlayCanvas(c)
+			}
+		}
+		if overlayErrorLayer != nil {
+			if c := overlayErrorLayer.Render(); c != nil {
+				canvas.OverlayCanvas(c)
+			}
+		}
+		if toastLayer != nil {
+			if c := toastLayer.Render(); c != nil {
+				canvas.OverlayCanvas(c)
 			}
 		}
 		return canvas.Render()
 	}
 
-	canvas := NewCanvas(m.width, m.height)
-	canvas.DrawStringAt(0, 0, base)
-	return canvas.Render()
+	if toastLayer != nil {
+		canvas := NewCanvas(m.width, m.height)
+		canvas.DrawStringAt(0, 0, base)
+		if c := toastLayer.Render(); c != nil {
+			canvas.OverlayCanvas(c)
+		}
+		return canvas.Render()
+	}
+
+	return base
 }
 
-// renderErrorToast renders the error toast content if visible.
-func (m *App) renderErrorToast() string {
+// errorToastLayer renders the error toast as a layer if visible.
+func (m *App) errorToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.showErrorToast || m.lastError == "" {
-		return ""
+		return nil
 	}
 	elapsed := time.Since(m.errorToastStart)
 	remaining := 10 - int(elapsed.Seconds())
@@ -215,13 +239,13 @@ func (m *App) renderErrorToast() string {
 	}
 	content := fmt.Sprintf("%s\n%s\n%s%s", titleLine, bdErrLine, strings.Repeat(" ", padding), countdownStr)
 
-	return styleErrorToast().Render(content)
+	return newToastLayer(styleErrorToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
 
-// renderCopyToast renders the copy success toast content if visible.
-func (m *App) renderCopyToast() string {
+// copyToastLayer renders the copy success toast if visible.
+func (m *App) copyToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.showCopyToast || m.copiedBeadID == "" {
-		return ""
+		return nil
 	}
 	elapsed := time.Since(m.copyToastStart)
 	remaining := 5 - int(elapsed.Seconds())
@@ -245,13 +269,13 @@ func (m *App) renderCopyToast() string {
 	}
 	content := fmt.Sprintf("%s\n%s%s", msgLine, strings.Repeat(" ", padding), countdownStr)
 
-	return styleSuccessToast().Render(content)
+	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
 
-// renderStatusToast renders the status change success toast if visible.
-func (m *App) renderStatusToast() string {
+// statusToastLayer renders the status change success toast if visible.
+func (m *App) statusToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.statusToastVisible || m.statusToastNewStatus == "" {
-		return ""
+		return nil
 	}
 	elapsed := time.Since(m.statusToastStart)
 	remaining := 7 - int(elapsed.Seconds())
@@ -288,7 +312,7 @@ func (m *App) renderStatusToast() string {
 	infoLine := leftPart + strings.Repeat(" ", padding) + countdownStr
 
 	content := heroLine + "\n" + infoLine
-	return styleSuccessToast().Render(content)
+	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
 
 // statusPresentation returns icon, icon style, and text style for a status.
@@ -303,10 +327,10 @@ func statusPresentation(status string) (string, lipgloss.Style, lipgloss.Style) 
 	}
 }
 
-// renderLabelsToast renders the labels change success toast if visible.
-func (m *App) renderLabelsToast() string {
+// labelsToastLayer renders the labels change success toast if visible.
+func (m *App) labelsToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.labelsToastVisible {
-		return ""
+		return nil
 	}
 	elapsed := time.Since(m.labelsToastStart)
 	remaining := 7 - int(elapsed.Seconds())
@@ -352,13 +376,13 @@ func (m *App) renderLabelsToast() string {
 	infoLine := leftPart + strings.Repeat(" ", padding) + countdownStr
 
 	content := heroLine + "\n" + infoLine
-	return styleSuccessToast().Render(content)
+	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
 
-// renderCreateToast renders the bead creation success toast if visible.
-func (m *App) renderCreateToast() string {
+// createToastLayer renders the bead creation success toast if visible.
+func (m *App) createToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.createToastVisible {
-		return ""
+		return nil
 	}
 	elapsed := time.Since(m.createToastStart)
 	remaining := 7 - int(elapsed.Seconds())
@@ -402,18 +426,18 @@ func (m *App) renderCreateToast() string {
 	infoLine := titlePart + strings.Repeat(" ", padding) + countdownStr
 
 	content := heroLine + "\n" + infoLine
-	return styleSuccessToast().Render(content)
+	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
 
-// renderNewLabelToast renders the new label toast if visible.
+// newLabelToastLayer renders the new label toast if visible.
 // Shown when a label is created that wasn't in the existing options.
-func (m *App) renderNewLabelToast() string {
+func (m *App) newLabelToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.newLabelToastVisible || m.newLabelToastLabel == "" {
-		return ""
+		return nil
 	}
 	elapsed := time.Since(m.newLabelToastStart)
 	if elapsed >= 3*time.Second {
-		return ""
+		return nil
 	}
 	remaining := 3 - int(elapsed.Seconds())
 	if remaining < 0 {
@@ -424,18 +448,18 @@ func (m *App) renderNewLabelToast() string {
 	content := " ✓ New Label Added: " + styleLabelChecked().Render(m.newLabelToastLabel) + " "
 	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
 
-	return styleSuccessToast().Render(content + countdownStr)
+	return newToastLayer(styleSuccessToast().Render(content+countdownStr), width, height, mainBodyStart, mainBodyHeight)
 }
 
-// renderNewAssigneeToast renders the new assignee toast if visible.
+// newAssigneeToastLayer renders the new assignee toast if visible.
 // Shown when an assignee is created that wasn't in the existing options.
-func (m *App) renderNewAssigneeToast() string {
+func (m *App) newAssigneeToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.newAssigneeToastVisible || m.newAssigneeToastAssignee == "" {
-		return ""
+		return nil
 	}
 	elapsed := time.Since(m.newAssigneeToastStart)
 	if elapsed >= 3*time.Second {
-		return ""
+		return nil
 	}
 	remaining := 3 - int(elapsed.Seconds())
 	if remaining < 0 {
@@ -446,13 +470,13 @@ func (m *App) renderNewAssigneeToast() string {
 	content := " ✓ New Assignee Added: " + styleLabelChecked().Render(m.newAssigneeToastAssignee) + " "
 	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
 
-	return styleSuccessToast().Render(content + countdownStr)
+	return newToastLayer(styleSuccessToast().Render(content+countdownStr), width, height, mainBodyStart, mainBodyHeight)
 }
 
-// renderDeleteToast renders the delete success toast if visible.
-func (m *App) renderDeleteToast() string {
+// deleteToastLayer renders the delete success toast if visible.
+func (m *App) deleteToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.deleteToastVisible || m.deleteToastBeadID == "" {
-		return ""
+		return nil
 	}
 	elapsed := time.Since(m.deleteToastStart)
 	remaining := 5 - int(elapsed.Seconds())
@@ -478,13 +502,13 @@ func (m *App) renderDeleteToast() string {
 	}
 
 	content := heroLine + "\n" + strings.Repeat(" ", padding) + countdownStr
-	return styleSuccessToast().Render(content)
+	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
 
-// renderThemeToast renders the theme change toast if visible.
-func (m *App) renderThemeToast() string {
+// themeToastLayer renders the theme change toast if visible.
+func (m *App) themeToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.themeToastVisible || m.themeToastName == "" {
-		return ""
+		return nil
 	}
 	elapsed := time.Since(m.themeToastStart)
 	remaining := 3 - int(elapsed.Seconds())
@@ -524,13 +548,5 @@ func (m *App) renderThemeToast() string {
 		paddingSpaces = baseStyle().Render(strings.Repeat(" ", padding))
 	}
 	content := heroLine + "\n" + paddingSpaces + countdownStr
-	return styleSuccessToast().Render(content)
-}
-
-func prepareOverlayContent(content string) string {
-	if strings.TrimSpace(content) == "" {
-		return content
-	}
-	padded := padLinesToMaxWidth(content)
-	return fillSecondaryBackground(padded)
+	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }

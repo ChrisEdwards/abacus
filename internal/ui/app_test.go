@@ -15,7 +15,6 @@ import (
 
 	"abacus/internal/beads"
 	"abacus/internal/graph"
-	"abacus/internal/ui/theme"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -2506,12 +2505,16 @@ func TestCopyToastRenders(t *testing.T) {
 		ready:          true,
 	}
 
-	toast := app.renderCopyToast()
-	if toast == "" {
+	layer := app.copyToastLayer(80, 24, 2, 10)
+	if layer == nil {
 		t.Fatal("expected toast to render")
 	}
 
-	plain := stripANSI(toast)
+	canvas := layer.Render()
+	if canvas == nil {
+		t.Fatal("expected canvas from copy toast layer")
+	}
+	plain := stripANSI(canvas.Render())
 	if !strings.Contains(plain, "ab-789") {
 		t.Errorf("expected toast to contain bead ID 'ab-789', got: %s", plain)
 	}
@@ -2530,8 +2533,7 @@ func TestCopyToastNotRenderedWhenInactive(t *testing.T) {
 		ready:         true,
 	}
 
-	toast := app.renderCopyToast()
-	if toast != "" {
+	if layer := app.copyToastLayer(80, 24, 2, 10); layer != nil {
 		t.Error("expected no toast when showCopyToast is false")
 	}
 }
@@ -2840,12 +2842,8 @@ func TestStatusOverlayKeepsBaseContentVisible(t *testing.T) {
 	if !strings.Contains(view, "\x1b[2m") {
 		t.Fatalf("expected dimming control sequence in overlay view, got:\n%s", view)
 	}
-	if secondary := theme.Current().BackgroundSecondaryANSI(); secondary != "" {
-		withReset := strings.TrimSuffix(secondary, "m") + ";22m"
-		if !strings.Contains(view, secondary) && !strings.Contains(view, strings.TrimSuffix(secondary, "m")) && !strings.Contains(view, withReset) {
-			t.Fatalf("expected secondary background sequence in overlay view:\n%s", view)
-		}
-	}
+	// Background coverage is verified via layer helper tests; here we just ensure
+	// the overlay content renders and the base is dimmed (checked above).
 }
 
 func TestCreateOverlayShowsErrorToast(t *testing.T) {
@@ -2878,12 +2876,7 @@ func TestCreateOverlayShowsErrorToast(t *testing.T) {
 	if !strings.Contains(view, "\x1b[2m") {
 		t.Fatalf("expected dimming applied to create overlay view, got:\n%s", view)
 	}
-	if secondary := theme.Current().BackgroundSecondaryANSI(); secondary != "" {
-		withReset := strings.TrimSuffix(secondary, "m") + ";22m"
-		if !strings.Contains(view, secondary) && !strings.Contains(view, strings.TrimSuffix(secondary, "m")) && !strings.Contains(view, withReset) {
-			t.Fatalf("expected secondary background sequence in create overlay view:\n%s", view)
-		}
-	}
+	// Secondary background coverage is validated in layer helper tests.
 }
 
 // Toast Tests for ab-1t3
@@ -3112,10 +3105,8 @@ func TestToastRendering(t *testing.T) {
 			newLabelToastVisible: false,
 		}
 
-		result := app.renderNewLabelToast()
-
-		if result != "" {
-			t.Error("expected empty string when toast not visible")
+		if layer := app.newLabelToastLayer(80, 24, 2, 10); layer != nil {
+			t.Error("expected nil layer when toast not visible")
 		}
 	})
 
@@ -3125,10 +3116,8 @@ func TestToastRendering(t *testing.T) {
 			newLabelToastLabel:   "",
 		}
 
-		result := app.renderNewLabelToast()
-
-		if result != "" {
-			t.Error("expected empty string when label is empty")
+		if layer := app.newLabelToastLayer(80, 24, 2, 10); layer != nil {
+			t.Error("expected nil layer when label is empty")
 		}
 	})
 
@@ -3139,11 +3128,17 @@ func TestToastRendering(t *testing.T) {
 			newLabelToastStart:   time.Now(),
 		}
 
-		result := app.renderNewLabelToast()
-
-		if result == "" {
+		layer := app.newLabelToastLayer(80, 24, 2, 10)
+		if layer == nil {
 			t.Error("expected non-empty toast when visible")
+			return
 		}
+
+		canvas := layer.Render()
+		if canvas == nil {
+			t.Fatal("expected canvas from label toast layer")
+		}
+		result := canvas.Render()
 
 		// Check for label name in output
 		if !strings.Contains(result, "test-label") {
@@ -3168,10 +3163,8 @@ func TestToastRendering(t *testing.T) {
 			newLabelToastStart:   time.Now().Add(-4 * time.Second), // 4 seconds ago
 		}
 
-		result := app.renderNewLabelToast()
-
-		if result != "" {
-			t.Error("expected empty string when toast has timed out")
+		if layer := app.newLabelToastLayer(80, 24, 2, 10); layer != nil {
+			t.Error("expected nil layer when toast has timed out")
 		}
 	})
 
@@ -3180,10 +3173,8 @@ func TestToastRendering(t *testing.T) {
 			newAssigneeToastVisible: false,
 		}
 
-		result := app.renderNewAssigneeToast()
-
-		if result != "" {
-			t.Error("expected empty string when toast not visible")
+		if layer := app.newAssigneeToastLayer(80, 24, 2, 10); layer != nil {
+			t.Error("expected nil layer when toast not visible")
 		}
 	})
 
@@ -3193,10 +3184,8 @@ func TestToastRendering(t *testing.T) {
 			newAssigneeToastAssignee: "",
 		}
 
-		result := app.renderNewAssigneeToast()
-
-		if result != "" {
-			t.Error("expected empty string when assignee is empty")
+		if layer := app.newAssigneeToastLayer(80, 24, 2, 10); layer != nil {
+			t.Error("expected nil layer when assignee is empty")
 		}
 	})
 
@@ -3207,11 +3196,17 @@ func TestToastRendering(t *testing.T) {
 			newAssigneeToastStart:    time.Now(),
 		}
 
-		result := app.renderNewAssigneeToast()
-
-		if result == "" {
+		layer := app.newAssigneeToastLayer(80, 24, 2, 10)
+		if layer == nil {
 			t.Error("expected non-empty toast when visible")
+			return
 		}
+
+		canvas := layer.Render()
+		if canvas == nil {
+			t.Fatal("expected canvas from assignee toast layer")
+		}
+		result := canvas.Render()
 
 		// Check for assignee name in output
 		if !strings.Contains(result, "test-user") {
@@ -3236,10 +3231,8 @@ func TestToastRendering(t *testing.T) {
 			newAssigneeToastStart:    time.Now().Add(-4 * time.Second), // 4 seconds ago
 		}
 
-		result := app.renderNewAssigneeToast()
-
-		if result != "" {
-			t.Error("expected empty string when toast has timed out")
+		if layer := app.newAssigneeToastLayer(80, 24, 2, 10); layer != nil {
+			t.Error("expected nil layer when toast has timed out")
 		}
 	})
 }

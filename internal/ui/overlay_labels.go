@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // LabelsOverlay is a chip-based popup for managing labels on a bead.
@@ -203,37 +204,33 @@ func (m *LabelsOverlay) confirm() tea.Cmd {
 
 // View implements tea.Model.
 func (m *LabelsOverlay) View() string {
-	var b strings.Builder
+	return styleStatusOverlay().Render(strings.Join(m.renderLines(), "\n"))
+}
 
-	// Header: Line 1 = "Edit Labels", Line 2 = "ab-xxx: Bead Title"
-	b.WriteString(styleHelpSectionHeader().Render("Edit Labels"))
-	b.WriteString("\n")
+// Layer returns a centered layer for the labels overlay.
+func (m *LabelsOverlay) Layer(width, height, topMargin, bottomMargin int) Layer {
+	return LayerFunc(func() *Canvas {
+		content := m.View()
+		if strings.TrimSpace(content) == "" {
+			return nil
+		}
 
-	// Truncate title if too long
-	title := m.beadTitle
-	maxTitleLen := 30
-	if len(title) > maxTitleLen {
-		title = title[:maxTitleLen-3] + "..."
-	}
-	contextLine := styleID().Render(m.issueID) + styleStatsDim().Render(": ") + styleStatsDim().Render(title)
-	b.WriteString(contextLine)
-	b.WriteString("\n")
+		overlayWidth := lipgloss.Width(content)
+		if overlayWidth <= 0 {
+			return nil
+		}
+		overlayHeight := lipgloss.Height(content)
+		if overlayHeight <= 0 {
+			return nil
+		}
 
-	// Divider
-	divider := styleStatusDivider().Render(strings.Repeat("─", 44))
-	b.WriteString(divider)
-	b.WriteString("\n\n")
+		surface := NewSecondarySurface(overlayWidth, overlayHeight)
+		surface.Draw(0, 0, content)
 
-	// ChipComboBox
-	b.WriteString(m.chipCombo.View())
-	b.WriteString("\n\n")
-
-	// Footer
-	b.WriteString(divider)
-	b.WriteString("\n")
-	b.WriteString(m.renderFooter())
-
-	return styleStatusOverlay().Render(b.String())
+		x, y := centeredOffsets(width, height, overlayWidth, overlayHeight, topMargin, bottomMargin)
+		surface.Canvas.SetOffset(x, y)
+		return surface.Canvas
+	})
 }
 
 // renderFooter returns the dynamic footer based on current state.
@@ -270,6 +267,26 @@ func (m *LabelsOverlay) renderFooter() string {
 		parts = append(parts, keyPill(h.key, h.desc))
 	}
 	return strings.Join(parts, "  ")
+}
+
+func (m *LabelsOverlay) renderLines() []string {
+	var lines []string
+
+	lines = append(lines, styleHelpSectionHeader().Render("Edit Labels"))
+
+	title := m.beadTitle
+	maxTitleLen := 30
+	if len(title) > maxTitleLen {
+		title = title[:maxTitleLen-3] + "..."
+	}
+	contextLine := styleID().Render(m.issueID) + styleStatsDim().Render(": ") + styleStatsDim().Render(title)
+	lines = append(lines, contextLine)
+
+	divider := styleStatusDivider().Render(strings.Repeat("─", 44))
+	lines = append(lines, divider, "")
+	lines = append(lines, m.chipCombo.View(), "", divider, m.renderFooter())
+
+	return lines
 }
 
 // IssueID returns the issue ID (for testing).
