@@ -7,7 +7,7 @@ import (
 
 func TestRenderHelpOverlay(t *testing.T) {
 	keys := DefaultKeyMap()
-	overlay := renderHelpOverlay(keys, 80, 24)
+	overlay := renderHelpOverlay(keys)
 
 	t.Run("ContainsTitle", func(t *testing.T) {
 		if !strings.Contains(overlay, "ABACUS HELP") {
@@ -19,7 +19,7 @@ func TestRenderHelpOverlay(t *testing.T) {
 	})
 
 	t.Run("ContainsAllSections", func(t *testing.T) {
-		sections := []string{"NAVIGATION", "ACTIONS", "SEARCH"}
+		sections := []string{"NAVIGATION", "ACTIONS", "BEAD ACTIONS", "SEARCH"}
 		for _, section := range sections {
 			if !strings.Contains(overlay, section) {
 				t.Errorf("expected overlay to contain section %q", section)
@@ -51,14 +51,14 @@ func TestGetHelpSections(t *testing.T) {
 	keys := DefaultKeyMap()
 	sections := getHelpSections(keys)
 
-	t.Run("ReturnsThreeSections", func(t *testing.T) {
-		if len(sections) != 3 {
-			t.Errorf("expected 3 sections, got %d", len(sections))
+	t.Run("ReturnsFourSections", func(t *testing.T) {
+		if len(sections) != 4 {
+			t.Errorf("expected 4 sections, got %d", len(sections))
 		}
 	})
 
 	t.Run("SectionTitles", func(t *testing.T) {
-		expected := []string{"NAVIGATION", "ACTIONS", "SEARCH"}
+		expected := []string{"NAVIGATION", "ACTIONS", "BEAD ACTIONS", "SEARCH"}
 		for i, section := range sections {
 			if section.title != expected[i] {
 				t.Errorf("section %d: expected title %q, got %q", i, expected[i], section.title)
@@ -72,15 +72,21 @@ func TestGetHelpSections(t *testing.T) {
 		}
 	})
 
-	t.Run("ActionsHas11Rows", func(t *testing.T) {
-		if len(sections[1].rows) != 11 {
-			t.Errorf("Actions section: expected 11 rows, got %d", len(sections[1].rows))
+	t.Run("ActionsHas5Rows", func(t *testing.T) {
+		if len(sections[1].rows) != 5 {
+			t.Errorf("Actions section: expected 5 rows, got %d", len(sections[1].rows))
+		}
+	})
+
+	t.Run("BeadActionsHas8Rows", func(t *testing.T) {
+		if len(sections[2].rows) != 8 {
+			t.Errorf("Bead Actions section: expected 8 rows, got %d", len(sections[2].rows))
 		}
 	})
 
 	t.Run("SearchHas3Rows", func(t *testing.T) {
-		if len(sections[2].rows) != 3 {
-			t.Errorf("Search section: expected 3 rows, got %d", len(sections[2].rows))
+		if len(sections[3].rows) != 3 {
+			t.Errorf("Search section: expected 3 rows, got %d", len(sections[3].rows))
 		}
 	})
 
@@ -143,17 +149,29 @@ func TestHelpOverlayDimensions(t *testing.T) {
 	keys := DefaultKeyMap()
 
 	t.Run("SmallTerminal", func(t *testing.T) {
-		overlay := renderHelpOverlay(keys, 60, 20)
-		// Should not panic and should produce output
-		if overlay == "" {
+		layer := newHelpOverlayLayer(keys, 60, 20, 1, 1)
+		if layer == nil {
+			t.Fatal("expected layer for small terminal")
+		}
+		canvas := layer.Render()
+		if canvas == nil {
+			t.Fatal("expected canvas for small terminal layer")
+		}
+		if output := canvas.Render(); output == "" {
 			t.Error("expected non-empty overlay for small terminal")
 		}
 	})
 
 	t.Run("LargeTerminal", func(t *testing.T) {
-		overlay := renderHelpOverlay(keys, 200, 60)
-		// Should not panic and should produce output
-		if overlay == "" {
+		layer := newHelpOverlayLayer(keys, 200, 60, 2, 2)
+		if layer == nil {
+			t.Fatal("expected layer for large terminal")
+		}
+		canvas := layer.Render()
+		if canvas == nil {
+			t.Fatal("expected canvas for large terminal layer")
+		}
+		if output := canvas.Render(); output == "" {
 			t.Error("expected non-empty overlay for large terminal")
 		}
 	})

@@ -35,14 +35,21 @@ func getHelpSections(keys KeyMap) []helpSection {
 				{keys.Enter.Help().Key, keys.Enter.Help().Desc},
 				{keys.Tab.Help().Key, keys.Tab.Help().Desc},
 				{keys.Refresh.Help().Key, keys.Refresh.Help().Desc},
+				{keys.Error.Help().Key, keys.Error.Help().Desc},
+				{keys.Theme.Help().Key, keys.Theme.Help().Desc},
+			},
+		},
+		{
+			title: "BEAD ACTIONS",
+			rows: [][]string{
 				{keys.Copy.Help().Key, keys.Copy.Help().Desc},
 				{keys.Status.Help().Key, keys.Status.Help().Desc},
 				{keys.Labels.Help().Key, keys.Labels.Help().Desc},
 				{keys.NewBead.Help().Key, keys.NewBead.Help().Desc},
+				{keys.NewRootBead.Help().Key, keys.NewRootBead.Help().Desc},
 				{keys.StartWork.Help().Key, keys.StartWork.Help().Desc},
 				{keys.CloseBead.Help().Key, keys.CloseBead.Help().Desc},
-				{keys.Error.Help().Key, keys.Error.Help().Desc},
-				{keys.Theme.Help().Key, keys.Theme.Help().Desc},
+				{keys.Delete.Help().Key, keys.Delete.Help().Desc},
 			},
 		},
 		{
@@ -56,18 +63,22 @@ func getHelpSections(keys KeyMap) []helpSection {
 	}
 }
 
-// renderHelpOverlay creates the centered help modal.
-func renderHelpOverlay(keys KeyMap, width, height int) string {
+// renderHelpOverlay builds the help modal content.
+func renderHelpOverlay(keys KeyMap) string {
 	sections := getHelpSections(keys)
 
-	// Build left column (Navigation)
-	leftCol := renderHelpSectionTable(sections[0])
-
-	// Build right column (Actions + Search)
-	rightCol := lipgloss.JoinVertical(lipgloss.Left,
-		renderHelpSectionTable(sections[1]),
+	// Build left column (Navigation + Actions)
+	leftCol := lipgloss.JoinVertical(lipgloss.Left,
+		renderHelpSectionTable(sections[0]),
 		"",
+		renderHelpSectionTable(sections[1]),
+	)
+
+	// Build right column (Bead Actions + Search)
+	rightCol := lipgloss.JoinVertical(lipgloss.Left,
 		renderHelpSectionTable(sections[2]),
+		"",
+		renderHelpSectionTable(sections[3]),
 	)
 
 	// Join columns horizontally with spacing
@@ -92,14 +103,12 @@ func renderHelpOverlay(keys KeyMap, width, height int) string {
 	)
 
 	// Apply overlay styling with border
-	styled := styleHelpOverlay().Render(content)
+	return styleHelpOverlay().Render(content)
+}
 
-	// Center on screen using lipgloss.Place()
-	return lipgloss.Place(width, height,
-		lipgloss.Center, lipgloss.Center,
-		styled,
-		lipgloss.WithWhitespaceChars(" "),
-	)
+func newHelpOverlayLayer(keys KeyMap, width, height, topMargin, bottomMargin int) Layer {
+	content := renderHelpOverlay(keys)
+	return newCenteredOverlayLayer(content, width, height, topMargin, bottomMargin)
 }
 
 // renderHelpSectionTable renders a single help section with styled rows.
