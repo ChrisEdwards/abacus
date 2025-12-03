@@ -9,6 +9,7 @@ import (
 
 	"abacus/internal/ui/theme"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -55,6 +56,7 @@ type CreateFocus int
 const (
 	FocusParent CreateFocus = iota
 	FocusTitle
+	FocusDescription
 	FocusType
 	FocusPriority
 	FocusLabels
@@ -130,6 +132,9 @@ type CreateOverlay struct {
 	titleValidationError bool // True when flashing red for validation
 	hasBackendError      bool // True when backend error occurred (for ESC handling)
 
+	// Zone 2b: Description (multi-line textarea)
+	descriptionInput textarea.Model
+
 	// Zone 3: Properties (2-column grid)
 	typeIndex           int
 	priorityIndex       int
@@ -156,13 +161,14 @@ type ParentOption struct {
 
 // BeadCreatedMsg is sent when form submission is confirmed.
 type BeadCreatedMsg struct {
-	Title     string
-	IssueType string
-	Priority  int
-	ParentID  string
-	Labels    []string // Selected labels (backend integration in ab-l1k)
-	Assignee  string   // Selected assignee (backend integration in ab-39r)
-	StayOpen  bool     // true for Ctrl+Enter bulk entry (spec Section 4.3)
+	Title       string
+	Description string
+	IssueType   string
+	Priority    int
+	ParentID    string
+	Labels      []string // Selected labels (backend integration in ab-l1k)
+	Assignee    string   // Selected assignee (backend integration in ab-39r)
+	StayOpen    bool     // true for Ctrl+Enter bulk entry (spec Section 4.3)
 }
 
 // CreateCancelledMsg is sent when the overlay is dismissed without action.
@@ -196,6 +202,14 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 	ti.Placeholder = ""
 	ti.CharLimit = 100
 	ti.Width = 42 // Slightly narrower to account for cursor
+
+	// Zone 2b: Description textarea (multi-line, 5 lines visible)
+	desc := textarea.New()
+	desc.Placeholder = ""
+	desc.SetWidth(44)
+	desc.SetHeight(5)
+	desc.CharLimit = 2000 // Reasonable limit for descriptions
+	desc.ShowLineNumbers = false
 
 	// Zone 1: Parent combo box
 	parentDisplays := make([]string, len(opts.AvailableParents))
@@ -243,19 +257,20 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 	ti.Focus()
 
 	m := &CreateOverlay{
-		focus:           FocusTitle, // Title is auto-focused (spec Section 3.2)
-		titleInput:      ti,
-		typeIndex:       0, // Task
-		priorityIndex:   2, // Medium
-		parentCombo:     parentCombo,
-		parentOptions:   opts.AvailableParents,
-		parentOriginal:  parentOriginal, // Set original for Esc revert
-		isRootMode:      opts.IsRootMode,
-		defaultParentID: opts.DefaultParentID,
-		labelsCombo:     labelsCombo,
-		labelsOptions:   opts.AvailableLabels,
-		assigneeCombo:   assigneeCombo,
-		assigneeOptions: opts.AvailableAssignees,
+		focus:            FocusTitle, // Title is auto-focused (spec Section 3.2)
+		titleInput:       ti,
+		descriptionInput: desc,
+		typeIndex:        0, // Task
+		priorityIndex:    2, // Medium
+		parentCombo:      parentCombo,
+		parentOptions:    opts.AvailableParents,
+		parentOriginal:   parentOriginal, // Set original for Esc revert
+		isRootMode:       opts.IsRootMode,
+		defaultParentID:  opts.DefaultParentID,
+		labelsCombo:      labelsCombo,
+		labelsOptions:    opts.AvailableLabels,
+		assigneeCombo:    assigneeCombo,
+		assigneeOptions:  opts.AvailableAssignees,
 	}
 
 	return m
@@ -289,8 +304,9 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 		return m, nil
 
 	case bulkEntryResetMsg:
-		// Clear title only, keep all other fields persistent (spec Section 4.3)
+		// Clear title and description, keep other fields persistent (spec Section 4.3)
 		m.titleInput.SetValue("")
+		m.descriptionInput.SetValue("")
 		m.titleValidationError = false
 		m.isCreating = false // Clear creating state (spec Section 4.1)
 		m.focus = FocusTitle
@@ -339,8 +355,9 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 			if msg.String() == "ctrl+enter" {
 				return m.handleSubmit(true)
 			}
-			// Regular Enter submits if not in a dropdown
-			if !m.isAnyDropdownOpen() {
+			// Regular Enter submits if not in a dropdown and not in description
+			// (Description field uses Enter for newlines, not submit)
+			if !m.isAnyDropdownOpen() && m.focus != FocusDescription {
 				return m.handleSubmit(false)
 			}
 
@@ -436,13 +453,17 @@ func (m *CreateOverlay) handleTab() (*CreateOverlay, tea.Cmd) {
 	// Close parent dropdown (assignee is handled in its case to allow Tab commit)
 	m.parentCombo.Blur()
 
-	// Tab order: Title -> Type -> Priority -> Labels -> Assignee -> (wrap to Title)
+	// Tab order: Title -> Description -> Type -> Priority -> Labels -> Assignee -> (wrap to Title)
 	switch m.focus {
 	case FocusParent:
 		m.focus = FocusTitle
 		cmds = append(cmds, m.titleInput.Focus())
 	case FocusTitle:
 		m.titleInput.Blur()
+		m.focus = FocusDescription
+		cmds = append(cmds, m.descriptionInput.Focus())
+	case FocusDescription:
+		m.descriptionInput.Blur()
 		m.focus = FocusType
 	case FocusType:
 		m.focus = FocusPriority
@@ -497,9 +518,13 @@ func (m *CreateOverlay) handleShiftTab() (*CreateOverlay, tea.Cmd) {
 		// Store original value for Esc revert (spec Section 4.2)
 		m.parentOriginal = m.parentCombo.Value()
 		cmds = append(cmds, m.parentCombo.Focus())
-	case FocusType:
+	case FocusDescription:
+		m.descriptionInput.Blur()
 		m.focus = FocusTitle
 		cmds = append(cmds, m.titleInput.Focus())
+	case FocusType:
+		m.focus = FocusDescription
+		cmds = append(cmds, m.descriptionInput.Focus())
 	case FocusPriority:
 		m.focus = FocusType
 	case FocusLabels:
@@ -556,6 +581,12 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 			}
 		}
 
+		return m, cmd
+
+	case FocusDescription:
+		// Description uses textarea - forward all keys to it
+		// Tab/Shift+Tab/Esc are handled at global level, Enter falls through here
+		m.descriptionInput, cmd = m.descriptionInput.Update(msg)
 		return m, cmd
 
 	case FocusType:
@@ -656,6 +687,8 @@ func (m *CreateOverlay) passToFocusedZone(msg tea.Msg) (*CreateOverlay, tea.Cmd)
 		m.parentCombo, cmd = m.parentCombo.Update(msg)
 	case FocusTitle:
 		m.titleInput, cmd = m.titleInput.Update(msg)
+	case FocusDescription:
+		m.descriptionInput, cmd = m.descriptionInput.Update(msg)
 	case FocusLabels:
 		m.labelsCombo, cmd = m.labelsCombo.Update(msg)
 	case FocusAssignee:
@@ -731,13 +764,14 @@ func (m *CreateOverlay) submitWithMode(stayOpen bool) tea.Cmd {
 		}
 
 		return BeadCreatedMsg{
-			Title:     strings.TrimSpace(m.titleInput.Value()),
-			IssueType: typeOptions[m.typeIndex],
-			Priority:  m.priorityIndex,
-			ParentID:  parentID,
-			Labels:    m.labelsCombo.GetChips(),
-			Assignee:  assignee,
-			StayOpen:  stayOpen,
+			Title:       strings.TrimSpace(m.titleInput.Value()),
+			Description: strings.TrimSpace(m.descriptionInput.Value()),
+			IssueType:   typeOptions[m.typeIndex],
+			Priority:    m.priorityIndex,
+			ParentID:    parentID,
+			Labels:      m.labelsCombo.GetChips(),
+			Assignee:    assignee,
+			StayOpen:    stayOpen,
 		}
 	}
 }
@@ -924,6 +958,28 @@ func (m *CreateOverlay) View() string {
 		b.WriteString("\n")
 		b.WriteString(styleCreateError().Render("  required"))
 	}
+	b.WriteString("\n\n")
+
+	// Zone 2b: Description (multi-line textarea) - dimmed when parent search active
+	descLabel := styleCreateLabel().Render("DESCRIPTION")
+	if m.focus == FocusDescription {
+		descLabel = styleHelpSectionHeader().Render("DESCRIPTION")
+	}
+	if parentSearchActive {
+		descLabel = styleCreateDimmed().Render("DESCRIPTION")
+	}
+	b.WriteString(descLabel)
+	b.WriteString("\n")
+
+	descStyle := styleCreateInput()
+	if m.focus == FocusDescription {
+		descStyle = styleCreateInputFocused()
+	}
+	descView := descStyle.Render(m.descriptionInput.View())
+	if parentSearchActive {
+		descView = styleCreateDimmed().Render(m.descriptionInput.View())
+	}
+	b.WriteString(descView)
 	b.WriteString("\n\n")
 
 	// Zone 3: Type and Priority (2-column grid) - dimmed when parent search active
@@ -1143,6 +1199,11 @@ func (m *CreateOverlay) renderFooter() string {
 // Title returns the current title value.
 func (m *CreateOverlay) Title() string {
 	return m.titleInput.Value()
+}
+
+// Description returns the current description value.
+func (m *CreateOverlay) Description() string {
+	return m.descriptionInput.Value()
 }
 
 // IssueType returns the current issue type value.

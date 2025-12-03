@@ -904,7 +904,7 @@ func (m *App) getAvailableParents() []ParentOption {
 func (m *App) executeCreateBead(msg BeadCreatedMsg) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
-		issue, err := m.client.CreateFull(ctx, msg.Title, msg.IssueType, msg.Priority, msg.Labels, msg.Assignee, msg.ParentID)
+		issue, err := m.client.CreateFull(ctx, msg.Title, msg.IssueType, msg.Priority, msg.Labels, msg.Assignee, msg.Description, msg.ParentID)
 		if err != nil {
 			return createCompleteMsg{err: err, stayOpen: msg.StayOpen}
 		}

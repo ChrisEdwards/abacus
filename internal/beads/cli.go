@@ -218,7 +218,7 @@ func (c *cliClient) Create(ctx context.Context, title, issueType string, priorit
 	return "", fmt.Errorf("could not parse bead ID from output: %s", output)
 }
 
-func (c *cliClient) CreateFull(ctx context.Context, title, issueType string, priority int, labels []string, assignee string, parentID string) (FullIssue, error) {
+func (c *cliClient) CreateFull(ctx context.Context, title, issueType string, priority int, labels []string, assignee, description, parentID string) (FullIssue, error) {
 	if strings.TrimSpace(title) == "" {
 		return FullIssue{}, fmt.Errorf("title is required for create")
 	}
@@ -242,6 +242,11 @@ func (c *cliClient) CreateFull(ctx context.Context, title, issueType string, pri
 	// Add assignee if provided
 	if strings.TrimSpace(assignee) != "" {
 		args = append(args, "--assignee", assignee)
+	}
+
+	// Add description if provided
+	if strings.TrimSpace(description) != "" {
+		args = append(args, "--description", description)
 	}
 
 	// Add parent if provided

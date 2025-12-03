@@ -70,7 +70,7 @@ func TestCLIClient_CreateFull_ReturnsFullIssue(t *testing.T) {
 	client := NewCLIClient(WithBinaryPath(script))
 
 	ctx := context.Background()
-	issue, err := client.CreateFull(ctx, "Test Issue", "task", 2, []string{"test"}, "alice", "")
+	issue, err := client.CreateFull(ctx, "Test Issue", "task", 2, []string{"test"}, "alice", "", "")
 	if err != nil {
 		t.Fatalf("CreateFull: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestCLIClient_CreateFull_HandlesInvalidJSON(t *testing.T) {
 	client := NewCLIClient(WithBinaryPath(script))
 
 	ctx := context.Background()
-	_, err := client.CreateFull(ctx, "Test Issue", "task", 2, nil, "", "")
+	_, err := client.CreateFull(ctx, "Test Issue", "task", 2, nil, "", "", "")
 	if err == nil {
 		t.Fatal("expected error for invalid JSON, got nil")
 	}
@@ -143,7 +143,7 @@ func TestCLIClient_CreateFull_PassesJSONFlag(t *testing.T) {
 	client := NewCLIClient(WithBinaryPath(script))
 
 	ctx := context.Background()
-	_, err := client.CreateFull(ctx, "Test Title", "feature", 3, nil, "", "")
+	_, err := client.CreateFull(ctx, "Test Title", "feature", 3, nil, "", "", "")
 	if err != nil {
 		t.Fatalf("CreateFull: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestCLIClient_CreateFull_WithParent(t *testing.T) {
 	client := NewCLIClient(WithBinaryPath(script))
 
 	ctx := context.Background()
-	_, err := client.CreateFull(ctx, "Child Task", "task", 2, nil, "", "ab-parent")
+	_, err := client.CreateFull(ctx, "Child Task", "task", 2, nil, "", "", "ab-parent")
 	if err != nil {
 		t.Fatalf("CreateFull: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestCLIClient_CreateFull_OptionalParameters(t *testing.T) {
 	client := NewCLIClient(WithBinaryPath(script))
 
 	ctx := context.Background()
-	issue, err := client.CreateFull(ctx, "Bug Fix", "bug", 1, []string{"urgent", "backend"}, "bob", "")
+	issue, err := client.CreateFull(ctx, "Bug Fix", "bug", 1, []string{"urgent", "backend"}, "bob", "", "")
 	if err != nil {
 		t.Fatalf("CreateFull: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestCLIClient_CreateFull_HandlesOutputWithPrefix(t *testing.T) {
 	client := NewCLIClient(WithBinaryPath(script))
 
 	ctx := context.Background()
-	issue, err := client.CreateFull(ctx, "Test Title", "task", 2, nil, "", "")
+	issue, err := client.CreateFull(ctx, "Test Title", "task", 2, nil, "", "", "")
 	if err != nil {
 		t.Fatalf("CreateFull should handle output with prefix: %v", err)
 	}

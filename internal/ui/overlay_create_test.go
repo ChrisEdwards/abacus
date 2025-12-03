@@ -88,7 +88,12 @@ func TestCreateOverlayNavigation(t *testing.T) {
 		if overlay.Focus() != FocusTitle {
 			t.Error("expected initial focus on title")
 		}
-		// Tab: Title -> Type
+		// Tab: Title -> Description
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
+		if overlay.Focus() != FocusDescription {
+			t.Errorf("expected focus on description, got %d", overlay.Focus())
+		}
+		// Tab: Description -> Type
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
 		if overlay.Focus() != FocusType {
 			t.Errorf("expected focus on type, got %d", overlay.Focus())
@@ -493,8 +498,13 @@ func TestCreateOverlayFullNavigationCycle(t *testing.T) {
 		}
 
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		if overlay.Focus() != FocusDescription {
+			t.Errorf("expected Type -> Description, got %d", overlay.Focus())
+		}
+
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
 		if overlay.Focus() != FocusTitle {
-			t.Errorf("expected Type -> Title, got %d", overlay.Focus())
+			t.Errorf("expected Description -> Title, got %d", overlay.Focus())
 		}
 	})
 }
@@ -648,7 +658,7 @@ func TestCreateOverlaySubmitPopulatesAllFields(t *testing.T) {
 	t.Run("SubmitIncludesTypeAndPriority", func(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		overlay.titleInput.SetValue("Test Bead")
-		overlay.typeIndex = 1  // feature
+		overlay.typeIndex = 1     // feature
 		overlay.priorityIndex = 0 // critical
 
 		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -1571,7 +1581,13 @@ func TestTabFocusCycling(t *testing.T) {
 			t.Errorf("expected initial focus on Title, got %d", overlay.Focus())
 		}
 
-		// Tab: Title -> Type
+		// Tab: Title -> Description
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
+		if overlay.Focus() != FocusDescription {
+			t.Errorf("expected focus on Description, got %d", overlay.Focus())
+		}
+
+		// Tab: Description -> Type
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
 		if overlay.Focus() != FocusType {
 			t.Errorf("expected focus on Type, got %d", overlay.Focus())
@@ -2047,7 +2063,7 @@ func TestInferTypeFromTitle(t *testing.T) {
 			{"Migrate to new API", 4},
 			{"Document API endpoints", 4},
 			{"Update docs", 4},
-			{"Update README section", 4},  // Use Update instead of Add to match chore
+			{"Update README section", 4}, // Use Update instead of Add to match chore
 		}
 
 		for _, tc := range testCases {
@@ -2088,12 +2104,12 @@ func TestInferTypeFromTitle(t *testing.T) {
 			title       string
 			expectedIdx int // -1 means no match
 		}{
-			{"Prefix component", -1},  // "fix" is part of "Prefix"
-			{"Adder utility", -1},     // "add" is part of "Adder"
-			{"Buggy behavior", -1},    // "bug" is part of "Buggy"
-			{"Fix bug", 2},            // "fix" is standalone word
-			{"Add feature", 1},        // "add" is standalone word
-			{"Bug report", 2},         // "bug" is standalone word
+			{"Prefix component", -1}, // "fix" is part of "Prefix"
+			{"Adder utility", -1},    // "add" is part of "Adder"
+			{"Buggy behavior", -1},   // "bug" is part of "Buggy"
+			{"Fix bug", 2},           // "fix" is standalone word
+			{"Add feature", 1},       // "add" is standalone word
+			{"Bug report", 2},        // "bug" is standalone word
 		}
 
 		for _, tc := range testCases {
@@ -2606,7 +2622,7 @@ func TestBackendErrorHandling(t *testing.T) {
 		// Ensure backend error doesn't clear user's form data
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		overlay.titleInput.SetValue("My Important Title")
-		overlay.typeIndex = 1 // Feature
+		overlay.typeIndex = 1     // Feature
 		overlay.priorityIndex = 0 // Critical
 
 		// Simulate backend error
@@ -2878,35 +2894,42 @@ func TestCompleteBeadCreationWorkflow(t *testing.T) {
 		}
 		overlay.titleInput.SetValue("Implement user authentication")
 
-		// Step 2: Tab to Type, select Feature
+		// Step 2: Tab to Description
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
+		if overlay.Focus() != FocusDescription {
+			t.Errorf("expected focus on Description, got %d", overlay.Focus())
+		}
+		overlay.descriptionInput.SetValue("Implement OAuth2 flow for user login")
+
+		// Step 3: Tab to Type, select Feature
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
 		if overlay.Focus() != FocusType {
 			t.Errorf("expected focus on Type, got %d", overlay.Focus())
 		}
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}}) // Feature
 
-		// Step 3: Tab to Priority, select High
+		// Step 4: Tab to Priority, select High
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
 		if overlay.Focus() != FocusPriority {
 			t.Errorf("expected focus on Priority, got %d", overlay.Focus())
 		}
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}}) // High
 
-		// Step 4: Tab to Labels, add chips
+		// Step 5: Tab to Labels, add chips
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
 		if overlay.Focus() != FocusLabels {
 			t.Errorf("expected focus on Labels, got %d", overlay.Focus())
 		}
 		overlay.labelsCombo.SetChips([]string{"api", "backend"})
 
-		// Step 5: Move to Assignee via ChipComboBoxTabMsg
+		// Step 6: Move to Assignee via ChipComboBoxTabMsg
 		overlay, _ = overlay.Update(ChipComboBoxTabMsg{})
 		if overlay.Focus() != FocusAssignee {
 			t.Errorf("expected focus on Assignee, got %d", overlay.Focus())
 		}
 		overlay.assigneeCombo.SetValue("alice")
 
-		// Step 6: Submit
+		// Step 7: Submit
 		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
 		if cmd == nil {
 			t.Fatal("expected submit command")
@@ -2921,6 +2944,9 @@ func TestCompleteBeadCreationWorkflow(t *testing.T) {
 		// Verify all fields
 		if created.Title != "Implement user authentication" {
 			t.Errorf("expected title 'Implement user authentication', got '%s'", created.Title)
+		}
+		if created.Description != "Implement OAuth2 flow for user login" {
+			t.Errorf("expected description 'Implement OAuth2 flow for user login', got '%s'", created.Description)
 		}
 		if created.IssueType != "feature" {
 			t.Errorf("expected issue type 'feature', got '%s'", created.IssueType)
