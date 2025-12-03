@@ -74,51 +74,52 @@ func (m *DeleteOverlay) confirm() tea.Cmd {
 func (m *DeleteOverlay) View() string {
 	var b strings.Builder
 
-	// Title
-	b.WriteString(styleErrorIndicator().Render("Delete Bead"))
+	// Title (error color with secondary background)
+	b.WriteString(styleDeleteTitle().Render("Delete Bead"))
 	b.WriteString("\n")
 
-	// Divider (red to match border)
-	b.WriteString(styleErrorIndicator().Render(strings.Repeat("─", 38)))
+	// Divider (red to match border, with secondary background)
+	b.WriteString(styleDeleteTitle().Render(strings.Repeat("─", 38)))
 	b.WriteString("\n\n")
 
-	// Prompt
-	b.WriteString("Are you sure you want to delete:\n\n")
+	// Prompt (with secondary background)
+	b.WriteString(styleOverlayText().Render("Are you sure you want to delete:"))
+	b.WriteString("\n\n")
 
-	// Bead line using same pattern as tree view: icon + ID + title
-	icon := styleIconOpen().Render("●")
-	id := styleID().Render(m.issueID)
+	// Bead line using same pattern as tree view: icon + ID + title (all with secondary bg)
+	icon := styleOverlayIcon().Render("●")
+	id := styleOverlayID().Render(m.issueID)
 	title := m.issueTitle
 	if len(title) > 25 {
 		title = title[:22] + "..."
 	}
-	b.WriteString(icon + " " + id + "  " + styleNormalText().Render(title))
+	b.WriteString(icon + " " + id + "  " + styleOverlayText().Render(title))
 	b.WriteString("\n\n")
 
-	// Warning
-	b.WriteString(styleStatsDim().Render("This action cannot be undone."))
+	// Warning (muted with secondary background)
+	b.WriteString(styleOverlayTextMuted().Render("This action cannot be undone."))
 	b.WriteString("\n\n")
 
-	// Buttons with underlined hotkeys (C and D)
+	// Buttons with underlined hotkeys (C and D) - all with secondary background
 	var cancelBtn, deleteBtn string
 	if m.selected == 0 {
-		// Cancel selected
-		cancelBtn = styleStatusSelected().Render("[ ") +
-			styleStatusSelected().Underline(true).Render("C") +
-			styleStatusSelected().Render("ancel ]")
-		deleteBtn = styleStatsDim().Render("[ ") +
-			styleStatsDim().Underline(true).Render("D") +
-			styleStatsDim().Render("elete ]")
+		// Cancel selected (primary highlight)
+		cancelBtn = styleOverlayButtonSelected().Render("[ ") +
+			styleOverlayButtonSelected().Underline(true).Render("C") +
+			styleOverlayButtonSelected().Render("ancel ]")
+		deleteBtn = styleOverlayTextMuted().Render("[ ") +
+			styleOverlayTextMuted().Underline(true).Render("D") +
+			styleOverlayTextMuted().Render("elete ]")
 	} else {
-		// Delete selected
-		cancelBtn = styleStatsDim().Render("[ ") +
-			styleStatsDim().Underline(true).Render("C") +
-			styleStatsDim().Render("ancel ]")
-		deleteBtn = styleErrorIndicator().Render("[ ") +
-			styleErrorIndicator().Underline(true).Render("D") +
-			styleErrorIndicator().Render("elete ]")
+		// Delete selected (danger/error highlight)
+		cancelBtn = styleOverlayTextMuted().Render("[ ") +
+			styleOverlayTextMuted().Underline(true).Render("C") +
+			styleOverlayTextMuted().Render("ancel ]")
+		deleteBtn = styleOverlayButtonDanger().Render("[ ") +
+			styleOverlayButtonDanger().Underline(true).Render("D") +
+			styleOverlayButtonDanger().Render("elete ]")
 	}
-	b.WriteString("        " + cancelBtn + "  " + deleteBtn)
+	b.WriteString(styleOverlayText().Render("        ") + cancelBtn + styleOverlayText().Render("  ") + deleteBtn)
 
 	// Use lipgloss border style (same as other overlays)
 	return styleDeleteOverlay().Render(b.String())

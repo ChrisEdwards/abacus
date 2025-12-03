@@ -279,6 +279,59 @@ func styleDeleteOverlay() lipgloss.Style {
 		Padding(1, 2)
 }
 
+// styleDeleteTitle for delete overlay title/divider (error color with secondary bg)
+func styleDeleteTitle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Foreground(theme.Current().Error()).
+		Bold(true)
+}
+
+// styleOverlayText for regular text in overlays (secondary background)
+func styleOverlayText() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Foreground(theme.Current().Text())
+}
+
+// styleOverlayTextMuted for muted text in overlays (secondary background)
+func styleOverlayTextMuted() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Foreground(theme.Current().TextMuted())
+}
+
+// styleOverlayButtonSelected for selected buttons in overlays (primary highlight)
+func styleOverlayButtonSelected() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Foreground(theme.Current().Primary()).
+		Bold(true)
+}
+
+// styleOverlayButtonDanger for selected danger buttons (error/red)
+func styleOverlayButtonDanger() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Foreground(theme.Current().Error()).
+		Bold(true)
+}
+
+// styleOverlayIcon for icons in overlays (secondary background)
+func styleOverlayIcon() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Foreground(theme.Current().Text())
+}
+
+// styleOverlayID for bead IDs in overlays (accent with secondary background)
+func styleOverlayID() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Foreground(theme.Current().Accent()).
+		Bold(true)
+}
+
 func styleStatusDivider() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Foreground(theme.Current().Primary())
