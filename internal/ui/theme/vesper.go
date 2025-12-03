@@ -86,11 +86,11 @@ func (t VesperTheme) Background() lipgloss.AdaptiveColor {
 }
 
 func (t VesperTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: "#F0F0F0", Dark: vesper.Background}
+	return lipgloss.AdaptiveColor{Light: "#F0F0F0", Dark: "#1a1a1a"}
 }
 
 func (t VesperTheme) BackgroundDarker() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: "#E0E0E0", Dark: vesper.Background}
+	return lipgloss.AdaptiveColor{Light: "#E0E0E0", Dark: "#0a0a0a"}
 }
 
 // Border colors

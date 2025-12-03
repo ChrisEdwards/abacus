@@ -110,7 +110,7 @@ func (t FlexokiTheme) Background() lipgloss.AdaptiveColor {
 }
 
 func (t FlexokiTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: "#F2F0E5", Dark: flexoki.Base950}
+	return lipgloss.AdaptiveColor{Light: "#F2F0E5", Dark: flexoki.Base900}
 }
 
 func (t FlexokiTheme) BackgroundDarker() lipgloss.AdaptiveColor {

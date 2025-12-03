@@ -96,7 +96,7 @@ func (t NordTheme) Background() lipgloss.AdaptiveColor {
 }
 
 func (t NordTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: nord.Nord5, Dark: nord.Nord1}
+	return lipgloss.AdaptiveColor{Light: nord.Nord5, Dark: nord.Nord2}
 }
 
 func (t NordTheme) BackgroundDarker() lipgloss.AdaptiveColor {

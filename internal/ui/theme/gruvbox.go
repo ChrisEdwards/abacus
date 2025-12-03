@@ -50,7 +50,7 @@ func (t GruvboxTheme) Background() lipgloss.AdaptiveColor {
 }
 
 func (t GruvboxTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Dark: "#3c3836", Light: "#ebdbb2"}
+	return lipgloss.AdaptiveColor{Dark: "#504945", Light: "#ebdbb2"}
 }
 
 func (t GruvboxTheme) BackgroundDarker() lipgloss.AdaptiveColor {

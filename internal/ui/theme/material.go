@@ -112,11 +112,11 @@ func (t MaterialTheme) Background() lipgloss.AdaptiveColor {
 }
 
 func (t MaterialTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: material.LightBgAlt, Dark: material.DarkBgAlt}
+	return lipgloss.AdaptiveColor{Light: material.LightBgAlt, Dark: material.DarkBgPanel}
 }
 
 func (t MaterialTheme) BackgroundDarker() lipgloss.AdaptiveColor {
-	return lipgloss.AdaptiveColor{Light: material.LightBgPanel, Dark: material.DarkBgPanel}
+	return lipgloss.AdaptiveColor{Light: material.LightBgPanel, Dark: material.DarkBgAlt}
 }
 
 // Border colors
