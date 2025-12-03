@@ -227,6 +227,9 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.errorToastStart = time.Now()
 			return m, scheduleErrorToastTick()
 		}
+		// Immediately remove from tree for instant visual feedback
+		m.removeNodeFromTree(msg.issueID)
+		m.recalcVisibleRows()
 		return m, m.forceRefresh()
 	case deleteToastTickMsg:
 		if !m.deleteToastVisible {
@@ -924,7 +927,8 @@ func (m *App) displayNewAssigneeToast(assignee string) {
 
 // Message types for delete operations
 type deleteCompleteMsg struct {
-	err error
+	issueID string
+	err     error
 }
 
 type deleteToastTickMsg struct{}
@@ -940,7 +944,7 @@ func (m *App) executeDelete(issueID string) tea.Cmd {
 	m.displayDeleteToast(issueID)
 	return func() tea.Msg {
 		err := m.client.Delete(context.Background(), issueID)
-		return deleteCompleteMsg{err: err}
+		return deleteCompleteMsg{issueID: issueID, err: err}
 	}
 }
 

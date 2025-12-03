@@ -509,3 +509,33 @@ func (m *App) transferFilterExpansionState() {
 		}
 	}
 }
+
+// removeNodeFromTree removes a node with the given ID from the tree structure.
+// It removes the node from roots if it's a root, and from all parents' Children arrays.
+// After removal, recalcVisibleRows should be called to update the display.
+func (m *App) removeNodeFromTree(id string) {
+	// Remove from roots if present
+	newRoots := make([]*graph.Node, 0, len(m.roots))
+	for _, root := range m.roots {
+		if root.Issue.ID != id {
+			newRoots = append(newRoots, root)
+		}
+	}
+	m.roots = newRoots
+
+	// Remove from all parent Children arrays (handles multi-parent case)
+	var removeFromChildren func(nodes []*graph.Node)
+	removeFromChildren = func(nodes []*graph.Node) {
+		for _, node := range nodes {
+			newChildren := make([]*graph.Node, 0, len(node.Children))
+			for _, child := range node.Children {
+				if child.Issue.ID != id {
+					newChildren = append(newChildren, child)
+				}
+			}
+			node.Children = newChildren
+			removeFromChildren(node.Children)
+		}
+	}
+	removeFromChildren(m.roots)
+}
