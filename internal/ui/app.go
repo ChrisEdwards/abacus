@@ -82,6 +82,7 @@ type App struct {
 	lastDBModTime    time.Time
 	lastRefreshStats string
 	refreshInFlight  bool
+	refreshFailures  int // Consecutive refresh failures (resets on success)
 	lastRefreshTime  time.Time
 	spinner          spinner.Model
 	outputFormat     string

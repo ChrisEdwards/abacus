@@ -253,13 +253,16 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case tickMsg:
-		if !m.autoRefresh || m.refreshInterval <= 0 {
-			return m, nil
+		if m.refreshInterval <= 0 {
+			return m, nil // Only stop if interval is invalid
 		}
 		cmds := []tea.Cmd{}
-		if refreshCmd := m.checkDBForChanges(); refreshCmd != nil {
-			cmds = append(cmds, refreshCmd)
+		if m.autoRefresh {
+			if refreshCmd := m.checkDBForChanges(); refreshCmd != nil {
+				cmds = append(cmds, refreshCmd)
+			}
 		}
+		// Always reschedule tick so loop can recover if autoRefresh is re-enabled
 		cmds = append(cmds, scheduleTick(m.refreshInterval))
 		return m, tea.Batch(cmds...)
 	case refreshCompleteMsg:
