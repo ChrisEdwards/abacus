@@ -146,14 +146,20 @@ func (m *App) insertNodeIntoParent(child *graph.Node, parentID string) error {
 	return nil
 }
 
-// propagateStateChanges updates ancestor HasInProgress/HasReady flags
-// after inserting a new node.
+// propagateStateChanges updates ancestor HasInProgress/HasReady flags and
+// SortPriority/SortTimestamp after inserting a new node. This ensures parents
+// with active children sort appropriately (e.g., a parent with an in_progress
+// child sorts as in_progress).
 func propagateStateChanges(node *graph.Node) {
-	// Walk up the parent chain updating HasInProgress/HasReady flags
+	// Walk up the parent chain updating flags and sort metrics
 	current := node.Parent
 	if current == nil && len(node.Parents) > 0 {
 		current = node.Parents[0]
 	}
+
+	// Track the child's sort metrics as we bubble up
+	childPriority := node.SortPriority
+	childTimestamp := node.SortTimestamp
 
 	for current != nil {
 		// Update parent's flags based on new child
@@ -164,6 +170,15 @@ func propagateStateChanges(node *graph.Node) {
 		}
 		if node.Issue.Status == "open" && !node.IsBlocked {
 			current.HasReady = true
+		}
+
+		// Bubble up sort metrics if child has better (lower) priority
+		// or same priority with earlier timestamp
+		if childPriority < current.SortPriority ||
+			(childPriority == current.SortPriority &&
+				childTimestamp.Before(current.SortTimestamp)) {
+			current.SortPriority = childPriority
+			current.SortTimestamp = childTimestamp
 		}
 
 		// Move up the chain

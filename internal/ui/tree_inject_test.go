@@ -347,3 +347,171 @@ func TestPropagateStateChanges(t *testing.T) {
 		})
 	}
 }
+
+func TestPropagateStateChangesSortPriority(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func() *graph.Node
+		validate func(*testing.T, *graph.Node)
+	}{
+		{
+			name: "in_progress child bubbles up sort priority to open parent",
+			setup: func() *graph.Node {
+				childTs := time.Date(2025, 12, 1, 11, 0, 0, 0, time.UTC)
+				parent := &graph.Node{
+					Issue:         beads.FullIssue{ID: "ab-p", Status: "open"},
+					SortPriority:  3, // open
+					SortTimestamp: time.Date(2025, 12, 1, 10, 0, 0, 0, time.UTC),
+				}
+				child := &graph.Node{
+					Issue:         beads.FullIssue{ID: "ab-c", Status: "in_progress"},
+					Parent:        parent,
+					SortPriority:  1, // in_progress
+					SortTimestamp: childTs,
+				}
+				parent.Children = []*graph.Node{child}
+				return child
+			},
+			validate: func(t *testing.T, child *graph.Node) {
+				parent := child.Parent
+				if parent.SortPriority != 1 {
+					t.Errorf("parent.SortPriority = %d, want 1 (in_progress)", parent.SortPriority)
+				}
+				if !parent.SortTimestamp.Equal(child.SortTimestamp) {
+					t.Error("parent.SortTimestamp should match child's timestamp")
+				}
+			},
+		},
+		{
+			name: "ready child bubbles up sort priority to open parent",
+			setup: func() *graph.Node {
+				childTs := time.Date(2025, 12, 1, 9, 0, 0, 0, time.UTC)
+				parent := &graph.Node{
+					Issue:         beads.FullIssue{ID: "ab-p", Status: "open"},
+					SortPriority:  3, // open (blocked or just open)
+					SortTimestamp: time.Date(2025, 12, 1, 10, 0, 0, 0, time.UTC),
+				}
+				child := &graph.Node{
+					Issue:         beads.FullIssue{ID: "ab-c", Status: "open"},
+					Parent:        parent,
+					IsBlocked:     false,
+					SortPriority:  2, // ready
+					SortTimestamp: childTs,
+				}
+				parent.Children = []*graph.Node{child}
+				return child
+			},
+			validate: func(t *testing.T, child *graph.Node) {
+				parent := child.Parent
+				if parent.SortPriority != 2 {
+					t.Errorf("parent.SortPriority = %d, want 2 (ready)", parent.SortPriority)
+				}
+				if !parent.SortTimestamp.Equal(child.SortTimestamp) {
+					t.Error("parent.SortTimestamp should match child's timestamp")
+				}
+			},
+		},
+		{
+			name: "sort priority bubbles up recursively to grandparent",
+			setup: func() *graph.Node {
+				childTs := time.Date(2025, 12, 1, 12, 0, 0, 0, time.UTC)
+				grandparent := &graph.Node{
+					Issue:         beads.FullIssue{ID: "ab-gp", Status: "open"},
+					SortPriority:  3, // open
+					SortTimestamp: time.Date(2025, 12, 1, 8, 0, 0, 0, time.UTC),
+				}
+				parent := &graph.Node{
+					Issue:         beads.FullIssue{ID: "ab-p", Status: "open"},
+					Parent:        grandparent,
+					SortPriority:  3, // open
+					SortTimestamp: time.Date(2025, 12, 1, 9, 0, 0, 0, time.UTC),
+				}
+				grandparent.Children = []*graph.Node{parent}
+				child := &graph.Node{
+					Issue:         beads.FullIssue{ID: "ab-c", Status: "in_progress"},
+					Parent:        parent,
+					SortPriority:  1, // in_progress
+					SortTimestamp: childTs,
+				}
+				parent.Children = []*graph.Node{child}
+				return child
+			},
+			validate: func(t *testing.T, child *graph.Node) {
+				parent := child.Parent
+				grandparent := parent.Parent
+				if grandparent.SortPriority != 1 {
+					t.Errorf("grandparent.SortPriority = %d, want 1 (in_progress)", grandparent.SortPriority)
+				}
+				if !grandparent.SortTimestamp.Equal(child.SortTimestamp) {
+					t.Error("grandparent.SortTimestamp should match child's timestamp")
+				}
+			},
+		},
+		{
+			name: "earlier timestamp bubbles up when same priority",
+			setup: func() *graph.Node {
+				earlierTs := time.Date(2025, 12, 1, 8, 0, 0, 0, time.UTC)
+				parent := &graph.Node{
+					Issue:         beads.FullIssue{ID: "ab-p", Status: "open"},
+					SortPriority:  2, // ready
+					SortTimestamp: time.Date(2025, 12, 1, 10, 0, 0, 0, time.UTC),
+				}
+				child := &graph.Node{
+					Issue:         beads.FullIssue{ID: "ab-c", Status: "open"},
+					Parent:        parent,
+					IsBlocked:     false,
+					SortPriority:  2, // ready (same as parent)
+					SortTimestamp: earlierTs,
+				}
+				parent.Children = []*graph.Node{child}
+				return child
+			},
+			validate: func(t *testing.T, child *graph.Node) {
+				parent := child.Parent
+				if parent.SortPriority != 2 {
+					t.Errorf("parent.SortPriority = %d, want 2 (ready)", parent.SortPriority)
+				}
+				if !parent.SortTimestamp.Equal(child.SortTimestamp) {
+					t.Errorf("parent.SortTimestamp should be updated to earlier child timestamp")
+				}
+			},
+		},
+		{
+			name: "worse priority does not bubble up",
+			setup: func() *graph.Node {
+				parent := &graph.Node{
+					Issue:         beads.FullIssue{ID: "ab-p", Status: "in_progress"},
+					SortPriority:  1, // in_progress
+					SortTimestamp: time.Date(2025, 12, 1, 10, 0, 0, 0, time.UTC),
+				}
+				child := &graph.Node{
+					Issue:         beads.FullIssue{ID: "ab-c", Status: "open"},
+					Parent:        parent,
+					SortPriority:  3, // open (worse than parent)
+					SortTimestamp: time.Date(2025, 12, 1, 8, 0, 0, 0, time.UTC),
+				}
+				parent.Children = []*graph.Node{child}
+				return child
+			},
+			validate: func(t *testing.T, child *graph.Node) {
+				parent := child.Parent
+				if parent.SortPriority != 1 {
+					t.Errorf("parent.SortPriority = %d, want 1 (unchanged)", parent.SortPriority)
+				}
+				// Parent timestamp should remain unchanged
+				expectedTs := time.Date(2025, 12, 1, 10, 0, 0, 0, time.UTC)
+				if !parent.SortTimestamp.Equal(expectedTs) {
+					t.Error("parent.SortTimestamp should remain unchanged")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			node := tt.setup()
+			propagateStateChanges(node)
+			tt.validate(t, node)
+		})
+	}
+}
