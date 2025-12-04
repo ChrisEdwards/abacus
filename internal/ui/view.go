@@ -87,8 +87,14 @@ func (m *App) View() string {
 			rightWidth = 1
 		}
 
+		// Viewport content is pre-rendered, so apply string-based dimming when overlay active
+		viewportContent := m.viewport.View()
+		if dimmed {
+			viewportContent = applyDimmer(viewportContent)
+		}
+
 		left := leftStyle.Width(leftWidth).Height(listHeight).Render(treeViewStr)
-		right := rightStyle.Width(rightWidth).Height(listHeight).Render(m.viewport.View())
+		right := rightStyle.Width(rightWidth).Height(listHeight).Render(viewportContent)
 		mainBody = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	} else {
 		singleWidth := m.width - 2
@@ -128,7 +134,9 @@ func (m *App) View() string {
 	}
 
 	// Determine whether we need to show an overlay (status, labels, create, delete, help)
+	// Overlays always render with bright/normal theme, not dimmed
 	var overlayLayers []Layer
+	restoreBright := useStyleTheme(false) // Switch to bright theme for overlays
 	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
 		if layer := m.statusOverlay.Layer(m.width, m.height, headerHeight, bottomMargin); layer != nil {
 			overlayLayers = append(overlayLayers, layer)
@@ -148,6 +156,7 @@ func (m *App) View() string {
 	} else if m.showHelp {
 		overlayLayers = append(overlayLayers, newHelpOverlayLayer(m.keys, m.width, m.height, headerHeight, bottomMargin))
 	}
+	restoreBright() // Restore previous theme state
 
 	content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
 	base := wrapWithBackground(content)
