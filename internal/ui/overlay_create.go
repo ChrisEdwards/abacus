@@ -794,30 +794,16 @@ func (m *CreateOverlay) prepareForNextEntry() tea.Cmd {
 }
 
 // updateTitleHeight dynamically adjusts the title textarea height based on content.
-// Shows 1-3 lines depending on how much text wraps at the content width.
+// Uses max height (3) when there's content to prevent mid-typing resize/scroll issues.
 func (m *CreateOverlay) updateTitleHeight() {
 	text := m.titleInput.Value()
 	if text == "" {
 		m.titleInput.SetHeight(1)
 		return
 	}
-
-	// Calculate visual lines by simulating word wrap at content width
-	lines := 1
-	lineLen := 0
-	for range text {
-		lineLen++
-		if lineLen > titleContentWidth {
-			lines++
-			lineLen = 1
-		}
-	}
-
-	// Clamp between 1 and 3 lines
-	if lines > 3 {
-		lines = 3
-	}
-	m.titleInput.SetHeight(lines)
+	// Always use max height when there's content to avoid viewport scroll issues
+	// that occur when the box expands after word-wrap instead of before.
+	m.titleInput.SetHeight(3)
 }
 
 // Styles for the create overlay
