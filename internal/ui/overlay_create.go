@@ -837,12 +837,6 @@ func styleCreateInputError() lipgloss.Style {
 		Width(44)
 }
 
-func styleCreateError() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Foreground(theme.Current().Error()).
-		Italic(true)
-}
-
 // Dimmed style for modal depth effect (spec Section 2.4)
 func styleCreateDimmed() lipgloss.Style {
 	return lipgloss.NewStyle().
@@ -953,11 +947,6 @@ func (m *CreateOverlay) View() string {
 	}
 	b.WriteString(titleView)
 
-	// Validation hint
-	if m.focus == FocusTitle && strings.TrimSpace(m.titleInput.Value()) == "" {
-		b.WriteString("\n")
-		b.WriteString(styleCreateError().Render("  required"))
-	}
 	b.WriteString("\n\n")
 
 	// Zone 2b: Description (multi-line textarea) - dimmed when parent search active
