@@ -175,10 +175,15 @@ func TestCLIClient_CreateFull_WithParent(t *testing.T) {
 	logFile := filepath.Join(dir, "args.log")
 	script := filepath.Join(dir, "fakebd.sh")
 
-	// Fake bd script that logs arguments and returns minimal JSON
-	scriptBody := "#!/bin/sh\n" +
-		"echo \"$@\" >> " + logFile + "\n" +
-		"echo '{\"id\":\"ab-child\",\"title\":\"Child\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\"}'\n"
+	// Fake bd script that logs arguments and handles both create and dep commands
+	// For create: return JSON (without dotted ID)
+	// For dep: just succeed
+	scriptBody := `#!/bin/sh
+echo "$@" >> ` + logFile + `
+if echo "$@" | grep -q "^create"; then
+  echo '{"id":"ab-xyz123","title":"Child","status":"open","priority":2,"issue_type":"task"}'
+fi
+`
 	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
 		t.Fatalf("write fake bd: %v", err)
 	}
@@ -186,9 +191,14 @@ func TestCLIClient_CreateFull_WithParent(t *testing.T) {
 	client := NewCLIClient(WithBinaryPath(script))
 
 	ctx := context.Background()
-	_, err := client.CreateFull(ctx, "Child Task", "task", 2, nil, "", "", "ab-parent")
+	issue, err := client.CreateFull(ctx, "Child Task", "task", 2, nil, "", "", "ab-parent")
 	if err != nil {
 		t.Fatalf("CreateFull: %v", err)
+	}
+
+	// Verify the new ID is NOT dotted (not ab-parent.1)
+	if strings.Contains(issue.ID, ".") {
+		t.Errorf("expected non-dotted ID, got: %s", issue.ID)
 	}
 
 	data, err := os.ReadFile(logFile)
@@ -196,9 +206,25 @@ func TestCLIClient_CreateFull_WithParent(t *testing.T) {
 		t.Fatalf("read args log: %v", err)
 	}
 
-	args := strings.TrimSpace(string(data))
-	if !strings.Contains(args, "--parent ab-parent") {
-		t.Errorf("expected args to include --parent ab-parent, got: %q", args)
+	args := string(data)
+
+	// Verify --parent is NOT passed to create command
+	lines := strings.Split(strings.TrimSpace(args), "\n")
+	if len(lines) < 1 {
+		t.Fatalf("expected at least 1 command logged")
+	}
+	createLine := lines[0]
+	if strings.Contains(createLine, "--parent") {
+		t.Errorf("expected create args to NOT include --parent, got: %q", createLine)
+	}
+
+	// Verify dep add was called with parent-child type
+	if len(lines) < 2 {
+		t.Fatalf("expected dep add command to be called, only got: %v", lines)
+	}
+	depLine := lines[1]
+	if !strings.Contains(depLine, "dep add ab-xyz123 ab-parent --type parent-child") {
+		t.Errorf("expected dep add with parent-child, got: %q", depLine)
 	}
 }
 

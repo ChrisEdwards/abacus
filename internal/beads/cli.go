@@ -249,10 +249,9 @@ func (c *cliClient) CreateFull(ctx context.Context, title, issueType string, pri
 		args = append(args, "--description", description)
 	}
 
-	// Add parent if provided
-	if strings.TrimSpace(parentID) != "" {
-		args = append(args, "--parent", parentID)
-	}
+	// Note: We don't pass --parent to bd create because that generates dotted IDs
+	// (e.g., ab-kr7.1). Instead, we create the bead first with a random ID,
+	// then add the parent-child dependency separately.
 
 	out, err := c.run(ctx, args...)
 	if err != nil {
@@ -277,6 +276,14 @@ func (c *cliClient) CreateFull(ctx context.Context, title, issueType string, pri
 			snippet = snippet[:maxErrorSnippetLen] + "..."
 		}
 		return FullIssue{}, fmt.Errorf("decode bd create output: %w (output: %s)", err, strings.TrimSpace(snippet))
+	}
+
+	// Add parent-child dependency if parent was specified
+	// This creates the relationship without using dotted IDs
+	if strings.TrimSpace(parentID) != "" {
+		if err := c.AddDependency(ctx, issue.ID, parentID, "parent-child"); err != nil {
+			return FullIssue{}, fmt.Errorf("add parent-child dependency: %w", err)
+		}
 	}
 
 	return issue, nil
