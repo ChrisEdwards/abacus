@@ -10,7 +10,6 @@ import (
 	"abacus/internal/ui/theme"
 
 	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -128,7 +127,7 @@ type CreateOverlay struct {
 	parentOriginal  string // Value when Parent field focused, for Esc revert (spec Section 12)
 
 	// Zone 2: Title (hero element)
-	titleInput           textinput.Model
+	titleInput           textarea.Model
 	titleValidationError bool // True when flashing red for validation
 	hasBackendError      bool // True when backend error occurred (for ESC handling)
 
@@ -197,11 +196,15 @@ type CreateOverlayOptions struct {
 
 // NewCreateOverlay creates a new 5-zone create overlay.
 func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
-	// Zone 2: Title input (hero element) - uses textinput with custom wrapping in View
-	ti := textinput.New()
+	// Zone 2: Title input (hero element) - textarea for native wrapping behavior
+	ti := textarea.New()
 	ti.Placeholder = ""
+	ti.Prompt = ""
+	ti.ShowLineNumbers = false
 	ti.CharLimit = 100
-	ti.Width = 42 // Slightly narrower to account for cursor
+	ti.SetWidth(44)
+	ti.SetHeight(2)
+	ti.KeyMap.InsertNewline.SetEnabled(false) // Enter submits instead of inserting newlines
 
 	// Zone 2b: Description textarea (multi-line, 5 lines visible)
 	desc := textarea.New()
@@ -253,7 +256,7 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 		WithAllowNew(true, "New assignee: %s")
 	assigneeCombo.SetValue("Unassigned")
 
-	// Focus title input BEFORE assigning to struct (textinput.Model is a value type)
+	// Focus title input BEFORE assigning to struct (textarea.Model is a value type)
 	ti.Focus()
 
 	m := &CreateOverlay{
@@ -1137,17 +1140,23 @@ func renderHotkeyPill(style lipgloss.Style, prefix, label string, underline bool
 		return style.Render(prefix + label)
 	}
 
+	// Build content without padding, then wrap with style at the end
+	// This prevents extra spaces between underlined char and rest of word
 	runes := []rune(label)
-	var b strings.Builder
-	b.WriteString(style.Render(prefix))
 
-	underlineStyle := style.Underline(true)
-	b.WriteString(underlineStyle.Render(string(runes[0])))
+	// Get style without padding for inner content
+	innerStyle := style.Padding(0)
+	underlineStyle := innerStyle.Underline(true)
+
+	var content strings.Builder
+	content.WriteString(prefix)
+	content.WriteString(underlineStyle.Render(string(runes[0])))
 	if len(runes) > 1 {
-		b.WriteString(style.Render(string(runes[1:])))
+		content.WriteString(innerStyle.Render(string(runes[1:])))
 	}
 
-	return b.String()
+	// Apply padding only to the complete content
+	return style.Render(content.String())
 }
 
 // renderFooter returns the dynamic footer based on current context (spec Section 4.1).
