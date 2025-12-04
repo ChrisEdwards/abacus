@@ -87,14 +87,12 @@ func (m *App) View() string {
 			rightWidth = 1
 		}
 
-		// Viewport content is pre-rendered, so apply string-based dimming when overlay active
-		viewportContent := m.viewport.View()
-		if dimmed {
-			viewportContent = applyDimmer(viewportContent)
-		}
+		// Re-render viewport content with current theme (dimmed or bright)
+		// This ensures detail pane properly dims when overlay is active
+		m.updateViewportContent()
 
 		left := leftStyle.Width(leftWidth).Height(listHeight).Render(treeViewStr)
-		right := rightStyle.Width(rightWidth).Height(listHeight).Render(viewportContent)
+		right := rightStyle.Width(rightWidth).Height(listHeight).Render(m.viewport.View())
 		mainBody = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	} else {
 		singleWidth := m.width - 2
@@ -134,9 +132,7 @@ func (m *App) View() string {
 	}
 
 	// Determine whether we need to show an overlay (status, labels, create, delete, help)
-	// Overlays always render with bright/normal theme, not dimmed
 	var overlayLayers []Layer
-	restoreBright := useStyleTheme(false) // Switch to bright theme for overlays
 	if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
 		if layer := m.statusOverlay.Layer(m.width, m.height, headerHeight, bottomMargin); layer != nil {
 			overlayLayers = append(overlayLayers, layer)
@@ -156,7 +152,6 @@ func (m *App) View() string {
 	} else if m.showHelp {
 		overlayLayers = append(overlayLayers, newHelpOverlayLayer(m.keys, m.width, m.height, headerHeight, bottomMargin))
 	}
-	restoreBright() // Restore previous theme state
 
 	content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
 	base := wrapWithBackground(content)
@@ -187,8 +182,11 @@ func (m *App) View() string {
 
 	if len(overlayLayers) > 0 {
 		canvas := NewCanvas(m.width, m.height)
-		// Dimming now handled by useStyleTheme at render time
+		// Background is already rendered with dimmed theme
 		canvas.DrawStringAt(0, 0, base)
+
+		// Switch to bright theme for overlay rendering
+		restoreBright := useStyleTheme(false)
 		for _, layer := range overlayLayers {
 			if layer == nil {
 				continue
@@ -207,6 +205,8 @@ func (m *App) View() string {
 				canvas.OverlayCanvas(c)
 			}
 		}
+		restoreBright()
+
 		return canvas.Render()
 	}
 
