@@ -17,6 +17,9 @@ import (
 // Flash duration for validation errors (spec Section 4.4: 300ms)
 const (
 	titleFlashDuration = 300 * time.Millisecond
+	// titleContentWidth is the width of the title textarea content area.
+	// Width 40 = 44 (styleCreateInput total) - 2 (border) - 2 (padding)
+	titleContentWidth = 40
 )
 
 // titleFlashClearMsg clears the title validation error flash.
@@ -197,13 +200,14 @@ type CreateOverlayOptions struct {
 // NewCreateOverlay creates a new 5-zone create overlay.
 func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 	// Zone 2: Title input (hero element) - textarea for native wrapping behavior
+	// Starts as single line, expands up to 3 lines based on content
 	ti := textarea.New()
 	ti.Placeholder = ""
 	ti.Prompt = ""
 	ti.ShowLineNumbers = false
 	ti.CharLimit = 100
-	ti.SetWidth(44)
-	ti.SetHeight(2)
+	ti.SetWidth(titleContentWidth) // Content width inside border+padding
+	ti.SetHeight(1)                // Start as single line, expands dynamically
 	ti.KeyMap.InsertNewline.SetEnabled(false) // Enter submits instead of inserting newlines
 
 	// Zone 2b: Description textarea (multi-line, 5 lines visible)
@@ -570,6 +574,9 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 		// Update title input
 		m.titleInput, cmd = m.titleInput.Update(msg)
 
+		// Dynamically adjust height based on content (1-3 lines)
+		m.updateTitleHeight()
+
 		// Auto-infer type if title changed and not manually set (spec Section 5)
 		newTitle := m.titleInput.Value()
 		if newTitle != oldTitle && !m.typeManuallySet {
@@ -784,6 +791,33 @@ func (m *CreateOverlay) prepareForNextEntry() tea.Cmd {
 	return func() tea.Msg {
 		return bulkEntryResetMsg{}
 	}
+}
+
+// updateTitleHeight dynamically adjusts the title textarea height based on content.
+// Shows 1-3 lines depending on how much text wraps at the content width.
+func (m *CreateOverlay) updateTitleHeight() {
+	text := m.titleInput.Value()
+	if text == "" {
+		m.titleInput.SetHeight(1)
+		return
+	}
+
+	// Calculate visual lines by simulating word wrap at content width
+	lines := 1
+	lineLen := 0
+	for range text {
+		lineLen++
+		if lineLen > titleContentWidth {
+			lines++
+			lineLen = 1
+		}
+	}
+
+	// Clamp between 1 and 3 lines
+	if lines > 3 {
+		lines = 3
+	}
+	m.titleInput.SetHeight(lines)
 }
 
 // Styles for the create overlay
