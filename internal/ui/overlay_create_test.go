@@ -1154,6 +1154,43 @@ func TestTitleValidationFlashGetter(t *testing.T) {
 	})
 }
 
+func TestTitleTextareaBehavior(t *testing.T) {
+	t.Run("PreventsManualNewline", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Initial Title")
+		overlay.titleInput.Focus()
+
+		before := overlay.titleInput.Value()
+		overlay.titleInput, _ = overlay.titleInput.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		after := overlay.titleInput.Value()
+
+		if after != before {
+			t.Fatalf("expected newline to be blocked, got %q", after)
+		}
+	})
+
+	t.Run("ArrowUpMovesWithinWrappedTitle", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.Focus()
+		overlay.titleInput.SetWidth(12)
+		overlay.titleInput.SetHeight(3)
+		overlay.titleInput.SetValue("This is a very long title that should wrap across multiple visual lines.")
+		overlay.titleInput.CursorEnd()
+
+		before := overlay.titleInput.LineInfo()
+		if before.RowOffset == 0 {
+			t.Fatalf("expected wrapped cursor row, got %d", before.RowOffset)
+		}
+
+		overlay.titleInput, _ = overlay.titleInput.Update(tea.KeyMsg{Type: tea.KeyUp})
+		after := overlay.titleInput.LineInfo()
+
+		if after.RowOffset != before.RowOffset-1 {
+			t.Fatalf("expected cursor to move up one row, before %d after %d", before.RowOffset, after.RowOffset)
+		}
+	})
+}
+
 // Tests for Zone 3: Vim Navigation (ab-l9e)
 func TestVimNavigationKeys(t *testing.T) {
 	t.Run("JKNavigatesTypeOptions", func(t *testing.T) {

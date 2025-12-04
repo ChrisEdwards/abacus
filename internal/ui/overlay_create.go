@@ -281,7 +281,7 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 
 // Init implements tea.Model.
 func (m *CreateOverlay) Init() tea.Cmd {
-	return textinput.Blink
+	return textarea.Blink
 }
 
 // Update implements tea.Model.
@@ -846,38 +846,6 @@ func styleCreateDimmed() lipgloss.Style {
 		Foreground(theme.Current().BorderNormal())
 }
 
-// wrapText wraps text at the given width, breaking on word boundaries.
-func wrapText(text string, width int) string {
-	if len(text) <= width {
-		return text
-	}
-
-	var result strings.Builder
-	words := strings.Fields(text)
-	lineLen := 0
-
-	for i, word := range words {
-		wordLen := len(word)
-		if lineLen+wordLen > width && lineLen > 0 {
-			result.WriteString("\n")
-			lineLen = 0
-		}
-		if lineLen > 0 {
-			result.WriteString(" ")
-			lineLen++
-		}
-		result.WriteString(word)
-		lineLen += wordLen
-
-		// Handle very long words that exceed width
-		if lineLen > width && i < len(words)-1 {
-			result.WriteString("\n")
-			lineLen = 0
-		}
-	}
-	return result.String()
-}
-
 // View implements tea.Model - 5-zone HUD layout per spec Section 3.
 func (m *CreateOverlay) View() string {
 	var b strings.Builder
@@ -933,20 +901,9 @@ func (m *CreateOverlay) View() string {
 		titleStyle = styleCreateInputError()
 	}
 
-	// Render title with word wrapping (max width ~40 to fit in border)
-	titleText := m.titleInput.Value()
-	wrappedTitle := wrapText(titleText, 40)
-	if m.focus == FocusTitle {
-		// Add cursor when focused
-		if titleText == "" {
-			wrappedTitle = "│" // Cursor only
-		} else {
-			wrappedTitle += "│"
-		}
-	}
-	titleView := titleStyle.Render(wrappedTitle)
+	titleView := titleStyle.Render(m.titleInput.View())
 	if parentSearchActive {
-		titleView = styleCreateDimmed().Render(wrappedTitle)
+		titleView = styleCreateDimmed().Render(m.titleInput.View())
 	}
 	b.WriteString(titleView)
 
