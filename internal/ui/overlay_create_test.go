@@ -1291,11 +1291,30 @@ func TestHotkeyUnderlines(t *testing.T) {
 
 	t.Run("RenderHorizontalOptionUsesANSIUnderline", func(t *testing.T) {
 		baseStyle := lipgloss.NewStyle()
+		innerStyle := baseStyle.Padding(0)
 		got := renderHorizontalOption(baseStyle, "Task", true, true) // selected with underline
 		// Selected item should have parentheses: (Task) with T underlined
-		expected := "(" + lipgloss.NewStyle().Underline(true).Render("T") + "ask)"
+		// When underline=true, parentheses are also styled with innerStyle (ab-rixh.3 fix)
+		expected := innerStyle.Render("(") + lipgloss.NewStyle().Underline(true).Render("T") + innerStyle.Render("ask") + innerStyle.Render(")")
 		if got != expected {
 			t.Fatalf("expected %q, got %q", expected, got)
+		}
+	})
+
+	t.Run("ParenthesesAreStyledWhenFocused", func(t *testing.T) {
+		// ab-rixh.3: Test that parentheses get proper styling when focused
+		// Use a style with foreground color to verify ANSI codes are applied
+		styledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+		got := renderHorizontalOption(styledStyle, "Task", true, true) // selected, focused
+		// Both parentheses should have ANSI color codes
+		// The opening paren should have styling (not be plain text)
+		if !strings.Contains(got, "\x1b[") {
+			t.Error("expected ANSI styling in output")
+		}
+		// Verify both parens are present in the styled output
+		stripped := ansiPattern.ReplaceAllString(got, "")
+		if stripped != "(Task)" {
+			t.Errorf("expected stripped output '(Task)', got %q", stripped)
 		}
 	})
 

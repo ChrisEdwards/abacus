@@ -1152,7 +1152,14 @@ func renderHorizontalOption(style lipgloss.Style, label string, selected bool, u
 	var content strings.Builder
 
 	if selected {
-		content.WriteString("(")
+		// When underline=true (focused), style parentheses with innerStyle
+		// so they match the styled label text and don't get interrupted
+		// by the ANSI escape sequences from the inner styled content.
+		if underline {
+			content.WriteString(innerStyle.Render("("))
+		} else {
+			content.WriteString("(")
+		}
 	}
 
 	if underline {
@@ -1165,7 +1172,11 @@ func renderHorizontalOption(style lipgloss.Style, label string, selected bool, u
 	}
 
 	if selected {
-		content.WriteString(")")
+		if underline {
+			content.WriteString(innerStyle.Render(")"))
+		} else {
+			content.WriteString(")")
+		}
 	}
 
 	return style.Render(content.String())
