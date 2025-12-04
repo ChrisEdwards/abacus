@@ -126,52 +126,52 @@ func TestCreateOverlayNavigation(t *testing.T) {
 		}
 	})
 
-	t.Run("UpDownChangesType", func(t *testing.T) {
+	t.Run("LeftRightChangesType", func(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		overlay.focus = FocusType
 		if overlay.typeIndex != 0 {
 			t.Error("expected initial type index 0")
 		}
-		// Down arrow increases index
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
+		// Right arrow increases index (horizontal layout)
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRight})
 		if overlay.typeIndex != 1 {
 			t.Errorf("expected type index 1, got %d", overlay.typeIndex)
 		}
-		// Up arrow decreases index
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyUp})
+		// Left arrow decreases index
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyLeft})
 		if overlay.typeIndex != 0 {
 			t.Errorf("expected type index 0, got %d", overlay.typeIndex)
 		}
 	})
 
-	t.Run("UpDownChangesPriority", func(t *testing.T) {
+	t.Run("LeftRightChangesPriority", func(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		overlay.focus = FocusPriority
 		if overlay.priorityIndex != 2 {
 			t.Errorf("expected initial priority index 2 (Med), got %d", overlay.priorityIndex)
 		}
-		// Down arrow increases index
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
+		// Right arrow increases index (horizontal layout)
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRight})
 		if overlay.priorityIndex != 3 {
 			t.Errorf("expected priority index 3, got %d", overlay.priorityIndex)
 		}
-		// Up arrow decreases index
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyUp})
+		// Left arrow decreases index
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyLeft})
 		if overlay.priorityIndex != 2 {
 			t.Errorf("expected priority index 2, got %d", overlay.priorityIndex)
 		}
 	})
 
-	t.Run("LeftRightNavigatesBetweenTypeAndPriority", func(t *testing.T) {
+	t.Run("UpDownNavigatesBetweenTypeAndPriority", func(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		overlay.focus = FocusType
-		// Right arrow moves to priority
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRight})
+		// Down arrow moves to priority (vertical row navigation)
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
 		if overlay.Focus() != FocusPriority {
 			t.Errorf("expected focus on priority, got %d", overlay.Focus())
 		}
-		// Left arrow moves back to type
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyLeft})
+		// Up arrow moves back to type
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyUp})
 		if overlay.Focus() != FocusType {
 			t.Errorf("expected focus on type, got %d", overlay.Focus())
 		}
@@ -1193,58 +1193,56 @@ func TestTitleTextareaBehavior(t *testing.T) {
 
 // Tests for Zone 3: Vim Navigation (ab-l9e)
 func TestVimNavigationKeys(t *testing.T) {
-	t.Run("JKNavigatesTypeOptions", func(t *testing.T) {
+	t.Run("HLNavigatesTypeOptions", func(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		overlay.focus = FocusType
 		overlay.typeIndex = 0
 
-		// j moves down
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-		if overlay.typeIndex != 1 {
-			t.Errorf("expected type index 1 after 'j', got %d", overlay.typeIndex)
-		}
-
-		// k moves up
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-		if overlay.typeIndex != 0 {
-			t.Errorf("expected type index 0 after 'k', got %d", overlay.typeIndex)
-		}
-	})
-
-	t.Run("JKNavigatesPriorityOptions", func(t *testing.T) {
-		overlay := NewCreateOverlay(CreateOverlayOptions{})
-		overlay.focus = FocusPriority
-		overlay.priorityIndex = 2 // Medium
-
-		// j moves down
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-		if overlay.priorityIndex != 3 {
-			t.Errorf("expected priority index 3 after 'j', got %d", overlay.priorityIndex)
-		}
-
-		// k moves up
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-		if overlay.priorityIndex != 2 {
-			t.Errorf("expected priority index 2 after 'k', got %d", overlay.priorityIndex)
-		}
-	})
-
-	t.Run("HLNavigatesBetweenColumnsFromType", func(t *testing.T) {
-		overlay := NewCreateOverlay(CreateOverlayOptions{})
-		overlay.focus = FocusType
-
-		// l moves to priority
+		// l moves right (increases index in horizontal layout)
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
-		if overlay.Focus() != FocusPriority {
-			t.Errorf("expected focus on priority after 'l', got %d", overlay.Focus())
+		if overlay.typeIndex != 1 {
+			t.Errorf("expected type index 1 after 'l', got %d", overlay.typeIndex)
 		}
 
-		// Note: In Priority column, 'h' is a hotkey for High, not navigation
-		// So we test that h doesn't navigate from Type (stays put)
-		overlay.focus = FocusType
+		// h moves left (decreases index)
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+		if overlay.typeIndex != 0 {
+			t.Errorf("expected type index 0 after 'h', got %d", overlay.typeIndex)
+		}
+	})
+
+	t.Run("JKNavigatesBetweenTypeAndPriorityRows", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.focus = FocusType
+
+		// j moves down to Priority row
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		if overlay.Focus() != FocusPriority {
+			t.Errorf("expected focus on priority after 'j', got %d", overlay.Focus())
+		}
+
+		// k moves up to Type row
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 		if overlay.Focus() != FocusType {
-			t.Errorf("expected focus to stay on type after 'h', got %d", overlay.Focus())
+			t.Errorf("expected focus on type after 'k', got %d", overlay.Focus())
+		}
+	})
+
+	t.Run("JKStaysAtBoundsInTypeAndPriority", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+
+		// k at top (Type) stays in Type
+		overlay.focus = FocusType
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+		if overlay.Focus() != FocusType {
+			t.Errorf("expected focus to stay on type after 'k' at top, got %d", overlay.Focus())
+		}
+
+		// j at bottom (Priority) stays in Priority
+		overlay.focus = FocusPriority
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		if overlay.Focus() != FocusPriority {
+			t.Errorf("expected focus to stay on priority after 'j' at bottom, got %d", overlay.Focus())
 		}
 	})
 
@@ -1291,19 +1289,20 @@ func TestVimNavigationKeys(t *testing.T) {
 func TestHotkeyUnderlines(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 
-	t.Run("RenderHotkeyPillUsesANSIUnderline", func(t *testing.T) {
+	t.Run("RenderHorizontalOptionUsesANSIUnderline", func(t *testing.T) {
 		baseStyle := lipgloss.NewStyle()
-		got := renderHotkeyPill(baseStyle, "► ", "Task", true)
-		expected := "► " + lipgloss.NewStyle().Underline(true).Render("T") + "ask"
+		got := renderHorizontalOption(baseStyle, "Task", true, true) // selected with underline
+		// Selected item should have parentheses: (Task) with T underlined
+		expected := "(" + lipgloss.NewStyle().Underline(true).Render("T") + "ask)"
 		if got != expected {
 			t.Fatalf("expected %q, got %q", expected, got)
 		}
 	})
 
-	t.Run("RenderHotkeyPillSkipsUnderlineWhenDisabled", func(t *testing.T) {
+	t.Run("RenderHorizontalOptionSkipsUnderlineWhenDisabled", func(t *testing.T) {
 		baseStyle := lipgloss.NewStyle()
-		got := renderHotkeyPill(baseStyle, "► ", "Task", false)
-		expected := "► Task"
+		got := renderHorizontalOption(baseStyle, "Task", false, false) // unselected, no underline
+		expected := "Task"
 		if got != expected {
 			t.Fatalf("expected %q, got %q", expected, got)
 		}
@@ -2304,8 +2303,8 @@ func TestTypeInferenceIntegration(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		overlay.focus = FocusType
 
-		// Press Down arrow
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
+		// Press Right arrow (horizontal layout - changes selection)
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRight})
 
 		if !overlay.typeManuallySet {
 			t.Error("expected typeManuallySet=true after arrow key")
@@ -2316,8 +2315,8 @@ func TestTypeInferenceIntegration(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		overlay.focus = FocusType
 
-		// Press 'j' (vim down)
-		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		// Press 'l' (vim right - changes selection in horizontal layout)
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
 
 		if !overlay.typeManuallySet {
 			t.Error("expected typeManuallySet=true after vim key")

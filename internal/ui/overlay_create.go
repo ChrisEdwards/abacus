@@ -615,38 +615,41 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 		return m, cmd
 
 	case FocusType:
-		// Type uses arrow keys, vim keys (j/k/h/l), and single-key selection
+		// Type uses arrow keys, vim keys, and single-key selection
+		// Horizontal layout: Left/Right change selection, Up/Down move between rows
 		switch msg.Type {
-		case tea.KeyUp, tea.KeyDown:
-			if msg.Type == tea.KeyUp && m.typeIndex > 0 {
+		case tea.KeyLeft:
+			if m.typeIndex > 0 {
 				m.typeIndex--
 				m.typeManuallySet = true // Disable auto-inference (spec Section 5)
-			} else if msg.Type == tea.KeyDown && m.typeIndex < len(typeOptions)-1 {
+			}
+		case tea.KeyRight:
+			if m.typeIndex < len(typeOptions)-1 {
 				m.typeIndex++
 				m.typeManuallySet = true // Disable auto-inference (spec Section 5)
 			}
-		case tea.KeyLeft:
-			m.focus = FocusType // Stay in type (leftmost column)
-		case tea.KeyRight:
-			m.focus = FocusPriority // Move to priority column
+		case tea.KeyUp:
+			// Stay in type (already topmost in Type/Priority section)
+		case tea.KeyDown:
+			m.focus = FocusPriority // Move to priority row
 		case tea.KeyRunes:
 			if len(msg.Runes) > 0 {
 				r := msg.Runes[0]
 				switch r {
-				case 'j': // Vim down
-					if m.typeIndex < len(typeOptions)-1 {
-						m.typeIndex++
-						m.typeManuallySet = true // Disable auto-inference (spec Section 5)
-					}
-				case 'k': // Vim up
+				case 'h': // Vim left - move selection left
 					if m.typeIndex > 0 {
 						m.typeIndex--
-						m.typeManuallySet = true // Disable auto-inference (spec Section 5)
+						m.typeManuallySet = true
 					}
-				case 'h': // Vim left - stay in type (leftmost)
-					// Already in leftmost column
-				case 'l': // Vim right - move to priority
+				case 'l': // Vim right - move selection right
+					if m.typeIndex < len(typeOptions)-1 {
+						m.typeIndex++
+						m.typeManuallySet = true
+					}
+				case 'j': // Vim down - move to priority row
 					m.focus = FocusPriority
+				case 'k': // Vim up - stay (topmost)
+					// Already at top
 				default:
 					// Single-key selection: t=task, f=feature, b=bug, e=epic, c=chore
 					m.handleTypeHotkey(r)
@@ -656,34 +659,33 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 		return m, nil
 
 	case FocusPriority:
-		// Priority uses arrow keys, vim keys (j/k), and single-key selection
-		// Note: h/l are priority hotkeys (High, Low) not vim navigation here
+		// Priority uses arrow keys, vim keys, and single-key selection
+		// Horizontal layout: Left/Right change selection, Up/Down move between rows
+		// Note: h/l are priority hotkeys (High, Low), not vim navigation
 		switch msg.Type {
-		case tea.KeyUp, tea.KeyDown:
-			if msg.Type == tea.KeyUp && m.priorityIndex > 0 {
+		case tea.KeyLeft:
+			if m.priorityIndex > 0 {
 				m.priorityIndex--
-			} else if msg.Type == tea.KeyDown && m.priorityIndex < len(priorityLabels)-1 {
+			}
+		case tea.KeyRight:
+			if m.priorityIndex < len(priorityLabels)-1 {
 				m.priorityIndex++
 			}
-		case tea.KeyLeft:
-			m.focus = FocusType // Move to type column
-		case tea.KeyRight:
-			m.focus = FocusPriority // Stay in priority (rightmost column)
+		case tea.KeyUp:
+			m.focus = FocusType // Move to type row
+		case tea.KeyDown:
+			// Stay in priority (already bottommost in Type/Priority section)
 		case tea.KeyRunes:
 			if len(msg.Runes) > 0 {
 				r := msg.Runes[0]
 				switch r {
-				case 'j': // Vim down
-					if m.priorityIndex < len(priorityLabels)-1 {
-						m.priorityIndex++
-					}
-				case 'k': // Vim up
-					if m.priorityIndex > 0 {
-						m.priorityIndex--
-					}
+				case 'j': // Vim down - stay (bottommost)
+					// Already at bottom
+				case 'k': // Vim up - move to type row
+					m.focus = FocusType
 				default:
 					// Single-key selection: c=crit, h=high, m=med, l=low, b=backlog
-					// (h/l are hotkeys here, not vim navigation - use arrow keys for columns)
+					// (h/l are hotkeys here, not vim navigation)
 					m.handlePriorityHotkey(r)
 				}
 			}
@@ -975,12 +977,11 @@ func (m *CreateOverlay) View() string {
 	b.WriteString(descView)
 	b.WriteString("\n\n")
 
-	// Zone 3: Type and Priority (2-column grid) - dimmed when parent search active
-	// Type and Priority columns side-by-side
-	propsGrid := lipgloss.JoinHorizontal(lipgloss.Top,
-		m.renderTypeColumn(),
-		"    ", // Spacer between columns
-		m.renderPriorityColumn(),
+	// Zone 3: Type and Priority (vertical stack with horizontal options) - dimmed when parent search active
+	propsGrid := lipgloss.JoinVertical(lipgloss.Left,
+		m.renderTypeRow(),
+		"", // Spacing line
+		m.renderPriorityRow(),
 	)
 	if parentSearchActive {
 		propsGrid = styleCreateDimmed().Render(propsGrid)
@@ -1056,10 +1057,10 @@ func (m *CreateOverlay) Layer(width, height, topMargin, bottomMargin int) Layer 
 	})
 }
 
-func (m *CreateOverlay) renderTypeColumn() string {
+func (m *CreateOverlay) renderTypeRow() string {
 	var b strings.Builder
 
-	// Column header
+	// Row header
 	headerStyle := lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
 	if m.focus == FocusType {
 		headerStyle = lipgloss.NewStyle().Foreground(theme.Current().Secondary()).Bold(true)
@@ -1071,37 +1072,37 @@ func (m *CreateOverlay) renderTypeColumn() string {
 	b.WriteString(headerStyle.Render("TYPE"))
 	b.WriteString("\n")
 
-	// Options
+	// Options rendered horizontally
+	var options []string
 	for i, label := range typeLabels {
-		prefix := "  "
 		style := styleCreatePill()
 		underlineHotkey := false
+
 		if i == m.typeIndex {
-			prefix = "► "
+			// Selected option - use parentheses format per spec mockup
 			if m.focus == FocusType {
 				style = styleCreatePillFocused()
-				// Underline hotkey letter when focused (spec Section 3.3)
 				underlineHotkey = true
 			} else {
 				style = styleCreatePillSelected()
 			}
-		} else if m.focus == FocusType {
-			// Underline hotkey letter for all options when column is focused
-			underlineHotkey = true
-		}
-		b.WriteString(renderHotkeyPill(style, prefix, label, underlineHotkey))
-		if i < len(typeLabels)-1 {
-			b.WriteString("\n")
+			options = append(options, renderHorizontalOption(style, label, true, underlineHotkey))
+		} else {
+			if m.focus == FocusType {
+				underlineHotkey = true
+			}
+			options = append(options, renderHorizontalOption(style, label, false, underlineHotkey))
 		}
 	}
+	b.WriteString(strings.Join(options, "   "))
 
 	return b.String()
 }
 
-func (m *CreateOverlay) renderPriorityColumn() string {
+func (m *CreateOverlay) renderPriorityRow() string {
 	var b strings.Builder
 
-	// Column header
+	// Row header
 	headerStyle := lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
 	if m.focus == FocusPriority {
 		headerStyle = lipgloss.NewStyle().Foreground(theme.Current().Secondary()).Bold(true)
@@ -1109,54 +1110,64 @@ func (m *CreateOverlay) renderPriorityColumn() string {
 	b.WriteString(headerStyle.Render("PRIORITY"))
 	b.WriteString("\n")
 
-	// Options
+	// Options rendered horizontally
+	var options []string
 	for i, label := range priorityLabels {
-		prefix := "  "
 		style := styleCreatePill()
 		underlineHotkey := false
+
 		if i == m.priorityIndex {
-			prefix = "► "
+			// Selected option - use parentheses format per spec mockup
 			if m.focus == FocusPriority {
 				style = styleCreatePillFocused()
-				// Underline hotkey letter when focused (spec Section 3.3)
 				underlineHotkey = true
 			} else {
 				style = styleCreatePillSelected()
 			}
-		} else if m.focus == FocusPriority {
-			// Underline hotkey letter for all options when column is focused
-			underlineHotkey = true
-		}
-		b.WriteString(renderHotkeyPill(style, prefix, label, underlineHotkey))
-		if i < len(priorityLabels)-1 {
-			b.WriteString("\n")
+			options = append(options, renderHorizontalOption(style, label, true, underlineHotkey))
+		} else {
+			if m.focus == FocusPriority {
+				underlineHotkey = true
+			}
+			options = append(options, renderHorizontalOption(style, label, false, underlineHotkey))
 		}
 	}
+	b.WriteString(strings.Join(options, "   "))
 
 	return b.String()
 }
 
-func renderHotkeyPill(style lipgloss.Style, prefix, label string, underline bool) string {
-	if !underline || label == "" {
-		return style.Render(prefix + label)
+// renderHorizontalOption renders a single option for horizontal Type/Priority rows.
+// Selected items use parentheses format: (Task), unselected: Task
+// When underline is true, the first letter is underlined (hotkey hint).
+func renderHorizontalOption(style lipgloss.Style, label string, selected bool, underline bool) string {
+	if label == "" {
+		return ""
 	}
 
-	// Build content without padding, then wrap with style at the end
-	// This prevents extra spaces between underlined char and rest of word
 	runes := []rune(label)
-
-	// Get style without padding for inner content
 	innerStyle := style.Padding(0)
 	underlineStyle := innerStyle.Underline(true)
 
 	var content strings.Builder
-	content.WriteString(prefix)
-	content.WriteString(underlineStyle.Render(string(runes[0])))
-	if len(runes) > 1 {
-		content.WriteString(innerStyle.Render(string(runes[1:])))
+
+	if selected {
+		content.WriteString("(")
 	}
 
-	// Apply padding only to the complete content
+	if underline {
+		content.WriteString(underlineStyle.Render(string(runes[0])))
+		if len(runes) > 1 {
+			content.WriteString(innerStyle.Render(string(runes[1:])))
+		}
+	} else {
+		content.WriteString(label)
+	}
+
+	if selected {
+		content.WriteString(")")
+	}
+
 	return style.Render(content.String())
 }
 
