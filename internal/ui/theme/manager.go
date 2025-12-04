@@ -175,3 +175,103 @@ func Current() ThemeWrapper {
 	defer globalManager.mu.RUnlock()
 	return ThemeWrapper{globalManager.currentTheme}
 }
+
+// Dimmed returns a new ThemeWrapper with all colors blended toward the background.
+// This is used when an overlay is active to visually de-emphasize the background content.
+func (w ThemeWrapper) Dimmed() ThemeWrapper {
+	return ThemeWrapper{&dimmedTheme{base: w.Theme, blendFactor: 0.45}}
+}
+
+// dimmedTheme wraps a base theme and blends all colors toward the background.
+type dimmedTheme struct {
+	base        Theme
+	blendFactor float64 // 0.0 = original color, 1.0 = fully background
+}
+
+// blendColor blends a color toward the background by the given factor.
+func blendColor(color, background lipgloss.AdaptiveColor, factor float64) lipgloss.AdaptiveColor {
+	return lipgloss.AdaptiveColor{
+		Light: blendHex(color.Light, background.Light, factor),
+		Dark:  blendHex(color.Dark, background.Dark, factor),
+	}
+}
+
+// blendHex blends two hex colors. Factor 0.0 = color1, 1.0 = color2.
+func blendHex(hex1, hex2 string, factor float64) string {
+	r1, g1, b1 := hexToRGB(hex1)
+	r2, g2, b2 := hexToRGB(hex2)
+
+	r := uint8(float64(r1)*(1-factor) + float64(r2)*factor)
+	g := uint8(float64(g1)*(1-factor) + float64(g2)*factor)
+	b := uint8(float64(b1)*(1-factor) + float64(b2)*factor)
+
+	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
+}
+
+// Theme interface implementation for dimmedTheme
+
+func (d *dimmedTheme) Primary() lipgloss.AdaptiveColor {
+	return blendColor(d.base.Primary(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) Secondary() lipgloss.AdaptiveColor {
+	return blendColor(d.base.Secondary(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) Accent() lipgloss.AdaptiveColor {
+	return blendColor(d.base.Accent(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) Error() lipgloss.AdaptiveColor {
+	return blendColor(d.base.Error(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) Warning() lipgloss.AdaptiveColor {
+	return blendColor(d.base.Warning(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) Success() lipgloss.AdaptiveColor {
+	return blendColor(d.base.Success(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) Info() lipgloss.AdaptiveColor {
+	return blendColor(d.base.Info(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) Text() lipgloss.AdaptiveColor {
+	return blendColor(d.base.Text(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) TextMuted() lipgloss.AdaptiveColor {
+	return blendColor(d.base.TextMuted(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) TextEmphasized() lipgloss.AdaptiveColor {
+	return blendColor(d.base.TextEmphasized(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) Background() lipgloss.AdaptiveColor {
+	// Background stays the same - we blend other colors toward it
+	return d.base.Background()
+}
+
+func (d *dimmedTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
+	// Secondary background also stays the same
+	return d.base.BackgroundSecondary()
+}
+
+func (d *dimmedTheme) BackgroundDarker() lipgloss.AdaptiveColor {
+	return d.base.BackgroundDarker()
+}
+
+func (d *dimmedTheme) BorderNormal() lipgloss.AdaptiveColor {
+	return blendColor(d.base.BorderNormal(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) BorderFocused() lipgloss.AdaptiveColor {
+	return blendColor(d.base.BorderFocused(), d.base.Background(), d.blendFactor)
+}
+
+func (d *dimmedTheme) BorderDim() lipgloss.AdaptiveColor {
+	return blendColor(d.base.BorderDim(), d.base.Background(), d.blendFactor)
+}

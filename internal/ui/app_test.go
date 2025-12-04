@@ -1505,7 +1505,7 @@ func TestTreeViewStatusIconsMatchDocs(t *testing.T) {
 	blocked := &graph.Node{Issue: beads.FullIssue{ID: "ab-703", Title: "Blocked", Status: "open"}, IsBlocked: true}
 	closed := &graph.Node{Issue: beads.FullIssue{ID: "ab-704", Title: "Closed", Status: "closed"}}
 	m := buildTreeTestApp(inProgress, ready, blocked, closed)
-	view := m.renderTreeView()
+	view := m.renderTreeView(false)
 	cases := []struct {
 		id   string
 		icon string
@@ -1535,7 +1535,7 @@ func TestTreeViewMarkersTogglePerDocs(t *testing.T) {
 		Children: []*graph.Node{{Issue: beads.FullIssue{ID: "ab-713", Title: "Hidden"}}},
 	}
 	m := buildTreeTestApp(expanded, collapsed)
-	view := m.renderTreeView()
+	view := m.renderTreeView(false)
 	expandedLine := treeLineContaining(t, view, "ab-711")
 	if !strings.Contains(expandedLine, "▼") {
 		t.Fatalf("expected expanded marker ▼, got %q", expandedLine)
@@ -1554,7 +1554,7 @@ func TestTreeViewCollapsedNodesShowCountBadge(t *testing.T) {
 		Children: []*graph.Node{child},
 	}
 	m := buildTreeTestApp(collapsed)
-	view := m.renderTreeView()
+	view := m.renderTreeView(false)
 	line := treeLineContaining(t, view, "ab-721")
 	if !strings.Contains(line, "[+1]") {
 		t.Fatalf("expected collapsed node to show [+1] badge, got %q", line)
@@ -1565,7 +1565,7 @@ func TestTreeScrollKeepsWrappedSelectionVisible(t *testing.T) {
 	app := buildWrappedTreeApp(12)
 	for i := range app.visibleRows {
 		app.cursor = i
-		view := stripANSI(app.renderTreeView())
+		view := stripANSI(app.renderTreeView(false))
 		id := fmt.Sprintf("ab-%02d", i+1)
 		if !strings.Contains(view, id) {
 			t.Fatalf("expected view to include %s at cursor %d:\n%s", id, i, view)
@@ -2839,11 +2839,8 @@ func TestStatusOverlayKeepsBaseContentVisible(t *testing.T) {
 	if !strings.Contains(plain, "Status") {
 		t.Fatalf("expected status overlay content to be present, got:\n%s", plain)
 	}
-	if !strings.Contains(view, "\x1b[2m") {
-		t.Fatalf("expected dimming control sequence in overlay view, got:\n%s", view)
-	}
-	// Background coverage is verified via layer helper tests; here we just ensure
-	// the overlay content renders and the base is dimmed (checked above).
+	// Dimming is now handled via theme-level color blending (useStyleTheme),
+	// not ANSI dim sequences. Background coverage is verified via layer helper tests.
 }
 
 func TestCreateOverlayShowsErrorToast(t *testing.T) {
@@ -2873,10 +2870,8 @@ func TestCreateOverlayShowsErrorToast(t *testing.T) {
 	if !strings.Contains(plain, "ABACUS") {
 		t.Fatalf("expected header content to remain visible beneath overlay, got:\n%s", plain)
 	}
-	if !strings.Contains(view, "\x1b[2m") {
-		t.Fatalf("expected dimming applied to create overlay view, got:\n%s", view)
-	}
-	// Secondary background coverage is validated in layer helper tests.
+	// Dimming is now handled via theme-level color blending (useStyleTheme),
+	// not ANSI dim sequences. Background coverage is validated in layer helper tests.
 }
 
 // Toast Tests for ab-1t3

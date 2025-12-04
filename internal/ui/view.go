@@ -15,6 +15,13 @@ func (m *App) View() string {
 		return "Initializing..."
 	}
 
+	// Determine if background should be dimmed (overlay active)
+	dimmed := m.activeOverlay != OverlayNone || m.showHelp
+
+	// Apply dimmed palette for background elements when overlay is active
+	restoreTheme := useStyleTheme(dimmed)
+	defer restoreTheme()
+
 	stats := m.getStats()
 	status := fmt.Sprintf("Beads: %d", stats.Total)
 
@@ -58,7 +65,7 @@ func (m *App) View() string {
 	}
 	// Ensure header fills full width with background
 	header = baseStyle().Width(m.width).Render(header)
-	treeViewStr := m.renderTreeView()
+	treeViewStr := m.renderTreeView(dimmed)
 
 	var mainBody string
 	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
@@ -171,7 +178,8 @@ func (m *App) View() string {
 
 	if len(overlayLayers) > 0 {
 		canvas := NewCanvas(m.width, m.height)
-		canvas.DrawStringAt(0, 0, applyDimmer(base))
+		// Dimming now handled by useStyleTheme at render time
+		canvas.DrawStringAt(0, 0, base)
 		for _, layer := range overlayLayers {
 			if layer == nil {
 				continue

@@ -8,7 +8,6 @@ import (
 
 	"abacus/internal/domain"
 	"abacus/internal/graph"
-	"abacus/internal/ui/theme"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
@@ -50,9 +49,9 @@ func (m *App) updateViewportContent() {
 		iss.ID,
 		iss.Title,
 		headerContentWidth,
-		styleDetailHeaderCombined().Foreground(theme.Current().Accent()),
-		styleDetailHeaderCombined().Foreground(theme.Current().Text()),
-		theme.Current().BackgroundSecondary(),
+		styleDetailHeaderCombined().Foreground(currentThemeWrapper().Accent()),
+		styleDetailHeaderCombined().Foreground(currentThemeWrapper().Text()),
+		currentThemeWrapper().BackgroundSecondary(),
 	)
 	headerBlock := styleDetailHeaderBlock().Width(vpWidth).Render(headerContent)
 
@@ -256,7 +255,7 @@ func (m *App) updateViewportContent() {
 			width, targetHeight,
 			lipgloss.Left, lipgloss.Top,
 			finalContent,
-			lipgloss.WithWhitespaceBackground(theme.Current().Background()),
+			lipgloss.WithWhitespaceBackground(currentThemeWrapper().Background()),
 		)
 		// lipgloss.Place can insert additional escape sequences, so reapply background fills
 		finalContent = padLinesToWidth(finalContent, width)
@@ -453,7 +452,7 @@ func renderRefRow(id, title string, targetWidth int, idStyle, titleStyle lipglos
 func renderRefRowWithIcon(icon string, iconStyle lipgloss.Style, id, title string, targetWidth int, idStyle, titleStyle lipgloss.Style) string {
 	const gap = "  "
 	bgStyle := baseStyle()
-	bg := theme.Current().Background()
+	bg := currentThemeWrapper().Background()
 	// Ensure icon and id styles have background
 	iconRendered := iconStyle.Background(bg).Render(icon)
 	sp := bgStyle.Render(" ")

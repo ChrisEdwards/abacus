@@ -203,3 +203,71 @@ func TestAvailableSorted(t *testing.T) {
 		}
 	}
 }
+
+// TestDimmedTheme verifies that Dimmed() returns a theme with blended colors.
+func TestDimmedTheme(t *testing.T) {
+	SetTheme("dracula")
+	normal := Current()
+	dimmed := normal.Dimmed()
+
+	// Dimmed colors should be different from normal (blended toward background)
+	if normal.Text().Dark == dimmed.Text().Dark {
+		t.Error("Dimmed().Text() should be different from normal Text()")
+	}
+
+	if normal.Accent().Dark == dimmed.Accent().Dark {
+		t.Error("Dimmed().Accent() should be different from normal Accent()")
+	}
+
+	// Background should remain the same
+	if normal.Background().Dark != dimmed.Background().Dark {
+		t.Error("Dimmed().Background() should be the same as normal Background()")
+	}
+}
+
+// TestDimmedThemeColorsValid verifies that dimmed colors are valid hex codes.
+func TestDimmedThemeColorsValid(t *testing.T) {
+	for _, name := range Available() {
+		SetTheme(name)
+		dimmed := Current().Dimmed()
+
+		checkValidHex := func(colorName string, color lipgloss.AdaptiveColor) {
+			for _, hex := range []string{color.Dark, color.Light} {
+				if hex == "" {
+					continue
+				}
+				if len(hex) != 7 || hex[0] != '#' {
+					t.Errorf("theme %q dimmed: %s has invalid hex %q", name, colorName, hex)
+				}
+			}
+		}
+
+		checkValidHex("Primary", dimmed.Primary())
+		checkValidHex("Secondary", dimmed.Secondary())
+		checkValidHex("Accent", dimmed.Accent())
+		checkValidHex("Text", dimmed.Text())
+		checkValidHex("TextMuted", dimmed.TextMuted())
+	}
+}
+
+// TestBlendHex verifies the color blending function.
+func TestBlendHex(t *testing.T) {
+	tests := []struct {
+		hex1, hex2 string
+		factor     float64
+		expected   string
+	}{
+		{"#ffffff", "#000000", 0.0, "#ffffff"}, // 0% blend = original
+		{"#ffffff", "#000000", 1.0, "#000000"}, // 100% blend = target
+		{"#ffffff", "#000000", 0.5, "#7f7f7f"}, // 50% blend = midpoint
+		{"#ff0000", "#0000ff", 0.5, "#7f007f"}, // Red + Blue = Purple-ish
+	}
+
+	for _, tc := range tests {
+		result := blendHex(tc.hex1, tc.hex2, tc.factor)
+		if result != tc.expected {
+			t.Errorf("blendHex(%q, %q, %.1f) = %q, expected %q",
+				tc.hex1, tc.hex2, tc.factor, result, tc.expected)
+		}
+	}
+}

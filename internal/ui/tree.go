@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"abacus/internal/domain"
-	"abacus/internal/ui/theme"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
@@ -13,7 +12,10 @@ import (
 
 const treeScrollMargin = 1
 
-func (m *App) renderTreeView() string {
+func (m *App) renderTreeView(dimmed bool) string {
+	restore := useStyleTheme(dimmed)
+	defer restore()
+
 	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
 	if len(m.visibleRows) == 0 {
 		m.treeTopLine = 0
@@ -234,7 +236,7 @@ func treePrefixWidth(indent, marker, icon, id string) int {
 // buildSelectedRow creates a full-width row with selection background.
 // It preserves the icon's status color while applying selection background to all elements.
 func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, id, title string, textStyle lipgloss.Style, width int) string {
-	t := theme.Current()
+	t := currentThemeWrapper()
 	bg := t.BackgroundSecondary()
 
 	// Create styles with selection background
@@ -259,7 +261,7 @@ func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, id,
 
 // buildSelectedContinuation creates a continuation line for wrapped titles with selection background.
 func buildSelectedContinuation(text string, textStyle lipgloss.Style, width int) string {
-	t := theme.Current()
+	t := currentThemeWrapper()
 	bg := t.BackgroundSecondary()
 
 	selectedText := lipgloss.NewStyle().
@@ -277,7 +279,7 @@ func buildSelectedContinuation(text string, textStyle lipgloss.Style, width int)
 
 // buildCrossHighlightRow creates a full-width row with cross-highlight background.
 func buildCrossHighlightRow(indent, marker, icon string, iconStyle lipgloss.Style, id, title string, textStyle lipgloss.Style, width int) string {
-	t := theme.Current()
+	t := currentThemeWrapper()
 	bg := t.BorderNormal()
 
 	// Create styles with cross-highlight background
