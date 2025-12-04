@@ -399,7 +399,12 @@ func styleLabelChecked() lipgloss.Style {
 
 func buildMarkdownRenderer(format string, width int) func(string) string {
 	fallback := func(input string) string {
-		return wordwrap.String(input, width)
+		// When dimmed, render with muted text style for consistency
+		wrapped := wordwrap.String(input, width)
+		if stylesDimmed() {
+			return styleNormalText().Render(wrapped)
+		}
+		return wrapped
 	}
 
 	style := strings.ToLower(strings.TrimSpace(format))
@@ -418,6 +423,10 @@ func buildMarkdownRenderer(format string, width int) func(string) string {
 		return fallback
 	}
 	return func(input string) string {
+		// When dimmed, use plain text to respect dimmed theme colors
+		if stylesDimmed() {
+			return fallback(input)
+		}
 		out, err := renderer.Render(input)
 		if err != nil {
 			return fallback(input)
