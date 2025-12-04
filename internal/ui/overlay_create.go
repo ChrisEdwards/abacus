@@ -568,13 +568,28 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 		return m, cmd
 
 	case FocusTitle:
+		// Pre-expand height if cursor is near end of last visual row.
+		// This prevents viewport scroll issues when the next keystroke causes wrap.
+		// Must happen BEFORE textarea.Update() so viewport positions correctly.
+		if m.titleInput.Value() != "" {
+			lineInfo := m.titleInput.LineInfo()
+			currentHeight := lineInfo.Height
+			if currentHeight > 0 && currentHeight < 3 {
+				isOnLastRow := lineInfo.RowOffset == currentHeight-1
+				nearLineEnd := lineInfo.ColumnOffset > titleContentWidth-12
+				if isOnLastRow && nearLineEnd {
+					m.titleInput.SetHeight(currentHeight + 1)
+				}
+			}
+		}
+
 		// Capture old title for comparison (spec Section 5: type auto-inference)
 		oldTitle := m.titleInput.Value()
 
-		// Update title input
+		// Update title input (viewport positions based on current height)
 		m.titleInput, cmd = m.titleInput.Update(msg)
 
-		// Dynamically adjust height based on content (1-3 lines)
+		// Adjust height to actual content (may shrink if we over-expanded)
 		m.updateTitleHeight()
 
 		// Auto-infer type if title changed and not manually set (spec Section 5)
@@ -794,16 +809,25 @@ func (m *CreateOverlay) prepareForNextEntry() tea.Cmd {
 }
 
 // updateTitleHeight dynamically adjusts the title textarea height based on content.
-// Uses max height (3) when there's content to prevent mid-typing resize/scroll issues.
+// Shows 1-3 lines depending on how much text wraps at the content width.
 func (m *CreateOverlay) updateTitleHeight() {
 	text := m.titleInput.Value()
 	if text == "" {
 		m.titleInput.SetHeight(1)
 		return
 	}
-	// Always use max height when there's content to avoid viewport scroll issues
-	// that occur when the box expands after word-wrap instead of before.
-	m.titleInput.SetHeight(3)
+
+	// Use textarea's LineInfo to get actual wrapped line count.
+	// Since we disable newlines, there's only one logical line.
+	lineInfo := m.titleInput.LineInfo()
+	lines := lineInfo.Height
+	if lines < 1 {
+		lines = 1
+	}
+	if lines > 3 {
+		lines = 3
+	}
+	m.titleInput.SetHeight(lines)
 }
 
 // Styles for the create overlay
