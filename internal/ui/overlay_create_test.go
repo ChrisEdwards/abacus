@@ -111,7 +111,11 @@ func TestCreateOverlayNavigation(t *testing.T) {
 		if overlay.Focus() != FocusLabels {
 			t.Errorf("expected focus on labels, got %d", overlay.Focus())
 		}
-		// Note: Labels to Assignee transition requires ChipComboBoxTabMsg
+		// Tab: Labels -> Assignee (direct, no longer async via ChipComboBoxTabMsg)
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
+		if overlay.Focus() != FocusAssignee {
+			t.Errorf("expected focus on assignee, got %d", overlay.Focus())
+		}
 	})
 
 	t.Run("ShiftTabFromTitleGoesToParent", func(t *testing.T) {
@@ -1691,8 +1695,8 @@ func TestTabFocusCycling(t *testing.T) {
 			t.Errorf("expected focus on Labels, got %d", overlay.Focus())
 		}
 
-		// Tab: Labels -> Assignee (via ChipComboBoxTabMsg)
-		overlay, _ = overlay.Update(ChipComboBoxTabMsg{})
+		// Tab: Labels -> Assignee (direct, no longer async via ChipComboBoxTabMsg)
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
 		if overlay.Focus() != FocusAssignee {
 			t.Errorf("expected focus on Assignee, got %d", overlay.Focus())
 		}
@@ -3008,8 +3012,8 @@ func TestCompleteBeadCreationWorkflow(t *testing.T) {
 		}
 		overlay.labelsCombo.SetChips([]string{"api", "backend"})
 
-		// Step 6: Move to Assignee via ChipComboBoxTabMsg
-		overlay, _ = overlay.Update(ChipComboBoxTabMsg{})
+		// Step 6: Tab from Labels to Assignee (direct, no longer async via ChipComboBoxTabMsg)
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
 		if overlay.Focus() != FocusAssignee {
 			t.Errorf("expected focus on Assignee, got %d", overlay.Focus())
 		}

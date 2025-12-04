@@ -478,13 +478,16 @@ func (m *CreateOverlay) handleTab() (*CreateOverlay, tea.Cmd) {
 		m.focus = FocusLabels
 		cmds = append(cmds, m.labelsCombo.Focus())
 	case FocusLabels:
-		// Labels combo handles its own Tab via ChipComboBoxTabMsg
+		// Let ChipComboBox process Tab to commit any pending value
 		var cmd tea.Cmd
 		m.labelsCombo, cmd = m.labelsCombo.Update(tea.KeyMsg{Type: tea.KeyTab})
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
-		return m, tea.Batch(cmds...)
+		// Move focus directly to Assignee (don't rely on async ChipComboBoxTabMsg)
+		m.labelsCombo.Blur()
+		m.focus = FocusAssignee
+		cmds = append(cmds, m.assigneeCombo.Focus())
 	case FocusAssignee:
 		// Let ComboBox process Tab to commit any pending value (spec Section 6)
 		var cmd tea.Cmd
