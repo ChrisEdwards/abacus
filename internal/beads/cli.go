@@ -299,11 +299,15 @@ func (c *cliClient) AddDependency(ctx context.Context, fromID, toID, depType str
 	return nil
 }
 
-func (c *cliClient) Delete(ctx context.Context, issueID string) error {
+func (c *cliClient) Delete(ctx context.Context, issueID string, cascade bool) error {
 	if strings.TrimSpace(issueID) == "" {
 		return fmt.Errorf("issue id is required for delete")
 	}
-	_, err := c.run(ctx, "delete", issueID, "--force")
+	args := []string{"delete", issueID, "--force"}
+	if cascade {
+		args = append(args, "--cascade")
+	}
+	_, err := c.run(ctx, args...)
 	if err != nil {
 		return fmt.Errorf("run bd delete: %w", err)
 	}

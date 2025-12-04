@@ -215,7 +215,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case DeleteConfirmedMsg:
 		m.activeOverlay = OverlayNone
 		m.deleteOverlay = nil
-		return m, tea.Batch(m.executeDelete(msg.IssueID), scheduleDeleteToastTick())
+		return m, tea.Batch(m.executeDelete(msg.IssueID, msg.Cascade, msg.Children), scheduleDeleteToastTick())
 	case DeleteCancelledMsg:
 		m.activeOverlay = OverlayNone
 		m.deleteOverlay = nil
@@ -229,6 +229,9 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Immediately remove from tree for instant visual feedback
 		m.removeNodeFromTree(msg.issueID)
+		for _, childID := range msg.children {
+			m.removeNodeFromTree(childID)
+		}
 		m.recalcVisibleRows()
 		return m, m.forceRefresh()
 	case deleteToastTickMsg:
@@ -473,7 +476,8 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Delete key opens delete confirmation (only when tree focused)
 			if m.activeOverlay == OverlayNone && !m.searching && len(m.visibleRows) > 0 {
 				row := m.visibleRows[m.cursor]
-				m.deleteOverlay = NewDeleteOverlay(row.Node.Issue.ID, row.Node.Issue.Title)
+				childInfo, descendantIDs := collectChildInfo(row.Node)
+				m.deleteOverlay = NewDeleteOverlay(row.Node.Issue.ID, row.Node.Issue.Title, childInfo, descendantIDs)
 				m.activeOverlay = OverlayDelete
 			}
 			return m, nil
@@ -488,7 +492,8 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Backspace also opens delete confirmation when no filter is active
 			if m.activeOverlay == OverlayNone && !m.searching && m.filterText == "" && len(m.visibleRows) > 0 {
 				row := m.visibleRows[m.cursor]
-				m.deleteOverlay = NewDeleteOverlay(row.Node.Issue.ID, row.Node.Issue.Title)
+				childInfo, descendantIDs := collectChildInfo(row.Node)
+				m.deleteOverlay = NewDeleteOverlay(row.Node.Issue.ID, row.Node.Issue.Title, childInfo, descendantIDs)
 				m.activeOverlay = OverlayDelete
 			}
 		case key.Matches(msg, m.keys.Copy):
@@ -943,8 +948,10 @@ func (m *App) displayNewAssigneeToast(assignee string) {
 
 // Message types for delete operations
 type deleteCompleteMsg struct {
-	issueID string
-	err     error
+	issueID  string
+	children []string
+	cascade  bool
+	err      error
 }
 
 type deleteToastTickMsg struct{}
@@ -956,17 +963,19 @@ func scheduleDeleteToastTick() tea.Cmd {
 }
 
 // executeDelete runs the bd delete command asynchronously and shows toast.
-func (m *App) executeDelete(issueID string) tea.Cmd {
-	m.displayDeleteToast(issueID)
+func (m *App) executeDelete(issueID string, cascade bool, childIDs []string) tea.Cmd {
+	m.displayDeleteToast(issueID, cascade, len(childIDs))
 	return func() tea.Msg {
-		err := m.client.Delete(context.Background(), issueID)
-		return deleteCompleteMsg{issueID: issueID, err: err}
+		err := m.client.Delete(context.Background(), issueID, cascade)
+		return deleteCompleteMsg{issueID: issueID, children: childIDs, cascade: cascade, err: err}
 	}
 }
 
 // displayDeleteToast displays a success toast for deletion.
-func (m *App) displayDeleteToast(issueID string) {
+func (m *App) displayDeleteToast(issueID string, cascade bool, childCount int) {
 	m.deleteToastBeadID = issueID
+	m.deleteToastCascade = cascade
+	m.deleteToastChildCount = childCount
 	m.deleteToastVisible = true
 	m.deleteToastStart = time.Now()
 }

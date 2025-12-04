@@ -484,8 +484,11 @@ func (m *App) deleteToastLayer(width, height, mainBodyStart, mainBodyHeight int)
 		remaining = 0
 	}
 
-	// Line 1: "✓ Deleted ab-xyz"
+	// Line 1: "✓ Deleted ab-xyz" (+ optional child count)
 	heroLine := " ✓ " + styleStatsDim().Render("Deleted") + " " + styleID().Render(m.deleteToastBeadID)
+	if m.deleteToastCascade && m.deleteToastChildCount > 0 {
+		heroLine += styleStatsDim().Render(fmt.Sprintf(" (+%d %s)", m.deleteToastChildCount, childWord(m.deleteToastChildCount)))
+	}
 	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
 
 	// Calculate spacing for right-aligned countdown

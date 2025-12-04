@@ -142,9 +142,11 @@ type App struct {
 	newAssigneeToastAssignee string
 
 	// Delete toast state
-	deleteToastVisible bool
-	deleteToastStart   time.Time
-	deleteToastBeadID  string
+	deleteToastVisible    bool
+	deleteToastStart      time.Time
+	deleteToastBeadID     string
+	deleteToastCascade    bool
+	deleteToastChildCount int
 
 	// Theme toast state
 	themeToastVisible bool

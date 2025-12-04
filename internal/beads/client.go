@@ -15,5 +15,5 @@ type Client interface {
 	Create(ctx context.Context, title, issueType string, priority int, labels []string, assignee string) (string, error)
 	CreateFull(ctx context.Context, title, issueType string, priority int, labels []string, assignee, description, parentID string) (FullIssue, error)
 	AddDependency(ctx context.Context, fromID, toID, depType string) error
-	Delete(ctx context.Context, issueID string) error
+	Delete(ctx context.Context, issueID string, cascade bool) error
 }

@@ -22,32 +22,35 @@ type MockClient struct {
 	CreateFn        func(context.Context, string, string, int, []string, string) (string, error)
 	CreateFullFn    func(context.Context, string, string, int, []string, string, string, string) (FullIssue, error)
 	AddDependencyFn func(context.Context, string, string, string) error
-	DeleteFn        func(context.Context, string) error
+	DeleteFn        func(context.Context, string, bool) error
 
-	mu                      sync.Mutex
-	ListCallCount           int
-	ShowCallCount           int
-	CommentsCallCount       int
-	UpdateStatusCallCount   int
-	CloseCallCount          int
-	ReopenCallCount         int
-	AddLabelCallCount       int
-	RemoveLabelCallCount    int
-	CreateCallCount         int
-	CreateFullCallCount     int
-	AddDependencyCallCount  int
-	ShowCallArgs            [][]string
-	CommentIDs              []string
-	UpdateStatusCallArgs    [][]string // [issueID, newStatus]
-	CloseCallArgs           []string
-	ReopenCallArgs          []string
-	AddLabelCallArgs        [][]string // [issueID, label]
-	RemoveLabelCallArgs     [][]string // [issueID, label]
-	CreateCallArgs          []CreateCallArg
-	CreateFullCallArgs      []CreateFullCallArg
-	AddDependencyCallArgs   [][]string // [fromID, toID, depType]
-	DeleteCallCount         int
-	DeleteCallArgs          []string
+	mu                     sync.Mutex
+	ListCallCount          int
+	ShowCallCount          int
+	CommentsCallCount      int
+	UpdateStatusCallCount  int
+	CloseCallCount         int
+	ReopenCallCount        int
+	AddLabelCallCount      int
+	RemoveLabelCallCount   int
+	CreateCallCount        int
+	CreateFullCallCount    int
+	AddDependencyCallCount int
+	ShowCallArgs           [][]string
+	CommentIDs             []string
+	UpdateStatusCallArgs   [][]string // [issueID, newStatus]
+	CloseCallArgs          []string
+	ReopenCallArgs         []string
+	AddLabelCallArgs       [][]string // [issueID, label]
+	RemoveLabelCallArgs    [][]string // [issueID, label]
+	CreateCallArgs         []CreateCallArg
+	CreateFullCallArgs     []CreateFullCallArg
+	AddDependencyCallArgs  [][]string // [fromID, toID, depType]
+	DeleteCallCount        int
+	DeleteCallArgs         []struct {
+		IssueID string
+		Cascade bool
+	}
 }
 
 // CreateCallArg captures arguments passed to Create.
@@ -242,14 +245,17 @@ func (m *MockClient) AddDependency(ctx context.Context, fromID, toID, depType st
 }
 
 // Delete invokes the configured stub or returns nil (no-op by default).
-func (m *MockClient) Delete(ctx context.Context, issueID string) error {
+func (m *MockClient) Delete(ctx context.Context, issueID string, cascade bool) error {
 	m.mu.Lock()
 	m.DeleteCallCount++
-	m.DeleteCallArgs = append(m.DeleteCallArgs, issueID)
+	m.DeleteCallArgs = append(m.DeleteCallArgs, struct {
+		IssueID string
+		Cascade bool
+	}{IssueID: issueID, Cascade: cascade})
 	m.mu.Unlock()
 
 	if m.DeleteFn == nil {
 		return nil // Default to no-op for tests
 	}
-	return m.DeleteFn(ctx, issueID)
+	return m.DeleteFn(ctx, issueID, cascade)
 }
