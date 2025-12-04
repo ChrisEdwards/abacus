@@ -1063,17 +1063,6 @@ func (m *CreateOverlay) Layer(width, height, topMargin, bottomMargin int) Layer 
 	})
 }
 
-// underlineFirstChar adds a combining underline (U+0332) after the first character.
-// "Task" -> "T̲ask"
-func underlineFirstChar(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-	runes := []rune(s)
-	// Insert combining low line (U+0332) after first character
-	return string(runes[0]) + "\u0332" + string(runes[1:])
-}
-
 func (m *CreateOverlay) renderTypeColumn() string {
 	var b strings.Builder
 
@@ -1093,21 +1082,21 @@ func (m *CreateOverlay) renderTypeColumn() string {
 	for i, label := range typeLabels {
 		prefix := "  "
 		style := styleCreatePill()
-		displayLabel := label
+		underlineHotkey := false
 		if i == m.typeIndex {
 			prefix = "► "
 			if m.focus == FocusType {
 				style = styleCreatePillFocused()
 				// Underline hotkey letter when focused (spec Section 3.3)
-				displayLabel = underlineFirstChar(label)
+				underlineHotkey = true
 			} else {
 				style = styleCreatePillSelected()
 			}
 		} else if m.focus == FocusType {
 			// Underline hotkey letter for all options when column is focused
-			displayLabel = underlineFirstChar(label)
+			underlineHotkey = true
 		}
-		b.WriteString(style.Render(prefix + displayLabel))
+		b.WriteString(renderHotkeyPill(style, prefix, label, underlineHotkey))
 		if i < len(typeLabels)-1 {
 			b.WriteString("\n")
 		}
@@ -1131,24 +1120,42 @@ func (m *CreateOverlay) renderPriorityColumn() string {
 	for i, label := range priorityLabels {
 		prefix := "  "
 		style := styleCreatePill()
-		displayLabel := label
+		underlineHotkey := false
 		if i == m.priorityIndex {
 			prefix = "► "
 			if m.focus == FocusPriority {
 				style = styleCreatePillFocused()
 				// Underline hotkey letter when focused (spec Section 3.3)
-				displayLabel = underlineFirstChar(label)
+				underlineHotkey = true
 			} else {
 				style = styleCreatePillSelected()
 			}
 		} else if m.focus == FocusPriority {
 			// Underline hotkey letter for all options when column is focused
-			displayLabel = underlineFirstChar(label)
+			underlineHotkey = true
 		}
-		b.WriteString(style.Render(prefix + displayLabel))
+		b.WriteString(renderHotkeyPill(style, prefix, label, underlineHotkey))
 		if i < len(priorityLabels)-1 {
 			b.WriteString("\n")
 		}
+	}
+
+	return b.String()
+}
+
+func renderHotkeyPill(style lipgloss.Style, prefix, label string, underline bool) string {
+	if !underline || label == "" {
+		return style.Render(prefix + label)
+	}
+
+	runes := []rune(label)
+	var b strings.Builder
+	b.WriteString(style.Render(prefix))
+
+	underlineStyle := style.Underline(true)
+	b.WriteString(underlineStyle.Render(string(runes[0])))
+	if len(runes) > 1 {
+		b.WriteString(style.Render(string(runes[1:])))
 	}
 
 	return b.String()

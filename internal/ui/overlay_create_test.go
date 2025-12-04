@@ -2,11 +2,14 @@ package ui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 )
 
 func TestNewCreateOverlay(t *testing.T) {
@@ -1249,22 +1252,23 @@ func TestVimNavigationKeys(t *testing.T) {
 
 // Tests for Zone 3: Hotkey Underlines (ab-l9e)
 func TestHotkeyUnderlines(t *testing.T) {
-	t.Run("UnderlineFirstCharHelper", func(t *testing.T) {
-		result := underlineFirstChar("Task")
-		// Should have combining underline after 'T'
-		if result != "T\u0332ask" {
-			t.Errorf("expected T̲ask, got %s", result)
-		}
+	lipgloss.SetColorProfile(termenv.TrueColor)
 
-		result = underlineFirstChar("Feature")
-		if result != "F\u0332eature" {
-			t.Errorf("expected F̲eature, got %s", result)
+	t.Run("RenderHotkeyPillUsesANSIUnderline", func(t *testing.T) {
+		baseStyle := lipgloss.NewStyle()
+		got := renderHotkeyPill(baseStyle, "► ", "Task", true)
+		expected := "► " + lipgloss.NewStyle().Underline(true).Render("T") + "ask"
+		if got != expected {
+			t.Fatalf("expected %q, got %q", expected, got)
 		}
+	})
 
-		// Empty string should return empty
-		result = underlineFirstChar("")
-		if result != "" {
-			t.Errorf("expected empty string, got %s", result)
+	t.Run("RenderHotkeyPillSkipsUnderlineWhenDisabled", func(t *testing.T) {
+		baseStyle := lipgloss.NewStyle()
+		got := renderHotkeyPill(baseStyle, "► ", "Task", false)
+		expected := "► Task"
+		if got != expected {
+			t.Fatalf("expected %q, got %q", expected, got)
 		}
 	})
 
@@ -1273,8 +1277,11 @@ func TestHotkeyUnderlines(t *testing.T) {
 		overlay.focus = FocusType
 
 		view := overlay.View()
-		// Should contain underlined T in Task (T̲ = T + combining underline)
-		if !contains(view, "T\u0332") {
+		line := lineContaining(view, "Task")
+		if line == "" {
+			t.Fatal("expected Task option in Type column")
+		}
+		if !containsUnderlinedLetter(line, 'T') {
 			t.Error("expected underlined T in Type column when focused")
 		}
 	})
@@ -1284,8 +1291,11 @@ func TestHotkeyUnderlines(t *testing.T) {
 		overlay.focus = FocusPriority
 
 		view := overlay.View()
-		// Should contain underlined C in Crit (C̲ = C + combining underline)
-		if !contains(view, "C\u0332") {
+		line := lineContaining(view, "Crit")
+		if line == "" {
+			t.Fatal("expected Crit option in Priority column")
+		}
+		if !containsUnderlinedLetter(line, 'C') {
 			t.Error("expected underlined C in Priority column when focused")
 		}
 	})
@@ -1295,9 +1305,11 @@ func TestHotkeyUnderlines(t *testing.T) {
 		overlay.focus = FocusTitle // Neither Type nor Priority focused
 
 		view := overlay.View()
-		// Should NOT contain combining underline in labels
-		// Note: This is a soft check since the view might have other combining chars
-		if contains(view, "T\u0332ask") {
+		line := lineContaining(view, "Task")
+		if line == "" {
+			t.Fatal("expected Task option in Type column")
+		}
+		if containsUnderlinedLetter(line, 'T') {
 			t.Error("expected no underlined Task when Type is unfocused")
 		}
 	})
@@ -1306,6 +1318,25 @@ func TestHotkeyUnderlines(t *testing.T) {
 // Helper function
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+func containsUnderlinedLetter(s string, letter rune) bool {
+	pattern := fmt.Sprintf("\x1b\\[[0-9;:]*4[0-9;:]*m%s", string(letter))
+	re := regexp.MustCompile(pattern)
+	return re.FindStringIndex(s) != nil
+}
+
+var ansiPattern = regexp.MustCompile("\x1b\\[[0-9;:]*m")
+
+func lineContaining(s, substr string) string {
+	for _, line := range strings.Split(s, "\n") {
+		lineStripped := ansiPattern.ReplaceAllString(line, "")
+		lineNormalized := strings.ReplaceAll(lineStripped, " ", "")
+		if strings.Contains(lineNormalized, substr) {
+			return line
+		}
+	}
+	return ""
 }
 
 // Tests for Zone 4: Labels (ab-l1k)
