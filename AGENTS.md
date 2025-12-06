@@ -65,31 +65,16 @@ You must complete ALL of the following steps before marking a bead as closed:
    - Remove unused variables and styles
    - Use `//nolint:unparam` only when parameter is used in tests
 4. **Run Tests**: Ensure all tests pass (`go test ./...`)
-5. **Commit Changes**: Commit your changes with a detailed commit message explaining:
-   - What was changed and why
-   - Any architectural decisions made
-   - How the changes relate to the bead requirements
-   - **IMPORTANT**: Only stage and commit files you created or changed. Do not commit files modified by other agents.
-6. **Push and Verify GitHub Build**: Push your changes and wait for the GitHub Actions build to pass
-   - Run `git push` to push your commits
-   - Check the build status in GitHub Actions
-   - Do NOT close the bead until the build passes
-   - If the build fails, fix the issues and repeat steps 2-6
-7. **Comment on Bead**: IMPORTANT! Add a comment to the bead (`bd comments <bead-id> --add`) with:
-   - Summary of what you did
-   - The commit hash
-   - Any relevant notes or considerations
-8. **Close Bead**: Only after completing steps 1-7 (including a passing GitHub build), mark the bead as closed
+5. **Commit Changes**: Only commit files you created or changed (use `git add <specific-files>`, not `git add .`)
+6. **Push and Verify GitHub Build**: Push and wait for GitHub Actions build to pass before closing
+7. **Comment on Bead**: Add a comment with summary and commit hash
+8. **Close Bead**: Only after GitHub build passes
 
 ### Parent Beads (Epics)
 **IMPORTANT**: Do not mark parent beads as closed until ALL child beads are closed. Parent beads represent collections of work and can only be considered complete when all subtasks are finished.
 
 ### Working with Other Agents
-Other AI agents may be working in this codebase in parallel. When you see modified files that you didn't change:
-- Do not revert or stage those files
-- Do not include them in your commits
-- Only stage and commit files you created or changed
-- If `git status` shows modified files you didn't touch, use `git add <specific-files>` instead of `git add .`
+Other agents may be working in parallel. Only commit files you created or changed - ignore other modified files.
 
 ### Testing Beads
 If you need to create or modify beads to test some functionality, do it in a bead that is a child (or descendant) of ab-cj3. That is the test beads parent.
