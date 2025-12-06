@@ -12,15 +12,26 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+const refreshTimeout = 10 * time.Second
+
 func refreshDataCmd(client beads.Client, targetModTime time.Time) tea.Cmd {
 	return func() tea.Msg {
-		newRoots, err := loadData(context.Background(), client, nil)
+		ctx, cancel := context.WithTimeout(context.Background(), refreshTimeout)
+		defer cancel()
+
+		issues, err := client.Export(ctx)
 		if err != nil {
 			return refreshCompleteMsg{err: err}
 		}
+
+		roots, err := graph.NewBuilder().Build(issues)
+		if err != nil {
+			return refreshCompleteMsg{err: err}
+		}
+
 		return refreshCompleteMsg{
-			roots:     newRoots,
-			digest:    buildIssueDigest(newRoots),
+			roots:     roots,
+			digest:    buildIssueDigest(roots),
 			dbModTime: targetModTime,
 		}
 	}

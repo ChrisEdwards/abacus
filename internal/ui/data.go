@@ -103,21 +103,23 @@ func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph
 
 func loadData(ctx context.Context, client beads.Client, reporter StartupReporter) ([]*graph.Node, error) {
 	if reporter != nil {
-		reporter.Stage(StartupStageLoadingIssues, "Fetching issue list...")
+		reporter.Stage(StartupStageLoadingIssues, "Loading issues...")
 	}
-	fullIssues, totalIssues, err := fetchFullIssues(ctx, client, reporter)
+
+	issues, err := client.Export(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("export: %w", err)
 	}
-	if len(fullIssues) == 0 {
+	if len(issues) == 0 {
 		return nil, ErrNoIssues
 	}
+
 	if reporter != nil {
-		reporter.Stage(StartupStageLoadingIssues, fmt.Sprintf("Loaded %d issues", totalIssues))
+		reporter.Stage(StartupStageLoadingIssues, fmt.Sprintf("Loaded %d issues", len(issues)))
 		reporter.Stage(StartupStageBuildingGraph, "Building dependency graph...")
 	}
 
-	roots, err := graph.NewBuilder().Build(fullIssues)
+	roots, err := graph.NewBuilder().Build(issues)
 	if err != nil {
 		return nil, err
 	}
@@ -147,53 +149,9 @@ func loadData(ctx context.Context, client beads.Client, reporter StartupReporter
 	return roots, nil
 }
 
-func fetchFullIssues(ctx context.Context, client beads.Client, reporter StartupReporter) ([]beads.FullIssue, int, error) {
-	liteIssues, err := client.List(ctx)
-	if err != nil {
-		return nil, 0, fmt.Errorf("list issues: %w", err)
-	}
-	if len(liteIssues) == 0 {
-		return []beads.FullIssue{}, 0, nil
-	}
-
-	if reporter != nil {
-		reporter.Stage(StartupStageLoadingIssues, fmt.Sprintf("Found %d issues, loading details...", len(liteIssues)))
-	}
-
-	ids := make([]string, 0, len(liteIssues))
-	for _, l := range liteIssues {
-		ids = append(ids, l.ID)
-	}
-
-	full, err := batchFetchIssues(ctx, client, ids, len(liteIssues), reporter)
-	return full, len(liteIssues), err
-}
-
-func batchFetchIssues(ctx context.Context, client beads.Client, ids []string, total int, reporter StartupReporter) ([]beads.FullIssue, error) {
-	var results []beads.FullIssue
-	chunkSize := 20
-	for i := 0; i < len(ids); i += chunkSize {
-		end := i + chunkSize
-		if end > len(ids) {
-			end = len(ids)
-		}
-
-		batch, err := client.Show(ctx, ids[i:end])
-		if err != nil {
-			return nil, fmt.Errorf("show issues %v: %w", ids[i:end], err)
-		}
-		results = append(results, batch...)
-
-		if reporter != nil {
-			reporter.Stage(StartupStageLoadingIssues, fmt.Sprintf("Loading issues... %d/%d", len(results), total))
-		}
-	}
-	return results, nil
-}
-
 // OutputIssuesJSON writes all issues to stdout as formatted JSON.
 func OutputIssuesJSON(ctx context.Context, client beads.Client) error {
-	issues, _, err := fetchFullIssues(ctx, client, nil)
+	issues, err := client.Export(ctx)
 	if err != nil {
 		return err
 	}

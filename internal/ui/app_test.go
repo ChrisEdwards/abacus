@@ -1726,11 +1726,8 @@ func TestNewAppWithMockClientLoadsIssues(t *testing.T) {
 	t.Parallel()
 	fixture := loadFixtureIssues(t, "issues_basic.json")
 	mock := beads.NewMockClient()
-	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
-		return liteIssuesFromFixture(fixture), nil
-	}
-	mock.ShowFn = func(ctx context.Context, ids []string) ([]beads.FullIssue, error) {
-		return filterIssuesByID(fixture, ids), nil
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		return fixture, nil
 	}
 	mock.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
 		return []beads.Comment{
@@ -1760,16 +1757,13 @@ func TestAppRefreshWithMockClient(t *testing.T) {
 	fixtureInitial := loadFixtureIssues(t, "issues_basic.json")
 	fixtureUpdated := loadFixtureIssues(t, "issues_refresh.json")
 	mock := beads.NewMockClient()
-	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
-		return liteIssuesFromFixture(fixtureInitial), nil
-	}
-	var showCalls int
-	mock.ShowFn = func(ctx context.Context, ids []string) ([]beads.FullIssue, error) {
-		if showCalls == 0 {
-			showCalls++
-			return filterIssuesByID(fixtureInitial, ids), nil
+	var exportCalls int
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		exportCalls++
+		if exportCalls == 1 {
+			return fixtureInitial, nil
 		}
-		return filterIssuesByID(fixtureUpdated, ids), nil
+		return fixtureUpdated, nil
 	}
 	mock.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
 		return nil, nil
@@ -1787,7 +1781,7 @@ func TestAppRefreshWithMockClient(t *testing.T) {
 
 func TestNewAppCapturesClientError(t *testing.T) {
 	mock := beads.NewMockClient()
-	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
 		return nil, errors.New("boom")
 	}
 	dbFile := createTempDBFile(t)
@@ -1797,14 +1791,14 @@ func TestNewAppCapturesClientError(t *testing.T) {
 		Client:          mock,
 	})
 	if err == nil {
-		t.Fatalf("expected error when client list fails")
+		t.Fatalf("expected error when client export fails")
 	}
 }
 
 func TestNewAppReturnsErrorWhenNoIssues(t *testing.T) {
 	mock := beads.NewMockClient()
-	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
-		return []beads.LiteIssue{}, nil
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		return []beads.FullIssue{}, nil
 	}
 	dbFile := createTempDBFile(t)
 	if _, err := NewApp(Config{
@@ -1838,16 +1832,13 @@ func TestCheckDBForChangesDetectsModification(t *testing.T) {
 func TestRefreshHandlesClientError(t *testing.T) {
 	fixtureInitial := loadFixtureIssues(t, "issues_basic.json")
 	mock := beads.NewMockClient()
-	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
-		return liteIssuesFromFixture(fixtureInitial), nil
-	}
-	var showCalls int
-	mock.ShowFn = func(ctx context.Context, ids []string) ([]beads.FullIssue, error) {
-		if showCalls == 0 {
-			showCalls++
-			return filterIssuesByID(fixtureInitial, ids), nil
+	var exportCalls int
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		exportCalls++
+		if exportCalls == 1 {
+			return fixtureInitial, nil
 		}
-		return nil, errors.New("show failed")
+		return nil, errors.New("export failed")
 	}
 	mock.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) { return nil, nil }
 
@@ -1859,22 +1850,19 @@ func TestRefreshHandlesClientError(t *testing.T) {
 	if app.lastError == "" {
 		t.Fatalf("expected error to be stored in lastError")
 	}
-	if !strings.Contains(app.lastError, "show failed") {
-		t.Fatalf("expected error message to contain 'show failed', got %s", app.lastError)
+	if !strings.Contains(app.lastError, "export failed") {
+		t.Fatalf("expected error message to contain 'export failed', got %s", app.lastError)
 	}
 }
 
 func TestErrorToastShowsOnFirstError(t *testing.T) {
 	fixtureInitial := loadFixtureIssues(t, "issues_basic.json")
 	mock := beads.NewMockClient()
-	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
-		return liteIssuesFromFixture(fixtureInitial), nil
-	}
-	var showCalls int
-	mock.ShowFn = func(ctx context.Context, ids []string) ([]beads.FullIssue, error) {
-		if showCalls == 0 {
-			showCalls++
-			return filterIssuesByID(fixtureInitial, ids), nil
+	var exportCalls int
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		exportCalls++
+		if exportCalls == 1 {
+			return fixtureInitial, nil
 		}
 		return nil, errors.New("connection failed")
 	}

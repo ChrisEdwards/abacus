@@ -6,6 +6,7 @@ import "context"
 type Client interface {
 	List(ctx context.Context) ([]LiteIssue, error)
 	Show(ctx context.Context, ids []string) ([]FullIssue, error)
+	Export(ctx context.Context) ([]FullIssue, error)
 	Comments(ctx context.Context, issueID string) ([]Comment, error)
 	UpdateStatus(ctx context.Context, issueID, newStatus string) error
 	Close(ctx context.Context, issueID string) error

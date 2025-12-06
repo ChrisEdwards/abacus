@@ -10,69 +10,39 @@ import (
 	"abacus/internal/graph"
 )
 
-func TestFetchFullIssuesBatchesCalls(t *testing.T) {
+func TestLoadDataUsesExport(t *testing.T) {
 	mock := beads.NewMockClient()
-	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
-		issues := make([]beads.LiteIssue, 25)
-		for i := 0; i < 25; i++ {
-			issues[i] = beads.LiteIssue{ID: fmt.Sprintf("ab-%03d", i+1)}
-		}
-		return issues, nil
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		return []beads.FullIssue{
+			{ID: "ab-001", Title: "Issue 1", Status: "open", CreatedAt: "2024-01-01T00:00:00Z", UpdatedAt: "2024-01-01T00:00:00Z"},
+			{ID: "ab-002", Title: "Issue 2", Status: "open", CreatedAt: "2024-01-02T00:00:00Z", UpdatedAt: "2024-01-02T00:00:00Z"},
+		}, nil
 	}
-	mock.ShowFn = func(ctx context.Context, ids []string) ([]beads.FullIssue, error) {
-		batch := make([]beads.FullIssue, len(ids))
-		for i, id := range ids {
-			batch[i] = beads.FullIssue{
-				ID:        id,
-				Title:     "Issue " + id,
-				CreatedAt: "2024-01-01T00:00:00Z",
-				UpdatedAt: "2024-01-01T00:00:00Z",
-			}
-		}
-		return batch, nil
+	mock.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
+		return []beads.Comment{
+			{ID: 1, IssueID: issueID, Author: "tester", Text: "hi", CreatedAt: "2024-01-01T00:00:00Z"},
+		}, nil
 	}
 
-	issues, total, err := fetchFullIssues(context.Background(), mock, nil)
+	roots, err := loadData(context.Background(), mock, nil)
 	if err != nil {
-		t.Fatalf("fetchFullIssues returned error: %v", err)
+		t.Fatalf("loadData returned error: %v", err)
 	}
-	if len(issues) != 25 {
-		t.Fatalf("expected 25 issues, got %d", len(issues))
+	if len(roots) != 2 {
+		t.Fatalf("expected 2 root nodes, got %d", len(roots))
 	}
-	if total != 25 {
-		t.Fatalf("expected total count 25, got %d", total)
-	}
-	if mock.ShowCallCount != 2 {
-		t.Fatalf("expected 2 show calls, got %d", mock.ShowCallCount)
-	}
-	if got := len(mock.ShowCallArgs[0]); got != 20 {
-		t.Fatalf("expected first batch len 20, got %d", got)
-	}
-	if got := len(mock.ShowCallArgs[1]); got != 5 {
-		t.Fatalf("expected second batch len 5, got %d", got)
+	if mock.ExportCallCount != 1 {
+		t.Fatalf("expected Export called once, got %d", mock.ExportCallCount)
 	}
 }
 
 func TestLoadDataPreloadsComments(t *testing.T) {
 	mock := beads.NewMockClient()
-	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
-		return []beads.LiteIssue{
-			{ID: "ab-001"},
-			{ID: "ab-002"},
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		return []beads.FullIssue{
+			{ID: "ab-001", Title: "Issue 1", Status: "open", CreatedAt: "2024-01-01T00:00:00Z", UpdatedAt: "2024-01-01T00:00:00Z"},
+			{ID: "ab-002", Title: "Issue 2", Status: "open", CreatedAt: "2024-01-02T00:00:00Z", UpdatedAt: "2024-01-02T00:00:00Z"},
 		}, nil
-	}
-	mock.ShowFn = func(ctx context.Context, ids []string) ([]beads.FullIssue, error) {
-		batch := make([]beads.FullIssue, len(ids))
-		for i, id := range ids {
-			batch[i] = beads.FullIssue{
-				ID:        id,
-				Title:     "Issue " + id,
-				Status:    "open",
-				CreatedAt: fmt.Sprintf("2024-01-%02dT00:00:00Z", i+1),
-				UpdatedAt: fmt.Sprintf("2024-01-%02dT00:00:00Z", i+1),
-			}
-		}
-		return batch, nil
 	}
 	mock.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
 		return []beads.Comment{
@@ -111,8 +81,18 @@ func TestLoadDataPreloadsComments(t *testing.T) {
 
 func TestLoadDataReturnsErrorWhenNoIssues(t *testing.T) {
 	mock := beads.NewMockClient()
-	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
-		return nil, nil
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		return nil, fmt.Errorf("bd export returned no issues")
+	}
+	if _, err := loadData(context.Background(), mock, nil); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestLoadDataReturnsErrorForEmptyExport(t *testing.T) {
+	mock := beads.NewMockClient()
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		return []beads.FullIssue{}, nil
 	}
 	if _, err := loadData(context.Background(), mock, nil); !errors.Is(err, ErrNoIssues) {
 		t.Fatalf("expected ErrNoIssues, got %v", err)
@@ -121,20 +101,9 @@ func TestLoadDataReturnsErrorWhenNoIssues(t *testing.T) {
 
 func TestLoadDataReportsStartupStages(t *testing.T) {
 	mock := beads.NewMockClient()
-	mock.ListFn = func(ctx context.Context) ([]beads.LiteIssue, error) {
-		return []beads.LiteIssue{
-			{ID: "ab-001"},
-		}, nil
-	}
-	mock.ShowFn = func(ctx context.Context, ids []string) ([]beads.FullIssue, error) {
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
 		return []beads.FullIssue{
-			{
-				ID:        ids[0],
-				Title:     "Issue " + ids[0],
-				Status:    "open",
-				CreatedAt: "2024-01-01T00:00:00Z",
-				UpdatedAt: "2024-01-01T00:00:00Z",
-			},
+			{ID: "ab-001", Title: "Issue 1", Status: "open", CreatedAt: "2024-01-01T00:00:00Z", UpdatedAt: "2024-01-01T00:00:00Z"},
 		}, nil
 	}
 	mock.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
@@ -146,10 +115,9 @@ func TestLoadDataReportsStartupStages(t *testing.T) {
 		t.Fatalf("loadData returned error: %v", err)
 	}
 
+	// With Export, we have fewer stages since we don't have intermediate progress reporting
 	want := []StartupStage{
-		StartupStageLoadingIssues,  // "Fetching issue list..."
-		StartupStageLoadingIssues,  // "Found X issues, loading details..."
-		StartupStageLoadingIssues,  // "Loading issues... X/Y"
+		StartupStageLoadingIssues,  // "Loading issues..."
 		StartupStageLoadingIssues,  // "Loaded X issues"
 		StartupStageBuildingGraph,  // "Building dependency graph..."
 		StartupStageOrganizingTree, // "Loading comments..."

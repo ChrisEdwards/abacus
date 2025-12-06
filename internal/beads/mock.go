@@ -13,6 +13,7 @@ var ErrMockNotImplemented = errors.New("beads.MockClient: method not implemented
 type MockClient struct {
 	ListFn          func(context.Context) ([]LiteIssue, error)
 	ShowFn          func(context.Context, []string) ([]FullIssue, error)
+	ExportFn        func(context.Context) ([]FullIssue, error)
 	CommentsFn      func(context.Context, string) ([]Comment, error)
 	UpdateStatusFn  func(context.Context, string, string) error
 	CloseFn         func(context.Context, string) error
@@ -27,6 +28,7 @@ type MockClient struct {
 	mu                     sync.Mutex
 	ListCallCount          int
 	ShowCallCount          int
+	ExportCallCount        int
 	CommentsCallCount      int
 	UpdateStatusCallCount  int
 	CloseCallCount         int
@@ -101,6 +103,18 @@ func (m *MockClient) Show(ctx context.Context, ids []string) ([]FullIssue, error
 		return nil, ErrMockNotImplemented
 	}
 	return m.ShowFn(ctx, ids)
+}
+
+// Export invokes the configured stub or returns ErrMockNotImplemented.
+func (m *MockClient) Export(ctx context.Context) ([]FullIssue, error) {
+	m.mu.Lock()
+	m.ExportCallCount++
+	m.mu.Unlock()
+
+	if m.ExportFn == nil {
+		return nil, ErrMockNotImplemented
+	}
+	return m.ExportFn(ctx)
 }
 
 // Comments invokes the configured stub or returns ErrMockNotImplemented.
