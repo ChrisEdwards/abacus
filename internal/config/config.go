@@ -232,7 +232,7 @@ func defaultUserConfigPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("determine user home: %w", err)
 	}
-	return filepath.Join(home, ".config", "abacus", "config.yaml"), nil
+	return filepath.Join(home, ".abacus", "config.yaml"), nil
 }
 
 func findProjectConfig(startDir string) (string, error) {

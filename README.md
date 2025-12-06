@@ -158,7 +158,7 @@ Detail panel focused shortcuts: `↑/↓` or `j/k` scroll, `Ctrl+F/B` or `PgDn/U
 ## Configuration
 
 Abacus can be configured via:
-- Configuration files (`~/.config/abacus/config.yaml` or `.abacus/config.yaml`)
+- Configuration files (`~/.abacus/config.yaml` or `.abacus/config.yaml`)
 - Environment variables (prefixed with `AB_`)
 - Command-line flags
 
