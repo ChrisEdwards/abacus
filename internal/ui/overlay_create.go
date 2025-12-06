@@ -364,7 +364,8 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 			}
 			// Regular Enter submits if not in a dropdown and not in description
 			// (Description field uses Enter for newlines, not submit)
-			if !m.isAnyDropdownOpen() && m.focus != FocusDescription {
+			// Also check if labelsCombo has a pending value (ab-mod2: value selected but not yet added as chip)
+			if !m.isAnyDropdownOpen() && m.focus != FocusDescription && m.labelsCombo.combo.Value() == "" {
 				return m.handleSubmit(false)
 			}
 

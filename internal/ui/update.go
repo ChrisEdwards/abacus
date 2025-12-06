@@ -76,7 +76,12 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.labelsOverlay, labelCmd = m.labelsOverlay.Update(msg)
 			return m, labelCmd
 		}
-		// Otherwise fall through to default handling
+		// Route to createOverlay if active (for adding label chips - ab-mod2 fix)
+		if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+			var createCmd tea.Cmd
+			m.createOverlay, createCmd = m.createOverlay.Update(msg)
+			return m, createCmd
+		}
 		return m, nil
 	case labelUpdateCompleteMsg:
 		if msg.err != nil {
