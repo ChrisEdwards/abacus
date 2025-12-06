@@ -92,7 +92,7 @@ func (m *App) updateViewportContent() {
 
 		labelSpacer := bgStyle.Render(" ")
 		for _, l := range iss.Labels {
-			rendered := styleLabel().Render(l) + labelSpacer
+			rendered := renderPillChip(l, chipStateNormal) + labelSpacer
 			w := lipgloss.Width(rendered)
 			if currentLen+w > availableLabelWidth && currentLen > 0 {
 				labelRows = append(labelRows, currentRow)

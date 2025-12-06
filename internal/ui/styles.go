@@ -175,19 +175,11 @@ func styleVal() lipgloss.Style {
 
 func styleSectionHeader() lipgloss.Style {
 	style := baseStyle().
-		Foreground(currentThemeWrapper().Accent())
+		Foreground(currentThemeWrapper().Secondary())
 	return applyBold(style, false)
 }
 
 // Label and priority badge styles
-
-func styleLabel() lipgloss.Style {
-	style := lipgloss.NewStyle().
-		Foreground(currentThemeWrapper().Text()).
-		Background(currentThemeWrapper().BackgroundDarker()).
-		Padding(0, 1)
-	return applyBold(style, false)
-}
 
 func stylePrio() lipgloss.Style {
 	style := lipgloss.NewStyle().
