@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/cellbuf"
 )
 
@@ -12,10 +13,12 @@ import (
 // lipgloss-rendered strings into a cell buffer before turning the frame back
 // into a string for Bubble Tea.
 type Canvas struct {
-	screen *cellbuf.Screen
-	writer *cellbuf.ScreenWriter
-	width  int
-	height int
+	screen  *cellbuf.Screen
+	writer  *cellbuf.ScreenWriter
+	width   int
+	height  int
+	offsetX int
+	offsetY int
 }
 
 func NewCanvas(width, height int) *Canvas {
@@ -48,6 +51,7 @@ func (c *Canvas) Fill(bg lipgloss.TerminalColor) {
 		Height(c.height).
 		Render("")
 	c.DrawStringAt(0, 0, fill)
+	c.ensureBackground(bg)
 }
 
 // DrawStringAt writes the provided block starting at x,y. Newlines are
@@ -60,97 +64,133 @@ func (c *Canvas) DrawStringAt(x, y int, content string) {
 	c.writer.PrintCropAt(x, y, normalized, "")
 }
 
-// centerOverlay renders the provided overlay centered within the canvas,
-// respecting the top/bottom margins so headers/footers remain visible.
-func (c *Canvas) centerOverlay(overlay string, topMargin, bottomMargin int) {
-	lines := splitOverlayLines(overlay)
-	if len(lines) == 0 || c == nil {
+// SetOffset stores an overlay offset for later composition.
+func (c *Canvas) SetOffset(x, y int) {
+	if c == nil {
+		return
+	}
+	c.offsetX = x
+	c.offsetY = y
+}
+
+// Offset returns the stored overlay offset.
+func (c *Canvas) Offset() (int, int) {
+	if c == nil {
+		return 0, 0
+	}
+	return c.offsetX, c.offsetY
+}
+
+// Overlay draws the provided canvas on top of the receiver using the origin.
+func (c *Canvas) Overlay(top *Canvas) {
+	c.OverlayAt(0, 0, top)
+}
+
+// OverlayAt draws the source canvas on top of the receiver starting at (x, y).
+// Empty cells (nil or zero-width) in the source canvas are treated as
+// transparent and do not overwrite the destination.
+func (c *Canvas) OverlayAt(xOff, yOff int, top *Canvas) {
+	if c == nil || top == nil || c.screen == nil || top.screen == nil {
 		return
 	}
 
-	overlayHeight := len(lines)
-	overlayWidth := maxLineWidth(lines)
-	if overlayWidth > c.width {
-		overlayWidth = c.width
-	}
-
-	if topMargin < 0 {
-		topMargin = 0
-	}
-	if bottomMargin < 0 {
-		bottomMargin = 0
-	}
-
-	usableHeight := c.height - topMargin - bottomMargin
-	if usableHeight < overlayHeight {
-		usableHeight = overlayHeight
-	}
-
-	startY := topMargin
-	if usableHeight > overlayHeight {
-		startY = topMargin + (usableHeight-overlayHeight)/2
-	}
-	maxStartY := c.height - bottomMargin - overlayHeight
-	if startY > maxStartY {
-		startY = maxStartY
-	}
-	if startY < topMargin {
-		startY = topMargin
-	}
-	if startY < 0 {
-		startY = 0
-	}
-
-	startX := (c.width - overlayWidth) / 2
-	if startX < 0 {
-		startX = 0
-	}
-
-	c.drawBlockAt(startX, startY, lines)
-}
-
-// bottomRightOverlay positions the overlay anchored to the bottom-right corner
-// with the provided padding inside the canvas.
-func (c *Canvas) bottomRightOverlay(overlay string, padding int) {
-	lines := splitOverlayLines(overlay)
-	if len(lines) == 0 || c == nil {
-		return
-	}
-	if padding < 0 {
-		padding = 0
-	}
-
-	overlayHeight := len(lines)
-	startY := c.height - overlayHeight - padding
-	if startY < 0 {
-		startY = 0
-	}
-
-	overlayWidth := maxLineWidth(lines)
-	startX := c.width - overlayWidth - padding
-	if startX < 0 {
-		startX = 0
-	}
-
-	c.drawBlockAt(startX, startY, lines)
-}
-
-func (c *Canvas) drawBlockAt(x, y int, lines []string) {
-	if x < 0 {
-		x = 0
-	}
-	if y < 0 {
-		y = 0
-	}
-	for i, line := range lines {
-		row := y + i
-		if row >= c.height {
-			break
-		}
-		if line == "" {
+	for y := 0; y < top.height; y++ {
+		destY := yOff + y
+		if destY < 0 || destY >= c.height {
 			continue
 		}
-		c.writer.PrintCropAt(x, row, line, "")
+		for x := 0; x < top.width; x++ {
+			destX := xOff + x
+			if destX < 0 || destX >= c.width {
+				continue
+			}
+			cell := top.screen.Cell(x, y)
+			if cell == nil || cell.Empty() {
+				continue
+			}
+			c.screen.SetCell(destX, destY, cell.Clone())
+		}
+	}
+}
+
+// OverlayCanvas overlays the provided canvas using its offset.
+func (c *Canvas) OverlayCanvas(top *Canvas) {
+	if c == nil || top == nil || c.screen == nil || top.screen == nil {
+		return
+	}
+	c.OverlayAt(top.offsetX, top.offsetY, top)
+}
+
+// ApplyDimmer marks every non-empty cell as faint, dimming the canvas without
+// mutating blank regions.
+func (c *Canvas) ApplyDimmer() {
+	if c == nil || c.screen == nil {
+		return
+	}
+	for y := 0; y < c.height; y++ {
+		for x := 0; x < c.width; x++ {
+			cell := c.screen.Cell(x, y)
+			if cell == nil || cell.Empty() {
+				continue
+			}
+			cell.Style.Attrs |= cellbuf.FaintAttr
+			c.screen.SetCell(x, y, cell)
+		}
+	}
+}
+
+// Width returns the canvas width.
+func (c *Canvas) Width() int {
+	if c == nil {
+		return 0
+	}
+	return c.width
+}
+
+// Height returns the canvas height.
+func (c *Canvas) Height() int {
+	if c == nil {
+		return 0
+	}
+	return c.height
+}
+
+// Cell returns a copy of the cell at the given coordinates, or nil if out of
+// bounds. Primarily used in tests to assert background coverage.
+func (c *Canvas) Cell(x, y int) *cellbuf.Cell {
+	if c == nil || c.screen == nil {
+		return nil
+	}
+	if x < 0 || x >= c.width || y < 0 || y >= c.height {
+		return nil
+	}
+	cell := c.screen.Cell(x, y)
+	if cell == nil {
+		return nil
+	}
+	return cell.Clone()
+}
+
+func (c *Canvas) ensureBackground(color lipgloss.TerminalColor) {
+	if c == nil || c.screen == nil || color == nil {
+		return
+	}
+	bg, ok := lipglossColorToANSI(color)
+	if !ok {
+		return
+	}
+	for y := 0; y < c.height; y++ {
+		for x := 0; x < c.width; x++ {
+			cell := c.screen.Cell(x, y)
+			if cell == nil {
+				cell = &cellbuf.Cell{}
+				cell.Blank()
+			}
+			if cell.Style.Bg == nil {
+				cell.Style.Bg = bg
+			}
+			c.screen.SetCell(x, y, cell)
+		}
 	}
 }
 
@@ -173,10 +213,23 @@ func normalizeForCellbuf(content string) string {
 	return strings.ReplaceAll(content, "\n", "\r\n")
 }
 
-func splitOverlayLines(content string) []string {
-	if content == "" {
-		return nil
+func lipglossColorToANSI(color lipgloss.TerminalColor) (ansi.Color, bool) {
+	if color == nil {
+		return nil, false
 	}
-	normalized := strings.ReplaceAll(content, "\r\n", "\n")
-	return strings.Split(normalized, "\n")
+	r, g, b, _ := color.RGBA()
+	return ansi.RGBColor{
+		R: toUint8(r),
+		G: toUint8(g),
+		B: toUint8(b),
+	}, true
+}
+
+func toUint8(v uint32) uint8 {
+	const maxUint8 = 1<<8 - 1
+	converted := v / 0x101 // Map 0-65535 to 0-255
+	if converted > maxUint8 {
+		return maxUint8
+	}
+	return uint8(converted)
 }

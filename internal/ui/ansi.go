@@ -53,39 +53,6 @@ func fillBackground(s string) string {
 	return s
 }
 
-// fillSecondaryBackground ensures secondary-surface whitespace (e.g., overlays) use the secondary background color.
-func fillSecondaryBackground(s string) string {
-	if s == "" {
-		return s
-	}
-
-	bgSeq := theme.Current().BackgroundSecondaryANSI()
-	if bgSeq == "" {
-		return s
-	}
-
-	replacements := []struct {
-		old string
-		new string
-	}{
-		{"\x1b[0K", bgSeq},
-		{"\x1b[0J", bgSeq},
-		{"\x1b[39;49m", "\x1b[39m" + bgSeq},
-		{"\x1b[49m", bgSeq},
-		{"\x1b[0m", "\x1b[0m" + bgSeq},
-		{"\x1b[m", "\x1b[m" + bgSeq},
-	}
-	for _, repl := range replacements {
-		s = strings.ReplaceAll(s, repl.old, repl.new)
-	}
-
-	if !strings.HasPrefix(s, bgSeq) {
-		s = bgSeq + s
-	}
-	s = strings.ReplaceAll(s, "\n", "\n"+bgSeq)
-	return s
-}
-
 // applyDimmer inserts ANSI dim sequences throughout the string so nested content remains dim.
 func applyDimmer(s string) string {
 	if s == "" {
@@ -93,21 +60,56 @@ func applyDimmer(s string) string {
 	}
 
 	const dimSeq = "\x1b[2m"
-	replacements := []struct {
-		old string
-		new string
-	}{
-		{"\x1b[0m", "\x1b[0m" + dimSeq},
-		{"\x1b[m", "\x1b[m" + dimSeq},
-		{"\x1b[22m", "\x1b[22m" + dimSeq},
-	}
-	for _, repl := range replacements {
-		s = strings.ReplaceAll(s, repl.old, repl.new)
-	}
+	s = ansiRegexp.ReplaceAllStringFunc(s, func(seq string) string {
+		if shouldReapplyDim(seq) {
+			return seq + dimSeq
+		}
+		return seq
+	})
 
 	if !strings.HasPrefix(s, dimSeq) {
 		s = dimSeq + s
 	}
 	s = strings.ReplaceAll(s, "\n", "\n"+dimSeq)
 	return s
+}
+
+func shouldReapplyDim(seq string) bool {
+	if !strings.HasPrefix(seq, "\x1b[") || !strings.HasSuffix(seq, "m") {
+		return false
+	}
+	body := strings.TrimSuffix(strings.TrimPrefix(seq, "\x1b["), "m")
+	if body == "" {
+		return true
+	}
+	parts := strings.Split(body, ";")
+	for i := 0; i < len(parts); i++ {
+		part := parts[i]
+		switch part {
+		case "":
+			continue
+		case "0", "1", "22":
+			return true
+		case "38", "48":
+			i++
+			if i >= len(parts) {
+				break
+			}
+			mode := parts[i]
+			var skip int
+			switch mode {
+			case "5":
+				skip = 1
+			case "2":
+				skip = 3
+			}
+			remaining := len(parts) - (i + 1)
+			if skip > remaining {
+				i = len(parts) - 1
+			} else {
+				i += skip
+			}
+		}
+	}
+	return false
 }

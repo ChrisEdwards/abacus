@@ -18,16 +18,6 @@ func padLinesToWidth(content string, width int) string {
 	return strings.Join(lines, "\n")
 }
 
-// padLinesToMaxWidth pads each line so the content reaches its widest visual width.
-func padLinesToMaxWidth(content string) string {
-	lines := strings.Split(content, "\n")
-	width := maxLineWidth(lines)
-	if width <= 0 {
-		return content
-	}
-	return padLinesToWidth(content, width)
-}
-
 // padLineToWidth pads a single line with the base background so it reaches the provided width.
 func padLineToWidth(line string, width int) string {
 	if width <= 0 {

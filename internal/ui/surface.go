@@ -11,6 +11,7 @@ import (
 type Surface struct {
 	Canvas *Canvas
 	Styles SurfaceStyles
+	bg     lipgloss.TerminalColor
 }
 
 // SurfaceStyles mirrors the design doc, ensuring each style already includes
@@ -52,6 +53,7 @@ func newSurface(width, height int, bg lipgloss.TerminalColor) Surface {
 	return Surface{
 		Canvas: canvas,
 		Styles: styles,
+		bg:     bg,
 	}
 }
 
@@ -61,6 +63,7 @@ func (s Surface) Draw(x, y int, block string) {
 		return
 	}
 	s.Canvas.DrawStringAt(x, y, block)
+	s.Canvas.ensureBackground(s.bg)
 }
 
 // Render flushes the surface to a string (ANSI frame).

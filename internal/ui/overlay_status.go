@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // StatusOverlay is a compact popup for changing a bead's status.
@@ -152,21 +153,50 @@ func (m *StatusOverlay) confirm() tea.Cmd {
 
 // View implements tea.Model.
 func (m *StatusOverlay) View() string {
-	var b strings.Builder
+	return styleStatusOverlay().Render(strings.Join(m.renderLines(), "\n"))
+}
 
-	// Breadcrumb header: ab-6s4 › Status
+// Layer returns a centered layer for the status overlay.
+func (m *StatusOverlay) Layer(width, height, topMargin, bottomMargin int) Layer {
+	return LayerFunc(func() *Canvas {
+		content := m.View()
+		if strings.TrimSpace(content) == "" {
+			return nil
+		}
+		overlayWidth := lipgloss.Width(content)
+		if overlayWidth <= 0 {
+			return nil
+		}
+		overlayHeight := lipgloss.Height(content)
+		if overlayHeight <= 0 {
+			return nil
+		}
+
+		surface := NewSecondarySurface(overlayWidth, overlayHeight)
+		surface.Draw(0, 0, content)
+
+		x, y := centeredOffsets(width, height, overlayWidth, overlayHeight, topMargin, bottomMargin)
+		surface.Canvas.SetOffset(x, y)
+		return surface.Canvas
+	})
+}
+
+// truncateTitle shortens a title to maxLen characters with ellipsis.
+func truncateTitle(title string, maxLen int) string {
+	if len(title) <= maxLen {
+		return title
+	}
+	return title[:maxLen-3] + "..."
+}
+
+func (m *StatusOverlay) renderLines() []string {
+	var lines []string
+
 	header := styleID().Render(m.issueID) + styleStatsDim().Render(" › ") + styleStatsDim().Render("Status")
-	b.WriteString(header)
-	b.WriteString("\n")
+	lines = append(lines, header)
+	lines = append(lines, styleStatusDivider().Render(strings.Repeat("─", 20)))
 
-	// Divider
-	divider := styleStatusDivider().Render(strings.Repeat("─", 20))
-	b.WriteString(divider)
-	b.WriteString("\n")
-
-	// Options (clean, no inline hotkeys)
 	for i, opt := range m.options {
-		var line string
 		indicator := "○"
 		if opt.value == m.currentStatus {
 			indicator = "●"
@@ -177,6 +207,7 @@ func (m *StatusOverlay) View() string {
 			label += "  ←"
 		}
 
+		var line string
 		if opt.disabled {
 			line = styleStatusDisabled().Render("  " + indicator + " " + label)
 		} else if i == m.selected {
@@ -185,20 +216,8 @@ func (m *StatusOverlay) View() string {
 			line = styleStatusOption().Render("  " + indicator + " " + label)
 		}
 
-		b.WriteString(line)
-		if i < len(m.options)-1 {
-			b.WriteString("\n")
-		}
+		lines = append(lines, line)
 	}
 
-	content := b.String()
-	return styleStatusOverlay().Render(content)
-}
-
-// truncateTitle shortens a title to maxLen characters with ellipsis.
-func truncateTitle(title string, maxLen int) string {
-	if len(title) <= maxLen {
-		return title
-	}
-	return title[:maxLen-3] + "..."
+	return lines
 }
