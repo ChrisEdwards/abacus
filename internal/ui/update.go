@@ -194,6 +194,14 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// New assignee was created during bead creation - show toast
 		m.displayNewAssigneeToast(msg.Assignee)
 		return m, scheduleNewAssigneeToastTick()
+	case typeInferenceFlashMsg:
+		// Forward to CreateOverlay to clear the type inference flash (ab-i0ye)
+		if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
+			var cmd tea.Cmd
+			m.createOverlay, cmd = m.createOverlay.Update(msg)
+			return m, cmd
+		}
+		return m, nil
 	case newAssigneeToastTickMsg:
 		if !m.newAssigneeToastVisible {
 			return m, nil
