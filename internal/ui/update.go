@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"abacus/internal/beads"
+	"abacus/internal/config"
 	"abacus/internal/graph"
 	"abacus/internal/ui/theme"
 
@@ -517,6 +518,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Theme):
 			// Cycle to next theme and show toast
 			newTheme := theme.CycleTheme()
+			_ = config.SaveTheme(newTheme) // Persist theme (ignore errors to avoid disrupting UX)
 			m.applyViewportTheme()
 			m.themeToastVisible = true
 			m.themeToastStart = time.Now()
@@ -528,6 +530,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.ThemePrev):
 			// Cycle to previous theme and show toast
 			newTheme := theme.CyclePreviousTheme()
+			_ = config.SaveTheme(newTheme) // Persist theme (ignore errors to avoid disrupting UX)
 			m.applyViewportTheme()
 			m.themeToastVisible = true
 			m.themeToastStart = time.Now()

@@ -255,3 +255,161 @@ func writeFile(t *testing.T, path, contents string) {
 		t.Fatalf("write file %s: %v", path, err)
 	}
 }
+
+func TestThemeDefault(t *testing.T) {
+	reset()
+	t.Cleanup(reset)
+
+	tmp := t.TempDir()
+	userCfg := filepath.Join(tmp, "user.yaml")
+
+	if err := Initialize(WithWorkingDir(tmp), WithUserConfig(userCfg)); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	if got := GetString(KeyTheme); got != "dracula" {
+		t.Fatalf("expected default theme to be dracula, got %q", got)
+	}
+}
+
+func TestSaveThemeToUserConfig(t *testing.T) {
+	reset()
+	t.Cleanup(reset)
+
+	tmp := t.TempDir()
+	userDir := filepath.Join(tmp, ".abacus")
+	userCfg := filepath.Join(userDir, "config.yaml")
+
+	// Initialize with no project config - creates empty working dir
+	workDir := filepath.Join(tmp, "work")
+	mustMkdir(t, workDir)
+
+	// Change to work dir so SaveTheme finds no project config
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(workDir)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	if err := Initialize(WithWorkingDir(workDir), WithUserConfig(userCfg)); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	// Set override so SaveTheme writes to our test path instead of real home
+	setUserConfigPathOverride(userCfg)
+
+	// Save theme - should create user config
+	if err := SaveTheme("nord"); err != nil {
+		t.Fatalf("SaveTheme returned error: %v", err)
+	}
+
+	// Verify file was created and contains theme
+	data, err := os.ReadFile(userCfg)
+	if err != nil {
+		t.Fatalf("failed to read user config: %v", err)
+	}
+	if !contains(string(data), "theme: nord") {
+		t.Fatalf("expected user config to contain 'theme: nord', got:\n%s", data)
+	}
+}
+
+func TestSaveThemeToProjectConfig(t *testing.T) {
+	reset()
+	t.Cleanup(reset)
+
+	tmp := t.TempDir()
+	projectDir := filepath.Join(tmp, "repo")
+	mustMkdir(t, filepath.Join(projectDir, ".abacus"))
+	projectCfg := filepath.Join(projectDir, ".abacus", "config.yaml")
+
+	// Create existing project config with other settings
+	writeFile(t, projectCfg, `
+output:
+  format: rich
+`)
+
+	// Change to project dir so SaveTheme finds project config
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(projectDir)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	userCfg := filepath.Join(tmp, "user.yaml")
+	if err := Initialize(WithWorkingDir(projectDir), WithUserConfig(userCfg)); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	// Save theme - should update project config
+	if err := SaveTheme("catppuccin"); err != nil {
+		t.Fatalf("SaveTheme returned error: %v", err)
+	}
+
+	// Verify project config contains theme
+	data, err := os.ReadFile(projectCfg)
+	if err != nil {
+		t.Fatalf("failed to read project config: %v", err)
+	}
+	if !contains(string(data), "theme: catppuccin") {
+		t.Fatalf("expected project config to contain 'theme: catppuccin', got:\n%s", data)
+	}
+}
+
+func TestSaveThemePreservesOtherSettings(t *testing.T) {
+	reset()
+	t.Cleanup(reset)
+
+	tmp := t.TempDir()
+	projectDir := filepath.Join(tmp, "repo")
+	mustMkdir(t, filepath.Join(projectDir, ".abacus"))
+	projectCfg := filepath.Join(projectDir, ".abacus", "config.yaml")
+
+	// Create existing project config with various settings
+	writeFile(t, projectCfg, `
+output:
+  format: plain
+database:
+  path: /custom/beads.db
+auto-refresh-seconds: 15
+`)
+
+	// Change to project dir
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(projectDir)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	userCfg := filepath.Join(tmp, "user.yaml")
+	if err := Initialize(WithWorkingDir(projectDir), WithUserConfig(userCfg)); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	// Save theme
+	if err := SaveTheme("tokyonight"); err != nil {
+		t.Fatalf("SaveTheme returned error: %v", err)
+	}
+
+	// Verify other settings are preserved
+	data, err := os.ReadFile(projectCfg)
+	if err != nil {
+		t.Fatalf("failed to read project config: %v", err)
+	}
+	content := string(data)
+	if !contains(content, "theme: tokyonight") {
+		t.Fatalf("expected theme to be saved, got:\n%s", content)
+	}
+	if !contains(content, "format: plain") {
+		t.Fatalf("expected output.format to be preserved, got:\n%s", content)
+	}
+	if !contains(content, "/custom/beads.db") {
+		t.Fatalf("expected database.path to be preserved, got:\n%s", content)
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

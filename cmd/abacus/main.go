@@ -12,6 +12,7 @@ import (
 	"abacus/internal/beads"
 	"abacus/internal/config"
 	"abacus/internal/ui"
+	"abacus/internal/ui/theme"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -22,6 +23,11 @@ func main() {
 	if err := config.Initialize(); err != nil {
 		fmt.Printf("Error initializing config: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Load theme from config (silently ignore if theme doesn't exist)
+	if themeName := config.GetString(config.KeyTheme); themeName != "" {
+		theme.SetTheme(themeName)
 	}
 
 	autoRefreshSecondsDefault := config.GetInt(config.KeyAutoRefreshSeconds)

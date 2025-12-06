@@ -24,6 +24,7 @@ const (
 	KeyDatabasePath = "database.path"
 	KeyOutputFormat = "output.format"
 	KeyOutputJSON   = "output.json"
+	KeyTheme        = "theme"
 )
 
 const (
@@ -66,6 +67,10 @@ var (
 	configMu   sync.RWMutex
 	configInst *viper.Viper
 	initErr    error
+
+	// userConfigPathOverride is used by tests to override the user config path.
+	// nolint:unused // Used in tests via reset()
+	userConfigPathOverride string
 )
 
 // Initialize loads configuration using the precedence:
@@ -266,6 +271,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeyOutputFormat, "rich")
 	v.SetDefault(KeyOutputJSON, false)
 	v.SetDefault(KeyAutoRefreshSeconds, defaultAutoRefreshSeconds)
+	v.SetDefault(KeyTheme, "dracula")
 }
 
 func getViper() (*viper.Viper, error) {
@@ -289,6 +295,14 @@ func reset() {
 	configInst = nil
 	initErr = nil
 	configOnce = sync.Once{}
+	userConfigPathOverride = ""
+}
+
+// setUserConfigPathOverride sets the user config path for tests.
+//
+//nolint:unused // Used in config_test.go
+func setUserConfigPathOverride(path string) {
+	userConfigPathOverride = path
 }
 
 func applyLegacyAutoRefreshConfig(v *viper.Viper) {
@@ -340,4 +354,60 @@ func durationToSeconds(d time.Duration) int {
 		seconds = 1
 	}
 	return seconds
+}
+
+// SaveTheme persists the theme name to the appropriate config file.
+// If a project config (.abacus/config.yaml) exists, it updates that file.
+// Otherwise, it updates the user config (~/.abacus/config.yaml).
+// The user config directory is auto-created if needed, but project config
+// directories are never auto-created.
+func SaveTheme(themeName string) error {
+	targetPath, err := findWritableConfigPath()
+	if err != nil {
+		return fmt.Errorf("find config path: %w", err)
+	}
+
+	// Create a fresh viper instance for this file only
+	v := viper.New()
+	v.SetConfigType("yaml")
+	v.SetConfigFile(targetPath)
+
+	// Read existing config (if any) to preserve other settings
+	_ = v.ReadInConfig() // ignore error if file doesn't exist
+
+	// Set the theme value
+	v.Set(KeyTheme, themeName)
+
+	// Ensure directory exists (safe for user config, project config dir must exist)
+	dir := filepath.Dir(targetPath)
+	//nolint:gosec // G301: User config directory needs standard permissions
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
+
+	// Write config using viper's WriteConfigAs
+	if err := v.WriteConfigAs(targetPath); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+
+	return nil
+}
+
+// findWritableConfigPath determines which config file to write to.
+// Returns project config path if it exists, otherwise user config path.
+func findWritableConfigPath() (string, error) {
+	// Check for project config first
+	wd, err := os.Getwd()
+	if err == nil {
+		projectPath, err := findProjectConfig(wd)
+		if err == nil && projectPath != "" {
+			return projectPath, nil
+		}
+	}
+
+	// Fall back to user config (use override if set by tests)
+	if userConfigPathOverride != "" {
+		return userConfigPathOverride, nil
+	}
+	return defaultUserConfigPath()
 }
