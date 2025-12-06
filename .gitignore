@@ -5,6 +5,7 @@
 *.so
 *.dylib
 /abacus
+bin/
 
 # Test binary, built with `go test -c`
 *.test
@@ -37,3 +38,4 @@ wt.sh
 
 # Release artifacts
 .release-notes.md
+specs/
