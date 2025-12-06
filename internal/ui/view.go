@@ -55,7 +55,7 @@ func (m *App) View() string {
 
 	// Build header with repo name on right - all with theme background
 	leftContent := styleAppHeader().Render(title) + baseStyle().Render(" ") + styleNormalText().Render(status)
-	rightContent := styleFooterMuted().Render("Repo: " + m.repoName)
+	rightContent := styleNormalText().Render("Repo: " + m.repoName)
 	availableWidth := m.width - lipgloss.Width(leftContent) - lipgloss.Width(rightContent) - 2
 	var header string
 	if availableWidth > 0 {
