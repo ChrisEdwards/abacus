@@ -8,4 +8,4 @@ Implement clean code, well factored. Favor simplicity, intuitiveness, and functi
 
 Write tests for any code you change. Update documentation if applicable. Test with tmux if applicable.
 
-On completion: comment on bead with commit hash, release file reservations, send completion message.
+On completion: comment on bead with what you did to implement and include the commit hash, release file reservations, send completion message.

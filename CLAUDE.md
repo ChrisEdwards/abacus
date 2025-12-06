@@ -1,6 +1,6 @@
 # Claude Development Instructions
 
-**Read [AGENTS.md](AGENTS.md) for complete development guidelines.**
+**You MUST Read [AGENTS.md](AGENTS.md) for complete development guidelines.**
 
 The AGENTS.md file contains essential information about:
 - Testing requirements
