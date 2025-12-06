@@ -172,8 +172,7 @@ func (c ComboBox) handleIdleKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 			c.textInput, cmd = c.textInput.Update(msg)
 			if c.textInput.Value() != oldValue {
 				c.state = ComboBoxFiltering
-				c.filterOptions()
-				c.highlightIndex = 0
+				c.filterOptions() // filterOptions now handles highlightIndex
 			}
 			return c, cmd
 		}
@@ -218,8 +217,7 @@ func (c ComboBox) handleBrowsingKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 			c.state = ComboBoxFiltering
 			var cmd tea.Cmd
 			c.textInput, cmd = c.textInput.Update(msg)
-			c.filterOptions()
-			c.highlightIndex = 0
+			c.filterOptions() // filterOptions now handles highlightIndex
 			return c, cmd
 		}
 	}
@@ -270,9 +268,7 @@ func (c ComboBox) handleFilteringKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 		if msg.Type == tea.KeyRunes || msg.Type == tea.KeyBackspace {
 			var cmd tea.Cmd
 			c.textInput, cmd = c.textInput.Update(msg)
-			c.filterOptions()
-			// Reset highlight to first match
-			c.highlightIndex = 0
+			c.filterOptions() // filterOptions now handles highlightIndex
 			return c, cmd
 		}
 	}
@@ -324,14 +320,24 @@ func (c *ComboBox) filterOptions() {
 		return
 	}
 	c.filteredOptions = nil
+	exactMatchIdx := -1
 	for _, opt := range c.Options {
-		if strings.Contains(strings.ToLower(opt), input) {
+		lower := strings.ToLower(opt)
+		if strings.Contains(lower, input) {
+			if lower == input && exactMatchIdx == -1 {
+				exactMatchIdx = len(c.filteredOptions)
+			}
 			c.filteredOptions = append(c.filteredOptions, opt)
 		}
 	}
 	// Reset scroll when filter changes
 	c.scrollOffset = 0
-	// Note: No longer limiting to MaxVisible here - View handles visible window
+	// Highlight exact match if found, otherwise first match
+	if exactMatchIdx >= 0 {
+		c.highlightIndex = exactMatchIdx
+	} else {
+		c.highlightIndex = 0
+	}
 }
 
 func (c *ComboBox) highlightCurrentValue() {

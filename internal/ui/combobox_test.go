@@ -472,6 +472,56 @@ func TestComboBoxFiltering(t *testing.T) {
 			t.Errorf("expected highlight reset to 0, got %d", cb.highlightIndex)
 		}
 	})
+
+	t.Run("FilterHighlightsExactMatch", func(t *testing.T) {
+		// Regression test for ab-mod2/ab-qa72: exact matches should be highlighted
+		options := []string{"build", "UI", "ui-redesign"}
+		cb := NewComboBox(options)
+		cb.Focus()
+
+		// Type 'ui' - should match all three but highlight "UI" (exact match)
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+
+		// Should have 3 matches
+		if len(cb.filteredOptions) != 3 {
+			t.Errorf("expected 3 filtered options, got %d: %v", len(cb.filteredOptions), cb.filteredOptions)
+		}
+
+		// "UI" should be highlighted (it's the exact match)
+		// Find index of "UI" in filtered options
+		uiIndex := -1
+		for i, opt := range cb.filteredOptions {
+			if opt == "UI" {
+				uiIndex = i
+				break
+			}
+		}
+		if uiIndex == -1 {
+			t.Fatal("UI should be in filtered options")
+		}
+		if cb.highlightIndex != uiIndex {
+			t.Errorf("expected highlight on UI (index %d), got index %d (value: %s)",
+				uiIndex, cb.highlightIndex, cb.filteredOptions[cb.highlightIndex])
+		}
+	})
+
+	t.Run("FilterHighlightsFirstWhenNoExactMatch", func(t *testing.T) {
+		options := []string{"build", "builder", "rebuild"}
+		cb := NewComboBox(options)
+		cb.Focus()
+
+		// Type 'buil' - matches "build" and "builder" but no exact match
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+
+		// Should highlight first match (index 0)
+		if cb.highlightIndex != 0 {
+			t.Errorf("expected highlight on first match (index 0), got %d", cb.highlightIndex)
+		}
+	})
 }
 
 func TestComboBoxAllowNew(t *testing.T) {
