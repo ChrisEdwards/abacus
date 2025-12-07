@@ -18,6 +18,7 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 
 ## Features
 
+### Tree View & Navigation
 - **Hierarchical Tree View**: Visualize parent-child relationships and dependencies in an expandable tree structure
 - **Smart Sorting**: Automatically prioritizes in-progress and ready-to-work issues
 - **Status Indicators**: Color-coded icons show issue status at a glance
@@ -25,21 +26,41 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
   - `○` Open/Ready (white)
   - `✔` Closed (gray)
   - `⛔` Blocked (red)
+- **Multi-Parent Support**: Tasks can belong to multiple parent epics:
+  - Tasks appear under ALL their parent epics in the tree
+  - `*` suffix indicates an item has multiple parents
+  - Cross-highlighting: selecting one instance highlights all duplicates
+  - Expansion state is shared across all instances
+- **View Mode Filtering**: Press `v` to cycle between All/Active/Ready views to hide closed issues
+- **Live Search**: Filter issues by title with instant results
+
+### Bead Management
+- **Create Beads**: Press `n` for root beads or `N` for child beads with a streamlined modal
+- **Quick Status Changes**: Press `s` to open the status overlay with single-key selection
+- **Label Management**: Press `L` to add/remove labels with chip-based UI and autocomplete
+- **Start/Close Shortcuts**: Press `i` to start work, `x` to close a bead
+- **Delete with Confirmation**: Press `Del` to delete beads with a safety confirmation dialog
+- **Bulk Entry Mode**: Press `Ctrl+Enter` in the create modal to add multiple beads quickly
+- **Type Auto-Inference**: The create modal suggests bead type based on title keywords
+
+### Theming
+- **20+ Built-in Themes**: Including TokyoNight (default), Dracula, Nord, Solarized, Catppuccin, Kanagawa, Gruvbox, One Dark, Rose Pine, GitHub, and more
+- **Easy Theme Cycling**: Press `t` to cycle forward, `T` to cycle backward
+- **Theme Persistence**: Your selected theme is saved and restored automatically
+
+### Detail Panel
 - **Rich Detail Panel**: View comprehensive issue information including:
   - Metadata (status, type, priority, labels, timestamps)
   - Full description with markdown rendering
   - Notes section with implementation details
   - Relationship sections (see below)
   - Comments with timestamps
-- **Multi-Parent Support**: Tasks can belong to multiple parent epics:
-  - Tasks appear under ALL their parent epics in the tree
-  - `*` suffix indicates an item has multiple parents
-  - Cross-highlighting: selecting one instance highlights all duplicates
-  - Expansion state is shared across all instances
-- **Live Search**: Filter issues by title with instant results
+
+### Interface
 - **Dual-Pane Interface**: Navigate the tree while viewing detailed information
 - **Smart Layout**: Responsive design with text wrapping and viewport management
 - **Statistics Dashboard**: Real-time counts of total, in-progress, ready, blocked, and closed issues
+- **Exit Summary**: See session duration and bead statistics when you quit
 
 ## Quick Start
 
@@ -141,16 +162,41 @@ Items within each section are sorted intelligently:
 
 ## Keyboard Shortcuts
 
+### Navigation
 | Action | Keys | Description |
 |--------|------|-------------|
 | Navigate | `↑/k` `↓/j` | Move cursor up/down |
 | Expand/Collapse | `→/l` `←/h` or `Space` | Expand/collapse nodes |
+| Jump | `Home/End` | Jump to first/last item |
+| Page | `PgUp/PgDn` | Page up/down in tree |
 | Detail Panel | `Enter` | Toggle detail panel |
 | Switch Focus | `Tab` | Switch between tree and detail |
-| Search | `/` | Enter search mode |
-| Clear Search | `Esc` | Clear search filter |
+
+### Bead Actions
+| Action | Keys | Description |
+|--------|------|-------------|
+| New Root Bead | `n` | Create a new root-level bead |
+| New Child Bead | `N` | Create bead under selected parent |
+| Change Status | `s` | Open status overlay |
+| Manage Labels | `L` | Open labels overlay |
+| Start Work | `i` | Mark bead as in-progress |
+| Close Bead | `x` | Mark bead as closed |
+| Delete Bead | `Del` | Delete bead (with confirmation) |
 | Copy ID | `c` | Copy bead ID to clipboard |
+
+### Display
+| Action | Keys | Description |
+|--------|------|-------------|
+| Cycle Theme | `t/T` | Cycle through themes (forward/backward) |
+| Cycle View | `v/V` | Cycle view modes (All/Active/Ready) |
+| Refresh | `r` | Manual refresh |
 | Help | `?` | Show keyboard shortcuts overlay |
+
+### Search & Other
+| Action | Keys | Description |
+|--------|------|-------------|
+| Search | `/` | Enter search mode |
+| Clear/Cancel | `Esc` | Clear search or close overlay |
 | Quit | `q` or `Ctrl+C` | Exit application |
 
 Detail panel focused shortcuts: `↑/↓` or `j/k` scroll, `Ctrl+F/B` or `PgDn/Up` page, `g/G` or `Home/End` jump.

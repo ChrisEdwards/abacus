@@ -8,8 +8,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Exit summary displayed when quitting: shows session duration and bead stats with change deltas highlighted (ab-0hc)
-- Surface layering regression guardrails: Dracula/Solarized/Nord golden snapshots, App.View reset integration test, and documented perf benchmark notes (ab-smg0)
+- **Theme system**: 20+ themes including TokyoNight (now default), Dracula, Nord, Solarized, Catppuccin, Kanagawa, Gruvbox, One Dark, Rose Pine, and more (ab-4a9p, ab-i19v)
+- **Theme cycling**: Press `t` to cycle forward, `T` (Shift+t) to cycle backward through themes
+- **Theme persistence**: Selected theme is saved to `~/.abacus/config.yaml` and restored on startup
+- **View mode filter**: Press `v`/`V` to cycle between All/Active/Ready views, hiding closed issues (ab-gmw4)
+- **New bead creation**: Press `n` to create a root bead, `N` (Shift+n) to create a child under the selected bead (ab-ifnc)
+- **Status overlay**: Press `s` to quickly change bead status with single-key selection (ab-6s4)
+- **Labels overlay**: Press `L` to manage labels with chip-based UI, autocomplete, and inline creation
+- **Delete bead**: Press `Del` to delete a bead with confirmation dialog showing C/D hotkeys (ab-6vs)
+- **Start work shortcut**: Press `i` to mark a bead as in-progress
+- **Close bead shortcut**: Press `x` to close a bead
+- **New bead modal redesign**: 5-zone HUD architecture with editable parent, properties grid, labels chips, and assignee autocomplete (ab-3dn)
+- **Bulk entry mode**: Press `Ctrl+Enter` in new bead modal to create and add another
+- **Type auto-inference**: Modal automatically suggests type based on title keywords (e.g., "Fix..." → Bug)
+- **Instant tree injection**: New beads appear in tree in <50ms without full reload
+- **Exit summary**: Shows session duration and bead stats with change deltas on quit (ab-0hc)
+- Surface layering regression guardrails: Dracula/Solarized/Nord golden snapshots, App.View reset integration test (ab-smg0)
+
+### Changed
+- **Default theme**: Changed from Dracula to TokyoNight (ab-i19v)
+- **Config location**: Moved from `~/.config/abacus/` to `~/.abacus/` (ab-3d7u)
+- **Bead creation hotkeys**: Swapped `n`/`N` - lowercase now creates root, uppercase creates child (ab-ifnc)
+
+### Fixed
+- Duplicate bead creation when pressing Enter multiple times quickly (ab-ip2p)
+- Labels combo box now selects exact matches over partial matches (ab-qa72)
+- Label not being added on Enter in create bead modal (ab-mod2)
+- Flaky TestCLIClient_CreateFull_OptionalParameters test (ab-ofmz)
+- Auto-refresh now works correctly with modal overlays open (ab-mlg2)
+- Backend errors now show as toast over modal instead of inline (ab-orte)
+- Tree immediately updates after bead changes instead of waiting for refresh
 
 ## [0.3.0] - 2025-11-28
 
