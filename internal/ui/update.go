@@ -748,28 +748,12 @@ func scheduleStatusToastTick() tea.Cmd {
 	})
 }
 
-// executeStatusChange runs the bd update command asynchronously and shows toast.
-func (m *App) executeStatusChange(issueID, newStatus string) tea.Cmd {
-	m.displayStatusToast(issueID, newStatus)
-	return tea.Batch(m.executeStatusChangeCmd(issueID, newStatus), scheduleStatusToastTick())
-}
-
 // executeStatusChangeCmd runs the bd update command asynchronously without toast.
 func (m *App) executeStatusChangeCmd(issueID, newStatus string) tea.Cmd {
 	return func() tea.Msg {
 		err := m.client.UpdateStatus(context.Background(), issueID, newStatus)
 		return statusUpdateCompleteMsg{err: err}
 	}
-}
-
-// executeClose runs the bd close command asynchronously.
-func (m *App) executeClose(issueID string) tea.Cmd {
-	m.displayStatusToast(issueID, "closed")
-	closeCmd := func() tea.Msg {
-		err := m.client.Close(context.Background(), issueID)
-		return statusUpdateCompleteMsg{err: err}
-	}
-	return tea.Batch(closeCmd, scheduleStatusToastTick())
 }
 
 // executeReopenCmd runs the bd reopen command asynchronously.
