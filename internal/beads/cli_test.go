@@ -8,6 +8,36 @@ import (
 	"testing"
 )
 
+// writeTestScript writes a shell script to the given path with proper file sync.
+// This avoids flaky tests caused by filesystem race conditions where the script
+// file isn't fully written/synced before exec.CommandContext tries to execute it.
+func writeTestScript(t *testing.T, path, content string) {
+	t.Helper()
+
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create script file: %v", err)
+	}
+
+	if _, err := f.WriteString(content); err != nil {
+		f.Close()
+		t.Fatalf("write script content: %v", err)
+	}
+
+	if err := f.Sync(); err != nil {
+		f.Close()
+		t.Fatalf("sync script file: %v", err)
+	}
+
+	if err := f.Close(); err != nil {
+		t.Fatalf("close script file: %v", err)
+	}
+
+	if err := os.Chmod(path, 0o755); err != nil {
+		t.Fatalf("chmod script file: %v", err)
+	}
+}
+
 func TestCLIClientAppliesDatabasePath(t *testing.T) {
 	t.Parallel()
 
@@ -18,9 +48,7 @@ func TestCLIClientAppliesDatabasePath(t *testing.T) {
 	scriptBody := "#!/bin/sh\n" +
 		"echo \"$@\" >> " + logFile + "\n" +
 		"echo '[]'\n"
-	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
-		t.Fatalf("write fake bd: %v", err)
-	}
+	writeTestScript(t, script, scriptBody)
 
 	dbPath := "/tmp/custom.db"
 	client := NewCLIClient(
@@ -63,9 +91,7 @@ func TestCLIClient_CreateFull_ReturnsFullIssue(t *testing.T) {
 	jsonResponse := `{"id":"ab-test","title":"Test Issue","description":"Test desc","status":"open","priority":2,"issue_type":"task","created_at":"2025-12-01T00:00:00Z","updated_at":"2025-12-01T00:00:00Z","labels":["test"]}`
 	scriptBody := "#!/bin/sh\n" +
 		"echo '" + jsonResponse + "'\n"
-	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
-		t.Fatalf("write fake bd: %v", err)
-	}
+	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
 
@@ -104,9 +130,7 @@ func TestCLIClient_CreateFull_HandlesInvalidJSON(t *testing.T) {
 	// Fake bd script that returns malformed JSON
 	scriptBody := "#!/bin/sh\n" +
 		"echo 'not valid json{{{'\n"
-	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
-		t.Fatalf("write fake bd: %v", err)
-	}
+	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
 
@@ -136,9 +160,7 @@ func TestCLIClient_CreateFull_PassesJSONFlag(t *testing.T) {
 	scriptBody := "#!/bin/sh\n" +
 		"echo \"$@\" >> " + logFile + "\n" +
 		"echo '{\"id\":\"ab-123\",\"title\":\"Test\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\"}'\n"
-	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
-		t.Fatalf("write fake bd: %v", err)
-	}
+	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
 
@@ -184,9 +206,7 @@ if echo "$@" | grep -q "^create"; then
   echo '{"id":"ab-xyz123","title":"Child","status":"open","priority":2,"issue_type":"task"}'
 fi
 `
-	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
-		t.Fatalf("write fake bd: %v", err)
-	}
+	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
 
@@ -239,9 +259,7 @@ func TestCLIClient_CreateFull_OptionalParameters(t *testing.T) {
 	scriptBody := "#!/bin/sh\n" +
 		"echo \"$@\" >> " + logFile + "\n" +
 		"echo '{\"id\":\"ab-full\",\"title\":\"Full\",\"status\":\"open\",\"priority\":1,\"issue_type\":\"bug\",\"labels\":[\"urgent\",\"backend\"],\"assignee\":\"bob\"}'\n"
-	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
-		t.Fatalf("write fake bd: %v", err)
-	}
+	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
 
@@ -326,9 +344,7 @@ func TestCLIClient_CreateFull_HandlesOutputWithPrefix(t *testing.T) {
 	scriptBody := "#!/bin/sh\n" +
 		"echo '⚠ Creating issue with Test prefix in production database.'\n" +
 		"echo '{\"id\":\"ab-prefix\",\"title\":\"Test\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\"}'\n"
-	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
-		t.Fatalf("write fake bd: %v", err)
-	}
+	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
 
@@ -353,9 +369,7 @@ func TestCLIClient_Export(t *testing.T) {
 	scriptBody := "#!/bin/sh\n" +
 		"echo '{\"id\":\"ab-001\",\"title\":\"Issue 1\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\",\"created_at\":\"2024-01-01\",\"updated_at\":\"2024-01-01\"}'\n" +
 		"echo '{\"id\":\"ab-002\",\"title\":\"Issue 2\",\"status\":\"closed\",\"priority\":1,\"issue_type\":\"bug\",\"created_at\":\"2024-01-02\",\"updated_at\":\"2024-01-02\",\"dependencies\":[{\"depends_on_id\":\"ab-001\",\"type\":\"blocks\"}]}'\n"
-	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
-		t.Fatalf("write fake bd: %v", err)
-	}
+	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
 
@@ -402,9 +416,7 @@ func TestCLIClient_Export_EmptyResult(t *testing.T) {
 
 	// Fake bd script that returns no output
 	scriptBody := "#!/bin/sh\n"
-	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
-		t.Fatalf("write fake bd: %v", err)
-	}
+	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
 
@@ -429,9 +441,7 @@ func TestCLIClient_Export_ParseError(t *testing.T) {
 		"echo '{\"id\":\"ab-001\",\"title\":\"Issue 1\"}'\n" +
 		"echo '{\"id\":\"ab-002\",\"title\":\"Issue 2\"}'\n" +
 		"echo 'not valid json{{{'\n"
-	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
-		t.Fatalf("write fake bd: %v", err)
-	}
+	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
 
@@ -455,9 +465,7 @@ func TestCLIClient_Export_MissingID(t *testing.T) {
 	scriptBody := "#!/bin/sh\n" +
 		"echo '{\"id\":\"ab-001\",\"title\":\"Issue 1\"}'\n" +
 		"echo '{\"id\":\"\",\"title\":\"Issue with no ID\"}'\n"
-	if err := os.WriteFile(script, []byte(scriptBody), 0o755); err != nil {
-		t.Fatalf("write fake bd: %v", err)
-	}
+	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
 
