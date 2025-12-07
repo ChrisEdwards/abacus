@@ -333,6 +333,54 @@ func TestChipComboBox_Tab_AddsChipIfText(t *testing.T) {
 	}
 }
 
+func TestChipComboBox_Enter_AddsChipFromDropdown(t *testing.T) {
+	// Regression test: Enter on highlighted item should add chip
+	cc := NewChipComboBox([]string{"build", "UI", "ui-redesign"})
+	cc.Focus()
+
+	// Type "ui" - should highlight "UI" (exact match)
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
+	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+
+	// Verify dropdown is open
+	if !cc.IsDropdownOpen() {
+		t.Fatal("expected dropdown to be open after typing")
+	}
+
+	// Press Enter - should select the highlighted item and produce ComboBoxValueSelectedMsg
+	cc, cmd := cc.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Process the command to get the ComboBoxValueSelectedMsg
+	if cmd != nil {
+		msg := cmd()
+		if batchMsg, ok := msg.(tea.BatchMsg); ok {
+			for _, c := range batchMsg {
+				if c != nil {
+					innerMsg := c()
+					cc, _ = cc.Update(innerMsg)
+				}
+			}
+		} else {
+			cc, _ = cc.Update(msg)
+		}
+	}
+
+	// Should have added "UI" chip
+	if cc.ChipCount() != 1 {
+		t.Errorf("expected 1 chip after Enter, got %d", cc.ChipCount())
+	}
+
+	chips := cc.GetChips()
+	if len(chips) > 0 && chips[0] != "UI" {
+		t.Errorf("expected chip 'UI', got '%s'", chips[0])
+	}
+
+	// Input should be cleared
+	if cc.InputValue() != "" {
+		t.Errorf("expected empty input after selection, got '%s'", cc.InputValue())
+	}
+}
+
 func TestChipComboBox_Tab_SendsTabMsg(t *testing.T) {
 	cc := NewChipComboBox([]string{"backend"})
 	cc.Focus()

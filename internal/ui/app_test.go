@@ -3565,6 +3565,45 @@ func TestViewModePreservesTreeHierarchy(t *testing.T) {
 	}
 }
 
+func TestViewModeReadyPreservesTreeHierarchy(t *testing.T) {
+	// Child is ready (open + not blocked), parent is closed
+	// ViewModeReady should show BOTH (parent shown because child matches)
+	readyChild := &graph.Node{
+		Issue:     beads.FullIssue{ID: "ab-child", Title: "Ready Child", Status: "open"},
+		IsBlocked: false,
+	}
+	closedParent := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-parent", Title: "Closed Parent", Status: "closed"},
+		Children: []*graph.Node{readyChild},
+		Expanded: true,
+	}
+	readyChild.Parent = closedParent
+
+	app := &App{
+		roots:    []*graph.Node{closedParent},
+		viewMode: ViewModeReady,
+		keys:     DefaultKeyMap(),
+	}
+
+	app.recalcVisibleRows()
+
+	// Both should be visible: parent (due to child match) and child
+	if len(app.visibleRows) != 2 {
+		t.Errorf("ViewModeReady with tree hierarchy: expected 2 visible rows (parent+child), got %d", len(app.visibleRows))
+	}
+	// Verify child is actually in the list
+	hasChild := false
+	for _, row := range app.visibleRows {
+		if row.Node.Issue.ID == "ab-child" {
+			hasChild = true
+			break
+		}
+	}
+	if !hasChild {
+		t.Error("ViewModeReady: expected ready child to be visible")
+	}
+}
+
 func TestViewModeWithSearchFilter(t *testing.T) {
 	matchingOpen := &graph.Node{
 		Issue: beads.FullIssue{ID: "ab-1", Title: "Bug fix for login", Status: "open"},
