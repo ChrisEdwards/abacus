@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+//nolint:unused // used in tests, kept for future overlay implementations
 func newCenteredOverlayLayer(content string, width, height int, topMargin, bottomMargin int) Layer {
 	return LayerFunc(func() *Canvas {
 		if content == "" {
