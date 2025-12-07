@@ -14,7 +14,8 @@ import (
 func writeTestScript(t *testing.T, path, content string) {
 	t.Helper()
 
-	f, err := os.Create(path)
+	// Create file with executable permissions from the start
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 	if err != nil {
 		t.Fatalf("create script file: %v", err)
 	}
@@ -33,8 +34,20 @@ func writeTestScript(t *testing.T, path, content string) {
 		t.Fatalf("close script file: %v", err)
 	}
 
-	if err := os.Chmod(path, 0o755); err != nil {
-		t.Fatalf("chmod script file: %v", err)
+	// Sync parent directory to ensure file metadata is persisted
+	dir, err := os.Open(filepath.Dir(path))
+	if err == nil {
+		dir.Sync()
+		dir.Close()
+	}
+
+	// Verify file is executable
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat script file: %v", err)
+	}
+	if info.Mode().Perm()&0o111 == 0 {
+		t.Fatalf("script file not executable: %v", info.Mode())
 	}
 }
 
