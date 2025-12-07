@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-12-06
+
 ### Added
 - **Theme system**: 20+ themes including TokyoNight (now default), Dracula, Nord, Solarized, Catppuccin, Kanagawa, Gruvbox, One Dark, Rose Pine, and more (ab-4a9p, ab-i19v)
 - **Theme cycling**: Press `t` to cycle forward, `T` (Shift+t) to cycle backward through themes
