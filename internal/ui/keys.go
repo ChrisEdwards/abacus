@@ -139,12 +139,12 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("L", "Manage labels"),
 		),
 		NewBead: key.NewBinding(
-			key.WithKeys("n"),
-			key.WithHelp("n", "New bead"),
+			key.WithKeys("N"),
+			key.WithHelp("N", "New child bead"),
 		),
 		NewRootBead: key.NewBinding(
-			key.WithKeys("N"),
-			key.WithHelp("N", "New root bead"),
+			key.WithKeys("n"),
+			key.WithHelp("n", "New bead"),
 		),
 
 		// Search

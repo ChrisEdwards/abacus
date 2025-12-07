@@ -82,14 +82,14 @@ func TestDefaultKeyMap(t *testing.T) {
 	})
 
 	t.Run("NewBeadBinding", func(t *testing.T) {
-		if !key.Matches(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}, km.NewBead) {
-			t.Error("expected n to match NewBead binding")
+		if !key.Matches(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'N'}}, km.NewBead) {
+			t.Error("expected N (Shift+n) to match NewBead binding")
 		}
 	})
 
 	t.Run("NewRootBeadBinding", func(t *testing.T) {
-		if !key.Matches(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'N'}}, km.NewRootBead) {
-			t.Error("expected N (Shift+n) to match NewRootBead binding")
+		if !key.Matches(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}, km.NewRootBead) {
+			t.Error("expected n to match NewRootBead binding")
 		}
 	})
 }
