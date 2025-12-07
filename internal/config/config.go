@@ -271,7 +271,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeyOutputFormat, "rich")
 	v.SetDefault(KeyOutputJSON, false)
 	v.SetDefault(KeyAutoRefreshSeconds, defaultAutoRefreshSeconds)
-	v.SetDefault(KeyTheme, "dracula")
+	v.SetDefault(KeyTheme, "tokyonight")
 }
 
 func getViper() (*viper.Viper, error) {

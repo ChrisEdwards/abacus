@@ -267,8 +267,8 @@ func TestThemeDefault(t *testing.T) {
 		t.Fatalf("Initialize returned error: %v", err)
 	}
 
-	if got := GetString(KeyTheme); got != "dracula" {
-		t.Fatalf("expected default theme to be dracula, got %q", got)
+	if got := GetString(KeyTheme); got != "tokyonight" {
+		t.Fatalf("expected default theme to be tokyonight, got %q", got)
 	}
 }
 
