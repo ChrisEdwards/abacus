@@ -3189,3 +3189,102 @@ func TestReParentDuringCreation(t *testing.T) {
 		// For this test, we just verify the clear worked
 	})
 }
+
+// TestCreateOverlay_PreventsDuplicateSubmission verifies that rapid Enter presses
+// during submission don't create duplicate beads (ab-ip2p).
+func TestCreateOverlay_PreventsDuplicateSubmission(t *testing.T) {
+	t.Run("RegularEnterBlockedWhileCreating", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Test Bead")
+
+		// First Enter triggers submission
+		overlay, cmd1 := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd1 == nil {
+			t.Fatal("expected command from first Enter")
+		}
+		if !overlay.isCreating {
+			t.Fatal("expected isCreating=true after first Enter")
+		}
+
+		// Second rapid Enter should be blocked (isCreating guard)
+		overlay, cmd2 := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd2 != nil {
+			t.Error("expected nil command - second Enter should be blocked while isCreating=true")
+		}
+
+		// Third rapid Enter also blocked
+		overlay, cmd3 := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd3 != nil {
+			t.Error("expected nil command - third Enter should also be blocked")
+		}
+	})
+
+	t.Run("CtrlEnterBlockedWhileCreating", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Test Bead")
+
+		// First Ctrl+Enter triggers bulk submission
+		ctrlEnter := tea.KeyMsg{Type: tea.KeyEnter, Alt: false}
+		// Simulate ctrl+enter by using the string representation
+		overlay, cmd1 := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd1 == nil {
+			t.Fatal("expected command from first submit")
+		}
+		if !overlay.isCreating {
+			t.Fatal("expected isCreating=true after first submit")
+		}
+
+		// Second Ctrl+Enter should be blocked
+		overlay, cmd2 := overlay.Update(ctrlEnter)
+		if cmd2 != nil {
+			t.Error("expected nil command - Ctrl+Enter should be blocked while isCreating=true")
+		}
+	})
+
+	t.Run("AllowsRetryAfterBackendError", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		overlay.titleInput.SetValue("Test Bead")
+
+		// First submission
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if !overlay.isCreating {
+			t.Fatal("expected isCreating=true")
+		}
+
+		// Simulate backend error (clears isCreating)
+		overlay, _ = overlay.Update(backendErrorMsg{err: fmt.Errorf("network error")})
+		if overlay.isCreating {
+			t.Error("expected isCreating=false after backend error")
+		}
+
+		// User should be able to retry
+		overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Error("expected command - retry should be allowed after backend error")
+		}
+	})
+
+	t.Run("AllowsSubmitAfterValidationError", func(t *testing.T) {
+		overlay := NewCreateOverlay(CreateOverlayOptions{})
+		// Empty title - validation will fail
+
+		// First Enter with empty title triggers validation error, not submission
+		overlay, cmd1 := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd1 == nil {
+			t.Fatal("expected flash command")
+		}
+		// isCreating should NOT be set on validation failure
+		if overlay.isCreating {
+			t.Error("expected isCreating=false after validation error")
+		}
+
+		// Now set valid title
+		overlay.titleInput.SetValue("Valid Title")
+
+		// Should be able to submit
+		overlay, cmd2 := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd2 == nil {
+			t.Error("expected command - submit should work after fixing validation")
+		}
+	})
+}

@@ -358,6 +358,11 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 			return m.handleEscape()
 
 		case tea.KeyEnter:
+			// Guard: prevent duplicate submissions (ab-ip2p)
+			if m.isCreating {
+				return m, nil
+			}
+
 			// Ctrl+Enter always submits
 			if msg.String() == "ctrl+enter" {
 				return m.handleSubmit(true)
