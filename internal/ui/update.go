@@ -571,16 +571,6 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.activeOverlay = OverlayStatus
 			}
 			return m, nil
-		case key.Matches(msg, m.keys.StartWork):
-			if len(m.visibleRows) > 0 {
-				row := m.visibleRows[m.cursor]
-				return m, m.executeStatusChange(row.Node.Issue.ID, "in_progress")
-			}
-		case key.Matches(msg, m.keys.CloseBead):
-			if len(m.visibleRows) > 0 {
-				row := m.visibleRows[m.cursor]
-				return m, m.executeClose(row.Node.Issue.ID)
-			}
 		case key.Matches(msg, m.keys.Labels):
 			if len(m.visibleRows) > 0 {
 				row := m.visibleRows[m.cursor]

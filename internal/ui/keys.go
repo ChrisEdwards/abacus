@@ -26,10 +26,8 @@ type KeyMap struct {
 	Help      key.Binding
 	Quit      key.Binding
 	Copy      key.Binding
-	Status    key.Binding
-	StartWork key.Binding
-	CloseBead key.Binding
-	Labels      key.Binding
+	Status key.Binding
+	Labels key.Binding
 	NewBead     key.Binding
 	NewRootBead key.Binding
 
@@ -125,14 +123,6 @@ func DefaultKeyMap() KeyMap {
 		Status: key.NewBinding(
 			key.WithKeys("s"),
 			key.WithHelp("s", "Change status"),
-		),
-		StartWork: key.NewBinding(
-			key.WithKeys("i"),
-			key.WithHelp("i", "Start work"),
-		),
-		CloseBead: key.NewBinding(
-			key.WithKeys("x"),
-			key.WithHelp("x", "Close bead"),
 		),
 		Labels: key.NewBinding(
 			key.WithKeys("L"),

@@ -48,8 +48,6 @@ func getHelpSections(keys KeyMap) []helpSection {
 				{keys.Labels.Help().Key, keys.Labels.Help().Desc},
 				{keys.NewBead.Help().Key, keys.NewBead.Help().Desc},
 				{keys.NewRootBead.Help().Key, keys.NewRootBead.Help().Desc},
-				{keys.StartWork.Help().Key, keys.StartWork.Help().Desc},
-				{keys.CloseBead.Help().Key, keys.CloseBead.Help().Desc},
 				{keys.Delete.Help().Key, keys.Delete.Help().Desc},
 			},
 		},
@@ -108,8 +106,24 @@ func renderHelpOverlay(keys KeyMap) string {
 }
 
 func newHelpOverlayLayer(keys KeyMap, width, height, topMargin, bottomMargin int) Layer {
-	content := renderHelpOverlay(keys)
-	return newCenteredOverlayLayer(content, width, height, topMargin, bottomMargin)
+	// Return a LayerFunc that renders lazily, so the theme is correct when Render() is called
+	return LayerFunc(func() *Canvas {
+		content := renderHelpOverlay(keys)
+		if content == "" {
+			return nil
+		}
+		overlayWidth, overlayHeight := blockDimensions(content)
+		if overlayWidth <= 0 || overlayHeight <= 0 {
+			return nil
+		}
+
+		surface := NewSecondarySurface(overlayWidth, overlayHeight)
+		surface.Draw(0, 0, content)
+		x, y := centeredOffsets(width, height, overlayWidth, overlayHeight, topMargin, bottomMargin)
+
+		surface.Canvas.SetOffset(x, y)
+		return surface.Canvas
+	})
 }
 
 // renderHelpSectionTable renders a single help section with styled rows.
