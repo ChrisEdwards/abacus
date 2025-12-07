@@ -43,6 +43,12 @@ func (m *App) View() string {
 		status += " • " + strings.Join(breakdown, " • ")
 	}
 
+	// Show view mode indicator when not in default (All) mode
+	if m.viewMode != ViewModeAll {
+		modeLabel := fmt.Sprintf("[%s]", m.viewMode.String())
+		status += " " + styleFilterInfo().Render(modeLabel)
+	}
+
 	if m.filterText != "" {
 		filterLabel := fmt.Sprintf("Filter: %s", m.filterText)
 		status += " " + styleFilterInfo().Render(filterLabel)

@@ -45,6 +45,10 @@ type KeyMap struct {
 	// Theme
 	Theme     key.Binding
 	ThemePrev key.Binding
+
+	// View Mode
+	CycleViewMode     key.Binding
+	CycleViewModeBack key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings for Abacus.
@@ -175,6 +179,16 @@ func DefaultKeyMap() KeyMap {
 		ThemePrev: key.NewBinding(
 			key.WithKeys("T"),
 			key.WithHelp("t/T", "Cycle theme"),
+		),
+
+		// View Mode - v/V share help text (displayed as single row)
+		CycleViewMode: key.NewBinding(
+			key.WithKeys("v"),
+			key.WithHelp("v/V", "Cycle view"),
+		),
+		CycleViewModeBack: key.NewBinding(
+			key.WithKeys("V"),
+			key.WithHelp("v/V", "Cycle view"),
 		),
 	}
 }

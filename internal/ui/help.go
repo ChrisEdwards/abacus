@@ -34,6 +34,7 @@ func getHelpSections(keys KeyMap) []helpSection {
 			rows: [][]string{
 				{keys.Enter.Help().Key, keys.Enter.Help().Desc},
 				{keys.Tab.Help().Key, keys.Tab.Help().Desc},
+				{keys.CycleViewMode.Help().Key, keys.CycleViewMode.Help().Desc},
 				{keys.Refresh.Help().Key, keys.Refresh.Help().Desc},
 				{keys.Error.Help().Key, keys.Error.Help().Desc},
 				{keys.Theme.Help().Key, keys.Theme.Help().Desc},

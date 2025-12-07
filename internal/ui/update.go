@@ -544,6 +544,16 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.detailIssueID = ""
 			m.updateViewportContent()
 			return m, scheduleThemeToastTick()
+		case key.Matches(msg, m.keys.CycleViewMode):
+			// Cycle view mode forward (All → Active → Ready → All)
+			m.viewMode = m.viewMode.Next()
+			m.recalcVisibleRows()
+			return m, nil
+		case key.Matches(msg, m.keys.CycleViewModeBack):
+			// Cycle view mode backward (All → Ready → Active → All)
+			m.viewMode = m.viewMode.Prev()
+			m.recalcVisibleRows()
+			return m, nil
 		case key.Matches(msg, m.keys.Error):
 			// Show error toast if there's an error and toast isn't already visible
 			if m.lastError != "" && !m.showErrorToast {

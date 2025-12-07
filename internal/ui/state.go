@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 
+	"abacus/internal/domain"
 	"abacus/internal/graph"
 )
 
@@ -31,6 +32,7 @@ type viewState struct {
 	viewportYOffset      int
 	cursorIndex          int
 	focus                FocusArea
+	viewMode             ViewMode
 }
 
 type filterEvaluation struct {
@@ -60,7 +62,8 @@ func clampDimension(value, minValue, maxValue int) int {
 func (m *App) recalcVisibleRows() {
 	m.visibleRows = []graph.TreeRow{}
 	filterLower := strings.ToLower(m.filterText)
-	filterActive := filterLower != ""
+	// Compute filter evaluation when EITHER text filter OR ViewMode is active
+	filterActive := filterLower != "" || m.viewMode != ViewModeAll
 
 	if filterActive {
 		m.filterEval = m.computeFilterEval(filterLower)
@@ -129,6 +132,7 @@ func (m *App) captureState() viewState {
 		filterCollapsed:      copyBoolMap(m.filterCollapsed),
 		filterForcedExpanded: copyBoolMap(m.filterForcedExpanded),
 		focus:                m.focus,
+		viewMode:             m.viewMode,
 	}
 
 	if m.ShowDetails && m.viewport.Height > 0 {
@@ -175,6 +179,38 @@ func nodeMatchesFilter(filterLower string, node *graph.Node) bool {
 	return strings.Contains(trimmed, filterLower)
 }
 
+// nodeMatchesViewMode checks if a node matches the current view mode filter.
+func nodeMatchesViewMode(mode ViewMode, node *graph.Node) bool {
+	if mode == ViewModeAll {
+		return true
+	}
+
+	// Try to convert to domain issue for proper status checking
+	domainIssue, err := domain.NewIssueFromFull(node.Issue, node.IsBlocked)
+	if err != nil {
+		// Fallback to direct string comparison
+		switch mode {
+		case ViewModeActive:
+			return node.Issue.Status != "closed"
+		case ViewModeReady:
+			return node.Issue.Status != "closed" && !node.IsBlocked
+		default:
+			return true
+		}
+	}
+
+	switch mode {
+	case ViewModeActive:
+		// Show non-closed issues
+		return domainIssue.Status() != domain.StatusClosed
+	case ViewModeReady:
+		// Show ready issues (open + not blocked)
+		return domainIssue.IsReady()
+	default:
+		return true
+	}
+}
+
 func (m *App) restoreExpandedState(expanded map[string]bool) {
 	if expanded == nil {
 		expanded = map[string]bool{}
@@ -209,7 +245,11 @@ func (m *App) computeFilterEval(filterLower string) map[string]filterEvaluation 
 	evals := make(map[string]filterEvaluation)
 	var walk func(node *graph.Node) bool
 	walk = func(node *graph.Node) bool {
-		matches := nodeMatchesFilter(filterLower, node)
+		// Check BOTH ViewMode AND text filter
+		viewModeMatch := nodeMatchesViewMode(m.viewMode, node)
+		textMatch := nodeMatchesFilter(filterLower, node)
+		directMatch := viewModeMatch && textMatch // Node itself matches both filters
+
 		hasChildMatch := false
 		for _, child := range node.Children {
 			if walk(child) {
@@ -217,10 +257,10 @@ func (m *App) computeFilterEval(filterLower string) map[string]filterEvaluation 
 			}
 		}
 		evals[node.Issue.ID] = filterEvaluation{
-			matches:          matches,
+			matches:          directMatch,
 			hasMatchingChild: hasChildMatch,
 		}
-		return matches || hasChildMatch
+		return directMatch || hasChildMatch
 	}
 	for _, root := range m.roots {
 		walk(root)

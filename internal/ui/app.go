@@ -37,6 +37,38 @@ const (
 	OverlayDelete
 )
 
+// ViewMode represents the current view filter mode.
+type ViewMode int
+
+const (
+	ViewModeAll    ViewMode = iota // Show all issues (default)
+	ViewModeActive                 // Show non-closed issues (open + in_progress)
+	ViewModeReady                  // Show ready issues (open + not blocked)
+	viewModeCount                  // internal: number of modes for cycling
+)
+
+// String returns the display name of the view mode.
+func (v ViewMode) String() string {
+	switch v {
+	case ViewModeActive:
+		return "Active"
+	case ViewModeReady:
+		return "Ready"
+	default:
+		return "All"
+	}
+}
+
+// Next returns the next view mode in the cycle.
+func (v ViewMode) Next() ViewMode {
+	return ViewMode((int(v) + 1) % int(viewModeCount))
+}
+
+// Prev returns the previous view mode in the cycle.
+func (v ViewMode) Prev() ViewMode {
+	return ViewMode((int(v) + int(viewModeCount) - 1) % int(viewModeCount))
+}
+
 // Config configures the UI application.
 type Config struct {
 	RefreshInterval time.Duration
@@ -65,6 +97,7 @@ type App struct {
 	textInput  textinput.Model
 	searching  bool
 	filterText string
+	viewMode   ViewMode // Current view filter mode (All, Active, Ready)
 	// filterCollapsed tracks nodes explicitly collapsed while a search filter is active.
 	filterCollapsed map[string]bool
 	// filterForcedExpanded tracks nodes temporarily expanded to surface filter matches.
