@@ -16,8 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Status overlay**: Press `s` to quickly change bead status with single-key selection (ab-6s4)
 - **Labels overlay**: Press `L` to manage labels with chip-based UI, autocomplete, and inline creation
 - **Delete bead**: Press `Del` to delete a bead with confirmation dialog showing C/D hotkeys (ab-6vs)
-- **Start work shortcut**: Press `i` to mark a bead as in-progress
-- **Close bead shortcut**: Press `x` to close a bead
 - **New bead modal redesign**: 5-zone HUD architecture with editable parent, properties grid, labels chips, and assignee autocomplete (ab-3dn)
 - **Bulk entry mode**: Press `Ctrl+Enter` in new bead modal to create and add another
 - **Type auto-inference**: Modal automatically suggests type based on title keywords (e.g., "Fix..." → Bug)
@@ -38,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auto-refresh now works correctly with modal overlays open (ab-mlg2)
 - Backend errors now show as toast over modal instead of inline (ab-orte)
 - Tree immediately updates after bead changes instead of waiting for refresh
+
+### Removed
+- **Redundant hotkeys**: Removed `i` (start work) and `x` (close bead) shortcuts - use `s` to open status menu instead (ab-3zw.9)
 
 ## [0.3.0] - 2025-11-28
 
