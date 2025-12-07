@@ -23,8 +23,8 @@ Replace the form with a **Heads-Up Display (HUD)** architecture that prioritizes
 | Capability | Description |
 |------------|-------------|
 | Editable Parent | Change parent or create root items without leaving modal |
-| Quick Root Creation | `N` (Shift+n) opens modal with no parent pre-selected |
-| Quick Child Creation | `n` pre-fills parent from current selection |
+| Quick Root Creation | `n` opens modal with no parent pre-selected |
+| Quick Child Creation | `N` (Shift+n) pre-fills parent from current selection |
 | Bulk Entry | `Ctrl+Enter` creates bead and keeps modal open for next |
 | Instant Feedback | New bead appears in tree in <50ms (no reload wait) |
 | Footer Contract | Dynamic footer eliminates Enter key ambiguity |
@@ -516,10 +516,10 @@ The modal can be opened from the tree view with two shortcuts:
 
 | Key | Action | Parent Field Shows |
 |-----|--------|-------------------|
-| `n` | New bead as child | Pre-filled with currently selected bead |
-| `N` (Shift+n) | New root bead | "◇ No Parent (Root Item)" |
+| `n` | New bead (root) | "◇ No Parent (Root Item)" |
+| `N` (Shift+n) | New child bead | Pre-filled with currently selected bead |
 
-This allows quick creation of both child beads (common case) and root beads (epics, top-level features) without extra steps.
+This allows quick creation of both root beads (common case) and child beads (using Shift to "attach" to current selection) without extra steps.
 
 ### 4.1 The Footer Contract (Footer Flipping)
 
@@ -808,9 +808,9 @@ When type auto-changes:
 
 ### 7.3 Create Root Epic (Quick Method)
 
-**Scenario:** Add a new top-level epic using the `N` shortcut
+**Scenario:** Add a new top-level epic using the `n` shortcut
 
-1. User presses `N` (Shift+n) from anywhere in tree
+1. User presses `n` from anywhere in tree
 2. Modal opens with Parent already showing "◇ No Parent (Root Item)"
 3. Types "Q4 Infrastructure Overhaul"
 4. Tabs to Type, selects "Epic"
@@ -820,9 +820,9 @@ When type auto-changes:
 
 ### 7.3b Create Root Epic (Alternative Method)
 
-**Scenario:** Convert to root during creation (if you started with `n`)
+**Scenario:** Convert to root during creation (if you started with `N`)
 
-1. User presses `n` (modal opens with parent pre-filled)
+1. User presses `N` (modal opens with parent pre-filled)
 2. Presses `Shift+Tab` to focus Parent
 3. Presses `Delete` to clear
 4. Parent shows "◇ No Parent (Root Item)"
