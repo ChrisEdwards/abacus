@@ -218,6 +218,7 @@ echo "$@" >> ` + logFile + `
 if echo "$@" | grep -q "^create"; then
   echo '{"id":"ab-xyz123","title":"Child","status":"open","priority":2,"issue_type":"task"}'
 fi
+exit 0
 `
 	writeTestScript(t, script, scriptBody)
 
