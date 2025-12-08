@@ -352,20 +352,19 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 		return m, nil
 
 	case ComboBoxTabSelectedMsg:
-		// Forward to labelsCombo if in FocusLabels mode (to add chip)
-		if m.focus == FocusLabels {
-			var cmd tea.Cmd
-			m.labelsCombo, cmd = m.labelsCombo.Update(msg)
-			return m, cmd
-		}
-		// Assignee combo - check if new assignee was created
-		if m.focus == FocusAssignee && msg.IsNew {
-			return m, func() tea.Msg {
+		// Always forward to labelsCombo to add chip (it's the only ChipComboBox).
+		// Focus may have already moved to Assignee by the time this message arrives,
+		// so we can't rely on focus check. The message originated from labelsCombo's
+		// internal ComboBox, so route it there unconditionally.
+		var cmd tea.Cmd
+		m.labelsCombo, cmd = m.labelsCombo.Update(msg)
+		// Also check if assignee was new (for toast)
+		if msg.IsNew {
+			return m, tea.Batch(cmd, func() tea.Msg {
 				return NewAssigneeAddedMsg{Assignee: msg.Value}
-			}
+			})
 		}
-		// Parent combo - no special action needed
-		return m, nil
+		return m, cmd
 
 	case tea.KeyMsg:
 		// Handle global keys first

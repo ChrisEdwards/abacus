@@ -205,14 +205,21 @@ func (c ChipComboBox) handleTabSelection(value string, isNew bool) (ChipComboBox
 }
 
 func (c ChipComboBox) handleTab() (ChipComboBox, tea.Cmd) {
-	// If dropdown is open, forward Tab to ComboBox
-	// ComboBox will send ComboBoxTabSelectedMsg
-	// which is handled by handleTabSelection()
+	// If dropdown is open, get selection from ComboBox and handle it synchronously.
+	// We execute the cmd immediately to get the selection value, then process it
+	// ourselves. This ensures the chip is added BEFORE focus moves to next field.
 	if c.combo.IsDropdownOpen() {
 		var cmd tea.Cmd
 		c.combo, cmd = c.combo.Update(tea.KeyMsg{Type: tea.KeyTab})
 		if cmd != nil {
-			return c, cmd // Let ComboBoxTabSelectedMsg flow through
+			// Execute cmd immediately to get selection
+			msg := cmd()
+			if tabMsg, ok := msg.(ComboBoxTabSelectedMsg); ok {
+				// Handle selection synchronously - adds chip and returns TabMsg
+				return c.handleTabSelection(tabMsg.Value, tabMsg.IsNew)
+			}
+			// Fallback for unexpected message types
+			return c, cmd
 		}
 		// No selection possible - signal Tab immediately
 		return c, func() tea.Msg { return ChipComboBoxTabMsg{} }

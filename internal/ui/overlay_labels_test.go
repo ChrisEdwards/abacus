@@ -678,3 +678,59 @@ func TestLabelsOverlayChipComboBoxTabMsg(t *testing.T) {
 		}
 	})
 }
+
+func TestLabelsOverlay_Tab_AddsChipFromDropdown(t *testing.T) {
+	overlay := NewLabelsOverlay("test-123", "Test", []string{}, []string{"backend", "frontend", "api"})
+	overlay.chipCombo.Focus()
+
+	t.Logf("Initial: Chips=%v, InputValue=%q, IsIdle=%v", 
+		overlay.GetChips(), overlay.chipCombo.InputValue(), overlay.IsIdle())
+
+	// Type "back"
+	for _, r := range "back" {
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+
+	t.Logf("After 'back': Chips=%v, InputValue=%q, IsIdle=%v, IsDropdownOpen=%v", 
+		overlay.GetChips(), overlay.chipCombo.InputValue(), overlay.IsIdle(), overlay.chipCombo.IsDropdownOpen())
+
+	// Press Tab - this should select the highlighted item
+	overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+	t.Logf("After Tab (before cmd): Chips=%v, InputValue=%q", 
+		overlay.GetChips(), overlay.chipCombo.InputValue())
+
+	// Execute the command - this should produce ComboBoxTabSelectedMsg
+	if cmd == nil {
+		t.Fatal("No command returned from Tab!")
+	}
+
+	msg := cmd()
+	t.Logf("Tab cmd returned: %T = %+v", msg, msg)
+
+	// The message needs to go back to the overlay (simulating App routing)
+	overlay, cmd = overlay.Update(msg)
+	t.Logf("After routing message back: Chips=%v, InputValue=%q", 
+		overlay.GetChips(), overlay.chipCombo.InputValue())
+
+	// Process any follow-up commands
+	if cmd != nil {
+		msg2 := cmd()
+		t.Logf("Second cmd returned: %T", msg2)
+		if batchMsg, ok := msg2.(tea.BatchMsg); ok {
+			for i, c := range batchMsg {
+				if c != nil {
+					innerMsg := c()
+					t.Logf("  Batch[%d]: %T", i, innerMsg)
+				}
+			}
+		}
+	}
+
+	t.Logf("Final: Chips=%v", overlay.GetChips())
+	
+	chips := overlay.GetChips()
+	if len(chips) != 1 || chips[0] != "backend" {
+		t.Errorf("Expected ['backend'], got %v", chips)
+	}
+}

@@ -3288,3 +3288,65 @@ func TestCreateOverlay_PreventsDuplicateSubmission(t *testing.T) {
 		}
 	})
 }
+
+func TestCreateOverlay_Tab_AddsLabelChipFromDropdown(t *testing.T) {
+	opts := CreateOverlayOptions{
+		AvailableLabels: []string{"backend", "frontend", "api"},
+	}
+	overlay := NewCreateOverlay(opts)
+	
+	// Focus on labels field
+	overlay.focus = FocusLabels
+	overlay.labelsCombo.Focus()
+	
+	t.Logf("Initial: LabelsChips=%v", overlay.labelsCombo.GetChips())
+
+	// Type "back"
+	for _, r := range "back" {
+		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+
+	t.Logf("After 'back': LabelsChips=%v, InputValue=%q, IsDropdownOpen=%v", 
+		overlay.labelsCombo.GetChips(), overlay.labelsCombo.InputValue(), overlay.labelsCombo.IsDropdownOpen())
+
+	// Press Tab
+	overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+	t.Logf("After Tab (before cmd): LabelsChips=%v, Focus=%v", 
+		overlay.labelsCombo.GetChips(), overlay.Focus())
+
+	// Execute and route commands (simulating App)
+	for cmd != nil {
+		msg := cmd()
+		t.Logf("Cmd returned: %T", msg)
+		
+		if batchMsg, ok := msg.(tea.BatchMsg); ok {
+			for _, c := range batchMsg {
+				if c != nil {
+					innerMsg := c()
+					t.Logf("  Batch item: %T", innerMsg)
+					// Route selection messages back to overlay
+					switch innerMsg.(type) {
+					case ComboBoxTabSelectedMsg, ComboBoxEnterSelectedMsg:
+						overlay, cmd = overlay.Update(innerMsg)
+					}
+				}
+			}
+		} else {
+			// Route selection messages back
+			switch msg.(type) {
+			case ComboBoxTabSelectedMsg, ComboBoxEnterSelectedMsg:
+				overlay, cmd = overlay.Update(msg)
+				continue
+			}
+		}
+		break
+	}
+
+	t.Logf("Final: LabelsChips=%v", overlay.labelsCombo.GetChips())
+	
+	chips := overlay.labelsCombo.GetChips()
+	if len(chips) != 1 || chips[0] != "backend" {
+		t.Errorf("Expected ['backend'], got %v", chips)
+	}
+}

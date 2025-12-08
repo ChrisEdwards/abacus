@@ -910,3 +910,59 @@ func TestChipComboBox_Tab_DuplicateRawInputStaysInField(t *testing.T) {
 		t.Errorf("expected flashIndex 0, got %d", cc.FlashIndex())
 	}
 }
+
+func TestChipComboBox_Tab_AddsChipWhenDropdownOpen(t *testing.T) {
+	cc := NewChipComboBox([]string{"backend", "frontend", "api"})
+	cc.Focus()
+
+	t.Logf("Initial: ChipCount=%d, InputValue=%q, IsDropdownOpen=%v", 
+		cc.ChipCount(), cc.InputValue(), cc.IsDropdownOpen())
+
+	// Type "back"
+	for _, r := range "back" {
+		cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+
+	t.Logf("After 'back': ChipCount=%d, InputValue=%q, IsDropdownOpen=%v, ComboState=%v", 
+		cc.ChipCount(), cc.InputValue(), cc.IsDropdownOpen(), cc.combo.State())
+
+	// Press Tab
+	cc, cmd := cc.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+	t.Logf("After Tab: ChipCount=%d, InputValue=%q, IsDropdownOpen=%v", 
+		cc.ChipCount(), cc.InputValue(), cc.IsDropdownOpen())
+
+	// Execute the command
+	if cmd != nil {
+		msg := cmd()
+		t.Logf("Command returned: %T = %+v", msg, msg)
+		
+		// If it's a batch, process all
+		if batchMsg, ok := msg.(tea.BatchMsg); ok {
+			t.Logf("BatchMsg with %d commands", len(batchMsg))
+			for i, c := range batchMsg {
+				if c != nil {
+					innerMsg := c()
+					t.Logf("  Batch[%d]: %T = %+v", i, innerMsg, innerMsg)
+					cc, _ = cc.Update(innerMsg)
+				}
+			}
+		} else {
+			// Process single message
+			cc, _ = cc.Update(msg)
+		}
+	} else {
+		t.Error("No command returned!")
+	}
+
+	t.Logf("Final: ChipCount=%d, InputValue=%q, Chips=%v", 
+		cc.ChipCount(), cc.InputValue(), cc.GetChips())
+	
+	if cc.ChipCount() != 1 {
+		t.Errorf("Expected 1 chip, got %d", cc.ChipCount())
+	}
+	chips := cc.GetChips()
+	if len(chips) == 0 || chips[0] != "backend" {
+		t.Errorf("Expected chip 'backend', got %v", chips)
+	}
+}
