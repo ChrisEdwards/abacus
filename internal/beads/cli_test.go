@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // writeTestScript writes a shell script to the given path with proper file sync.
@@ -49,6 +50,12 @@ func writeTestScript(t *testing.T, path, content string) {
 	if info.Mode().Perm()&0o111 == 0 {
 		t.Fatalf("script file not executable: %v", info.Mode())
 	}
+
+	// Small delay for CI filesystem propagation.
+	// Even with file and directory sync, some CI environments (especially
+	// containerized Ubuntu runners) need a brief pause before exec can
+	// reliably see newly created files.
+	time.Sleep(10 * time.Millisecond)
 }
 
 func TestCLIClientAppliesDatabasePath(t *testing.T) {
