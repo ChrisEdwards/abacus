@@ -445,8 +445,8 @@ func renderPillChip(label string, state chipState) string {
 		bgColor = t.Warning() // Orange flash for duplicate
 		fgColor = t.Text()
 	default:
-		bgColor = t.BackgroundDarker() // Blue chip background
-		fgColor = t.Text()
+		bgColor = t.Info() // Try Info (cyan/teal) for visible labels
+		fgColor = t.Background() // Use background color for contrast
 	}
 
 	// Left cap: foreground is the chip color (creates the curved colored edge)
