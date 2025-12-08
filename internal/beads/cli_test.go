@@ -60,7 +60,8 @@ func TestCLIClientAppliesDatabasePath(t *testing.T) {
 
 	scriptBody := "#!/bin/sh\n" +
 		"echo \"$@\" >> " + logFile + "\n" +
-		"echo '[]'\n"
+		"echo '[]'\n" +
+		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
 	dbPath := "/tmp/custom.db"
@@ -103,7 +104,8 @@ func TestCLIClient_CreateFull_ReturnsFullIssue(t *testing.T) {
 	// Fake bd script that returns valid JSON
 	jsonResponse := `{"id":"ab-test","title":"Test Issue","description":"Test desc","status":"open","priority":2,"issue_type":"task","created_at":"2025-12-01T00:00:00Z","updated_at":"2025-12-01T00:00:00Z","labels":["test"]}`
 	scriptBody := "#!/bin/sh\n" +
-		"echo '" + jsonResponse + "'\n"
+		"echo '" + jsonResponse + "'\n" +
+		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
@@ -142,7 +144,8 @@ func TestCLIClient_CreateFull_HandlesInvalidJSON(t *testing.T) {
 
 	// Fake bd script that returns malformed JSON
 	scriptBody := "#!/bin/sh\n" +
-		"echo 'not valid json{{{'\n"
+		"echo 'not valid json{{{'\n" +
+		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
@@ -172,7 +175,8 @@ func TestCLIClient_CreateFull_PassesJSONFlag(t *testing.T) {
 	// Fake bd script that logs arguments and returns minimal JSON
 	scriptBody := "#!/bin/sh\n" +
 		"echo \"$@\" >> " + logFile + "\n" +
-		"echo '{\"id\":\"ab-123\",\"title\":\"Test\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\"}'\n"
+		"echo '{\"id\":\"ab-123\",\"title\":\"Test\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\"}'\n" +
+		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
@@ -272,7 +276,8 @@ func TestCLIClient_CreateFull_OptionalParameters(t *testing.T) {
 	// Fake bd script that logs arguments and returns JSON with labels and assignee
 	scriptBody := "#!/bin/sh\n" +
 		"echo \"$@\" >> " + logFile + "\n" +
-		"echo '{\"id\":\"ab-full\",\"title\":\"Full\",\"status\":\"open\",\"priority\":1,\"issue_type\":\"bug\",\"labels\":[\"urgent\",\"backend\"],\"assignee\":\"bob\"}'\n"
+		"echo '{\"id\":\"ab-full\",\"title\":\"Full\",\"status\":\"open\",\"priority\":1,\"issue_type\":\"bug\",\"labels\":[\"urgent\",\"backend\"],\"assignee\":\"bob\"}'\n" +
+		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
@@ -357,7 +362,8 @@ func TestCLIClient_CreateFull_HandlesOutputWithPrefix(t *testing.T) {
 	// Fake bd script that outputs warning before JSON (simulates production db warning)
 	scriptBody := "#!/bin/sh\n" +
 		"echo '⚠ Creating issue with Test prefix in production database.'\n" +
-		"echo '{\"id\":\"ab-prefix\",\"title\":\"Test\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\"}'\n"
+		"echo '{\"id\":\"ab-prefix\",\"title\":\"Test\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\"}'\n" +
+		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
@@ -382,7 +388,8 @@ func TestCLIClient_Export(t *testing.T) {
 	// Fake bd script that returns JSONL (one JSON object per line)
 	scriptBody := "#!/bin/sh\n" +
 		"echo '{\"id\":\"ab-001\",\"title\":\"Issue 1\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\",\"created_at\":\"2024-01-01\",\"updated_at\":\"2024-01-01\"}'\n" +
-		"echo '{\"id\":\"ab-002\",\"title\":\"Issue 2\",\"status\":\"closed\",\"priority\":1,\"issue_type\":\"bug\",\"created_at\":\"2024-01-02\",\"updated_at\":\"2024-01-02\",\"dependencies\":[{\"depends_on_id\":\"ab-001\",\"type\":\"blocks\"}]}'\n"
+		"echo '{\"id\":\"ab-002\",\"title\":\"Issue 2\",\"status\":\"closed\",\"priority\":1,\"issue_type\":\"bug\",\"created_at\":\"2024-01-02\",\"updated_at\":\"2024-01-02\",\"dependencies\":[{\"depends_on_id\":\"ab-001\",\"type\":\"blocks\"}]}'\n" +
+		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
@@ -429,7 +436,8 @@ func TestCLIClient_Export_EmptyResult(t *testing.T) {
 	script := filepath.Join(dir, "fakebd.sh")
 
 	// Fake bd script that returns no output
-	scriptBody := "#!/bin/sh\n"
+	scriptBody := "#!/bin/sh\n" +
+		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
@@ -454,7 +462,8 @@ func TestCLIClient_Export_ParseError(t *testing.T) {
 	scriptBody := "#!/bin/sh\n" +
 		"echo '{\"id\":\"ab-001\",\"title\":\"Issue 1\"}'\n" +
 		"echo '{\"id\":\"ab-002\",\"title\":\"Issue 2\"}'\n" +
-		"echo 'not valid json{{{'\n"
+		"echo 'not valid json{{{'\n" +
+		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
@@ -478,7 +487,8 @@ func TestCLIClient_Export_MissingID(t *testing.T) {
 	// Fake bd script that returns issue with empty ID on line 2
 	scriptBody := "#!/bin/sh\n" +
 		"echo '{\"id\":\"ab-001\",\"title\":\"Issue 1\"}'\n" +
-		"echo '{\"id\":\"\",\"title\":\"Issue with no ID\"}'\n"
+		"echo '{\"id\":\"\",\"title\":\"Issue with no ID\"}'\n" +
+		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
 	client := NewCLIClient(WithBinaryPath(script))
