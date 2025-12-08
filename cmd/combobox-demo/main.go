@@ -57,7 +57,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case ui.ComboBoxValueSelectedMsg:
+	case ui.ComboBoxEnterSelectedMsg:
+		m.selected = msg.Value
+		m.isNew = msg.IsNew
+
+	case ui.ComboBoxTabSelectedMsg:
 		m.selected = msg.Value
 		m.isNew = msg.IsNew
 	}

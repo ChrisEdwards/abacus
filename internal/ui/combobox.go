@@ -22,8 +22,16 @@ const (
 	ComboBoxFiltering
 )
 
-// ComboBoxValueSelectedMsg is sent when a value is selected.
-type ComboBoxValueSelectedMsg struct {
+// ComboBoxEnterSelectedMsg is sent when Enter confirms a selection.
+// The component stays focused for additional input.
+type ComboBoxEnterSelectedMsg struct {
+	Value string
+	IsNew bool // True if value was created (not in original options)
+}
+
+// ComboBoxTabSelectedMsg is sent when Tab confirms a selection.
+// Signals that the component should advance to next field after processing.
+type ComboBoxTabSelectedMsg struct {
 	Value string
 	IsNew bool // True if value was created (not in original options)
 }
@@ -200,11 +208,10 @@ func (c ComboBox) handleBrowsingKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 		return c, nil
 
 	case tea.KeyEnter:
-		return c.selectHighlighted()
+		return c.selectHighlightedWithEnter()
 
 	case tea.KeyTab:
-		// Return the cmd to allow toast notifications for new values
-		return c.selectHighlighted()
+		return c.selectHighlightedWithTab()
 
 	case tea.KeyEsc:
 		// Close dropdown
@@ -242,11 +249,10 @@ func (c ComboBox) handleFilteringKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 		return c, nil
 
 	case tea.KeyEnter:
-		return c.selectHighlightedOrNew()
+		return c.selectHighlightedOrNewWithEnter()
 
 	case tea.KeyTab:
-		// Return the cmd to allow toast notifications for new values
-		return c.selectHighlightedOrNew()
+		return c.selectHighlightedOrNewWithTab()
 
 	case tea.KeyEsc:
 		// First Esc: close dropdown, keep typed text
@@ -276,7 +282,8 @@ func (c ComboBox) handleFilteringKey(msg tea.KeyMsg) (ComboBox, tea.Cmd) {
 	return c, nil
 }
 
-func (c ComboBox) selectHighlighted() (ComboBox, tea.Cmd) {
+// selectHighlightedWithEnter selects the highlighted option via Enter key.
+func (c ComboBox) selectHighlightedWithEnter() (ComboBox, tea.Cmd) {
 	if len(c.filteredOptions) > 0 && c.highlightIndex >= 0 && c.highlightIndex < len(c.filteredOptions) {
 		selected := c.filteredOptions[c.highlightIndex]
 		c.value = selected
@@ -284,27 +291,62 @@ func (c ComboBox) selectHighlighted() (ComboBox, tea.Cmd) {
 		c.originalValue = selected
 		c.state = ComboBoxIdle
 		return c, func() tea.Msg {
-			return ComboBoxValueSelectedMsg{Value: selected, IsNew: false}
+			return ComboBoxEnterSelectedMsg{Value: selected, IsNew: false}
 		}
 	}
 	c.state = ComboBoxIdle
 	return c, nil
 }
 
-func (c ComboBox) selectHighlightedOrNew() (ComboBox, tea.Cmd) {
-	// If we have matches and a valid highlight, select highlighted
+// selectHighlightedWithTab selects the highlighted option via Tab key.
+func (c ComboBox) selectHighlightedWithTab() (ComboBox, tea.Cmd) {
 	if len(c.filteredOptions) > 0 && c.highlightIndex >= 0 && c.highlightIndex < len(c.filteredOptions) {
-		return c.selectHighlighted()
+		selected := c.filteredOptions[c.highlightIndex]
+		c.value = selected
+		c.textInput.SetValue(selected)
+		c.originalValue = selected
+		c.state = ComboBoxIdle
+		return c, func() tea.Msg {
+			return ComboBoxTabSelectedMsg{Value: selected, IsNew: false}
+		}
+	}
+	c.state = ComboBoxIdle
+	return c, nil
+}
+
+// selectHighlightedOrNewWithEnter handles Enter: select highlighted or create new.
+func (c ComboBox) selectHighlightedOrNewWithEnter() (ComboBox, tea.Cmd) {
+	if len(c.filteredOptions) > 0 && c.highlightIndex >= 0 && c.highlightIndex < len(c.filteredOptions) {
+		return c.selectHighlightedWithEnter()
 	}
 
-	// No matches - if AllowNew, create new value
 	if c.AllowNew && strings.TrimSpace(c.textInput.Value()) != "" {
 		newValue := strings.TrimSpace(c.textInput.Value())
 		c.value = newValue
 		c.originalValue = newValue
 		c.state = ComboBoxIdle
 		return c, func() tea.Msg {
-			return ComboBoxValueSelectedMsg{Value: newValue, IsNew: true}
+			return ComboBoxEnterSelectedMsg{Value: newValue, IsNew: true}
+		}
+	}
+
+	c.state = ComboBoxIdle
+	return c, nil
+}
+
+// selectHighlightedOrNewWithTab handles Tab: select highlighted or create new.
+func (c ComboBox) selectHighlightedOrNewWithTab() (ComboBox, tea.Cmd) {
+	if len(c.filteredOptions) > 0 && c.highlightIndex >= 0 && c.highlightIndex < len(c.filteredOptions) {
+		return c.selectHighlightedWithTab()
+	}
+
+	if c.AllowNew && strings.TrimSpace(c.textInput.Value()) != "" {
+		newValue := strings.TrimSpace(c.textInput.Value())
+		c.value = newValue
+		c.originalValue = newValue
+		c.state = ComboBoxIdle
+		return c, func() tea.Msg {
+			return ComboBoxTabSelectedMsg{Value: newValue, IsNew: true}
 		}
 	}
 

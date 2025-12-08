@@ -144,8 +144,8 @@ func TestChipComboBox_Selection_AddsChip(t *testing.T) {
 	cc := NewChipComboBox([]string{"backend", "frontend", "api"})
 	cc.Focus()
 
-	// Simulate selection
-	cc, cmd := cc.Update(ComboBoxValueSelectedMsg{Value: "backend", IsNew: false})
+	// Simulate Enter selection (stays in field)
+	cc, cmd := cc.Update(ComboBoxEnterSelectedMsg{Value: "backend", IsNew: false})
 
 	if cc.ChipCount() != 1 {
 		t.Errorf("expected 1 chip, got %d", cc.ChipCount())
@@ -176,8 +176,8 @@ func TestChipComboBox_Selection_ClearsInput(t *testing.T) {
 	// Type something
 	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
 
-	// Select
-	cc, _ = cc.Update(ComboBoxValueSelectedMsg{Value: "backend", IsNew: false})
+	// Select via Enter
+	cc, _ = cc.Update(ComboBoxEnterSelectedMsg{Value: "backend", IsNew: false})
 
 	if cc.InputValue() != "" {
 		t.Errorf("expected empty input after selection, got '%s'", cc.InputValue())
@@ -188,8 +188,8 @@ func TestChipComboBox_Selection_FiltersOptions(t *testing.T) {
 	cc := NewChipComboBox([]string{"backend", "frontend", "api"})
 	cc.Focus()
 
-	// Select backend
-	cc, _ = cc.Update(ComboBoxValueSelectedMsg{Value: "backend", IsNew: false})
+	// Select backend via Enter
+	cc, _ = cc.Update(ComboBoxEnterSelectedMsg{Value: "backend", IsNew: false})
 
 	// Open dropdown
 	cc, _ = cc.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -207,7 +207,8 @@ func TestChipComboBox_Selection_StaysInField(t *testing.T) {
 	cc := NewChipComboBox([]string{"backend"})
 	cc.Focus()
 
-	cc, _ = cc.Update(ComboBoxValueSelectedMsg{Value: "backend", IsNew: false})
+	// Enter selection should stay in field
+	cc, _ = cc.Update(ComboBoxEnterSelectedMsg{Value: "backend", IsNew: false})
 
 	// Should still be focused (multi-select stays in field)
 	if !cc.Focused() {
@@ -222,8 +223,8 @@ func TestChipComboBox_Duplicate_FlashesChip(t *testing.T) {
 	// Add chip first
 	cc.chips.AddChip("backend")
 
-	// Try to add duplicate via selection
-	cc, cmd := cc.Update(ComboBoxValueSelectedMsg{Value: "backend", IsNew: false})
+	// Try to add duplicate via Enter selection
+	cc, cmd := cc.Update(ComboBoxEnterSelectedMsg{Value: "backend", IsNew: false})
 
 	// Should still be 1 chip
 	if cc.ChipCount() != 1 {
@@ -248,8 +249,8 @@ func TestChipComboBox_Duplicate_DoesNotAdd(t *testing.T) {
 	cc.chips.AddChip("backend")
 	cc.chips.AddChip("frontend")
 
-	// Try to add duplicate
-	cc, _ = cc.Update(ComboBoxValueSelectedMsg{Value: "backend", IsNew: false})
+	// Try to add duplicate via Enter
+	cc, _ = cc.Update(ComboBoxEnterSelectedMsg{Value: "backend", IsNew: false})
 
 	if cc.ChipCount() != 2 {
 		t.Errorf("expected 2 chips (no duplicate added), got %d", cc.ChipCount())
@@ -305,7 +306,7 @@ func TestChipComboBox_Tab_AddsChipIfText(t *testing.T) {
 	// Press Tab - this selects the highlighted item ("backend") and returns a cmd
 	cc, cmd := cc.Update(tea.KeyMsg{Type: tea.KeyTab})
 
-	// Process the batched commands to get the ComboBoxValueSelectedMsg
+	// Process the batched commands to get the selection message
 	if cmd != nil {
 		msg := cmd()
 		// The cmd returns a batch, so we need to handle it
@@ -347,10 +348,10 @@ func TestChipComboBox_Enter_AddsChipFromDropdown(t *testing.T) {
 		t.Fatal("expected dropdown to be open after typing")
 	}
 
-	// Press Enter - should select the highlighted item and produce ComboBoxValueSelectedMsg
+	// Press Enter - should select the highlighted item and produce ComboBoxEnterSelectedMsg
 	cc, cmd := cc.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
-	// Process the command to get the ComboBoxValueSelectedMsg
+	// Process the command to get the selection message
 	if cmd != nil {
 		msg := cmd()
 		if batchMsg, ok := msg.(tea.BatchMsg); ok {
@@ -590,8 +591,8 @@ func TestChipComboBox_NewLabel(t *testing.T) {
 	cc := NewChipComboBox([]string{"backend"})
 	cc.Focus()
 
-	// Select a new value (not in original options)
-	cc, cmd := cc.Update(ComboBoxValueSelectedMsg{Value: "newlabel", IsNew: true})
+	// Select a new value (not in original options) via Enter
+	cc, cmd := cc.Update(ComboBoxEnterSelectedMsg{Value: "newlabel", IsNew: true})
 
 	if cc.ChipCount() != 1 {
 		t.Errorf("expected 1 chip, got %d", cc.ChipCount())
@@ -643,5 +644,269 @@ func TestChipComboBox_RenderChips_Highlighted(t *testing.T) {
 	// Last chip should contain the label (pill style uses background color for highlighting)
 	if !strings.Contains(chips[1], "frontend") {
 		t.Errorf("expected highlighted chip to contain 'frontend', got: %s", chips[1])
+	}
+}
+
+// ============================================================================
+// Tab/Enter Behavior Tests (ab-inht bug fix)
+// ============================================================================
+
+func TestChipComboBox_TabSelectedMsg_AddsChipAndAdvances(t *testing.T) {
+	cc := NewChipComboBox([]string{"UI", "Bug", "Feature"})
+	cc.Focus()
+
+	// Simulate receiving TabSelectedMsg
+	cc, cmd := cc.Update(ComboBoxTabSelectedMsg{Value: "UI", IsNew: false})
+
+	// Chip added
+	if cc.ChipCount() != 1 {
+		t.Errorf("expected 1 chip, got %d", cc.ChipCount())
+	}
+	chips := cc.GetChips()
+	if len(chips) != 1 || chips[0] != "UI" {
+		t.Errorf("expected chip 'UI', got %v", chips)
+	}
+
+	// Should return batch with ChipAddedMsg AND TabMsg
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+	msg := cmd()
+	if batchMsg, ok := msg.(tea.BatchMsg); ok {
+		foundChipAdded := false
+		foundTabMsg := false
+		for _, c := range batchMsg {
+			if c != nil {
+				innerMsg := c()
+				if _, ok := innerMsg.(ChipComboBoxChipAddedMsg); ok {
+					foundChipAdded = true
+				}
+				if _, ok := innerMsg.(ChipComboBoxTabMsg); ok {
+					foundTabMsg = true
+				}
+			}
+		}
+		if !foundChipAdded {
+			t.Error("expected ChipComboBoxChipAddedMsg in batch")
+		}
+		if !foundTabMsg {
+			t.Error("expected ChipComboBoxTabMsg in batch (should advance)")
+		}
+	} else {
+		t.Errorf("expected tea.BatchMsg, got %T", msg)
+	}
+}
+
+func TestChipComboBox_EnterSelectedMsg_AddsChipStaysInField(t *testing.T) {
+	cc := NewChipComboBox([]string{"UI", "Bug", "Feature"})
+	cc.Focus()
+
+	// Simulate receiving EnterSelectedMsg
+	cc, cmd := cc.Update(ComboBoxEnterSelectedMsg{Value: "UI", IsNew: false})
+
+	// Chip added
+	if cc.ChipCount() != 1 {
+		t.Errorf("expected 1 chip, got %d", cc.ChipCount())
+	}
+
+	// Should return ChipAddedMsg but NOT TabMsg
+	if cmd == nil {
+		t.Fatal("expected command to be returned")
+	}
+	msg := cmd()
+	// Enter should NOT return a batch with TabMsg
+	if _, ok := msg.(ChipComboBoxChipAddedMsg); !ok {
+		// Check if it's a batch
+		if batchMsg, ok := msg.(tea.BatchMsg); ok {
+			for _, c := range batchMsg {
+				if c != nil {
+					innerMsg := c()
+					if _, ok := innerMsg.(ChipComboBoxTabMsg); ok {
+						t.Error("Enter should NOT return ChipComboBoxTabMsg - should stay in field")
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestChipComboBox_TabSelectedMsg_DuplicateStaysInField(t *testing.T) {
+	cc := NewChipComboBox([]string{"UI", "Bug", "Feature"})
+	cc.Focus()
+	cc.chips.AddChip("UI") // Pre-add chip
+
+	// Tab on duplicate
+	cc, cmd := cc.Update(ComboBoxTabSelectedMsg{Value: "UI", IsNew: false})
+
+	// Still only 1 chip
+	if cc.ChipCount() != 1 {
+		t.Errorf("expected 1 chip (no duplicate added), got %d", cc.ChipCount())
+	}
+
+	// Should return FlashCmd, NOT TabMsg (stay in field)
+	if cmd == nil {
+		t.Fatal("expected command")
+	}
+	msg := cmd()
+	// Should be flash message, not batch with TabMsg
+	if batchMsg, ok := msg.(tea.BatchMsg); ok {
+		for _, c := range batchMsg {
+			if c != nil {
+				innerMsg := c()
+				if _, ok := innerMsg.(ChipComboBoxTabMsg); ok {
+					t.Error("duplicate on Tab should NOT advance - should stay in field")
+				}
+			}
+		}
+	}
+	// Flash index should be set
+	if cc.FlashIndex() != 0 {
+		t.Errorf("expected flashIndex 0, got %d", cc.FlashIndex())
+	}
+}
+
+func TestChipComboBox_TabSelectedMsg_EmptyValueStillAdvances(t *testing.T) {
+	cc := NewChipComboBox([]string{"UI", "Bug"})
+	cc.Focus()
+
+	// Tab with no selection (empty value)
+	cc, cmd := cc.Update(ComboBoxTabSelectedMsg{Value: "", IsNew: false})
+
+	// No chips added
+	if cc.ChipCount() != 0 {
+		t.Errorf("expected 0 chips, got %d", cc.ChipCount())
+	}
+
+	// But Tab signal should still be sent (advance anyway)
+	if cmd == nil {
+		t.Fatal("expected command")
+	}
+	msg := cmd()
+	if _, ok := msg.(ChipComboBoxTabMsg); !ok {
+		t.Errorf("expected ChipComboBoxTabMsg for empty selection, got %T", msg)
+	}
+}
+
+func TestChipComboBox_TabSelectedMsg_NewValueAddedAndAdvances(t *testing.T) {
+	cc := NewChipComboBox([]string{"UI", "Bug"})
+	cc.Focus()
+
+	// Tab with new value (not in options)
+	cc, cmd := cc.Update(ComboBoxTabSelectedMsg{Value: "NewLabel", IsNew: true})
+
+	// Chip added
+	if cc.ChipCount() != 1 {
+		t.Errorf("expected 1 chip, got %d", cc.ChipCount())
+	}
+	chips := cc.GetChips()
+	if len(chips) != 1 || chips[0] != "NewLabel" {
+		t.Errorf("expected chip 'NewLabel', got %v", chips)
+	}
+
+	// Should include both ChipAddedMsg with IsNew: true and TabMsg
+	if cmd == nil {
+		t.Fatal("expected command")
+	}
+	msg := cmd()
+	if batchMsg, ok := msg.(tea.BatchMsg); ok {
+		foundChipAdded := false
+		foundTabMsg := false
+		for _, c := range batchMsg {
+			if c != nil {
+				innerMsg := c()
+				if addedMsg, ok := innerMsg.(ChipComboBoxChipAddedMsg); ok {
+					foundChipAdded = true
+					if !addedMsg.IsNew {
+						t.Error("expected IsNew to be true for new value")
+					}
+				}
+				if _, ok := innerMsg.(ChipComboBoxTabMsg); ok {
+					foundTabMsg = true
+				}
+			}
+		}
+		if !foundChipAdded {
+			t.Error("expected ChipComboBoxChipAddedMsg in batch")
+		}
+		if !foundTabMsg {
+			t.Error("expected ChipComboBoxTabMsg in batch")
+		}
+	}
+}
+
+func TestChipComboBox_Tab_RawInputWhenDropdownClosed(t *testing.T) {
+	cc := NewChipComboBox([]string{"UI", "Bug"})
+	cc.Focus()
+
+	// Manually set raw input without opening dropdown
+	cc.combo.SetValue("Backend")
+
+	// Press Tab directly (dropdown closed path)
+	cc, cmd := cc.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+	// Chip added from raw input
+	if cc.ChipCount() != 1 {
+		t.Errorf("expected 1 chip after Tab with raw input, got %d", cc.ChipCount())
+	}
+	chips := cc.GetChips()
+	if len(chips) != 1 || chips[0] != "Backend" {
+		t.Errorf("expected chip 'Backend', got %v", chips)
+	}
+
+	// Tab signal should be in batch
+	if cmd == nil {
+		t.Fatal("expected command")
+	}
+	msg := cmd()
+	if batchMsg, ok := msg.(tea.BatchMsg); ok {
+		foundTabMsg := false
+		for _, c := range batchMsg {
+			if c != nil {
+				innerMsg := c()
+				if _, ok := innerMsg.(ChipComboBoxTabMsg); ok {
+					foundTabMsg = true
+				}
+			}
+		}
+		if !foundTabMsg {
+			t.Error("expected ChipComboBoxTabMsg in batch")
+		}
+	}
+}
+
+func TestChipComboBox_Tab_DuplicateRawInputStaysInField(t *testing.T) {
+	cc := NewChipComboBox([]string{"UI", "Bug"})
+	cc.Focus()
+	cc.chips.AddChip("Backend")
+
+	// Manually set raw input to duplicate without opening dropdown
+	cc.combo.SetValue("Backend")
+
+	// Press Tab directly (dropdown closed path)
+	cc, cmd := cc.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+	// Still only 1 chip
+	if cc.ChipCount() != 1 {
+		t.Errorf("expected 1 chip (no duplicate), got %d", cc.ChipCount())
+	}
+
+	// Should NOT advance (flash instead)
+	if cmd == nil {
+		t.Fatal("expected command")
+	}
+	msg := cmd()
+	if batchMsg, ok := msg.(tea.BatchMsg); ok {
+		for _, c := range batchMsg {
+			if c != nil {
+				innerMsg := c()
+				if _, ok := innerMsg.(ChipComboBoxTabMsg); ok {
+					t.Error("duplicate on raw Tab should NOT advance")
+				}
+			}
+		}
+	}
+	// Flash should be set
+	if cc.FlashIndex() != 0 {
+		t.Errorf("expected flashIndex 0, got %d", cc.FlashIndex())
 	}
 }

@@ -69,7 +69,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.activeOverlay = OverlayNone
 		m.labelsOverlay = nil
 		return m, nil
-	case ComboBoxValueSelectedMsg:
+	case ComboBoxEnterSelectedMsg, ComboBoxTabSelectedMsg:
 		// Route to labelsOverlay if active (for adding chips)
 		if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
 			var labelCmd tea.Cmd

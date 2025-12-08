@@ -215,9 +215,9 @@ func TestComboBoxSelection(t *testing.T) {
 			t.Fatal("expected command to be returned")
 		}
 		msg := cmd()
-		selected, ok := msg.(ComboBoxValueSelectedMsg)
+		selected, ok := msg.(ComboBoxEnterSelectedMsg)
 		if !ok {
-			t.Fatalf("expected ComboBoxValueSelectedMsg, got %T", msg)
+			t.Fatalf("expected ComboBoxEnterSelectedMsg, got %T", msg)
 		}
 		if selected.Value != "Bob" {
 			t.Errorf("expected selected value 'Bob', got '%s'", selected.Value)
@@ -251,7 +251,7 @@ func TestComboBoxSelection(t *testing.T) {
 		// Navigate to Bob
 		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
 
-		// Press Tab - should return ComboBoxValueSelectedMsg
+		// Press Tab - should return ComboBoxTabSelectedMsg
 		var cmd tea.Cmd
 		cb, cmd = cb.Update(tea.KeyMsg{Type: tea.KeyTab})
 
@@ -262,9 +262,9 @@ func TestComboBoxSelection(t *testing.T) {
 			t.Fatal("expected command to be returned from Tab")
 		}
 		msg := cmd()
-		selected, ok := msg.(ComboBoxValueSelectedMsg)
+		selected, ok := msg.(ComboBoxTabSelectedMsg)
 		if !ok {
-			t.Fatalf("expected ComboBoxValueSelectedMsg, got %T", msg)
+			t.Fatalf("expected ComboBoxTabSelectedMsg, got %T", msg)
 		}
 		if selected.Value != "Bob" {
 			t.Errorf("expected selected value 'Bob', got '%s'", selected.Value)
@@ -290,9 +290,9 @@ func TestComboBoxSelection(t *testing.T) {
 			t.Fatal("expected command to be returned")
 		}
 		msg := cmd()
-		selected, ok := msg.(ComboBoxValueSelectedMsg)
+		selected, ok := msg.(ComboBoxTabSelectedMsg)
 		if !ok {
-			t.Fatalf("expected ComboBoxValueSelectedMsg, got %T", msg)
+			t.Fatalf("expected ComboBoxTabSelectedMsg, got %T", msg)
 		}
 		if selected.IsNew {
 			t.Error("expected IsNew to be false for existing option")
@@ -320,9 +320,9 @@ func TestComboBoxSelection(t *testing.T) {
 			t.Fatal("expected command to be returned")
 		}
 		msg := cmd()
-		selected, ok := msg.(ComboBoxValueSelectedMsg)
+		selected, ok := msg.(ComboBoxTabSelectedMsg)
 		if !ok {
-			t.Fatalf("expected ComboBoxValueSelectedMsg, got %T", msg)
+			t.Fatalf("expected ComboBoxTabSelectedMsg, got %T", msg)
 		}
 		if !selected.IsNew {
 			t.Error("expected IsNew to be true for new value")
@@ -553,9 +553,9 @@ func TestComboBoxAllowNew(t *testing.T) {
 			t.Fatal("expected command")
 		}
 		msg := cmd()
-		selected, ok := msg.(ComboBoxValueSelectedMsg)
+		selected, ok := msg.(ComboBoxEnterSelectedMsg)
 		if !ok {
-			t.Fatalf("expected ComboBoxValueSelectedMsg, got %T", msg)
+			t.Fatalf("expected ComboBoxEnterSelectedMsg, got %T", msg)
 		}
 		if !selected.IsNew {
 			t.Error("expected IsNew to be true")

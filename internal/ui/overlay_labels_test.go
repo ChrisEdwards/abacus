@@ -236,7 +236,7 @@ func TestLabelsOverlay_EnterSelectsBeforeConfirm(t *testing.T) {
 
 	// Press Enter - this should:
 	// 1. Select "UI" in the ComboBox (set value, transition to Idle)
-	// 2. Return a cmd that produces ComboBoxValueSelectedMsg
+	// 2. Return a cmd that produces ComboBoxEnterSelectedMsg
 	// 3. NOT confirm the overlay (that would send LabelsUpdatedMsg)
 	overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
@@ -265,25 +265,25 @@ func TestLabelsOverlay_EnterSelectsBeforeConfirm(t *testing.T) {
 		for _, c := range batchMsg {
 			if c != nil {
 				innerMsg := c()
-				if vsm, ok := innerMsg.(ComboBoxValueSelectedMsg); ok {
+				if vsm, ok := innerMsg.(ComboBoxEnterSelectedMsg); ok {
 					foundValueSelected = true
 					if vsm.Value != "UI" {
-						t.Errorf("expected ComboBoxValueSelectedMsg.Value='UI', got '%s'", vsm.Value)
+						t.Errorf("expected ComboBoxEnterSelectedMsg.Value='UI', got '%s'", vsm.Value)
 					}
 				}
 				overlay, _ = overlay.Update(innerMsg)
 			}
 		}
-	} else if vsm, ok := msg.(ComboBoxValueSelectedMsg); ok {
+	} else if vsm, ok := msg.(ComboBoxEnterSelectedMsg); ok {
 		foundValueSelected = true
 		if vsm.Value != "UI" {
-			t.Errorf("expected ComboBoxValueSelectedMsg.Value='UI', got '%s'", vsm.Value)
+			t.Errorf("expected ComboBoxEnterSelectedMsg.Value='UI', got '%s'", vsm.Value)
 		}
 		overlay, _ = overlay.Update(msg)
 	}
 
 	if !foundValueSelected {
-		t.Error("expected ComboBoxValueSelectedMsg to be in the cmd result")
+		t.Error("expected ComboBoxEnterSelectedMsg to be in the cmd result")
 	}
 
 	// Now should have chip
@@ -309,7 +309,7 @@ func TestLabelsOverlay_EnterSelectsBeforeConfirm(t *testing.T) {
 
 func TestLabelsOverlay_SimulateAppMessageFlow(t *testing.T) {
 	// This test simulates how the App routes messages more accurately
-	// The App receives KeyMsg, returns cmd, then receives ComboBoxValueSelectedMsg separately
+	// The App receives KeyMsg, returns cmd, then receives ComboBoxEnterSelectedMsg separately
 	overlay := NewLabelsOverlay("test-123", "Test", []string{}, []string{"build", "UI", "ui-redesign"})
 	overlay.chipCombo.Focus()
 
@@ -344,15 +344,15 @@ func TestLabelsOverlay_SimulateAppMessageFlow(t *testing.T) {
 	// Now simulate what Bubble Tea does:
 	// 1. Execute the cmd
 	// 2. Dispatch resulting messages to App.Update
-	// 3. App.Update routes ComboBoxValueSelectedMsg to overlay
+	// 3. App.Update routes ComboBoxEnterSelectedMsg to overlay
 	msg := cmd()
 	t.Logf("cmd() returned type: %T", msg)
 
 	// Process batch if returned
 	processMsg := func(m tea.Msg) {
 		switch m := m.(type) {
-		case ComboBoxValueSelectedMsg:
-			t.Logf("Processing ComboBoxValueSelectedMsg: Value=%q, IsNew=%v", m.Value, m.IsNew)
+		case ComboBoxEnterSelectedMsg:
+			t.Logf("Processing ComboBoxEnterSelectedMsg: Value=%q, IsNew=%v", m.Value, m.IsNew)
 			// This is what App.Update does - route to overlay
 			overlay, _ = overlay.Update(m)
 		default:
@@ -408,7 +408,7 @@ func TestLabelsOverlay_ChipVisibleAfterEnter(t *testing.T) {
 	// Process the cmd
 	if cmd != nil {
 		msg := cmd()
-		if vsm, ok := msg.(ComboBoxValueSelectedMsg); ok {
+		if vsm, ok := msg.(ComboBoxEnterSelectedMsg); ok {
 			overlay, _ = overlay.Update(vsm)
 		}
 	}
@@ -637,11 +637,11 @@ func TestLabelsOverlay_TwoFastEnters(t *testing.T) {
 		}
 	}
 
-	// Now process cmd1 (the ComboBoxValueSelectedMsg)
+	// Now process cmd1 (the ComboBoxEnterSelectedMsg)
 	if cmd1 != nil {
 		msg := cmd1()
 		t.Logf("cmd1 returned: %T", msg)
-		if vsm, ok := msg.(ComboBoxValueSelectedMsg); ok {
+		if vsm, ok := msg.(ComboBoxEnterSelectedMsg); ok {
 			overlay, _ = overlay.Update(vsm)
 			t.Logf("After processing cmd1: chips=%v, inputValue=%q, isIdle=%v",
 				overlay.GetChips(), overlay.chipCombo.InputValue(), overlay.IsIdle())

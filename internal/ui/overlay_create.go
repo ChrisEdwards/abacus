@@ -335,7 +335,23 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 		}
 		return m, nil
 
-	case ComboBoxValueSelectedMsg:
+	case ComboBoxEnterSelectedMsg:
+		// Forward to labelsCombo if in FocusLabels mode (to add chip)
+		if m.focus == FocusLabels {
+			var cmd tea.Cmd
+			m.labelsCombo, cmd = m.labelsCombo.Update(msg)
+			return m, cmd
+		}
+		// Assignee combo - check if new assignee was created
+		if m.focus == FocusAssignee && msg.IsNew {
+			return m, func() tea.Msg {
+				return NewAssigneeAddedMsg{Assignee: msg.Value}
+			}
+		}
+		// Parent combo - no special action needed
+		return m, nil
+
+	case ComboBoxTabSelectedMsg:
 		// Forward to labelsCombo if in FocusLabels mode (to add chip)
 		if m.focus == FocusLabels {
 			var cmd tea.Cmd
@@ -503,7 +519,7 @@ func (m *CreateOverlay) handleTab() (*CreateOverlay, tea.Cmd) {
 		// (focus will have moved by the time the msg would normally be processed)
 		if cmd != nil {
 			msg := cmd()
-			if vsm, ok := msg.(ComboBoxValueSelectedMsg); ok && vsm.IsNew {
+			if vsm, ok := msg.(ComboBoxTabSelectedMsg); ok && vsm.IsNew {
 				cmds = append(cmds, func() tea.Msg {
 					return NewAssigneeAddedMsg{Assignee: vsm.Value}
 				})

@@ -111,9 +111,13 @@ func (c ChipComboBox) Update(msg tea.Msg) (ChipComboBox, tea.Cmd) {
 		// Pass through the message
 		return c, func() tea.Msg { return msg }
 
-	case ComboBoxValueSelectedMsg:
-		// Value selected from dropdown
-		return c.handleSelection(msg)
+	case ComboBoxEnterSelectedMsg:
+		// Enter: add chip, stay in field
+		return c.handleEnterSelection(msg.Value, msg.IsNew)
+
+	case ComboBoxTabSelectedMsg:
+		// Tab: add chip, then advance field
+		return c.handleTabSelection(msg.Value, msg.IsNew)
 	}
 
 	// If in chip nav mode, route to ChipList
@@ -153,76 +157,95 @@ func (c ChipComboBox) Update(msg tea.Msg) (ChipComboBox, tea.Cmd) {
 	return c, tea.Batch(cmds...)
 }
 
-func (c ChipComboBox) handleSelection(msg ComboBoxValueSelectedMsg) (ChipComboBox, tea.Cmd) {
-	label := msg.Value
-	if label == "" {
+// handleEnterSelection adds a chip and stays in the field.
+func (c ChipComboBox) handleEnterSelection(value string, isNew bool) (ChipComboBox, tea.Cmd) {
+	if value == "" {
 		return c, nil
 	}
 
-	// Check for duplicate
-	if c.chips.Contains(label) {
-		// Trigger flash, don't add
-		c.chips.AddChip(label) // Returns false, sets flashIndex
+	// Duplicate - flash, stay in field
+	if c.chips.Contains(value) {
+		c.chips.AddChip(value) // Sets flashIndex
 		c.combo.SetValue("")
 		return c, FlashCmd()
 	}
 
-	// Add chip
-	c.chips.AddChip(label)
+	// Add chip, stay in field
+	c.chips.AddChip(value)
 	c.combo.SetValue("")
 	c.updateAvailableOptions()
-
 	return c, func() tea.Msg {
-		return ChipComboBoxChipAddedMsg{Label: label, IsNew: msg.IsNew}
+		return ChipComboBoxChipAddedMsg{Label: value, IsNew: isNew}
 	}
 }
 
-func (c ChipComboBox) handleTab() (ChipComboBox, tea.Cmd) {
-	var cmds []tea.Cmd
+// handleTabSelection adds a chip and advances to next field.
+// Exception: duplicates stay in field (error state).
+func (c ChipComboBox) handleTabSelection(value string, isNew bool) (ChipComboBox, tea.Cmd) {
+	if value == "" {
+		// No selection - still advance field
+		return c, func() tea.Msg { return ChipComboBoxTabMsg{} }
+	}
 
-	// If dropdown is open, forward Tab to ComboBox to select highlighted item
-	// This handles ghost text completion correctly
+	// Duplicate - flash, DON'T advance (user needs to fix)
+	if c.chips.Contains(value) {
+		c.chips.AddChip(value) // Sets flashIndex
+		c.combo.SetValue("")
+		return c, FlashCmd() // No TabMsg - stay in field
+	}
+
+	// Add chip AND advance field
+	c.chips.AddChip(value)
+	c.combo.SetValue("")
+	c.updateAvailableOptions()
+	return c, tea.Batch(
+		func() tea.Msg { return ChipComboBoxChipAddedMsg{Label: value, IsNew: isNew} },
+		func() tea.Msg { return ChipComboBoxTabMsg{} },
+	)
+}
+
+func (c ChipComboBox) handleTab() (ChipComboBox, tea.Cmd) {
+	// If dropdown is open, forward Tab to ComboBox
+	// ComboBox will send ComboBoxTabSelectedMsg
+	// which is handled by handleTabSelection()
 	if c.combo.IsDropdownOpen() {
-		// Forward Tab to ComboBox which will call selectHighlightedOrNew()
 		var cmd tea.Cmd
 		c.combo, cmd = c.combo.Update(tea.KeyMsg{Type: tea.KeyTab})
 		if cmd != nil {
-			cmds = append(cmds, cmd)
+			return c, cmd // Let ComboBoxTabSelectedMsg flow through
 		}
-		// Signal move to next field
-		cmds = append(cmds, func() tea.Msg { return ChipComboBoxTabMsg{} })
-		return c, tea.Batch(cmds...)
+		// No selection possible - signal Tab immediately
+		return c, func() tea.Msg { return ChipComboBoxTabMsg{} }
 	}
 
-	// Dropdown closed - if there's text in the input, try to add it as a chip
+	// Dropdown closed - handle raw input text
 	inputVal := strings.TrimSpace(c.combo.InputValue())
 	if inputVal != "" {
-		// Check for duplicate
+		// Duplicate check
 		if c.chips.Contains(inputVal) {
 			c.chips.AddChip(inputVal) // Flash
 			c.combo.SetValue("")
-			cmds = append(cmds, FlashCmd())
-		} else {
-			// Determine if it's a new value
-			isNew := true
-			for _, opt := range c.allOptions {
-				if strings.EqualFold(opt, inputVal) {
-					isNew = false
-					break
-				}
-			}
-			c.chips.AddChip(inputVal)
-			c.combo.SetValue("")
-			c.updateAvailableOptions()
-			cmds = append(cmds, func() tea.Msg {
-				return ChipComboBoxChipAddedMsg{Label: inputVal, IsNew: isNew}
-			})
+			return c, FlashCmd() // Stay in field
 		}
+		// Add chip and advance
+		isNew := true
+		for _, opt := range c.allOptions {
+			if strings.EqualFold(opt, inputVal) {
+				isNew = false
+				break
+			}
+		}
+		c.chips.AddChip(inputVal)
+		c.combo.SetValue("")
+		c.updateAvailableOptions()
+		return c, tea.Batch(
+			func() tea.Msg { return ChipComboBoxChipAddedMsg{Label: inputVal, IsNew: isNew} },
+			func() tea.Msg { return ChipComboBoxTabMsg{} },
+		)
 	}
 
-	// Signal move to next field
-	cmds = append(cmds, func() tea.Msg { return ChipComboBoxTabMsg{} })
-	return c, tea.Batch(cmds...)
+	// No input - just advance
+	return c, func() tea.Msg { return ChipComboBoxTabMsg{} }
 }
 
 func (c *ChipComboBox) updateAvailableOptions() {

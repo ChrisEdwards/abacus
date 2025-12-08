@@ -84,7 +84,7 @@ func (m *LabelsOverlay) Update(msg tea.Msg) (*LabelsOverlay, tea.Cmd) {
 		m.chipCombo, _ = m.chipCombo.Update(msg)
 		return m, nil
 
-	case ComboBoxValueSelectedMsg:
+	case ComboBoxEnterSelectedMsg, ComboBoxTabSelectedMsg:
 		// Forward to chipCombo to add as chip
 		var cmd tea.Cmd
 		m.chipCombo, cmd = m.chipCombo.Update(msg)
