@@ -3659,3 +3659,51 @@ func TestViewModeKeyHandler(t *testing.T) {
 		t.Errorf("expected ViewModeAll after pressing 'V', got %v", app.viewMode)
 	}
 }
+
+func TestTickAlwaysReschedules(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(*App)
+	}{
+		{
+			name:  "normal state",
+			setup: func(app *App) {},
+		},
+		{
+			name: "autoRefresh disabled",
+			setup: func(app *App) {
+				app.autoRefresh = false
+			},
+		},
+		{
+			name: "refresh in flight",
+			setup: func(app *App) {
+				app.refreshInFlight = true
+			},
+		},
+		{
+			name: "db path empty",
+			setup: func(app *App) {
+				app.dbPath = ""
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := &App{
+				refreshInterval: 3 * time.Second,
+				autoRefresh:     true,
+				dbPath:          "/nonexistent/path",
+				keys:            DefaultKeyMap(),
+			}
+			tt.setup(app)
+
+			_, cmd := app.Update(tickMsg{})
+
+			if cmd == nil {
+				t.Fatalf("tick must always reschedule, got nil command")
+			}
+		})
+	}
+}

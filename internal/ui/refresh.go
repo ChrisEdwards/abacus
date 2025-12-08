@@ -37,30 +37,22 @@ func refreshDataCmd(client beads.Client, targetModTime time.Time) tea.Cmd {
 	}
 }
 
-const maxRefreshFailures = 10 // Disable after 10 consecutive failures (~30 seconds)
-
 func (m *App) checkDBForChanges() tea.Cmd {
 	if m.refreshInFlight || m.dbPath == "" {
 		return nil
 	}
+
 	info, err := os.Stat(m.dbPath)
 	if err != nil {
-		m.refreshFailures++
-		// Only disable after many consecutive failures
-		if m.refreshFailures >= maxRefreshFailures {
-			m.autoRefresh = false
-			m.lastRefreshStats = fmt.Sprintf("refresh disabled: %v (after %d failures)", err, m.refreshFailures)
-		} else {
-			m.lastRefreshStats = fmt.Sprintf("refresh error (%d/%d): %v", m.refreshFailures, maxRefreshFailures, err)
-		}
-		m.lastRefreshTime = time.Now()
-		return nil
+		m.lastError = fmt.Sprintf("refresh check failed: %v", err)
+		m.lastRefreshStats = "refresh error"
+		return nil // Try again next tick
 	}
-	// Reset failure count on success
-	m.refreshFailures = 0
+
 	if !info.ModTime().After(m.lastDBModTime) {
 		return nil
 	}
+
 	return m.startRefresh(info.ModTime())
 }
 
