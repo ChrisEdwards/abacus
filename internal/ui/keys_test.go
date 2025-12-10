@@ -92,6 +92,12 @@ func TestDefaultKeyMap(t *testing.T) {
 			t.Error("expected n to match NewRootBead binding")
 		}
 	})
+
+	t.Run("EditBinding", func(t *testing.T) {
+		if !key.Matches(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}, km.Edit) {
+			t.Error("expected e to match Edit binding")
+		}
+	})
 }
 
 func TestKeyBindingsHaveHelpText(t *testing.T) {
@@ -123,6 +129,7 @@ func TestKeyBindingsHaveHelpText(t *testing.T) {
 		{"Backspace", km.Backspace},
 		{"NewBead", km.NewBead},
 		{"NewRootBead", km.NewRootBead},
+		{"Edit", km.Edit},
 	}
 
 	for _, b := range bindings {

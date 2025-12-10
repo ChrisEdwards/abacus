@@ -3218,6 +3218,48 @@ func TestToastRendering(t *testing.T) {
 			t.Error("expected nil layer when toast has timed out")
 		}
 	})
+
+	t.Run("RenderUpdateToastShowsUpdatedLabel", func(t *testing.T) {
+		app := &App{
+			createToastVisible:  true,
+			createToastBeadID:   "ab-123",
+			createToastTitle:    "",
+			createToastStart:    time.Now(),
+			createToastIsUpdate: true,
+		}
+
+		layer := app.createToastLayer(80, 24, 2, 10)
+		if layer == nil {
+			t.Fatal("expected update toast layer")
+		}
+		canvas := layer.Render()
+		if canvas == nil {
+			t.Fatal("expected canvas from update toast layer")
+		}
+		output := canvas.Render()
+		if !strings.Contains(output, "Updated") {
+			t.Errorf("expected toast to contain 'Updated', got: %s", output)
+		}
+		if !strings.Contains(output, "ab-123") {
+			t.Errorf("expected toast to contain bead ID, got: %s", output)
+		}
+		if !strings.Contains(output, "[") {
+			t.Errorf("expected toast to show countdown, got: %s", output)
+		}
+	})
+
+	t.Run("RenderUpdateToastTimeoutHidesLayer", func(t *testing.T) {
+		app := &App{
+			createToastVisible:  true,
+			createToastBeadID:   "ab-123",
+			createToastStart:    time.Now().Add(-8 * time.Second),
+			createToastIsUpdate: true,
+		}
+
+		if layer := app.createToastLayer(80, 24, 2, 10); layer != nil {
+			t.Error("expected nil update toast layer after timeout")
+		}
+	})
 }
 
 // Tests for ab-8sgz: Disable global hotkeys when entering text

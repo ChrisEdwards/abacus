@@ -1,13 +1,13 @@
 package ui
 
 import (
+	"abacus/internal/beads"
+	"abacus/internal/ui/theme"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 	"time"
-
-	"abacus/internal/ui/theme"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -119,6 +119,10 @@ func inferTypeFromTitle(title string) int {
 // CreateOverlay is a 5-zone HUD for creating a new bead.
 // See docs/CREATE_BEAD_SPEC.md Section 3 for zone layout.
 type CreateOverlay struct {
+	editingBead *beads.FullIssue // nil = create mode, non-nil = edit mode
+	// Track original parent for edits to manage dependencies
+	editingBeadParentID string
+
 	// Focus management
 	focus CreateFocus
 
@@ -206,8 +210,8 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 	ti.Prompt = ""
 	ti.ShowLineNumbers = false
 	ti.CharLimit = 100
-	ti.SetWidth(titleContentWidth) // Content width inside border+padding
-	ti.SetHeight(1)                // Start as single line, expands dynamically
+	ti.SetWidth(titleContentWidth)            // Content width inside border+padding
+	ti.SetHeight(1)                           // Start as single line, expands dynamically
 	ti.KeyMap.InsertNewline.SetEnabled(false) // Enter submits instead of inserting newlines
 
 	// Zone 2b: Description textarea (multi-line, 5 lines visible)
@@ -226,7 +230,7 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 	parentCombo := NewComboBox(parentDisplays).
 		WithWidth(44).
 		WithMaxVisible(5).
-		WithPlaceholder("type to search...")
+		WithPlaceholder("No Parent (Root Item)")
 
 	// Pre-select parent if default exists and not root mode
 	parentOriginal := "" // Track original value for Esc revert
@@ -281,6 +285,67 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 	}
 
 	return m
+}
+
+// NewEditOverlay creates a CreateOverlay pre-populated with existing bead data.
+func NewEditOverlay(bead *beads.FullIssue, opts CreateOverlayOptions) *CreateOverlay {
+	m := NewCreateOverlay(opts)
+	m.editingBead = bead
+	m.editingBeadParentID = opts.DefaultParentID
+	// Edit mode should always show parent picker, even for roots.
+	m.isRootMode = false
+	m.parentCombo.SetValue("")
+	m.parentOriginal = ""
+
+	m.titleInput.SetValue(bead.Title)
+	m.descriptionInput.SetValue(bead.Description)
+	m.typeIndex = typeIndexFromString(bead.IssueType)
+	m.priorityIndex = bead.Priority
+	m.typeManuallySet = true
+
+	// Pre-select parent and track original for Esc revert
+	if beadParent := opts.DefaultParentID; beadParent != "" && !opts.IsRootMode {
+		for _, p := range opts.AvailableParents {
+			if p.ID == beadParent {
+				m.parentCombo.SetValue(p.Display)
+				m.parentOriginal = p.Display
+				break
+			}
+		}
+	}
+
+	// Pre-select labels
+	m.labelsCombo.SetChips(append([]string{}, bead.Labels...))
+
+	// Pre-select assignee (empty string maps to Unassigned placeholder)
+	if bead.Assignee != "" {
+		m.assigneeCombo.SetValue(bead.Assignee)
+	} else {
+		m.assigneeCombo.SetValue("Unassigned")
+	}
+
+	return m
+}
+
+// isEditMode returns true when the overlay is editing an existing bead.
+func (m *CreateOverlay) isEditMode() bool {
+	return m.editingBead != nil
+}
+
+// header returns the overlay header text based on mode.
+func (m *CreateOverlay) header() string {
+	if m.isEditMode() {
+		return fmt.Sprintf("EDIT: %s", m.editingBead.ID)
+	}
+	return "NEW BEAD"
+}
+
+// submitFooterText returns the action verb for the footer (Create/Save).
+func (m *CreateOverlay) submitFooterText() string {
+	if m.isEditMode() {
+		return "Save"
+	}
+	return "Create"
 }
 
 // Init implements tea.Model.
@@ -463,6 +528,11 @@ func (m *CreateOverlay) handleSubmit(stayOpen bool) (*CreateOverlay, tea.Cmd) {
 	// Set creating state for footer (spec Section 4.1)
 	m.isCreating = true
 
+	if m.isEditMode() {
+		// Edit mode ignores bulk entry; always closes via update handling.
+		return m, m.submitEdit()
+	}
+
 	if stayOpen {
 		// Bulk entry mode: submit and prepare for next entry (spec Section 4.3)
 		return m, tea.Batch(
@@ -481,7 +551,7 @@ func (m *CreateOverlay) handleTab() (*CreateOverlay, tea.Cmd) {
 	// Close parent dropdown (assignee is handled in its case to allow Tab commit)
 	m.parentCombo.Blur()
 
-	// Tab order: Title -> Description -> Type -> Priority -> Labels -> Assignee -> (wrap to Title)
+	// Tab order: Title -> Description -> (Type on create) -> Priority -> Labels -> Assignee -> (wrap to Title)
 	switch m.focus {
 	case FocusParent:
 		m.focus = FocusTitle
@@ -492,7 +562,11 @@ func (m *CreateOverlay) handleTab() (*CreateOverlay, tea.Cmd) {
 		cmds = append(cmds, m.descriptionInput.Focus())
 	case FocusDescription:
 		m.descriptionInput.Blur()
-		m.focus = FocusType
+		if m.isEditMode() {
+			m.focus = FocusPriority
+		} else {
+			m.focus = FocusType
+		}
 	case FocusType:
 		m.focus = FocusPriority
 	case FocusPriority:
@@ -557,7 +631,12 @@ func (m *CreateOverlay) handleShiftTab() (*CreateOverlay, tea.Cmd) {
 		m.focus = FocusDescription
 		cmds = append(cmds, m.descriptionInput.Focus())
 	case FocusPriority:
-		m.focus = FocusType
+		if m.isEditMode() {
+			m.focus = FocusDescription
+			cmds = append(cmds, m.descriptionInput.Focus())
+		} else {
+			m.focus = FocusType
+		}
 	case FocusLabels:
 		m.focus = FocusPriority
 	case FocusAssignee:
@@ -805,15 +884,6 @@ func (m *CreateOverlay) submitWithMode(stayOpen bool) tea.Cmd {
 			}
 		}
 
-		// Get assignee (empty string if "Unassigned", extract username from "Me (username)")
-		assignee := m.assigneeCombo.Value()
-		if assignee == "Unassigned" {
-			assignee = ""
-		} else if strings.HasPrefix(assignee, "Me (") && strings.HasSuffix(assignee, ")") {
-			// Extract username from "Me (username)" format
-			assignee = strings.TrimSuffix(strings.TrimPrefix(assignee, "Me ("), ")")
-		}
-
 		return BeadCreatedMsg{
 			Title:       strings.TrimSpace(m.titleInput.Value()),
 			Description: strings.TrimSpace(m.descriptionInput.Value()),
@@ -821,7 +891,7 @@ func (m *CreateOverlay) submitWithMode(stayOpen bool) tea.Cmd {
 			Priority:    m.priorityIndex,
 			ParentID:    parentID,
 			Labels:      m.labelsCombo.GetChips(),
-			Assignee:    assignee,
+			Assignee:    m.getAssigneeValue(),
 			StayOpen:    stayOpen,
 		}
 	}
@@ -924,7 +994,7 @@ func (m *CreateOverlay) View() string {
 	parentSearchActive := m.parentCombo.IsDropdownOpen()
 
 	// Header
-	title := styleHelpTitle().Render("NEW BEAD")
+	title := styleHelpTitle().Render(m.header())
 	divider := styleHelpDivider().Render(strings.Repeat("─", 52))
 
 	b.WriteString(title)
@@ -942,13 +1012,12 @@ func (m *CreateOverlay) View() string {
 	b.WriteString(hintStyle.Render("                                    Shift+Tab"))
 	b.WriteString("\n")
 
-	// Parent combo box or root indicator
-	if m.isRootMode && m.parentCombo.Value() == "" {
-		rootStyle := lipgloss.NewStyle().Foreground(theme.Current().Primary())
-		b.WriteString(styleCreateInput().Render(rootStyle.Render("◇ No Parent (Root Item)")))
-	} else {
-		b.WriteString(m.parentCombo.View())
+	// Parent combo box (always editable; placeholder shows root state)
+	// Update placeholder to communicate root state when empty
+	if m.parentCombo.Value() == "" {
+		m.parentCombo = m.parentCombo.WithPlaceholder("No Parent (Root Item)")
 	}
+	b.WriteString(m.parentCombo.View())
 	b.WriteString("\n\n")
 
 	// Zone 2: Title (hero element) - dimmed when parent search active
@@ -1002,11 +1071,18 @@ func (m *CreateOverlay) View() string {
 	b.WriteString("\n\n")
 
 	// Zone 3: Type and Priority (vertical stack with horizontal options) - dimmed when parent search active
-	propsGrid := lipgloss.JoinVertical(lipgloss.Left,
-		m.renderTypeRow(),
-		"", // Spacing line
-		m.renderPriorityRow(),
-	)
+	var propsGrid string
+	if m.isEditMode() {
+		propsGrid = lipgloss.JoinVertical(lipgloss.Left,
+			m.renderPriorityRow(),
+		)
+	} else {
+		propsGrid = lipgloss.JoinVertical(lipgloss.Left,
+			m.renderTypeRow(),
+			"", // Spacing line
+			m.renderPriorityRow(),
+		)
+	}
 	if parentSearchActive {
 		propsGrid = styleCreateDimmed().Render(propsGrid)
 	}
@@ -1226,15 +1302,20 @@ func (m *CreateOverlay) renderFooter() string {
 		// Combo box field focused (but dropdown closed): show browse hint
 		hints = []footerHint{
 			{"↓", "Browse"},
-			{"⏎", "Create"},
+			{"⏎", m.submitFooterText()},
 			{"Tab", "Next"},
 			{"esc", "Cancel"},
 		}
 	default:
+		primary := m.submitFooterText()
+		bulk := "Create+Add"
+		if m.isEditMode() {
+			bulk = primary
+		}
 		// Default state: Title, Type, Priority fields
 		hints = []footerHint{
-			{"⏎", "Create"},
-			{"^⏎", "Create+Add"},
+			{"⏎", primary},
+			{"^⏎", bulk},
 			{"Tab", "Next"},
 			{"esc", "Cancel"},
 		}
@@ -1246,6 +1327,64 @@ func (m *CreateOverlay) renderFooter() string {
 		parts = append(parts, keyPill(h.key, h.desc))
 	}
 	return strings.Join(parts, "  ")
+}
+
+// BeadUpdatedMsg is sent when edit form is submitted.
+type BeadUpdatedMsg struct {
+	ID               string
+	Title            string
+	Description      string
+	IssueType        string
+	Priority         int
+	ParentID         string
+	OriginalParentID string
+	Labels           []string
+	Assignee         string
+}
+
+// submitEdit packages the current form values for update.
+func (m *CreateOverlay) submitEdit() tea.Cmd {
+	return func() tea.Msg {
+		return BeadUpdatedMsg{
+			ID:          m.editingBead.ID,
+			Title:       strings.TrimSpace(m.titleInput.Value()),
+			Description: strings.TrimSpace(m.descriptionInput.Value()),
+			IssueType:   typeOptions[m.typeIndex],
+			Priority:    m.priorityIndex,
+			ParentID:    m.ParentID(),
+			OriginalParentID: func() string {
+				if m.isEditMode() {
+					return m.editingBeadParentID
+				}
+				return ""
+			}(),
+			Labels:   m.labelsCombo.GetChips(),
+			Assignee: m.getAssigneeValue(),
+		}
+	}
+}
+
+// getAssigneeValue returns a normalized assignee string for submission.
+func (m *CreateOverlay) getAssigneeValue() string {
+	assignee := m.assigneeCombo.Value()
+	if assignee == "Unassigned" {
+		return ""
+	}
+	if strings.HasPrefix(assignee, "Me (") && strings.HasSuffix(assignee, ")") {
+		return strings.TrimSuffix(strings.TrimPrefix(assignee, "Me ("), ")")
+	}
+	return assignee
+}
+
+// typeIndexFromString converts an issue type to the corresponding index in typeOptions.
+// Returns 0 (task) as a safe default for unknown values.
+func typeIndexFromString(issueType string) int {
+	for i, t := range typeOptions {
+		if t == issueType {
+			return i
+		}
+	}
+	return 0
 }
 
 // Title returns the current title value.

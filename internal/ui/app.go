@@ -158,10 +158,11 @@ type App struct {
 	labelsToastBeadID  string
 
 	// Create toast state
-	createToastVisible bool
-	createToastStart   time.Time
-	createToastBeadID  string
-	createToastTitle   string
+	createToastVisible  bool
+	createToastStart    time.Time
+	createToastBeadID   string
+	createToastTitle    string
+	createToastIsUpdate bool
 
 	// New label toast state (shown during create overlay when new label added)
 	newLabelToastVisible bool

@@ -408,17 +408,24 @@ func (m *App) createToastLayer(width, height, mainBodyStart, mainBodyHeight int)
 		return nil
 	}
 	elapsed := time.Since(m.createToastStart)
+	if elapsed >= 7*time.Second {
+		return nil
+	}
 	remaining := 7 - int(elapsed.Seconds())
 	if remaining < 0 {
 		remaining = 0
 	}
 
-	// Line 1: "✓ Created ab-xyz" - bead ID prominent
+	// Line 1: "✓ Created ab-xyz" (or Updated) - bead ID prominent
 	beadID := m.createToastBeadID
 	if beadID == "" {
 		beadID = "..."
 	}
-	heroLine := " ✓ " + styleStatsDim().Render("Created") + " " + styleID().Render(beadID)
+	action := "Created"
+	if m.createToastIsUpdate {
+		action = "Updated"
+	}
+	heroLine := " ✓ " + styleStatsDim().Render(action) + " " + styleID().Render(beadID)
 
 	// Line 2: title (up to 45 chars) + right-aligned countdown
 	titleDisplay := m.createToastTitle

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"abacus/internal/beads"
 	"fmt"
 	"regexp"
 	"strings"
@@ -68,6 +69,178 @@ func TestNewCreateOverlay(t *testing.T) {
 			t.Error("expected root mode to be true")
 		}
 	})
+}
+
+func TestNewEditOverlay(t *testing.T) {
+	parentDisplay := "ab-parent Parent"
+	bead := &beads.FullIssue{
+		ID:          "ab-123",
+		Title:       "Test Title",
+		Description: "Test Description",
+		IssueType:   "bug",
+		Priority:    2,
+		Labels:      []string{"urgent", "backend"},
+		Assignee:    "alice",
+	}
+
+	opts := CreateOverlayOptions{
+		DefaultParentID: "ab-parent",
+		AvailableParents: []ParentOption{
+			{ID: "ab-parent", Display: parentDisplay},
+		},
+		AvailableLabels:    []string{"urgent", "backend", "frontend"},
+		AvailableAssignees: []string{"alice"},
+	}
+
+	m := NewEditOverlay(bead, opts)
+
+	if !m.isEditMode() {
+		t.Fatal("expected edit mode to be true")
+	}
+	if got := m.Title(); got != "Test Title" {
+		t.Errorf("expected title %q, got %q", "Test Title", got)
+	}
+	if got := m.Description(); got != "Test Description" {
+		t.Errorf("expected description %q, got %q", "Test Description", got)
+	}
+	if got := m.IssueType(); got != "bug" {
+		t.Errorf("expected issue type bug, got %s", got)
+	}
+	if got := m.Priority(); got != 2 {
+		t.Errorf("expected priority 2, got %d", got)
+	}
+	if got := m.ParentID(); got != "ab-parent" {
+		t.Errorf("expected parent ID ab-parent, got %s", got)
+	}
+	if chips := m.labelsCombo.GetChips(); len(chips) != 2 || chips[0] != "urgent" || chips[1] != "backend" {
+		t.Errorf("expected labels [urgent backend], got %v", chips)
+	}
+	if m.assigneeCombo.Value() != "alice" {
+		t.Errorf("expected assignee value alice, got %s", m.assigneeCombo.Value())
+	}
+	if header := m.header(); header != "EDIT: ab-123" {
+		t.Errorf("expected header to show EDIT with ID, got %q", header)
+	}
+	if action := m.submitFooterText(); action != "Save" {
+		t.Errorf("expected submit footer text 'Save', got %q", action)
+	}
+	if m.editingBeadParentID != "ab-parent" {
+		t.Errorf("expected original parent ID ab-parent, got %s", m.editingBeadParentID)
+	}
+}
+
+func TestEditOverlayShowsParentComboForRoot(t *testing.T) {
+	bead := &beads.FullIssue{ID: "ab-root", IssueType: "task"}
+	opts := CreateOverlayOptions{
+		AvailableParents: []ParentOption{
+			{ID: "ab-parent", Display: "ab-parent Parent"},
+		},
+	}
+	m := NewEditOverlay(bead, opts)
+
+	if m.isRootMode {
+		t.Fatal("expected isRootMode to be false for edit mode root bead")
+	}
+
+	view := m.View()
+	if !strings.Contains(view, "PARENT") {
+		t.Fatal("expected view to contain PARENT label")
+	}
+	if m.ParentID() != "" {
+		t.Fatalf("expected ParentID to be empty for root bead, got %s", m.ParentID())
+	}
+	if !strings.Contains(view, "No Parent (Root Item)") {
+		t.Fatal("expected placeholder text for root in parent combo")
+	}
+}
+
+func TestSubmitEditBuildsMessage(t *testing.T) {
+	bead := &beads.FullIssue{ID: "ab-42"}
+	opts := CreateOverlayOptions{
+		DefaultParentID: "ab-parent",
+		AvailableParents: []ParentOption{
+			{ID: "ab-parent", Display: "ab-parent Parent"},
+		},
+	}
+	m := NewEditOverlay(bead, opts)
+	m.titleInput.SetValue(" Updated Title ")
+	m.descriptionInput.SetValue("desc")
+	m.typeIndex = 1     // feature
+	m.priorityIndex = 3 // low
+	m.labelsCombo.SetChips([]string{"backend"})
+	m.assigneeCombo.SetValue("bob")
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected command on submit")
+	}
+	msg := cmd()
+	updateMsg, ok := msg.(BeadUpdatedMsg)
+	if !ok {
+		t.Fatalf("expected BeadUpdatedMsg, got %T", msg)
+	}
+	if updateMsg.ID != "ab-42" {
+		t.Errorf("expected ID ab-42, got %s", updateMsg.ID)
+	}
+	if updateMsg.Title != "Updated Title" {
+		t.Errorf("expected trimmed title, got %q", updateMsg.Title)
+	}
+	if updateMsg.IssueType != "feature" {
+		t.Errorf("expected issue type feature, got %s", updateMsg.IssueType)
+	}
+	if updateMsg.Priority != 3 {
+		t.Errorf("expected priority 3, got %d", updateMsg.Priority)
+	}
+	if updateMsg.ParentID != "ab-parent" {
+		t.Errorf("expected parentID ab-parent, got %s", updateMsg.ParentID)
+	}
+	if len(updateMsg.Labels) != 1 || updateMsg.Labels[0] != "backend" {
+		t.Errorf("expected labels [backend], got %v", updateMsg.Labels)
+	}
+	if updateMsg.Assignee != "bob" {
+		t.Errorf("expected assignee bob, got %s", updateMsg.Assignee)
+	}
+	if updateMsg.OriginalParentID != "ab-parent" {
+		t.Errorf("expected original parent ab-parent, got %s", updateMsg.OriginalParentID)
+	}
+}
+
+func TestSubmitEditWithUnassignedAssignee(t *testing.T) {
+	bead := &beads.FullIssue{ID: "ab-42"}
+	m := NewEditOverlay(bead, CreateOverlayOptions{})
+	m.titleInput.SetValue("Title")
+	m.assigneeCombo.SetValue("Unassigned")
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected command")
+	}
+	msg := cmd()
+	updateMsg := msg.(BeadUpdatedMsg)
+	if updateMsg.Assignee != "" {
+		t.Errorf("expected empty assignee for Unassigned, got %q", updateMsg.Assignee)
+	}
+}
+
+func TestTypeIndexFromString(t *testing.T) {
+	tests := []struct {
+		input string
+		want  int
+	}{
+		{"task", 0},
+		{"feature", 1},
+		{"bug", 2},
+		{"epic", 3},
+		{"chore", 4},
+		{"unknown", 0},
+		{"", 0},
+	}
+
+	for _, tt := range tests {
+		if got := typeIndexFromString(tt.input); got != tt.want {
+			t.Errorf("typeIndexFromString(%q) = %d, want %d", tt.input, got, tt.want)
+		}
+	}
 }
 
 func TestCreateOverlayEscape(t *testing.T) {
@@ -514,6 +687,25 @@ func TestCreateOverlayFullNavigationCycle(t *testing.T) {
 			t.Errorf("expected Description -> Title, got %d", overlay.Focus())
 		}
 	})
+}
+
+func TestEditOverlaySkipsTypeField(t *testing.T) {
+	overlay := NewEditOverlay(&beads.FullIssue{ID: "ab-1", IssueType: "task"}, CreateOverlayOptions{})
+
+	// Tab sequence should skip type and go Title -> Description -> Priority
+	if overlay.focus != FocusTitle {
+		t.Fatalf("expected initial focus on title, got %d", overlay.focus)
+	}
+	overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab}) // to Description
+	overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyTab}) // should go to Priority (skip Type)
+	if overlay.focus != FocusPriority {
+		t.Fatalf("expected focus on Priority after skipping Type in edit mode, got %d", overlay.focus)
+	}
+
+	// View should not contain TYPE label
+	if contains(overlay.View(), "TYPE") {
+		t.Fatal("expected edit overlay view to hide TYPE row")
+	}
 }
 
 func TestCreateOverlayEscapeWithDropdown(t *testing.T) {
@@ -3294,11 +3486,11 @@ func TestCreateOverlay_Tab_AddsLabelChipFromDropdown(t *testing.T) {
 		AvailableLabels: []string{"backend", "frontend", "api"},
 	}
 	overlay := NewCreateOverlay(opts)
-	
+
 	// Focus on labels field
 	overlay.focus = FocusLabels
 	overlay.labelsCombo.Focus()
-	
+
 	t.Logf("Initial: LabelsChips=%v", overlay.labelsCombo.GetChips())
 
 	// Type "back"
@@ -3306,20 +3498,20 @@ func TestCreateOverlay_Tab_AddsLabelChipFromDropdown(t *testing.T) {
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 	}
 
-	t.Logf("After 'back': LabelsChips=%v, InputValue=%q, IsDropdownOpen=%v", 
+	t.Logf("After 'back': LabelsChips=%v, InputValue=%q, IsDropdownOpen=%v",
 		overlay.labelsCombo.GetChips(), overlay.labelsCombo.InputValue(), overlay.labelsCombo.IsDropdownOpen())
 
 	// Press Tab
 	overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
 
-	t.Logf("After Tab (before cmd): LabelsChips=%v, Focus=%v", 
+	t.Logf("After Tab (before cmd): LabelsChips=%v, Focus=%v",
 		overlay.labelsCombo.GetChips(), overlay.Focus())
 
 	// Execute and route commands (simulating App)
 	for cmd != nil {
 		msg := cmd()
 		t.Logf("Cmd returned: %T", msg)
-		
+
 		if batchMsg, ok := msg.(tea.BatchMsg); ok {
 			for _, c := range batchMsg {
 				if c != nil {
@@ -3344,7 +3536,7 @@ func TestCreateOverlay_Tab_AddsLabelChipFromDropdown(t *testing.T) {
 	}
 
 	t.Logf("Final: LabelsChips=%v", overlay.labelsCombo.GetChips())
-	
+
 	chips := overlay.labelsCombo.GetChips()
 	if len(chips) != 1 || chips[0] != "backend" {
 		t.Errorf("Expected ['backend'], got %v", chips)

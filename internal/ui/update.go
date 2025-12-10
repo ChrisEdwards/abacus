@@ -142,7 +142,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				// Success! Show toast and return
 				m.createToastBeadID = msg.id
-				m.displayCreateToast("")
+				m.displayCreateToast("", false)
 
 				// Close modal if not in bulk mode (spec Section 4.3)
 				if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
@@ -172,7 +172,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Show success toast and refresh
 		m.createToastBeadID = msg.id
-		m.displayCreateToast("")
+		m.displayCreateToast("", false)
 		return m, tea.Batch(m.forceRefresh(), scheduleCreateToastTick())
 	case createToastTickMsg:
 		if !m.createToastVisible {
@@ -200,6 +200,21 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// New assignee was created during bead creation - show toast
 		m.displayNewAssigneeToast(msg.Assignee)
 		return m, scheduleNewAssigneeToastTick()
+	case BeadUpdatedMsg:
+		return m, m.executeUpdateCmd(msg)
+	case updateCompleteMsg:
+		m.activeOverlay = OverlayNone
+		m.createOverlay = nil
+		if msg.Err != nil {
+			m.showErrorToast = true
+			m.errorToastStart = time.Now()
+			m.lastError = msg.Err.Error()
+			return m, scheduleErrorToastTick()
+		}
+		m.createToastBeadID = msg.ID
+		m.createToastIsUpdate = true
+		m.displayCreateToast(msg.Title, true)
+		return m, tea.Batch(m.forceRefresh(), scheduleCreateToastTick())
 	case typeInferenceFlashMsg:
 		// Forward to CreateOverlay to clear the type inference flash (ab-i0ye)
 		if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
@@ -582,6 +597,24 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.labelsOverlay.Init()
 			}
 			return m, nil
+		case key.Matches(msg, m.keys.Edit):
+			if len(m.visibleRows) > 0 {
+				row := m.visibleRows[m.cursor]
+				parentID := ""
+				if row.Parent != nil {
+					parentID = row.Parent.Issue.ID
+				}
+				m.createOverlay = NewEditOverlay(&row.Node.Issue, CreateOverlayOptions{
+					DefaultParentID:    parentID,
+					AvailableParents:   m.getAvailableParents(),
+					AvailableLabels:    m.getAllLabels(),
+					AvailableAssignees: m.getAllAssignees(),
+					IsRootMode:         parentID == "",
+				})
+				m.activeOverlay = OverlayCreate
+				return m, m.createOverlay.Init()
+			}
+			return m, nil
 		case key.Matches(msg, m.keys.NewBead):
 			defaultParent := ""
 			if len(m.visibleRows) > 0 {
@@ -876,6 +909,13 @@ type createCompleteMsg struct {
 	parentID  string           // Explicit parent context for fast injection
 }
 
+// Message types for update operations
+type updateCompleteMsg struct {
+	ID    string
+	Title string
+	Err   error
+}
+
 type createToastTickMsg struct{}
 
 func scheduleCreateToastTick() tea.Cmd {
@@ -922,11 +962,40 @@ func (m *App) executeCreateBead(msg BeadCreatedMsg) tea.Cmd {
 	}
 }
 
+// executeUpdateCmd runs the bd update command asynchronously.
+func (m *App) executeUpdateCmd(msg BeadUpdatedMsg) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		if err := m.client.UpdateFull(ctx, msg.ID, msg.Title, msg.IssueType, msg.Priority, msg.Labels, msg.Assignee, msg.Description); err != nil {
+			return updateCompleteMsg{ID: msg.ID, Title: msg.Title, Err: err}
+		}
+
+		// Parent changes are handled via dependency commands, not bd update flags.
+		if msg.ParentID != msg.OriginalParentID {
+			// Remove old parent if it existed
+			if msg.OriginalParentID != "" {
+				if err := m.client.RemoveDependency(ctx, msg.ID, msg.OriginalParentID, "parent-child"); err != nil {
+					return updateCompleteMsg{ID: msg.ID, Title: msg.Title, Err: err}
+				}
+			}
+			// Add new parent if provided
+			if msg.ParentID != "" {
+				if err := m.client.AddDependency(ctx, msg.ID, msg.ParentID, "parent-child"); err != nil {
+					return updateCompleteMsg{ID: msg.ID, Title: msg.Title, Err: err}
+				}
+			}
+		}
+
+		return updateCompleteMsg{ID: msg.ID, Title: msg.Title, Err: nil}
+	}
+}
+
 // displayCreateToast displays a success toast for bead creation.
-func (m *App) displayCreateToast(title string) {
+func (m *App) displayCreateToast(title string, isUpdate bool) {
 	m.createToastTitle = title
 	m.createToastVisible = true
 	m.createToastStart = time.Now()
+	m.createToastIsUpdate = isUpdate
 }
 
 // displayNewLabelToast displays a toast for a newly created label (not in existing options).

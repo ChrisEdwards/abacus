@@ -11,45 +11,51 @@ var ErrMockNotImplemented = errors.New("beads.MockClient: method not implemented
 
 // MockClient is a test double for the Beads client interface.
 type MockClient struct {
-	ListFn          func(context.Context) ([]LiteIssue, error)
-	ShowFn          func(context.Context, []string) ([]FullIssue, error)
-	ExportFn        func(context.Context) ([]FullIssue, error)
-	CommentsFn      func(context.Context, string) ([]Comment, error)
-	UpdateStatusFn  func(context.Context, string, string) error
-	CloseFn         func(context.Context, string) error
-	ReopenFn        func(context.Context, string) error
-	AddLabelFn      func(context.Context, string, string) error
-	RemoveLabelFn   func(context.Context, string, string) error
-	CreateFn        func(context.Context, string, string, int, []string, string) (string, error)
-	CreateFullFn    func(context.Context, string, string, int, []string, string, string, string) (FullIssue, error)
-	AddDependencyFn func(context.Context, string, string, string) error
-	DeleteFn        func(context.Context, string, bool) error
+	ListFn             func(context.Context) ([]LiteIssue, error)
+	ShowFn             func(context.Context, []string) ([]FullIssue, error)
+	ExportFn           func(context.Context) ([]FullIssue, error)
+	CommentsFn         func(context.Context, string) ([]Comment, error)
+	UpdateStatusFn     func(context.Context, string, string) error
+	CloseFn            func(context.Context, string) error
+	ReopenFn           func(context.Context, string) error
+	AddLabelFn         func(context.Context, string, string) error
+	RemoveLabelFn      func(context.Context, string, string) error
+	UpdateFullFn       func(context.Context, string, string, string, int, []string, string, string) error
+	CreateFn           func(context.Context, string, string, int, []string, string) (string, error)
+	CreateFullFn       func(context.Context, string, string, int, []string, string, string, string) (FullIssue, error)
+	AddDependencyFn    func(context.Context, string, string, string) error
+	RemoveDependencyFn func(context.Context, string, string, string) error
+	DeleteFn           func(context.Context, string, bool) error
 
-	mu                     sync.Mutex
-	ListCallCount          int
-	ShowCallCount          int
-	ExportCallCount        int
-	CommentsCallCount      int
-	UpdateStatusCallCount  int
-	CloseCallCount         int
-	ReopenCallCount        int
-	AddLabelCallCount      int
-	RemoveLabelCallCount   int
-	CreateCallCount        int
-	CreateFullCallCount    int
-	AddDependencyCallCount int
-	ShowCallArgs           [][]string
-	CommentIDs             []string
-	UpdateStatusCallArgs   [][]string // [issueID, newStatus]
-	CloseCallArgs          []string
-	ReopenCallArgs         []string
-	AddLabelCallArgs       [][]string // [issueID, label]
-	RemoveLabelCallArgs    [][]string // [issueID, label]
-	CreateCallArgs         []CreateCallArg
-	CreateFullCallArgs     []CreateFullCallArg
-	AddDependencyCallArgs  [][]string // [fromID, toID, depType]
-	DeleteCallCount        int
-	DeleteCallArgs         []struct {
+	mu                        sync.Mutex
+	ListCallCount             int
+	ShowCallCount             int
+	ExportCallCount           int
+	CommentsCallCount         int
+	UpdateStatusCallCount     int
+	CloseCallCount            int
+	ReopenCallCount           int
+	AddLabelCallCount         int
+	RemoveLabelCallCount      int
+	UpdateFullCallCount       int
+	CreateCallCount           int
+	CreateFullCallCount       int
+	AddDependencyCallCount    int
+	RemoveDependencyCallCount int
+	ShowCallArgs              [][]string
+	CommentIDs                []string
+	UpdateStatusCallArgs      [][]string // [issueID, newStatus]
+	CloseCallArgs             []string
+	ReopenCallArgs            []string
+	AddLabelCallArgs          [][]string // [issueID, label]
+	RemoveLabelCallArgs       [][]string // [issueID, label]
+	UpdateFullCallArgs        []UpdateFullCallArg
+	CreateCallArgs            []CreateCallArg
+	CreateFullCallArgs        []CreateFullCallArg
+	AddDependencyCallArgs     [][]string // [fromID, toID, depType]
+	RemoveDependencyCallArgs  [][]string // [fromID, toID, depType]
+	DeleteCallCount           int
+	DeleteCallArgs            []struct {
 		IssueID string
 		Cascade bool
 	}
@@ -73,6 +79,17 @@ type CreateFullCallArg struct {
 	Assignee    string
 	Description string
 	ParentID    string
+}
+
+// UpdateFullCallArg captures arguments passed to UpdateFull.
+type UpdateFullCallArg struct {
+	IssueID     string
+	Title       string
+	IssueType   string
+	Priority    int
+	Labels      []string
+	Assignee    string
+	Description string
 }
 
 // NewMockClient returns a MockClient with zeroed handlers.
@@ -195,6 +212,27 @@ func (m *MockClient) RemoveLabel(ctx context.Context, issueID, label string) err
 	return m.RemoveLabelFn(ctx, issueID, label)
 }
 
+// UpdateFull invokes the configured stub or returns nil (no-op by default).
+func (m *MockClient) UpdateFull(ctx context.Context, issueID, title, issueType string, priority int, labels []string, assignee, description string) error {
+	m.mu.Lock()
+	m.UpdateFullCallCount++
+	m.UpdateFullCallArgs = append(m.UpdateFullCallArgs, UpdateFullCallArg{
+		IssueID:     issueID,
+		Title:       title,
+		IssueType:   issueType,
+		Priority:    priority,
+		Labels:      labels,
+		Assignee:    assignee,
+		Description: description,
+	})
+	m.mu.Unlock()
+
+	if m.UpdateFullFn == nil {
+		return nil // Default to no-op for tests
+	}
+	return m.UpdateFullFn(ctx, issueID, title, issueType, priority, labels, assignee, description)
+}
+
 // Create invokes the configured stub or returns a mock bead ID.
 func (m *MockClient) Create(ctx context.Context, title, issueType string, priority int, labels []string, assignee string) (string, error) {
 	m.mu.Lock()
@@ -256,6 +294,19 @@ func (m *MockClient) AddDependency(ctx context.Context, fromID, toID, depType st
 		return nil // Default to no-op for tests
 	}
 	return m.AddDependencyFn(ctx, fromID, toID, depType)
+}
+
+// RemoveDependency invokes the configured stub or returns nil (no-op by default).
+func (m *MockClient) RemoveDependency(ctx context.Context, fromID, toID, depType string) error {
+	m.mu.Lock()
+	m.RemoveDependencyCallCount++
+	m.RemoveDependencyCallArgs = append(m.RemoveDependencyCallArgs, []string{fromID, toID, depType})
+	m.mu.Unlock()
+
+	if m.RemoveDependencyFn == nil {
+		return nil // Default to no-op for tests
+	}
+	return m.RemoveDependencyFn(ctx, fromID, toID, depType)
 }
 
 // Delete invokes the configured stub or returns nil (no-op by default).

@@ -290,6 +290,42 @@ func (c *cliClient) CreateFull(ctx context.Context, title, issueType string, pri
 	return issue, nil
 }
 
+func (c *cliClient) UpdateFull(ctx context.Context, issueID, title, issueType string, priority int, labels []string, assignee, description string) error {
+	if strings.TrimSpace(issueID) == "" {
+		return fmt.Errorf("issue id is required for update")
+	}
+	if strings.TrimSpace(title) == "" {
+		return fmt.Errorf("title is required for update")
+	}
+	// issueType is currently not configurable via `bd update`; keep parameter for future compatibility.
+
+	args := []string{
+		"update",
+		issueID,
+		"--title", title,
+		"--description", description,
+		"--priority", fmt.Sprintf("%d", priority),
+	}
+
+	if strings.TrimSpace(assignee) != "" {
+		args = append(args, "--assignee", assignee)
+	}
+
+	if len(labels) > 0 {
+		for _, l := range labels {
+			args = append(args, "--set-labels", l)
+		}
+	} else {
+		// Explicitly clear labels when none are provided
+		args = append(args, "--set-labels", "")
+	}
+
+	if _, err := c.run(ctx, args...); err != nil {
+		return fmt.Errorf("run bd update: %w", err)
+	}
+	return nil
+}
+
 func (c *cliClient) AddDependency(ctx context.Context, fromID, toID, depType string) error {
 	if strings.TrimSpace(fromID) == "" {
 		return fmt.Errorf("from ID is required for add dependency")
@@ -303,6 +339,20 @@ func (c *cliClient) AddDependency(ctx context.Context, fromID, toID, depType str
 	_, err := c.run(ctx, "dep", "add", fromID, toID, "--type", depType)
 	if err != nil {
 		return fmt.Errorf("run bd dep add: %w", err)
+	}
+	return nil
+}
+
+func (c *cliClient) RemoveDependency(ctx context.Context, fromID, toID, depType string) error {
+	if strings.TrimSpace(fromID) == "" {
+		return fmt.Errorf("from ID is required for remove dependency")
+	}
+	if strings.TrimSpace(toID) == "" {
+		return fmt.Errorf("to ID is required for remove dependency")
+	}
+	args := []string{"dep", "remove", fromID, toID}
+	if _, err := c.run(ctx, args...); err != nil {
+		return fmt.Errorf("run bd dep remove: %w", err)
 	}
 	return nil
 }
