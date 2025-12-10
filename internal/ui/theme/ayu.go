@@ -5,18 +5,18 @@ import "github.com/charmbracelet/lipgloss"
 // Ayu color palette
 // https://github.com/ayu-theme/ayu-colors
 var ayu = struct {
-	DarkBg       string
-	DarkBgAlt    string
-	DarkPanel    string
-	DarkFg       string
-	DarkFgMuted  string
-	DarkGutter   string
-	DarkEntity   string
-	DarkAccent   string
-	DarkError    string
-	DarkAdded    string
-	DarkSpecial  string
-	DarkTag      string
+	DarkBg      string
+	DarkBgAlt   string
+	DarkPanel   string
+	DarkFg      string
+	DarkFgMuted string
+	DarkGutter  string
+	DarkEntity  string
+	DarkAccent  string
+	DarkError   string
+	DarkAdded   string
+	DarkSpecial string
+	DarkTag     string
 }{
 	DarkBg:      "#0B0E14",
 	DarkBgAlt:   "#0D1017",

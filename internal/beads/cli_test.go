@@ -603,7 +603,7 @@ func TestConvertExportIssueMixedDependencies(t *testing.T) {
 			Type        string `json:"type"`
 		}{
 			{DependsOnID: "ab-valid1", Type: "blocks"},
-			{DependsOnID: "", Type: "blocks"},        // invalid - should be skipped
+			{DependsOnID: "", Type: "blocks"}, // invalid - should be skipped
 			{DependsOnID: "ab-valid2", Type: "parent-child"},
 		},
 	}

@@ -58,4 +58,3 @@ func TestFillBackgroundReAppliesAfterResets(t *testing.T) {
 		t.Fatalf("line reset \x1b[0K should be replaced: %q", got)
 	}
 }
-

@@ -683,7 +683,7 @@ func TestLabelsOverlay_Tab_AddsChipFromDropdown(t *testing.T) {
 	overlay := NewLabelsOverlay("test-123", "Test", []string{}, []string{"backend", "frontend", "api"})
 	overlay.chipCombo.Focus()
 
-	t.Logf("Initial: Chips=%v, InputValue=%q, IsIdle=%v", 
+	t.Logf("Initial: Chips=%v, InputValue=%q, IsIdle=%v",
 		overlay.GetChips(), overlay.chipCombo.InputValue(), overlay.IsIdle())
 
 	// Type "back"
@@ -691,13 +691,13 @@ func TestLabelsOverlay_Tab_AddsChipFromDropdown(t *testing.T) {
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 	}
 
-	t.Logf("After 'back': Chips=%v, InputValue=%q, IsIdle=%v, IsDropdownOpen=%v", 
+	t.Logf("After 'back': Chips=%v, InputValue=%q, IsIdle=%v, IsDropdownOpen=%v",
 		overlay.GetChips(), overlay.chipCombo.InputValue(), overlay.IsIdle(), overlay.chipCombo.IsDropdownOpen())
 
 	// Press Tab - this should select the highlighted item
 	overlay, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyTab})
 
-	t.Logf("After Tab (before cmd): Chips=%v, InputValue=%q", 
+	t.Logf("After Tab (before cmd): Chips=%v, InputValue=%q",
 		overlay.GetChips(), overlay.chipCombo.InputValue())
 
 	// Execute the command - this should produce ComboBoxTabSelectedMsg
@@ -710,7 +710,7 @@ func TestLabelsOverlay_Tab_AddsChipFromDropdown(t *testing.T) {
 
 	// The message needs to go back to the overlay (simulating App routing)
 	overlay, cmd = overlay.Update(msg)
-	t.Logf("After routing message back: Chips=%v, InputValue=%q", 
+	t.Logf("After routing message back: Chips=%v, InputValue=%q",
 		overlay.GetChips(), overlay.chipCombo.InputValue())
 
 	// Process any follow-up commands
@@ -728,7 +728,7 @@ func TestLabelsOverlay_Tab_AddsChipFromDropdown(t *testing.T) {
 	}
 
 	t.Logf("Final: Chips=%v", overlay.GetChips())
-	
+
 	chips := overlay.GetChips()
 	if len(chips) != 1 || chips[0] != "backend" {
 		t.Errorf("Expected ['backend'], got %v", chips)

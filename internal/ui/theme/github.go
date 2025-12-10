@@ -5,30 +5,30 @@ import "github.com/charmbracelet/lipgloss"
 // GitHub color palette
 // https://primer.style/primitives/colors
 var github = struct {
-	DarkBg      string
-	DarkBgAlt   string
-	DarkBgPanel string
-	DarkFg      string
-	DarkFgMuted string
-	DarkBlue    string
-	DarkGreen   string
-	DarkRed     string
-	DarkOrange  string
-	DarkPurple  string
-	DarkYellow  string
-	DarkCyan    string
-	LightBg     string
-	LightBgAlt  string
+	DarkBg       string
+	DarkBgAlt    string
+	DarkBgPanel  string
+	DarkFg       string
+	DarkFgMuted  string
+	DarkBlue     string
+	DarkGreen    string
+	DarkRed      string
+	DarkOrange   string
+	DarkPurple   string
+	DarkYellow   string
+	DarkCyan     string
+	LightBg      string
+	LightBgAlt   string
 	LightBgPanel string
-	LightFg     string
+	LightFg      string
 	LightFgMuted string
-	LightBlue   string
-	LightGreen  string
-	LightRed    string
-	LightOrange string
-	LightPurple string
-	LightYellow string
-	LightCyan   string
+	LightBlue    string
+	LightGreen   string
+	LightRed     string
+	LightOrange  string
+	LightPurple  string
+	LightYellow  string
+	LightCyan    string
 }{
 	DarkBg:       "#0d1117",
 	DarkBgAlt:    "#010409",

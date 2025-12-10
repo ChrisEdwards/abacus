@@ -18,8 +18,8 @@ type Theme interface {
 	Info() lipgloss.AdaptiveColor    // Informational highlights
 
 	// Text colors
-	Text() lipgloss.AdaptiveColor          // Primary text
-	TextMuted() lipgloss.AdaptiveColor     // De-emphasized text
+	Text() lipgloss.AdaptiveColor           // Primary text
+	TextMuted() lipgloss.AdaptiveColor      // De-emphasized text
 	TextEmphasized() lipgloss.AdaptiveColor // Bold/important text
 
 	// Background colors

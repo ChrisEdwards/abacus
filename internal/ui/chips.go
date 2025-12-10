@@ -57,7 +57,7 @@ type ChipList struct {
 	// State
 	Chips      []string // Currently selected labels
 	state      ChipListState
-	navIndex   int  // Highlighted chip index (-1 = none)
+	navIndex   int // Highlighted chip index (-1 = none)
 	focused    bool
 	flashIndex int // Index of chip to flash for duplicate (-1 = none)
 }
@@ -445,7 +445,7 @@ func renderPillChip(label string, state chipState) string {
 		bgColor = t.Warning() // Orange flash for duplicate
 		fgColor = t.Text()
 	default:
-		bgColor = t.Info() // Try Info (cyan/teal) for visible labels
+		bgColor = t.Info()       // Try Info (cyan/teal) for visible labels
 		fgColor = t.Background() // Use background color for contrast
 	}
 

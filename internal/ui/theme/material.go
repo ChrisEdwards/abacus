@@ -5,30 +5,30 @@ import "github.com/charmbracelet/lipgloss"
 // Material color palette
 // https://material.io/design/color
 var material = struct {
-	DarkBg      string
-	DarkBgAlt   string
-	DarkBgPanel string
-	DarkFg      string
-	DarkFgMuted string
-	DarkRed     string
-	DarkOrange  string
-	DarkYellow  string
-	DarkGreen   string
-	DarkCyan    string
-	DarkBlue    string
-	DarkPurple  string
-	LightBg     string
-	LightBgAlt  string
+	DarkBg       string
+	DarkBgAlt    string
+	DarkBgPanel  string
+	DarkFg       string
+	DarkFgMuted  string
+	DarkRed      string
+	DarkOrange   string
+	DarkYellow   string
+	DarkGreen    string
+	DarkCyan     string
+	DarkBlue     string
+	DarkPurple   string
+	LightBg      string
+	LightBgAlt   string
 	LightBgPanel string
-	LightFg     string
+	LightFg      string
 	LightFgMuted string
-	LightRed    string
-	LightOrange string
-	LightYellow string
-	LightGreen  string
-	LightCyan   string
-	LightBlue   string
-	LightPurple string
+	LightRed     string
+	LightOrange  string
+	LightYellow  string
+	LightGreen   string
+	LightCyan    string
+	LightBlue    string
+	LightPurple  string
 }{
 	DarkBg:       "#263238",
 	DarkBgAlt:    "#1e272c",

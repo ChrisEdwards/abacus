@@ -5,25 +5,25 @@ import "github.com/charmbracelet/lipgloss"
 // Kanagawa color palette
 // https://github.com/rebelot/kanagawa.nvim
 var kanagawa = struct {
-	SumiInk0     string
-	SumiInk1     string
-	SumiInk2     string
-	SumiInk3     string
-	FujiWhite    string
-	FujiGray     string
-	OniViolet    string
-	CrystalBlue  string
-	CarpYellow   string
-	SakuraPink   string
-	WaveAqua     string
-	RoninYellow  string
-	DragonRed    string
-	LotusGreen   string
-	WaveBlue     string
-	LightBg      string
-	LightPaper   string
-	LightText    string
-	LightGray    string
+	SumiInk0    string
+	SumiInk1    string
+	SumiInk2    string
+	SumiInk3    string
+	FujiWhite   string
+	FujiGray    string
+	OniViolet   string
+	CrystalBlue string
+	CarpYellow  string
+	SakuraPink  string
+	WaveAqua    string
+	RoninYellow string
+	DragonRed   string
+	LotusGreen  string
+	WaveBlue    string
+	LightBg     string
+	LightPaper  string
+	LightText   string
+	LightGray   string
 }{
 	SumiInk0:    "#1F1F28",
 	SumiInk1:    "#2A2A37",

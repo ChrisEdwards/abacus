@@ -5,27 +5,27 @@ import "github.com/charmbracelet/lipgloss"
 // Everforest color palette
 // https://github.com/sainnhe/everforest
 var everforest = struct {
-	DarkBg      string
-	DarkBgPanel string
-	DarkBgAlt   string
-	DarkFg      string
-	DarkFgMuted string
-	DarkBorder  string
-	DarkRed     string
-	DarkOrange  string
-	DarkGreen   string
-	DarkCyan    string
-	DarkYellow  string
-	LightBg     string
-	LightBgAlt  string
-	LightFg     string
+	DarkBg       string
+	DarkBgPanel  string
+	DarkBgAlt    string
+	DarkFg       string
+	DarkFgMuted  string
+	DarkBorder   string
+	DarkRed      string
+	DarkOrange   string
+	DarkGreen    string
+	DarkCyan     string
+	DarkYellow   string
+	LightBg      string
+	LightBgAlt   string
+	LightFg      string
 	LightFgMuted string
-	LightBorder string
-	LightRed    string
-	LightOrange string
-	LightGreen  string
-	LightCyan   string
-	LightYellow string
+	LightBorder  string
+	LightRed     string
+	LightOrange  string
+	LightGreen   string
+	LightCyan    string
+	LightYellow  string
 }{
 	DarkBg:       "#2d353b",
 	DarkBgPanel:  "#333c43",
