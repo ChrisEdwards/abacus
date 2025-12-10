@@ -140,7 +140,7 @@ run_silent_with_test_count() {
 print_header() {
     local module="$1"
     local description="$2"
-    printf "\n${BLUE}[%s]${NC} %s:\n" "$module" "$description"
+    printf "${BLUE}[%s]${NC} %s:\n" "$module" "$description"
 }
 
 # Print main section header
