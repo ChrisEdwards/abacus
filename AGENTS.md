@@ -1,5 +1,34 @@
 # Agent Development Guidelines
 
+## Development Commands
+
+Use these make targets for all checks and tests:
+
+```bash
+make check       # Run linting and static analysis (quiet output)
+make test        # Run all tests (quiet output)
+make check-test  # Run both checks and tests
+
+# Verbose output when debugging failures
+make check VERBOSE=1
+make test VERBOSE=1
+```
+
+## Quick Reference: bd Commands
+
+```bash
+# Adding comments - use subcommand syntax, NOT flags
+bd comments add <issue-id> "comment text"   # CORRECT
+bd comments <issue-id> --add "text"         # WRONG - --add is not a flag
+
+# Labels
+bd label add <issue-id> <label>
+bd label remove <issue-id> <label>
+
+# Sync - only run right before commit, not after every bead change
+bd sync
+```
+
 ## Testing Requirements
 Write tests for any changes made in this codebase. All code must build successfully, pass linting, and all tests must pass before marking a bead as closed.
 
@@ -60,15 +89,13 @@ bd dep remove <from> <to>                         # Remove dependency
 You must complete ALL of the following steps before marking a bead as closed:
 
 1. **Write Tests**: Write comprehensive tests for any code you added or changed
-2. **Verify Build**: Ensure the code builds successfully (`go build`)
-3. **Run Linter**: Run `make lint` and fix all issues before committing
+2. **Run Checks and Tests**: Run `make check-test` and fix all issues before committing
    - Remove unused variables and styles
    - Use `//nolint:unparam` only when parameter is used in tests
-4. **Run Tests**: Ensure all tests pass (`go test ./...`)
-5. **Commit Changes**: Only commit files you created or changed (use `git add <specific-files>`, not `git add .`)
-6. **Push and Verify GitHub Build**: Push and wait for GitHub Actions build to pass before closing
-7. **Comment on Bead**: Add a comment with summary and commit hash
-8. **Close Bead**: Only after GitHub build passes
+3. **Commit Changes**: Only commit files you created or changed (use `git add <specific-files>`, not `git add .`)
+4. **Push and Verify GitHub Build**: Push and wait for GitHub Actions build to pass before closing
+5. **Comment on Bead**: Add a comment with summary and commit hash
+6. **Close Bead**: Only after GitHub build passes
 
 ### Parent Beads (Epics)
 **IMPORTANT**: Do not mark parent beads as closed until ALL child beads are closed. Parent beads represent collections of work and can only be considered complete when all subtasks are finished.
