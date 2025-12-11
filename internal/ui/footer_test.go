@@ -24,7 +24,7 @@ func TestKeyPill(t *testing.T) {
 
 func TestRenderFooter(t *testing.T) {
 	m := &App{
-		width:    140, // Wider to accommodate all hints including v/View
+		width:    160, // Wider to accommodate all hints including v/View and m/Comment
 		repoName: "abacus",
 		focus:    FocusTree,
 	}
@@ -142,8 +142,8 @@ func TestFooterNarrowTerminal(t *testing.T) {
 
 func TestFooterHintSlices(t *testing.T) {
 	t.Run("GlobalHintsCount", func(t *testing.T) {
-		if len(globalFooterHints) != 9 {
-			t.Errorf("expected 9 global hints, got %d", len(globalFooterHints))
+		if len(globalFooterHints) != 10 {
+			t.Errorf("expected 10 global hints, got %d", len(globalFooterHints))
 		}
 	})
 

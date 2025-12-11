@@ -19,4 +19,5 @@ type Client interface {
 	AddDependency(ctx context.Context, fromID, toID, depType string) error
 	RemoveDependency(ctx context.Context, fromID, toID, depType string) error
 	Delete(ctx context.Context, issueID string, cascade bool) error
+	AddComment(ctx context.Context, issueID, text string) error
 }

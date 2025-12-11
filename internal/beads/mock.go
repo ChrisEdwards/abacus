@@ -26,6 +26,7 @@ type MockClient struct {
 	AddDependencyFn    func(context.Context, string, string, string) error
 	RemoveDependencyFn func(context.Context, string, string, string) error
 	DeleteFn           func(context.Context, string, bool) error
+	AddCommentFn       func(context.Context, string, string) error
 
 	mu                        sync.Mutex
 	ListCallCount             int
@@ -59,6 +60,8 @@ type MockClient struct {
 		IssueID string
 		Cascade bool
 	}
+	AddCommentCallCount int
+	AddCommentCallArgs  [][]string // [issueID, text]
 }
 
 // CreateCallArg captures arguments passed to Create.
@@ -323,4 +326,17 @@ func (m *MockClient) Delete(ctx context.Context, issueID string, cascade bool) e
 		return nil // Default to no-op for tests
 	}
 	return m.DeleteFn(ctx, issueID, cascade)
+}
+
+// AddComment invokes the configured stub or returns nil (no-op by default).
+func (m *MockClient) AddComment(ctx context.Context, issueID, text string) error {
+	m.mu.Lock()
+	m.AddCommentCallCount++
+	m.AddCommentCallArgs = append(m.AddCommentCallArgs, []string{issueID, text})
+	m.mu.Unlock()
+
+	if m.AddCommentFn == nil {
+		return nil // Default to no-op for tests
+	}
+	return m.AddCommentFn(ctx, issueID, text)
 }

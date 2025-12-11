@@ -35,6 +35,7 @@ const (
 	OverlayLabels
 	OverlayCreate
 	OverlayDelete
+	OverlayComment
 )
 
 // ViewMode represents the current view filter mode.
@@ -155,11 +156,12 @@ type App struct {
 	keys     KeyMap
 
 	// Overlay state
-	activeOverlay OverlayType
-	statusOverlay *StatusOverlay
-	labelsOverlay *LabelsOverlay
-	createOverlay *CreateOverlay
-	deleteOverlay *DeleteOverlay
+	activeOverlay  OverlayType
+	statusOverlay  *StatusOverlay
+	labelsOverlay  *LabelsOverlay
+	createOverlay  *CreateOverlay
+	deleteOverlay  *DeleteOverlay
+	commentOverlay *CommentOverlay
 
 	// Labels toast state
 	labelsToastVisible bool
@@ -196,6 +198,11 @@ type App struct {
 	themeToastVisible bool
 	themeToastStart   time.Time
 	themeToastName    string
+
+	// Comment toast state
+	commentToastVisible bool
+	commentToastStart   time.Time
+	commentToastBeadID  string
 
 	// Session tracking for exit summary
 	sessionStart time.Time

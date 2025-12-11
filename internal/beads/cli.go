@@ -372,6 +372,20 @@ func (c *cliClient) Delete(ctx context.Context, issueID string, cascade bool) er
 	return nil
 }
 
+func (c *cliClient) AddComment(ctx context.Context, issueID, text string) error {
+	if strings.TrimSpace(issueID) == "" {
+		return fmt.Errorf("issue id is required for add comment")
+	}
+	if strings.TrimSpace(text) == "" {
+		return fmt.Errorf("comment text is required")
+	}
+	_, err := c.run(ctx, "comments", "add", issueID, text)
+	if err != nil {
+		return fmt.Errorf("run bd comments add: %w", err)
+	}
+	return nil
+}
+
 // exportIssue handles the nested dependency format difference from bd export.
 // bd export uses "depends_on_id" and "type" while bd show uses "id" and "dependency_type".
 type exportIssue struct {

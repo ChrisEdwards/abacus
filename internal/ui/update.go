@@ -297,6 +297,36 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, scheduleDeleteToastTick()
+	case CommentAddedMsg:
+		m.activeOverlay = OverlayNone
+		m.commentOverlay = nil
+		return m, tea.Batch(
+			m.executeAddComment(msg),
+			scheduleCommentToastTick(),
+		)
+	case CommentCancelledMsg:
+		m.activeOverlay = OverlayNone
+		m.commentOverlay = nil
+		return m, nil
+	case commentCompleteMsg:
+		if msg.err != nil {
+			m.lastError = msg.err.Error()
+			m.lastErrorSource = errorSourceOperation
+			m.showErrorToast = true
+			m.errorToastStart = time.Now()
+			return m, scheduleErrorToastTick()
+		}
+		m.displayCommentToast(msg.issueID)
+		return m, tea.Batch(m.forceRefresh(), scheduleCommentToastTick())
+	case commentToastTickMsg:
+		if !m.commentToastVisible {
+			return m, nil
+		}
+		if time.Since(m.commentToastStart) >= 7*time.Second {
+			m.commentToastVisible = false
+			return m, nil
+		}
+		return m, scheduleCommentToastTick()
 	}
 
 	// Handle background messages before delegating to overlays
@@ -445,6 +475,11 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.activeOverlay == OverlayDelete && m.deleteOverlay != nil {
 			m.deleteOverlay, cmd = m.deleteOverlay.Update(msg)
+			return m, cmd
+		}
+
+		if m.activeOverlay == OverlayComment && m.commentOverlay != nil {
+			m.commentOverlay, cmd = m.commentOverlay.Update(msg)
 			return m, cmd
 		}
 
@@ -658,6 +693,15 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.createOverlay.SetSize(m.width, m.height)
 				m.activeOverlay = OverlayCreate
 				return m, m.createOverlay.Init()
+			}
+			return m, nil
+		case key.Matches(msg, m.keys.Comment):
+			if len(m.visibleRows) > 0 {
+				row := m.visibleRows[m.cursor]
+				m.commentOverlay = NewCommentOverlay(row.Node.Issue.ID, row.Node.Issue.Title)
+				m.commentOverlay.SetSize(m.width, m.height)
+				m.activeOverlay = OverlayComment
+				return m, m.commentOverlay.Init()
 			}
 			return m, nil
 		case key.Matches(msg, m.keys.NewBead):
@@ -1108,4 +1152,33 @@ func (m *App) displayDeleteToast(issueID string, cascade bool, childCount int) {
 	m.deleteToastChildCount = childCount
 	m.deleteToastVisible = true
 	m.deleteToastStart = time.Now()
+}
+
+// Message types for comment operations
+type commentCompleteMsg struct {
+	issueID string
+	err     error
+}
+
+type commentToastTickMsg struct{}
+
+func scheduleCommentToastTick() tea.Cmd {
+	return tea.Tick(200*time.Millisecond, func(_ time.Time) tea.Msg {
+		return commentToastTickMsg{}
+	})
+}
+
+// executeAddComment runs the bd comments add command asynchronously.
+func (m *App) executeAddComment(msg CommentAddedMsg) tea.Cmd {
+	return func() tea.Msg {
+		err := m.client.AddComment(context.Background(), msg.IssueID, msg.Comment)
+		return commentCompleteMsg{issueID: msg.IssueID, err: err}
+	}
+}
+
+// displayCommentToast displays a success toast for comment addition.
+func (m *App) displayCommentToast(issueID string) {
+	m.commentToastBeadID = issueID
+	m.commentToastVisible = true
+	m.commentToastStart = time.Now()
 }

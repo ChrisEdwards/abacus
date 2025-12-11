@@ -31,6 +31,7 @@ type KeyMap struct {
 	NewBead     key.Binding
 	NewRootBead key.Binding
 	Edit        key.Binding
+	Comment     key.Binding
 
 	// Search
 	Search    key.Binding
@@ -140,6 +141,10 @@ func DefaultKeyMap() KeyMap {
 		Edit: key.NewBinding(
 			key.WithKeys("e"),
 			key.WithHelp("e", "Edit bead"),
+		),
+		Comment: key.NewBinding(
+			key.WithKeys("m"),
+			key.WithHelp("m", "Add comment"),
 		),
 
 		// Search

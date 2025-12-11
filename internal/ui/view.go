@@ -155,6 +155,10 @@ func (m *App) View() string {
 		if layer := m.deleteOverlay.Layer(m.width, m.height, headerHeight, bottomMargin); layer != nil {
 			overlayLayers = append(overlayLayers, layer)
 		}
+	} else if m.activeOverlay == OverlayComment && m.commentOverlay != nil {
+		if layer := m.commentOverlay.Layer(m.width, m.height, headerHeight, bottomMargin); layer != nil {
+			overlayLayers = append(overlayLayers, layer)
+		}
 	} else if m.showHelp {
 		overlayLayers = append(overlayLayers, newHelpOverlayLayer(m.keys, m.width, m.height, headerHeight, bottomMargin))
 	}
@@ -172,6 +176,7 @@ func (m *App) View() string {
 		m.themeToastLayer,
 		m.deleteToastLayer,
 		m.createToastLayer,
+		m.commentToastLayer,
 		m.newAssigneeToastLayer,
 		m.newLabelToastLayer,
 		m.labelsToastLayer,
@@ -535,6 +540,43 @@ func (m *App) deleteToastLayer(width, height, mainBodyStart, mainBodyHeight int)
 	}
 
 	content := heroLine + "\n" + strings.Repeat(" ", padding) + countdownStr
+	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
+}
+
+// commentToastLayer renders the comment added success toast if visible.
+func (m *App) commentToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
+	if !m.commentToastVisible || m.commentToastBeadID == "" {
+		return nil
+	}
+	elapsed := time.Since(m.commentToastStart)
+	remaining := 7 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Line 1: "✓ Comment added"
+	heroLine := " ✓ " + styleStatsDim().Render("Comment added")
+
+	// Line 2: bead ID + countdown
+	beadID := styleID().Render(m.commentToastBeadID)
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
+
+	// Calculate spacing for right-aligned countdown
+	beadIDWidth := lipgloss.Width(beadID)
+	countdownWidth := lipgloss.Width(countdownStr)
+	heroWidth := lipgloss.Width(heroLine)
+
+	targetWidth := heroWidth
+	if targetWidth < 25 {
+		targetWidth = 25
+	}
+	padding := targetWidth - beadIDWidth - countdownWidth - 1
+	if padding < 2 {
+		padding = 2
+	}
+
+	infoLine := " " + beadID + strings.Repeat(" ", padding) + countdownStr
+	content := heroLine + "\n" + infoLine
 	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
 
