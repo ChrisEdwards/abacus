@@ -274,8 +274,11 @@ func (c ChipComboBox) View() string {
 	if len(chips) == 0 {
 		// Empty state indicator when no chips selected
 		emptyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("243")).Italic(true)
-		elements = append(elements, emptyStyle.Render("No labels"))
+		elements = append(elements, " "+emptyStyle.Render("No labels"))
 	} else {
+		for i, chip := range chips {
+			chips[i] = " " + chip
+		}
 		elements = append(elements, chips...)
 	}
 
