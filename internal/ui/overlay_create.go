@@ -1321,12 +1321,7 @@ func (m *CreateOverlay) renderFooter() string {
 		}
 	}
 
-	// Render hints as pills (same as global footer)
-	var parts []string
-	for _, h := range hints {
-		parts = append(parts, keyPill(h.key, h.desc))
-	}
-	return strings.Join(parts, "  ")
+	return overlayFooterLine(hints, 44)
 }
 
 // BeadUpdatedMsg is sent when edit form is submitted.

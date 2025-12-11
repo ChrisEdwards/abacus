@@ -299,67 +299,6 @@ func styleStatusOverlay() lipgloss.Style {
 		Padding(1, 2)
 }
 
-func styleDeleteOverlay() lipgloss.Style {
-	return baseStyle().
-		Background(theme.Current().BackgroundSecondary()).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Current().Error()).
-		Padding(1, 2)
-}
-
-// styleDeleteTitle for delete overlay title/divider (error color with secondary bg)
-func styleDeleteTitle() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Background(theme.Current().BackgroundSecondary()).
-		Foreground(theme.Current().Error()).
-		Bold(true)
-}
-
-// styleOverlayText for regular text in overlays (secondary background)
-func styleOverlayText() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Background(currentThemeWrapper().BackgroundSecondary()).
-		Foreground(currentThemeWrapper().Text())
-}
-
-// styleOverlayTextMuted for muted text in overlays (secondary background)
-func styleOverlayTextMuted() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Background(currentThemeWrapper().BackgroundSecondary()).
-		Foreground(currentThemeWrapper().TextMuted())
-}
-
-// styleOverlayButtonSelected for selected buttons in overlays (primary highlight)
-func styleOverlayButtonSelected() lipgloss.Style {
-	style := lipgloss.NewStyle().
-		Background(currentThemeWrapper().BackgroundSecondary()).
-		Foreground(currentThemeWrapper().Primary())
-	return applyBold(style, true)
-}
-
-// styleOverlayButtonDanger for selected danger buttons (error/red)
-func styleOverlayButtonDanger() lipgloss.Style {
-	style := lipgloss.NewStyle().
-		Background(currentThemeWrapper().BackgroundSecondary()).
-		Foreground(currentThemeWrapper().Error())
-	return applyBold(style, true)
-}
-
-// styleOverlayIcon for icons in overlays (secondary background)
-func styleOverlayIcon() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Background(currentThemeWrapper().BackgroundSecondary()).
-		Foreground(currentThemeWrapper().Text())
-}
-
-// styleOverlayID for bead IDs in overlays (accent with secondary background)
-func styleOverlayID() lipgloss.Style {
-	style := lipgloss.NewStyle().
-		Background(currentThemeWrapper().BackgroundSecondary()).
-		Foreground(currentThemeWrapper().Accent())
-	return applyBold(style, false)
-}
-
 func styleStatusDivider() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Foreground(currentThemeWrapper().Primary())

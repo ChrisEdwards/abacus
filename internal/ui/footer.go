@@ -133,6 +133,39 @@ func keyPill(key, desc string) string {
 	return styleKeyPill().Render(" "+key+" ") + baseStyle().Render(" ") + styleKeyDesc().Render(desc)
 }
 
+// overlayFooterLine centers overlay footer hints within the given width.
+// Width should match the overlay content width (before borders/padding).
+func overlayFooterLine(hints []footerHint, width int) string {
+	var parts []string
+	for _, h := range hints {
+		parts = append(parts, overlayKeyPill(h.key, h.desc))
+	}
+	line := strings.Join(parts, "  ")
+	if width <= 0 {
+		return line
+	}
+	return lipgloss.NewStyle().
+		Width(width).
+		Align(lipgloss.Center).
+		Background(currentThemeWrapper().BackgroundSecondary()).
+		Render(line)
+}
+
+// overlayKeyPill renders a pill for overlays with inverted backgrounds:
+// key on dark background, description on overlay background to improve contrast.
+func overlayKeyPill(key, desc string) string {
+	keyStyle := lipgloss.NewStyle().
+		Background(currentThemeWrapper().Background()).
+		Foreground(currentThemeWrapper().Accent())
+	keyStyle = applyBold(keyStyle, false)
+
+	descStyle := lipgloss.NewStyle().
+		Background(currentThemeWrapper().BackgroundSecondary()).
+		Foreground(currentThemeWrapper().TextMuted())
+
+	return keyStyle.Render(" "+key+" ") + descStyle.Render(" "+desc)
+}
+
 // trimHintsToFit progressively removes hints to fit available width.
 // Removes context-specific hints first, then global hints from end.
 func (m *App) trimHintsToFit(hints []footerHint, availableWidth int) []footerHint {
