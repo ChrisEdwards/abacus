@@ -24,9 +24,6 @@ bd comments <issue-id> --add "text"         # WRONG - --add is not a flag
 # Labels
 bd label add <issue-id> <label>
 bd label remove <issue-id> <label>
-
-# Sync - only run right before commit, not after every bead change
-bd sync
 ```
 
 ## Testing Requirements
