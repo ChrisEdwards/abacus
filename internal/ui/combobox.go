@@ -479,21 +479,35 @@ func (c ComboBox) View() string {
 			}
 
 			// Render only visible items
+			// Calculate content width for dropdown (Width minus border/padding of 4)
+			dropdownContentWidth := c.Width - 4
+			if dropdownContentWidth < 10 {
+				dropdownContentWidth = 10 // Minimum reasonable width
+			}
+
 			for i := c.scrollOffset; i < endIndex; i++ {
 				opt := c.filteredOptions[i]
 				// Style "Unassigned" as muted per spec Section 8
 				isMuted := opt == "Unassigned"
+
+				// Truncate option text to fit width (account for 2-char prefix "▸ " or "  ")
+				displayOpt := opt
+				maxOptLen := dropdownContentWidth - 2 // 2 chars for prefix
+				if len(displayOpt) > maxOptLen && maxOptLen > 3 {
+					displayOpt = displayOpt[:maxOptLen-3] + "..."
+				}
+
 				if i == c.highlightIndex {
 					if isMuted {
-						b.WriteString(styleComboBoxHighlight().Foreground(theme.Current().BorderNormal()).Render("\u25b8 " + opt))
+						b.WriteString(styleComboBoxHighlight().Width(dropdownContentWidth).Foreground(theme.Current().BorderNormal()).Render("\u25b8 " + displayOpt))
 					} else {
-						b.WriteString(styleComboBoxHighlight().Render("\u25b8 " + opt))
+						b.WriteString(styleComboBoxHighlight().Width(dropdownContentWidth).Render("\u25b8 " + displayOpt))
 					}
 				} else {
 					if isMuted {
-						b.WriteString(styleComboBoxOption().Foreground(theme.Current().BorderNormal()).Render("  " + opt))
+						b.WriteString(styleComboBoxOption().Width(dropdownContentWidth).Foreground(theme.Current().BorderNormal()).Render("  " + displayOpt))
 					} else {
-						b.WriteString(styleComboBoxOption().Render("  " + opt))
+						b.WriteString(styleComboBoxOption().Width(dropdownContentWidth).Render("  " + displayOpt))
 					}
 				}
 				if i < endIndex-1 {

@@ -1472,9 +1472,9 @@ func (m *CreateOverlay) SetSize(width, height int) {
 	dialogWidth := m.calcDialogWidth()
 	contentWidth := dialogWidth - 4 // border (2) + padding (2)
 
-	// Update text areas
+	// Update text areas (content width = dialog width minus border/padding)
 	m.titleInput.SetWidth(contentWidth)
-	m.descriptionInput.SetWidth(dialogWidth)
+	m.descriptionInput.SetWidth(contentWidth)
 
 	// Update combo boxes
 	m.parentCombo = m.parentCombo.WithWidth(dialogWidth)
