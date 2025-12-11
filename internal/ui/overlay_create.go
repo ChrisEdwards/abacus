@@ -1000,7 +1000,7 @@ func (m *CreateOverlay) View() string {
 	// Header (use responsive width)
 	dialogWidth := m.calcDialogWidth()
 	title := styleHelpTitle().Render(m.header())
-	divider := styleHelpDivider().Render(strings.Repeat("─", dialogWidth+8))
+	divider := styleHelpDivider().Render(strings.Repeat("─", dialogWidth))
 
 	b.WriteString(title)
 	b.WriteString("\n")
@@ -1017,7 +1017,7 @@ func (m *CreateOverlay) View() string {
 	// Right-align Shift+Tab hint based on dialog width
 	hint := "Shift+Tab"
 	parentLabelWidth := lipgloss.Width(parentLabel)
-	padding := dialogWidth + 8 - parentLabelWidth - len(hint)
+	padding := dialogWidth - parentLabelWidth - len(hint)
 	if padding > 0 {
 		b.WriteString(hintStyle.Render(strings.Repeat(" ", padding) + hint))
 	} else {
