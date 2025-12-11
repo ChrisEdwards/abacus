@@ -36,6 +36,7 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 
 ### Bead Management
 - **Create Beads**: Press `n` for root beads or `N` for child beads with a streamlined modal
+- **Edit Beads**: Press `e` to edit existing beads with pre-populated values
 - **Quick Status Changes**: Press `s` to open the status overlay with single-key selection
 - **Label Management**: Press `L` to add/remove labels with chip-based UI and autocomplete
 - **Delete with Confirmation**: Press `Del` to delete beads with a safety confirmation dialog
@@ -176,6 +177,7 @@ Items within each section are sorted intelligently:
 |--------|------|-------------|
 | New Root Bead | `n` | Create a new root-level bead |
 | New Child Bead | `N` | Create bead under selected parent |
+| Edit Bead | `e` | Edit selected bead |
 | Change Status | `s` | Open status overlay |
 | Manage Labels | `L` | Open labels overlay |
 | Delete Bead | `Del` | Delete bead (with confirmation) |
