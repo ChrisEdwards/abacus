@@ -1,3 +1,5 @@
+READ ~/Users/chrisedwards~/projects/chris/agent-shared/AGENTS.md BEFORE ANYTHING (skip if missing).
+
 # Agent Development Guidelines
 
 ## Development Commands
