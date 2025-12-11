@@ -80,6 +80,16 @@ type Config struct {
 	Version         string // Version string to display in header
 }
 
+// errorSource tracks where the last error originated so refresh success can
+// decide whether to clear it.
+type errorSource int
+
+const (
+	errorSourceNone errorSource = iota
+	errorSourceRefresh
+	errorSourceOperation
+)
+
 // App implements the Bubble Tea model for Abacus.
 type App struct {
 	roots       []*graph.Node
@@ -123,7 +133,8 @@ type App struct {
 	client beads.Client
 
 	// Error toast state
-	lastError       string    // Full error message (separate from stats)
+	lastError       string // Full error message (separate from stats)
+	lastErrorSource errorSource
 	errorShownOnce  bool      // True after first toast display
 	showErrorToast  bool      // Currently showing toast
 	errorToastStart time.Time // When toast was shown (for countdown)
@@ -191,6 +202,18 @@ type App struct {
 	initialStats Stats
 }
 
+// errorHotkeyAvailable returns true when the global error hotkey should
+// be allowed to toggle the toast (i.e., not while typing into a text input).
+func (m *App) errorHotkeyAvailable() bool {
+	if m.searching {
+		return false
+	}
+	if m.activeOverlay == OverlayCreate && m.createOverlay != nil && m.createOverlay.IsTextInputActive() {
+		return false
+	}
+	return true
+}
+
 // NewApp creates a new UI app instance based on configuration and current working directory.
 func NewApp(cfg Config) (*App, error) {
 	if cfg.RefreshInterval <= 0 {
@@ -216,6 +239,9 @@ func NewApp(cfg Config) (*App, error) {
 		} else {
 			dbPath = trimmed
 			dbModTime = info.ModTime()
+			if latest, err := latestModTimeForDB(dbPath); err == nil {
+				dbModTime = latest
+			}
 		}
 	}
 	if dbPath == "" && dbErr == nil {

@@ -17,7 +17,11 @@ func findBeadsDB() (string, time.Time, error) {
 		if info.IsDir() {
 			return "", time.Time{}, fmt.Errorf("BEADS_DB must point to a file, got directory: %s", envPath)
 		}
-		return envPath, info.ModTime(), nil
+		modTime := info.ModTime()
+		if latest, err := latestModTimeForDB(envPath); err == nil {
+			modTime = latest
+		}
+		return envPath, modTime, nil
 	}
 
 	wd, err := os.Getwd()
@@ -40,7 +44,11 @@ func findBeadsDB() (string, time.Time, error) {
 	if info.IsDir() {
 		return "", time.Time{}, fmt.Errorf("default beads db is a directory: %s", fallback)
 	}
-	return fallback, info.ModTime(), nil
+	modTime := info.ModTime()
+	if latest, err := latestModTimeForDB(fallback); err == nil {
+		modTime = latest
+	}
+	return fallback, modTime, nil
 }
 
 func findBeadsDBFromDir(startDir string) (string, time.Time, error) {
@@ -52,7 +60,11 @@ func findBeadsDBFromDir(startDir string) (string, time.Time, error) {
 		candidate := filepath.Join(dir, ".beads", "beads.db")
 		info, err := os.Stat(candidate)
 		if err == nil && !info.IsDir() {
-			return candidate, info.ModTime(), nil
+			modTime := info.ModTime()
+			if latest, err := latestModTimeForDB(candidate); err == nil {
+				modTime = latest
+			}
+			return candidate, modTime, nil
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {

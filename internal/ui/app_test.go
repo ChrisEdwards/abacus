@@ -1829,6 +1829,26 @@ func TestCheckDBForChangesDetectsModification(t *testing.T) {
 	}
 }
 
+func TestCheckDBForChangesDetectsWalModification(t *testing.T) {
+	dbFile := createTempDBFile(t)
+	app := &App{
+		client:        beads.NewMockClient(),
+		dbPath:        dbFile,
+		lastDBModTime: fileModTime(t, dbFile),
+	}
+
+	// Update WAL file without touching the main database file.
+	time.Sleep(10 * time.Millisecond)
+	walPath := dbFile + "-wal"
+	if err := os.WriteFile(walPath, []byte("wal update"), 0o644); err != nil {
+		t.Fatalf("write wal: %v", err)
+	}
+
+	if cmd := app.checkDBForChanges(); cmd == nil {
+		t.Fatalf("expected refresh command after wal modification")
+	}
+}
+
 func TestRefreshHandlesClientError(t *testing.T) {
 	fixtureInitial := loadFixtureIssues(t, "issues_basic.json")
 	mock := beads.NewMockClient()
@@ -1953,30 +1973,108 @@ func TestErrorToastDoesNotReappearOnSubsequentErrors(t *testing.T) {
 	}
 }
 
-func TestErrorToastClearedOnSuccessfulRefresh(t *testing.T) {
+func TestRefreshSuccessClearsOnlyRefreshErrors(t *testing.T) {
+	t.Run("clearsRefreshErrors", func(t *testing.T) {
+		app := &App{
+			lastError:       "previous error",
+			lastErrorSource: errorSourceRefresh,
+			showErrorToast:  true,
+			errorShownOnce:  true,
+			ready:           true,
+		}
+
+		// Simulate successful refresh
+		msg := refreshCompleteMsg{
+			roots:  []*graph.Node{},
+			digest: map[string]string{},
+		}
+		app.Update(msg)
+
+		if app.lastError != "" {
+			t.Errorf("expected lastError to be cleared, got %s", app.lastError)
+		}
+		if app.lastErrorSource != errorSourceNone {
+			t.Errorf("expected lastErrorSource to be reset, got %v", app.lastErrorSource)
+		}
+		if app.showErrorToast {
+			t.Error("expected showErrorToast to be false")
+		}
+		if app.errorShownOnce {
+			t.Error("expected errorShownOnce to be reset")
+		}
+	})
+
+	t.Run("preservesOperationErrors", func(t *testing.T) {
+		app := &App{
+			lastError:       "dependency add failed",
+			lastErrorSource: errorSourceOperation,
+			showErrorToast:  true,
+			errorShownOnce:  true,
+			ready:           true,
+		}
+
+		msg := refreshCompleteMsg{
+			roots:  []*graph.Node{},
+			digest: map[string]string{},
+		}
+		app.Update(msg)
+
+		if app.lastError != "dependency add failed" {
+			t.Errorf("expected lastError to be preserved, got %s", app.lastError)
+		}
+		if app.lastErrorSource != errorSourceOperation {
+			t.Errorf("expected lastErrorSource to remain operation, got %v", app.lastErrorSource)
+		}
+		if !app.showErrorToast {
+			t.Error("expected showErrorToast to remain visible")
+		}
+	})
+}
+
+func TestErrorToastRecallWhileOverlayActiveWhenNotTyping(t *testing.T) {
+	overlay := NewCreateOverlay(CreateOverlayOptions{})
+	overlay.focus = FocusType // not a text input
+
 	app := &App{
-		lastError:      "previous error",
-		showErrorToast: true,
+		lastError:      "backend failed",
+		showErrorToast: false,
 		errorShownOnce: true,
 		ready:          true,
+		keys:           DefaultKeyMap(),
+		createOverlay:  overlay,
+		activeOverlay:  OverlayCreate,
 	}
 
-	// Simulate successful refresh
-	msg := refreshCompleteMsg{
-		roots:  []*graph.Node{},
-		digest: map[string]string{},
-	}
-	app.Update(msg)
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
 
-	if app.lastError != "" {
-		t.Errorf("expected lastError to be cleared, got %s", app.lastError)
+	if !app.showErrorToast {
+		t.Fatal("expected showErrorToast to be true when overlay not in text input")
 	}
+	if cmd == nil {
+		t.Fatal("expected tick command to be returned")
+	}
+}
+
+func TestErrorToastRecallBlockedWhileTypingInOverlay(t *testing.T) {
+	overlay := NewCreateOverlay(CreateOverlayOptions{})
+	overlay.focus = FocusTitle
+
+	app := &App{
+		lastError:      "backend failed",
+		showErrorToast: false,
+		errorShownOnce: true,
+		ready:          true,
+		keys:           DefaultKeyMap(),
+		createOverlay:  overlay,
+		activeOverlay:  OverlayCreate,
+	}
+
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
+
 	if app.showErrorToast {
-		t.Error("expected showErrorToast to be false")
+		t.Fatal("expected showErrorToast to remain false while typing")
 	}
-	if app.errorShownOnce {
-		t.Error("expected errorShownOnce to be reset")
-	}
+	_ = cmd // overlay may return its own command; the toast should remain hidden
 }
 
 func TestErrorToastCountdown(t *testing.T) {

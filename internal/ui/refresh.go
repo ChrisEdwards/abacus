@@ -2,8 +2,11 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"strings"
 	"time"
 
 	"abacus/internal/beads"
@@ -42,18 +45,19 @@ func (m *App) checkDBForChanges() tea.Cmd {
 		return nil
 	}
 
-	info, err := os.Stat(m.dbPath)
+	modTime, err := m.latestDBModTime()
 	if err != nil {
 		m.lastError = fmt.Sprintf("refresh check failed: %v", err)
+		m.lastErrorSource = errorSourceRefresh
 		m.lastRefreshStats = "refresh error"
 		return nil // Try again next tick
 	}
 
-	if !info.ModTime().After(m.lastDBModTime) {
+	if !modTime.After(m.lastDBModTime) {
 		return nil
 	}
 
-	return m.startRefresh(info.ModTime())
+	return m.startRefresh(modTime)
 }
 
 func (m *App) startRefresh(targetModTime time.Time) tea.Cmd {
@@ -67,11 +71,45 @@ func (m *App) startRefresh(targetModTime time.Time) tea.Cmd {
 func (m *App) forceRefresh() tea.Cmd {
 	var modTime time.Time
 	if m.dbPath != "" {
-		if info, err := os.Stat(m.dbPath); err == nil {
-			modTime = info.ModTime()
+		if latest, err := m.latestDBModTime(); err == nil {
+			modTime = latest
 		}
 	}
 	return m.startRefresh(modTime)
+}
+
+func (m *App) latestDBModTime() (time.Time, error) {
+	if strings.TrimSpace(m.dbPath) == "" {
+		return time.Time{}, fmt.Errorf("database path is empty")
+	}
+	return latestModTimeForDB(m.dbPath)
+}
+
+func latestModTimeForDB(dbPath string) (time.Time, error) {
+	info, err := os.Stat(dbPath)
+	if err != nil {
+		return time.Time{}, err
+	}
+	latest := info.ModTime()
+	for _, path := range []string{dbPath + "-wal", dbPath + "-shm"} {
+		if modTime, err := optionalModTime(path); err != nil {
+			return time.Time{}, err
+		} else if modTime.After(latest) {
+			latest = modTime
+		}
+	}
+	return latest, nil
+}
+
+func optionalModTime(path string) (time.Time, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return time.Time{}, nil
+		}
+		return time.Time{}, err
+	}
+	return info.ModTime(), nil
 }
 
 func (m *App) applyRefresh(newRoots []*graph.Node, newDigest map[string]string, newModTime time.Time) {
