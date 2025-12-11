@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -665,6 +666,44 @@ func TestComboBoxView(t *testing.T) {
 		// We use \u25b8 (▸) as highlight marker
 		if !strings.Contains(view, "\u25b8 Bob") {
 			t.Error("expected Bob to be highlighted with marker")
+		}
+	})
+
+	t.Run("ViewHighlightAlignedWithOptions", func(t *testing.T) {
+		cb := NewComboBox([]string{"Alpha", "Bravo", "Charlie"})
+		cb.Focus()
+
+		// Open dropdown and move highlight to Bravo
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+		cb, _ = cb.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+		view := stripANSI(cb.View())
+
+		var highlightedLine, optionLine string
+		for _, line := range strings.Split(view, "\n") {
+			if strings.Contains(line, "Bravo") {
+				highlightedLine = strings.TrimRight(line, " ")
+			}
+			if strings.Contains(line, "Charlie") {
+				optionLine = strings.TrimRight(line, " ")
+			}
+		}
+
+		if highlightedLine == "" || optionLine == "" {
+			t.Fatalf("expected both highlighted and option lines, got highlight=%q option=%q", highlightedLine, optionLine)
+		}
+
+		highlightStart := strings.Index(highlightedLine, "Bravo")
+		optionStart := strings.Index(optionLine, "Charlie")
+		if highlightStart == -1 || optionStart == -1 {
+			t.Fatalf("expected to locate option text in lines, got highlightStart=%d optionStart=%d", highlightStart, optionStart)
+		}
+
+		highlightPrefixWidth := utf8.RuneCountInString(highlightedLine[:highlightStart])
+		optionPrefixWidth := utf8.RuneCountInString(optionLine[:optionStart])
+
+		if highlightPrefixWidth != optionPrefixWidth {
+			t.Fatalf("expected highlight indent %d to match option indent %d", highlightPrefixWidth, optionPrefixWidth)
 		}
 	})
 

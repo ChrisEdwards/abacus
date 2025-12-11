@@ -640,7 +640,7 @@ func styleComboBoxHighlight() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Foreground(theme.Current().Secondary()).
 		Bold(true).
-		PaddingLeft(1)
+		PaddingLeft(2)
 }
 
 func styleComboBoxNoMatch() lipgloss.Style {
