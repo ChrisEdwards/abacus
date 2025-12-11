@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-12-11
+
 ### Added
 - **Edit bead**: Press `e` to edit existing beads directly from the TUI with pre-populated values (ab-jve)
 - **Colorized labels**: Labels now display with theme-aware Info() color for better visibility
