@@ -1470,9 +1470,11 @@ func (m *CreateOverlay) calcDialogWidth() int {
 func (m *CreateOverlay) SetSize(width, height int) {
 	m.termWidth = width
 	dialogWidth := m.calcDialogWidth()
-	contentWidth := dialogWidth - 4 // border (2) + padding (2)
+	// lipgloss Width includes padding but excludes border
+	// Padding(0,1) = 2 chars (1 left + 1 right), border adds 2 more outside
+	contentWidth := dialogWidth - 2 // Only subtract padding, border is outside Width
 
-	// Update text areas (content width = dialog width minus border/padding)
+	// Update text areas to fill the content area inside padding
 	m.titleInput.SetWidth(contentWidth)
 	m.descriptionInput.SetWidth(contentWidth)
 
