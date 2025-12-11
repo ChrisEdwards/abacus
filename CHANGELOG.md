@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Edit bead**: Press `e` to edit existing beads directly from the TUI with pre-populated values (ab-jve)
+- **Colorized labels**: Labels now display with theme-aware Info() color for better visibility
+
+### Changed
+- **Responsive dialogs**: Create/edit dialogs now adapt to terminal width (44-120 chars based on 70% of terminal width) (ab-11wd)
+- **Standardized overlays**: Delete, status, and label overlays now have consistent width and styling (ab-nr58)
+
+### Fixed
+- **Epic parent validation**: Epics can now only be children of other epics, with clear error messaging (ab-jve)
+- **Auto-refresh**: Now correctly detects WAL file changes and continues refreshing when overlays are open
+- **Tab selection**: Tab key in combo boxes now selects the highlighted item before moving focus
+- **Combobox highlight**: Dropdown highlight alignment fixed for consistent appearance (ab-3us9)
+- **Flaky CI tests**: Fixed timing issues in CLI tests for more reliable CI builds
+
 ## [0.4.0] - 2025-12-06
 
 ### Added
