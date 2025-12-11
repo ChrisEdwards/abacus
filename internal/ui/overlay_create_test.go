@@ -3542,3 +3542,98 @@ func TestCreateOverlay_Tab_AddsLabelChipFromDropdown(t *testing.T) {
 		t.Errorf("Expected ['backend'], got %v", chips)
 	}
 }
+
+// ab-11wd: Responsive dialog width tests
+func TestCalcDialogWidth(t *testing.T) {
+	tests := []struct {
+		name      string
+		termWidth int
+		want      int
+	}{
+		{"zero width uses fallback", 0, 44},
+		{"very narrow uses minimum", 50, 44},
+		{"at 63 cols", 63, 44},
+		{"at 65 cols", 65, 45},
+		{"medium terminal 80 cols", 80, 56},
+		{"medium terminal 100 cols", 100, 70},
+		{"wide terminal 120 cols", 120, 84},
+		{"wide terminal 150 cols", 150, 105},
+		{"at max boundary 171", 171, 119},
+		{"at max boundary 172", 172, 120},
+		{"very wide capped at 120", 200, 120},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			overlay := &CreateOverlay{termWidth: tt.termWidth}
+			got := overlay.calcDialogWidth()
+			if got != tt.want {
+				t.Errorf("calcDialogWidth() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSetSizeUpdatesWidth(t *testing.T) {
+	opts := CreateOverlayOptions{
+		AvailableParents: []ParentOption{},
+	}
+	overlay := NewCreateOverlay(opts)
+
+	// Set initial size
+	overlay.SetSize(150, 40)
+
+	// Verify width was updated
+	if overlay.termWidth != 150 {
+		t.Errorf("termWidth = %d, want 150", overlay.termWidth)
+	}
+
+	// Verify calcDialogWidth uses the new width
+	expectedWidth := 105 // int(0.7 * 150) = 105
+	if got := overlay.calcDialogWidth(); got != expectedWidth {
+		t.Errorf("calcDialogWidth() = %d, want %d", got, expectedWidth)
+	}
+}
+
+func TestSetSizePreservesContent(t *testing.T) {
+	opts := CreateOverlayOptions{
+		AvailableParents: []ParentOption{},
+	}
+	overlay := NewCreateOverlay(opts)
+
+	// Set some initial content
+	overlay.titleInput.SetValue("Test title")
+	overlay.descriptionInput.SetValue("Test description")
+
+	// Resize
+	overlay.SetSize(150, 40)
+
+	// Verify content was preserved
+	if overlay.titleInput.Value() != "Test title" {
+		t.Error("SetSize() should not clear title input")
+	}
+	if overlay.descriptionInput.Value() != "Test description" {
+		t.Error("SetSize() should not clear description input")
+	}
+}
+
+func TestSetSizeUpdatesComboBoxes(t *testing.T) {
+	opts := CreateOverlayOptions{
+		AvailableParents: []ParentOption{
+			{ID: "ab-123", Display: "ab-123 Test"},
+		},
+		AvailableLabels:    []string{"bug", "feature"},
+		AvailableAssignees: []string{"alice"},
+	}
+	overlay := NewCreateOverlay(opts)
+
+	// Set a parent value
+	overlay.parentCombo.SetValue("ab-123 Test")
+
+	// Resize
+	overlay.SetSize(120, 30)
+
+	// Verify parent value is preserved after resize
+	if overlay.parentCombo.Value() != "ab-123 Test" {
+		t.Errorf("parentCombo value should be preserved, got %q", overlay.parentCombo.Value())
+	}
+}

@@ -353,6 +353,11 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyViewportTheme()
 		m.updateViewportContent()
 
+		// Propagate size to create overlay if active (ab-11wd responsive sizing)
+		if m.createOverlay != nil {
+			m.createOverlay.SetSize(msg.Width, msg.Height)
+		}
+
 	case tea.KeyMsg:
 		// Help overlay takes precedence - blocks all other keys
 		if m.showHelp {
@@ -611,6 +616,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					AvailableAssignees: m.getAllAssignees(),
 					IsRootMode:         parentID == "",
 				})
+				m.createOverlay.SetSize(m.width, m.height)
 				m.activeOverlay = OverlayCreate
 				return m, m.createOverlay.Init()
 			}
@@ -627,6 +633,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				AvailableAssignees: m.getAllAssignees(),
 				IsRootMode:         false,
 			})
+			m.createOverlay.SetSize(m.width, m.height)
 			m.activeOverlay = OverlayCreate
 			return m, m.createOverlay.Init()
 		case key.Matches(msg, m.keys.NewRootBead):
@@ -637,6 +644,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				AvailableAssignees: m.getAllAssignees(),
 				IsRootMode:         true,
 			})
+			m.createOverlay.SetSize(m.width, m.height)
 			m.activeOverlay = OverlayCreate
 			return m, m.createOverlay.Init()
 		}

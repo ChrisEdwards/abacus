@@ -157,6 +157,9 @@ type CreateOverlay struct {
 
 	// State management
 	isCreating bool // True during form submission (spec Section 4.1)
+
+	// Responsive sizing (ab-11wd)
+	termWidth int // Terminal width for responsive dialog width calculation
 }
 
 // ParentOption represents a bead that can be selected as a parent.
@@ -679,7 +682,8 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 			currentHeight := lineInfo.Height
 			if currentHeight > 0 && currentHeight < 3 {
 				isOnLastRow := lineInfo.RowOffset == currentHeight-1
-				nearLineEnd := lineInfo.ColumnOffset > titleContentWidth-12
+				contentWidth := m.calcDialogWidth() - 4 // Content width inside border+padding
+				nearLineEnd := lineInfo.ColumnOffset > contentWidth-12
 				if isOnLastRow && nearLineEnd {
 					m.titleInput.SetHeight(currentHeight + 1)
 				}
@@ -955,29 +959,29 @@ func styleCreatePillFocused() lipgloss.Style {
 		Background(theme.Current().BorderDim())
 }
 
-func styleCreateInput() lipgloss.Style {
+func styleCreateInput(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.Current().BorderDim()).
 		Padding(0, 1).
-		Width(44)
+		Width(width)
 }
 
-func styleCreateInputFocused() lipgloss.Style {
+func styleCreateInputFocused(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.Current().Success()).
 		Padding(0, 1).
-		Width(44)
+		Width(width)
 }
 
 // Error state for title validation (spec Section 4.4 - red border flash)
-func styleCreateInputError() lipgloss.Style {
+func styleCreateInputError(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.Current().Error()).
 		Padding(0, 1).
-		Width(44)
+		Width(width)
 }
 
 // Dimmed style for modal depth effect (spec Section 2.4)
@@ -993,9 +997,10 @@ func (m *CreateOverlay) View() string {
 	// Check if parent search is active for dimming effect (spec Section 2.4)
 	parentSearchActive := m.parentCombo.IsDropdownOpen()
 
-	// Header
+	// Header (use responsive width)
+	dialogWidth := m.calcDialogWidth()
 	title := styleHelpTitle().Render(m.header())
-	divider := styleHelpDivider().Render(strings.Repeat("─", 52))
+	divider := styleHelpDivider().Render(strings.Repeat("─", dialogWidth+8))
 
 	b.WriteString(title)
 	b.WriteString("\n")
@@ -1009,7 +1014,15 @@ func (m *CreateOverlay) View() string {
 	}
 	b.WriteString(parentLabel)
 	hintStyle := lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
-	b.WriteString(hintStyle.Render("                                    Shift+Tab"))
+	// Right-align Shift+Tab hint based on dialog width
+	hint := "Shift+Tab"
+	parentLabelWidth := lipgloss.Width(parentLabel)
+	padding := dialogWidth + 8 - parentLabelWidth - len(hint)
+	if padding > 0 {
+		b.WriteString(hintStyle.Render(strings.Repeat(" ", padding) + hint))
+	} else {
+		b.WriteString(hintStyle.Render(" " + hint))
+	}
 	b.WriteString("\n")
 
 	// Parent combo box (always editable; placeholder shows root state)
@@ -1031,13 +1044,13 @@ func (m *CreateOverlay) View() string {
 	b.WriteString(titleLabel)
 	b.WriteString("\n")
 
-	titleStyle := styleCreateInput()
+	titleStyle := styleCreateInput(dialogWidth)
 	if m.focus == FocusTitle {
-		titleStyle = styleCreateInputFocused()
+		titleStyle = styleCreateInputFocused(dialogWidth)
 	}
 	// Show red border for both validation and backend errors
 	if m.titleValidationError {
-		titleStyle = styleCreateInputError()
+		titleStyle = styleCreateInputError(dialogWidth)
 	}
 
 	titleView := titleStyle.Render(m.titleInput.View())
@@ -1059,9 +1072,9 @@ func (m *CreateOverlay) View() string {
 	b.WriteString(descLabel)
 	b.WriteString("\n")
 
-	descStyle := styleCreateInput()
+	descStyle := styleCreateInput(dialogWidth)
 	if m.focus == FocusDescription {
-		descStyle = styleCreateInputFocused()
+		descStyle = styleCreateInputFocused(dialogWidth)
 	}
 	descView := descStyle.Render(m.descriptionInput.View())
 	if parentSearchActive {
@@ -1321,7 +1334,7 @@ func (m *CreateOverlay) renderFooter() string {
 		}
 	}
 
-	return overlayFooterLine(hints, 44)
+	return overlayFooterLine(hints, m.calcDialogWidth())
 }
 
 // BeadUpdatedMsg is sent when edit form is submitted.
@@ -1434,4 +1447,37 @@ func (m *CreateOverlay) IsRootMode() bool {
 // TitleValidationError returns whether the title is showing validation error (for testing).
 func (m *CreateOverlay) TitleValidationError() bool {
 	return m.titleValidationError
+}
+
+// calcDialogWidth returns the responsive dialog width based on terminal width.
+// Formula: min(120, max(44, int(0.7 * termWidth))) per ab-11wd spec.
+func (m *CreateOverlay) calcDialogWidth() int {
+	if m.termWidth == 0 {
+		return 44 // Fallback to current default
+	}
+	width := int(float64(m.termWidth) * 0.7)
+	if width < 44 {
+		width = 44
+	}
+	if width > 120 {
+		width = 120
+	}
+	return width
+}
+
+// SetSize updates the overlay dimensions based on terminal size.
+// Called when tea.WindowSizeMsg is received.
+func (m *CreateOverlay) SetSize(width, height int) {
+	m.termWidth = width
+	dialogWidth := m.calcDialogWidth()
+	contentWidth := dialogWidth - 4 // border (2) + padding (2)
+
+	// Update text areas
+	m.titleInput.SetWidth(contentWidth)
+	m.descriptionInput.SetWidth(dialogWidth)
+
+	// Update combo boxes
+	m.parentCombo = m.parentCombo.WithWidth(dialogWidth)
+	m.labelsCombo = m.labelsCombo.WithWidth(dialogWidth)
+	m.assigneeCombo = m.assigneeCombo.WithWidth(dialogWidth)
 }
