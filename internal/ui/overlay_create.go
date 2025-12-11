@@ -356,6 +356,20 @@ func (m *CreateOverlay) Init() tea.Cmd {
 	return textarea.Blink
 }
 
+// IsTextInputActive reports whether the overlay is currently focused on a text
+// entry area (including dropdown search inputs). When true, global hotkeys
+// like the error recall should be suppressed.
+func (m *CreateOverlay) IsTextInputActive() bool {
+	switch m.focus {
+	case FocusTitle, FocusDescription, FocusParent, FocusLabels, FocusAssignee:
+		return true
+	}
+	if m.parentCombo.IsDropdownOpen() || m.labelsCombo.IsDropdownOpen() || m.assigneeCombo.IsDropdownOpen() {
+		return true
+	}
+	return false
+}
+
 // Update implements tea.Model.
 func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 	var cmds []tea.Cmd

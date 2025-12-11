@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -16,6 +17,10 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+const epicParentConstraintMessage = "Epics may only be children of other epics. Note: beads does not currently support changing bead types (see GitHub issue #522)."
+
+var errInvalidEpicParent = errors.New("epics may only be children of other epics")
 
 func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle overlay messages regardless of overlay state
@@ -43,6 +48,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case statusUpdateCompleteMsg:
 		if msg.err != nil {
 			m.lastError = msg.err.Error()
+			m.lastErrorSource = errorSourceOperation
 			m.showErrorToast = true
 			m.errorToastStart = time.Now()
 			return m, scheduleErrorToastTick()
@@ -86,6 +92,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case labelUpdateCompleteMsg:
 		if msg.err != nil {
 			m.lastError = msg.err.Error()
+			m.lastErrorSource = errorSourceOperation
 			m.showErrorToast = true
 			m.errorToastStart = time.Now()
 			return m, scheduleErrorToastTick()
@@ -117,6 +124,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Backend error: show toast and notify overlay (spec Section 4.4)
 			errMsg := msg.err.Error()
 			m.lastError = errMsg
+			m.lastErrorSource = errorSourceOperation
 			m.showErrorToast = true
 			m.errorToastStart = time.Now()
 
@@ -138,6 +146,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err := m.fastInjectBead(*msg.fullIssue, msg.parentID); err != nil {
 				// Fall back to full refresh on error
 				m.lastError = fmt.Sprintf("Fast injection failed: %v, refreshing...", err)
+				m.lastErrorSource = errorSourceOperation
 				// Continue to full refresh below
 			} else {
 				// Success! Show toast and return
@@ -201,6 +210,20 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.displayNewAssigneeToast(msg.Assignee)
 		return m, scheduleNewAssigneeToastTick()
 	case BeadUpdatedMsg:
+		if err := m.validateUpdate(msg); err != nil {
+			if errors.Is(err, errInvalidEpicParent) {
+				m.lastError = epicParentConstraintMessage
+			} else {
+				m.lastError = err.Error()
+			}
+			m.lastErrorSource = errorSourceOperation
+			m.showErrorToast = true
+			m.errorToastStart = time.Now()
+			if m.createOverlay != nil {
+				m.createOverlay.isCreating = false
+			}
+			return m, scheduleErrorToastTick()
+		}
 		return m, m.executeUpdateCmd(msg)
 	case updateCompleteMsg:
 		m.activeOverlay = OverlayNone
@@ -209,6 +232,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showErrorToast = true
 			m.errorToastStart = time.Now()
 			m.lastError = msg.Err.Error()
+			m.lastErrorSource = errorSourceOperation
 			return m, scheduleErrorToastTick()
 		}
 		m.createToastBeadID = msg.ID
@@ -252,6 +276,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case deleteCompleteMsg:
 		if msg.err != nil {
 			m.lastError = msg.err.Error()
+			m.lastErrorSource = errorSourceOperation
 			m.showErrorToast = true
 			m.errorToastStart = time.Now()
 			return m, scheduleErrorToastTick()
@@ -298,6 +323,7 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refreshInFlight = false
 		if msg.err != nil {
 			m.lastError = msg.err.Error()
+			m.lastErrorSource = errorSourceRefresh
 			m.lastRefreshStats = "" // Clear stats when we have an error
 			if !m.errorShownOnce {
 				m.showErrorToast = true
@@ -307,10 +333,13 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		// On success, clear error state
-		m.lastError = ""
+		// On success, clear only refresh-related errors
+		if m.lastErrorSource == errorSourceRefresh {
+			m.lastError = ""
+			m.lastErrorSource = errorSourceNone
+			m.showErrorToast = false
+		}
 		m.errorShownOnce = false
-		m.showErrorToast = false
 		m.applyRefresh(msg.roots, msg.digest, msg.dbModTime)
 		return m, nil
 	case eventualRefreshMsg:
@@ -368,6 +397,16 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showHelp = false
 			}
 			return m, nil
+		}
+
+		// Allow error recall even when overlays are open, as long as we're
+		// not focused on a text input (e.g., create modal fields).
+		if key.Matches(msg, m.keys.Error) && m.errorHotkeyAvailable() {
+			if m.lastError != "" && !m.showErrorToast {
+				m.showErrorToast = true
+				m.errorToastStart = time.Now()
+				return m, scheduleErrorToastTick()
+			}
 		}
 
 		if m.searching {
@@ -968,6 +1007,23 @@ func (m *App) executeCreateBead(msg BeadCreatedMsg) tea.Cmd {
 			parentID:  msg.ParentID,
 		}
 	}
+}
+
+func (m *App) validateUpdate(msg BeadUpdatedMsg) error {
+	if msg.IssueType != "epic" {
+		return nil
+	}
+	if msg.ParentID == "" || msg.ParentID == msg.OriginalParentID {
+		return nil
+	}
+	parent := m.findNodeByID(msg.ParentID)
+	if parent == nil {
+		return nil
+	}
+	if parent.Issue.IssueType != "epic" {
+		return errInvalidEpicParent
+	}
+	return nil
 }
 
 // executeUpdateCmd runs the bd update command asynchronously.

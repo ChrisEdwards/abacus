@@ -20,6 +20,7 @@ func (m *App) fastInjectBead(issue beads.FullIssue, parentHint string) error {
 		if elapsed > 50*time.Millisecond {
 			// Log warning if injection took > 50ms
 			m.lastError = fmt.Sprintf("Injection took %v (target: <50ms)", elapsed)
+			m.lastErrorSource = errorSourceOperation
 		}
 	}()
 
