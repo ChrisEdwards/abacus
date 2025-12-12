@@ -972,29 +972,35 @@ func styleCreatePillFocused() lipgloss.Style {
 		Background(currentThemeWrapper().BorderDim())
 }
 
+// styleCreateInput returns a bordered input style.
+// width is the desired VISUAL width; the style accounts for border (+2) internally.
 func styleCreateInput(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(currentThemeWrapper().BorderDim()).
 		Padding(0, 1).
-		Width(width)
+		Width(width - 2) // Border adds 2 chars outside Width
 }
 
+// styleCreateInputFocused returns a bordered input style with focus highlight.
+// width is the desired VISUAL width; the style accounts for border (+2) internally.
 func styleCreateInputFocused(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(currentThemeWrapper().Success()).
 		Padding(0, 1).
-		Width(width)
+		Width(width - 2) // Border adds 2 chars outside Width
 }
 
-// Error state for title validation (spec Section 4.4 - red border flash)
+// styleCreateInputError returns a bordered input style with error highlight.
+// width is the desired VISUAL width; the style accounts for border (+2) internally.
+// (spec Section 4.4 - red border flash)
 func styleCreateInputError(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(currentThemeWrapper().Error()).
 		Padding(0, 1).
-		Width(width)
+		Width(width - 2) // Border adds 2 chars outside Width
 }
 
 // Dimmed style for modal depth effect (spec Section 2.4)

@@ -447,9 +447,11 @@ func (c ComboBox) View() string {
 		inputView = c.textInput.View()
 	}
 
-	inputStyle := styleComboBoxInput().Width(c.Width)
+	// c.Width is the desired VISUAL width including border
+	// Border adds 2 chars outside Width, so use Width - 2 for lipgloss
+	inputStyle := styleComboBoxInput().Width(c.Width - 2)
 	if c.focused {
-		inputStyle = styleComboBoxInputFocused().Width(c.Width)
+		inputStyle = styleComboBoxInputFocused().Width(c.Width - 2)
 	}
 	b.WriteString(inputStyle.Render(inputView))
 
