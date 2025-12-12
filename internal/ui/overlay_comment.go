@@ -71,8 +71,10 @@ func (m *CommentOverlay) Update(msg tea.Msg) (*CommentOverlay, tea.Cmd) {
 			}
 			return m, func() tea.Msg { return CommentCancelledMsg{} }
 
-		case msg.Type == tea.KeyCtrlJ, msg.String() == "ctrl+enter":
-			// Ctrl+Enter to submit (KeyCtrlJ is what bubbletea sends for Ctrl+Enter)
+		case msg.Type == tea.KeyCtrlJ,
+			msg.String() == "ctrl+enter",
+			msg.String() == "shift+enter":
+			// Ctrl+Enter, Shift+Enter, or Ctrl+J to submit
 			return m.submit()
 		}
 	}
@@ -156,7 +158,7 @@ func (m *CommentOverlay) View() string {
 
 	// Footer
 	hints := []footerHint{
-		{"^⏎", "Submit"},
+		{"⇧⏎", "Submit"},
 		{"esc", "Cancel"},
 	}
 	b.WriteString(overlayFooterLine(hints, commentModalWidth+4))
