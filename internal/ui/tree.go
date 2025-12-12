@@ -13,7 +13,12 @@ import (
 const treeScrollMargin = 1
 
 func (m *App) renderTreeView(dimmed bool) string {
-	restore := useStyleTheme(dimmed)
+	var restore func()
+	if dimmed {
+		restore = useDimmedTheme()
+	} else {
+		restore = func() {} // No theme override when no overlay
+	}
 	defer restore()
 
 	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)

@@ -19,7 +19,12 @@ func (m *App) View() string {
 	dimmed := m.activeOverlay != OverlayNone || m.showHelp
 
 	// Apply dimmed palette for background elements when overlay is active
-	restoreTheme := useStyleTheme(dimmed)
+	var restoreTheme func()
+	if dimmed {
+		restoreTheme = useDimmedTheme()
+	} else {
+		restoreTheme = func() {} // No theme override when no overlay
+	}
 	defer restoreTheme()
 
 	stats := m.getStats()
@@ -197,7 +202,7 @@ func (m *App) View() string {
 		canvas.DrawStringAt(0, 0, base)
 
 		// Switch to bright theme for overlay rendering
-		restoreBright := useStyleTheme(false)
+		restoreBright := useOverlayTheme()
 		for _, layer := range overlayLayers {
 			if layer == nil {
 				continue

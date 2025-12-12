@@ -2,14 +2,13 @@ package ui
 
 import (
 	"sort"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // LabelsOverlay is a chip-based popup for managing labels on a bead.
 // Uses ChipComboBox for a modern, intuitive label management experience.
+// Uses the unified overlay framework for consistent sizing and layout.
 type LabelsOverlay struct {
 	issueID       string
 	beadTitle     string       // For header display
@@ -40,8 +39,9 @@ func NewLabelsOverlay(issueID, beadTitle string, currentLabels, allProjectLabels
 	copy(originalChips, currentLabels)
 
 	// Create ChipComboBox with all labels as options
+	// Use OverlayWidthStandard for consistent sizing
 	chipCombo := NewChipComboBox(sortedLabels).
-		WithWidth(44).
+		WithWidth(OverlayWidthStandard).
 		WithMaxVisible(10). // More visible items in labels popup
 		WithPlaceholder("type to filter...").
 		WithAllowNew(true, "New label: %s")
@@ -202,72 +202,12 @@ func (m *LabelsOverlay) confirm() tea.Cmd {
 	}
 }
 
-// View implements tea.Model.
+// View implements tea.Model using the unified overlay framework.
 func (m *LabelsOverlay) View() string {
-	return styleStatusOverlay().Render(strings.Join(m.renderLines(), "\n"))
-}
+	b := NewOverlayBuilder(OverlaySizeStandard, 0)
 
-// Layer returns a centered layer for the labels overlay.
-func (m *LabelsOverlay) Layer(width, height, topMargin, bottomMargin int) Layer {
-	return LayerFunc(func() *Canvas {
-		content := m.View()
-		if strings.TrimSpace(content) == "" {
-			return nil
-		}
-
-		overlayWidth := lipgloss.Width(content)
-		if overlayWidth <= 0 {
-			return nil
-		}
-		overlayHeight := lipgloss.Height(content)
-		if overlayHeight <= 0 {
-			return nil
-		}
-
-		surface := NewSecondarySurface(overlayWidth, overlayHeight)
-		surface.Draw(0, 0, content)
-
-		x, y := centeredOffsets(width, height, overlayWidth, overlayHeight, topMargin, bottomMargin)
-		surface.Canvas.SetOffset(x, y)
-		return surface.Canvas
-	})
-}
-
-// renderFooter returns the dynamic footer based on current state.
-// Uses keyPill() for consistency with the global footer styling.
-func (m *LabelsOverlay) renderFooter() string {
-	var hints []footerHint
-
-	switch {
-	case m.chipCombo.IsDropdownOpen():
-		// Dropdown open: show selection hints
-		hints = []footerHint{
-			{"⏎", "Select"},
-			{"↑↓", "Navigate"},
-			{"esc", "Clear"},
-		}
-	case m.chipCombo.InChipNavMode():
-		// Chip navigation mode: show chip nav hints
-		hints = []footerHint{
-			{"Del", "Remove"},
-			{"←→", "Navigate"},
-			{"↓", "Exit"},
-		}
-	default:
-		// Idle state: show confirm/cancel hints
-		hints = []footerHint{
-			{"⏎", "Save"},
-			{"esc", "Cancel"},
-		}
-	}
-
-	return overlayFooterLine(hints, 44)
-}
-
-func (m *LabelsOverlay) renderLines() []string {
-	var lines []string
-
-	lines = append(lines, styleHelpSectionHeader().Render("Edit Labels"))
+	// Header with context
+	b.Line(styleOverlaySectionLabel().Render("Edit Labels"))
 
 	title := m.beadTitle
 	maxTitleLen := 30
@@ -275,13 +215,58 @@ func (m *LabelsOverlay) renderLines() []string {
 		title = title[:maxTitleLen-3] + "..."
 	}
 	contextLine := styleID().Render(m.issueID) + styleStatsDim().Render(": ") + styleStatsDim().Render(title)
-	lines = append(lines, contextLine)
+	b.Line(contextLine)
+	b.Line(b.Divider())
+	b.BlankLine()
 
-	divider := styleStatusDivider().Render(strings.Repeat("─", 44))
-	lines = append(lines, divider, "")
-	lines = append(lines, m.chipCombo.View(), "", divider, m.renderFooter())
+	// Chip combo box
+	b.Line(m.chipCombo.View())
+	b.BlankLine()
 
-	return lines
+	// Footer
+	b.Footer(m.footerHints())
+
+	return b.Build()
+}
+
+// renderFooter returns the rendered footer string for the overlay.
+// Exposed for testing.
+//
+//nolint:unused // used in tests
+func (m *LabelsOverlay) renderFooter() string {
+	return overlayFooterLine(m.footerHints(), OverlayContentWidth(OverlayWidthStandard))
+}
+
+// footerHints returns the dynamic footer based on current state.
+func (m *LabelsOverlay) footerHints() []footerHint {
+	switch {
+	case m.chipCombo.IsDropdownOpen():
+		// Dropdown open: show selection hints
+		return []footerHint{
+			{"⏎", "Select"},
+			{"↑↓", "Navigate"},
+			{"esc", "Clear"},
+		}
+	case m.chipCombo.InChipNavMode():
+		// Chip navigation mode: show chip nav hints
+		return []footerHint{
+			{"Del", "Remove"},
+			{"←→", "Navigate"},
+			{"↓", "Exit"},
+		}
+	default:
+		// Idle state: show confirm/cancel hints
+		return []footerHint{
+			{"⏎", "Save"},
+			{"esc", "Cancel"},
+		}
+	}
+}
+
+// Layer returns a centered layer for the labels overlay.
+// Uses the shared BaseOverlayLayer to eliminate boilerplate.
+func (m *LabelsOverlay) Layer(width, height, topMargin, bottomMargin int) Layer {
+	return BaseOverlayLayer(m.View, width, height, topMargin, bottomMargin)
 }
 
 // IssueID returns the issue ID (for testing).

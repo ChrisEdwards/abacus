@@ -18,22 +18,29 @@ type styleThemeState struct {
 
 var currentStyleTheme styleThemeState
 
-// useStyleTheme sets the palette used by style helpers. It returns a restore function
-// so callers can temporarily override (e.g., render overlays with the bright palette).
-func useStyleTheme(dimmed bool) func() {
+// useDimmedTheme sets dimmed palette for background content behind overlays.
+// Returns a restore function to revert to the previous theme state.
+func useDimmedTheme() func() {
 	prev := currentStyleTheme
-	if dimmed {
-		currentStyleTheme = styleThemeState{
-			override: theme.Current().Dimmed(),
-			active:   true,
-			dimmed:   true,
-		}
-	} else {
-		currentStyleTheme = styleThemeState{
-			override: theme.Current(),
-			active:   true,
-			dimmed:   false,
-		}
+	currentStyleTheme = styleThemeState{
+		override: theme.Current().Dimmed(),
+		active:   true,
+		dimmed:   true,
+	}
+	return func() {
+		currentStyleTheme = prev
+	}
+}
+
+// useOverlayTheme sets bright palette for overlay content.
+// Promotes TextMuted to Text so overlay text is never dimmed.
+// Returns a restore function to revert to the previous theme state.
+func useOverlayTheme() func() {
+	prev := currentStyleTheme
+	currentStyleTheme = styleThemeState{
+		override: theme.Current().Overlay(),
+		active:   true,
+		dimmed:   false,
 	}
 	return func() {
 		currentStyleTheme = prev
@@ -289,20 +296,7 @@ func styleFooterMuted() lipgloss.Style {
 		Foreground(currentThemeWrapper().TextMuted())
 }
 
-// Status overlay styles
-
-func styleStatusOverlay() lipgloss.Style {
-	return baseStyle().
-		Background(theme.Current().BackgroundSecondary()).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Current().BorderFocused()).
-		Padding(1, 2)
-}
-
-func styleStatusDivider() lipgloss.Style {
-	return lipgloss.NewStyle().
-		Foreground(currentThemeWrapper().Primary())
-}
+// Status overlay styles (moved to overlay_base.go for unified overlay framework)
 
 func styleStatusOption() lipgloss.Style {
 	return lipgloss.NewStyle().

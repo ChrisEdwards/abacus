@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 
 	"abacus/internal/ui/theme"
 
@@ -12,6 +11,7 @@ import (
 )
 
 // DeleteOverlay is a confirmation modal for deleting a bead.
+// Uses the unified overlay framework for consistent sizing and layout.
 type DeleteOverlay struct {
 	issueID       string
 	issueTitle    string
@@ -69,58 +69,39 @@ func (m *DeleteOverlay) confirm() tea.Cmd {
 	}
 }
 
-// View implements tea.Model.
+// View implements tea.Model using the unified overlay framework.
 func (m *DeleteOverlay) View() string {
-	return styleStatusOverlay().
-		BorderForeground(theme.Current().Error()).
-		Render(strings.Join(m.renderLines(), "\n"))
-}
+	b := NewOverlayBuilder(OverlaySizeStandard, 0)
 
-// Layer returns a centered layer for the delete overlay.
-func (m *DeleteOverlay) Layer(width, height, topMargin, bottomMargin int) Layer {
-	return LayerFunc(func() *Canvas {
-		content := m.View()
-		if strings.TrimSpace(content) == "" {
-			return nil
-		}
+	overlayBg := theme.Current().BackgroundSecondary()
+	contentWidth := b.ContentWidth()
 
-		overlayWidth := lipgloss.Width(content)
-		if overlayWidth <= 0 {
-			return nil
-		}
-		overlayHeight := lipgloss.Height(content)
-		if overlayHeight <= 0 {
-			return nil
-		}
-
-		surface := NewSecondarySurface(overlayWidth, overlayHeight)
-		surface.Draw(0, 0, content)
-
-		x, y := centeredOffsets(width, height, overlayWidth, overlayHeight, topMargin, bottomMargin)
-		surface.Canvas.SetOffset(x, y)
-		return surface.Canvas
-	})
-}
-
-func (m *DeleteOverlay) renderLines() []string {
-	var lines []string
-
-	overlayBg := currentThemeWrapper().BackgroundSecondary()
-	divider := styleStatusDivider().Background(overlayBg).Render(strings.Repeat("─", 44))
-
+	// Title
 	titleStyle := lipgloss.NewStyle().
 		Background(overlayBg).
 		Foreground(theme.Current().Error()).
 		Bold(true)
+	b.Line(titleStyle.Render("Delete"))
+	b.Line(b.Divider())
+	b.BlankLine()
 
-	lines = append(lines, titleStyle.Render("Delete"))
-	lines = append(lines, divider, "")
-	lines = append(lines, m.renderDangerBlock(overlayBg)...)
+	// Danger block
+	b.Lines(m.renderDangerBlock(overlayBg, contentWidth)...)
 
+	// Footer
+	b.BlankLine()
+	b.Footer(m.footerHints())
+
+	return b.BuildDanger()
+}
+
+// footerHints returns the footer hints for the delete overlay.
+func (m *DeleteOverlay) footerHints() []footerHint {
 	deleteLabel := m.deleteLabel()
-	lines = append(lines, "", divider, m.renderFooter(deleteLabel))
-
-	return lines
+	return []footerHint{
+		{"d", deleteLabel},
+		{"c/esc", "Cancel"},
+	}
 }
 
 func (m *DeleteOverlay) deleteLabel() string {
@@ -130,7 +111,7 @@ func (m *DeleteOverlay) deleteLabel() string {
 	return fmt.Sprintf("Delete All (%d)", len(m.children)+1)
 }
 
-func (m *DeleteOverlay) renderDangerBlock(overlayBg lipgloss.AdaptiveColor) []string {
+func (m *DeleteOverlay) renderDangerBlock(overlayBg lipgloss.AdaptiveColor, _ int) []string {
 	var lines []string
 
 	body := lipgloss.NewStyle().
@@ -160,15 +141,6 @@ func (m *DeleteOverlay) renderDangerBlock(overlayBg lipgloss.AdaptiveColor) []st
 	return lines
 }
 
-func (m *DeleteOverlay) renderFooter(deleteLabel string) string {
-	hints := []footerHint{
-		{"d", deleteLabel},
-		{"c/esc", "Cancel"},
-	}
-
-	return overlayFooterLine(hints, 44)
-}
-
 func (m *DeleteOverlay) renderChildLines(overlayBg lipgloss.AdaptiveColor) []string {
 	var lines []string
 	idStyle := styleID().Background(overlayBg)
@@ -176,10 +148,19 @@ func (m *DeleteOverlay) renderChildLines(overlayBg lipgloss.AdaptiveColor) []str
 		Background(overlayBg).
 		Foreground(currentThemeWrapper().TextMuted())
 	for _, child := range m.children {
-		indent := strings.Repeat("  ", child.Depth)
+		indent := ""
+		for i := 0; i < child.Depth; i++ {
+			indent += "  "
+		}
 		prefix := indent + "└─ "
 		entry := prefix + idStyle.Render(child.ID) + textStyle.Render("  "+truncateTitle(child.Title, 32))
 		lines = append(lines, entry)
 	}
 	return lines
+}
+
+// Layer returns a centered layer for the delete overlay.
+// Uses the shared BaseOverlayLayer to eliminate boilerplate.
+func (m *DeleteOverlay) Layer(width, height, topMargin, bottomMargin int) Layer {
+	return BaseOverlayLayer(m.View, width, height, topMargin, bottomMargin)
 }

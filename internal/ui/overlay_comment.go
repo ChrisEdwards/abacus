@@ -5,16 +5,13 @@ import (
 	"runtime"
 	"strings"
 
-	"abacus/internal/ui/theme"
-
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
 const (
-	commentModalWidth    = 54 // Base content width (without padding)
-	commentTextareaLines = 6  // Visible lines
+	commentTextareaLines = 6 // Visible lines
 	commentCharLimit     = 2000
 	commentTextareaPad   = 1 // Space between border and text area content
 )
@@ -29,6 +26,7 @@ type CommentAddedMsg struct {
 type CommentCancelledMsg struct{}
 
 // CommentOverlay manages the comment modal state.
+// Uses the unified overlay framework for consistent sizing and layout.
 type CommentOverlay struct {
 	issueID   string
 	beadTitle string
@@ -39,7 +37,11 @@ type CommentOverlay struct {
 
 // NewCommentOverlay creates a new comment modal overlay.
 func NewCommentOverlay(issueID, beadTitle string) *CommentOverlay {
-	taModel := NewBaseTextarea(commentModalWidth+6, commentTextareaLines)
+	// Use OverlayWidthWide for comment overlays (textareas need more space)
+	boxWidth := OverlayWidthWide
+	taWidth := OverlayTextareaWidth(boxWidth)
+
+	taModel := NewBaseTextarea(taWidth, commentTextareaLines)
 	taModel.Placeholder = "Type your comment here..."
 	taModel.CharLimit = commentCharLimit
 
@@ -99,66 +101,53 @@ func (m *CommentOverlay) submit() (*CommentOverlay, tea.Cmd) {
 	}
 }
 
-// View renders the comment overlay.
+// View renders the comment overlay using the unified overlay framework.
 func (m *CommentOverlay) View() string {
-	var b strings.Builder
+	b := NewOverlayBuilder(OverlaySizeWide, 0)
+	contentWidth := b.ContentWidth()
 
-	containerWidth := commentModalWidth + 11
-	taContentWidth := TextareaContentWidth(containerWidth, commentTextareaPad)
+	// Update textarea width to match builder
+	taContentWidth := TextareaContentWidth(contentWidth+4, commentTextareaPad)
 	m.textarea.SetWidth(taContentWidth)
 
-	taView := PadTextareaView(m.textarea.View(), commentTextareaPad)
-
 	// Header
-	header := styleHelpTitle().Render("ADD COMMENT")
-	divider := styleHelpDivider().Render(strings.Repeat("─", containerWidth))
+	b.Header("ADD COMMENT")
 
-	b.WriteString(header)
-	b.WriteString("\n")
-	b.WriteString(divider)
-	b.WriteString("\n\n")
-
-	// Bead context line using common ID + title renderer
-	// styleID() renders the bead ID in gold/bold
-	// Truncate title if too long
+	// Bead context line
 	title := m.beadTitle
 	if len(title) > 40 {
 		title = title[:37] + "..."
 	}
 	contextLine := styleID().Render(m.issueID) + " " + title
-	b.WriteString(contextLine)
-	b.WriteString("\n\n")
+	b.Line(contextLine)
+	b.BlankLine()
 
 	// Textarea with border
-	taStyle := styleCommentTextarea(containerWidth)
-	b.WriteString(taStyle.Render(taView))
-	b.WriteString("\n")
+	taView := PadTextareaView(m.textarea.View(), commentTextareaPad)
+	taStyle := styleCommentTextarea(contentWidth + 4)
+	b.Line(taStyle.Render(taView))
 
 	// Character count
 	count := len(m.textarea.Value())
 	countStyle := lipgloss.NewStyle().
-		Background(theme.Current().BackgroundSecondary()).
-		Foreground(theme.Current().TextMuted())
+		Background(currentThemeWrapper().BackgroundSecondary()).
+		Foreground(currentThemeWrapper().TextMuted())
 	if count > commentCharLimit-100 {
 		countStyle = lipgloss.NewStyle().
-			Background(theme.Current().BackgroundSecondary()).
-			Foreground(theme.Current().Warning())
+			Background(currentThemeWrapper().BackgroundSecondary()).
+			Foreground(currentThemeWrapper().Warning())
 	}
-	b.WriteString(countStyle.Render(fmt.Sprintf("  %d/%d", count, commentCharLimit)))
-	b.WriteString("\n")
+	b.Line(countStyle.Render(fmt.Sprintf("  %d/%d", count, commentCharLimit)))
 
 	// Error message
 	if m.errorMsg != "" {
 		errorStyle := lipgloss.NewStyle().
-			Background(theme.Current().BackgroundSecondary()).
-			Foreground(theme.Current().Error())
-		b.WriteString(errorStyle.Render("  ⚠ " + m.errorMsg))
-		b.WriteString("\n")
+			Background(currentThemeWrapper().BackgroundSecondary()).
+			Foreground(currentThemeWrapper().Error())
+		b.Line(errorStyle.Render("  ⚠ " + m.errorMsg))
 	}
 
-	b.WriteString("\n")
-	b.WriteString(divider)
-	b.WriteString("\n")
+	b.BlankLine()
 
 	// Footer - show ⌘S on Mac, ^S elsewhere
 	saveKey := "^S"
@@ -169,29 +158,15 @@ func (m *CommentOverlay) View() string {
 		{saveKey, "Save"},
 		{"esc", "Cancel"},
 	}
-	b.WriteString(overlayFooterLine(hints, containerWidth))
+	b.Footer(hints)
 
-	return styleHelpOverlay().Render(b.String())
+	return b.Build()
 }
 
 // Layer returns a Layer for rendering the comment overlay.
+// Uses the shared BaseOverlayLayer to eliminate boilerplate.
 func (m *CommentOverlay) Layer(width, height, topMargin, bottomMargin int) Layer {
-	return LayerFunc(func() *Canvas {
-		content := m.View()
-		if strings.TrimSpace(content) == "" {
-			return nil
-		}
-
-		overlayWidth := lipgloss.Width(content)
-		overlayHeight := lipgloss.Height(content)
-
-		surface := NewSecondarySurface(overlayWidth, overlayHeight)
-		surface.Draw(0, 0, content)
-
-		x, y := centeredOffsets(width, height, overlayWidth, overlayHeight, topMargin, bottomMargin)
-		surface.Canvas.SetOffset(x, y)
-		return surface.Canvas
-	})
+	return BaseOverlayLayer(m.View, width, height, topMargin, bottomMargin)
 }
 
 // SetSize updates the terminal dimensions for the overlay.
@@ -204,7 +179,7 @@ func styleCommentTextarea(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
 		Width(width).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Current().BorderNormal()).
-		BorderBackground(theme.Current().BackgroundSecondary()).
-		Background(theme.Current().BackgroundSecondary())
+		BorderForeground(currentThemeWrapper().BorderNormal()).
+		BorderBackground(currentThemeWrapper().BackgroundSecondary()).
+		Background(currentThemeWrapper().BackgroundSecondary())
 }

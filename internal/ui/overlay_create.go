@@ -2,7 +2,6 @@ package ui
 
 import (
 	"abacus/internal/beads"
-	"abacus/internal/ui/theme"
 	"fmt"
 	"os"
 	"regexp"
@@ -948,35 +947,35 @@ func (m *CreateOverlay) updateTitleHeight() {
 
 func styleCreateLabel() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Foreground(theme.Current().TextMuted()).
+		Foreground(currentThemeWrapper().TextMuted()).
 		MarginRight(1)
 }
 
 func styleCreatePill() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Padding(0, 1).
-		Foreground(theme.Current().TextMuted())
+		Foreground(currentThemeWrapper().TextMuted())
 }
 
 func styleCreatePillSelected() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Padding(0, 1).
 		Bold(true).
-		Foreground(theme.Current().Primary())
+		Foreground(currentThemeWrapper().Primary())
 }
 
 func styleCreatePillFocused() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Padding(0, 1).
 		Bold(true).
-		Foreground(theme.Current().Success()).
-		Background(theme.Current().BorderDim())
+		Foreground(currentThemeWrapper().Success()).
+		Background(currentThemeWrapper().BorderDim())
 }
 
 func styleCreateInput(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Current().BorderDim()).
+		BorderForeground(currentThemeWrapper().BorderDim()).
 		Padding(0, 1).
 		Width(width)
 }
@@ -984,7 +983,7 @@ func styleCreateInput(width int) lipgloss.Style {
 func styleCreateInputFocused(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Current().Success()).
+		BorderForeground(currentThemeWrapper().Success()).
 		Padding(0, 1).
 		Width(width)
 }
@@ -993,7 +992,7 @@ func styleCreateInputFocused(width int) lipgloss.Style {
 func styleCreateInputError(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(theme.Current().Error()).
+		BorderForeground(currentThemeWrapper().Error()).
 		Padding(0, 1).
 		Width(width)
 }
@@ -1001,7 +1000,7 @@ func styleCreateInputError(width int) lipgloss.Style {
 // Dimmed style for modal depth effect (spec Section 2.4)
 func styleCreateDimmed() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Foreground(theme.Current().BorderNormal())
+		Foreground(currentThemeWrapper().BorderNormal())
 }
 
 // View implements tea.Model - 5-zone HUD layout per spec Section 3.
@@ -1088,7 +1087,7 @@ func (m *CreateOverlay) View() string {
 	if m.focus == FocusParent {
 		parentLabel = styleHelpSectionHeader().Render("PARENT")
 	}
-	hintStyle := lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
+	hintStyle := lipgloss.NewStyle().Foreground(currentThemeWrapper().TextMuted())
 	hint := "Shift+Tab"
 	parentLabelWidth := lipgloss.Width(parentLabel)
 	padding := contentWidth - parentLabelWidth - lipgloss.Width(hint)
@@ -1174,46 +1173,26 @@ func (m *CreateOverlay) View() string {
 	b.WriteString("\n")
 	b.WriteString(m.renderFooter(contentWidth))
 
-	return styleHelpOverlay().Render(b.String())
+	return styleOverlay().Render(b.String())
 }
 
 // Layer returns a centered layer for the create overlay.
+// Uses the shared BaseOverlayLayer to eliminate boilerplate.
 func (m *CreateOverlay) Layer(width, height, topMargin, bottomMargin int) Layer {
-	return LayerFunc(func() *Canvas {
-		content := m.View()
-		if strings.TrimSpace(content) == "" {
-			return nil
-		}
-
-		overlayWidth := lipgloss.Width(content)
-		if overlayWidth <= 0 {
-			return nil
-		}
-		overlayHeight := lipgloss.Height(content)
-		if overlayHeight <= 0 {
-			return nil
-		}
-
-		surface := NewSecondarySurface(overlayWidth, overlayHeight)
-		surface.Draw(0, 0, content)
-
-		x, y := centeredOffsets(width, height, overlayWidth, overlayHeight, topMargin, bottomMargin)
-		surface.Canvas.SetOffset(x, y)
-		return surface.Canvas
-	})
+	return BaseOverlayLayer(m.View, width, height, topMargin, bottomMargin)
 }
 
 func (m *CreateOverlay) renderTypeRow() string {
 	var b strings.Builder
 
 	// Row header
-	headerStyle := lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
+	headerStyle := lipgloss.NewStyle().Foreground(currentThemeWrapper().TextMuted())
 	if m.focus == FocusType {
-		headerStyle = lipgloss.NewStyle().Foreground(theme.Current().Secondary()).Bold(true)
+		headerStyle = lipgloss.NewStyle().Foreground(currentThemeWrapper().Secondary()).Bold(true)
 	}
 	// Add flash animation when type was auto-inferred (spec Section 5)
 	if m.typeInferenceActive {
-		headerStyle = lipgloss.NewStyle().Foreground(theme.Current().Warning()).Bold(true)
+		headerStyle = lipgloss.NewStyle().Foreground(currentThemeWrapper().Warning()).Bold(true)
 	}
 	b.WriteString(headerStyle.Render("TYPE"))
 	b.WriteString("\n")
@@ -1249,9 +1228,9 @@ func (m *CreateOverlay) renderPriorityRow() string {
 	var b strings.Builder
 
 	// Row header
-	headerStyle := lipgloss.NewStyle().Foreground(theme.Current().TextMuted())
+	headerStyle := lipgloss.NewStyle().Foreground(currentThemeWrapper().TextMuted())
 	if m.focus == FocusPriority {
-		headerStyle = lipgloss.NewStyle().Foreground(theme.Current().Secondary()).Bold(true)
+		headerStyle = lipgloss.NewStyle().Foreground(currentThemeWrapper().Secondary()).Bold(true)
 	}
 	b.WriteString(headerStyle.Render("PRIORITY"))
 	b.WriteString("\n")

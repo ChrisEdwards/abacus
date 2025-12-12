@@ -1,16 +1,14 @@
 package ui
 
 import (
-	"strings"
-
 	"abacus/internal/domain"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // StatusOverlay is a compact popup for changing a bead's status.
+// Uses the unified overlay framework for consistent sizing and layout.
 type StatusOverlay struct {
 	issueID       string
 	issueTitle    string
@@ -151,51 +149,16 @@ func (m *StatusOverlay) confirm() tea.Cmd {
 	}
 }
 
-// View implements tea.Model.
+// View implements tea.Model using the unified overlay framework.
 func (m *StatusOverlay) View() string {
-	return styleStatusOverlay().Render(strings.Join(m.renderLines(), "\n"))
-}
+	b := NewOverlayBuilder(OverlaySizeNarrow, 0)
 
-// Layer returns a centered layer for the status overlay.
-func (m *StatusOverlay) Layer(width, height, topMargin, bottomMargin int) Layer {
-	return LayerFunc(func() *Canvas {
-		content := m.View()
-		if strings.TrimSpace(content) == "" {
-			return nil
-		}
-		overlayWidth := lipgloss.Width(content)
-		if overlayWidth <= 0 {
-			return nil
-		}
-		overlayHeight := lipgloss.Height(content)
-		if overlayHeight <= 0 {
-			return nil
-		}
-
-		surface := NewSecondarySurface(overlayWidth, overlayHeight)
-		surface.Draw(0, 0, content)
-
-		x, y := centeredOffsets(width, height, overlayWidth, overlayHeight, topMargin, bottomMargin)
-		surface.Canvas.SetOffset(x, y)
-		return surface.Canvas
-	})
-}
-
-// truncateTitle shortens a title to maxLen characters with ellipsis.
-func truncateTitle(title string, maxLen int) string {
-	if len(title) <= maxLen {
-		return title
-	}
-	return title[:maxLen-3] + "..."
-}
-
-func (m *StatusOverlay) renderLines() []string {
-	var lines []string
-
+	// Header with context
 	header := styleID().Render(m.issueID) + styleStatsDim().Render(" › ") + styleStatsDim().Render("Status")
-	lines = append(lines, header)
-	lines = append(lines, styleStatusDivider().Render(strings.Repeat("─", 20)))
+	b.Line(header)
+	b.Line(b.Divider())
 
+	// Status options
 	for i, opt := range m.options {
 		indicator := "○"
 		if opt.value == m.currentStatus {
@@ -216,8 +179,22 @@ func (m *StatusOverlay) renderLines() []string {
 			line = styleStatusOption().Render("  " + indicator + " " + label)
 		}
 
-		lines = append(lines, line)
+		b.Line(line)
 	}
 
-	return lines
+	return b.Build()
+}
+
+// Layer returns a centered layer for the status overlay.
+// Uses the shared BaseOverlayLayer to eliminate boilerplate.
+func (m *StatusOverlay) Layer(width, height, topMargin, bottomMargin int) Layer {
+	return BaseOverlayLayer(m.View, width, height, topMargin, bottomMargin)
+}
+
+// truncateTitle shortens a title to maxLen characters with ellipsis.
+func truncateTitle(title string, maxLen int) string {
+	if len(title) <= maxLen {
+		return title
+	}
+	return title[:maxLen-3] + "..."
 }

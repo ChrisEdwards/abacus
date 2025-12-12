@@ -275,3 +275,85 @@ func (d *dimmedTheme) BorderFocused() lipgloss.AdaptiveColor {
 func (d *dimmedTheme) BorderDim() lipgloss.AdaptiveColor {
 	return blendColor(d.base.BorderDim(), d.base.Background(), d.blendFactor)
 }
+
+// Overlay returns a new ThemeWrapper for overlay content.
+// This promotes TextMuted() to Text() so all overlay text is bright.
+// Overlays should never have muted text - only the background behind
+// the overlay should be dimmed.
+func (w ThemeWrapper) Overlay() ThemeWrapper {
+	return ThemeWrapper{&overlayTheme{base: w.Theme}}
+}
+
+// overlayTheme wraps a base theme and promotes muted colors to bright.
+// This ensures overlay content is always readable and prominent.
+type overlayTheme struct {
+	base Theme
+}
+
+// Theme interface implementation for overlayTheme
+// All methods pass through except TextMuted which returns Text.
+
+func (o *overlayTheme) Primary() lipgloss.AdaptiveColor {
+	return o.base.Primary()
+}
+
+func (o *overlayTheme) Secondary() lipgloss.AdaptiveColor {
+	return o.base.Secondary()
+}
+
+func (o *overlayTheme) Accent() lipgloss.AdaptiveColor {
+	return o.base.Accent()
+}
+
+func (o *overlayTheme) Error() lipgloss.AdaptiveColor {
+	return o.base.Error()
+}
+
+func (o *overlayTheme) Warning() lipgloss.AdaptiveColor {
+	return o.base.Warning()
+}
+
+func (o *overlayTheme) Success() lipgloss.AdaptiveColor {
+	return o.base.Success()
+}
+
+func (o *overlayTheme) Info() lipgloss.AdaptiveColor {
+	return o.base.Info()
+}
+
+func (o *overlayTheme) Text() lipgloss.AdaptiveColor {
+	return o.base.Text()
+}
+
+func (o *overlayTheme) TextMuted() lipgloss.AdaptiveColor {
+	// Promote muted text to normal text in overlays
+	return o.base.Text()
+}
+
+func (o *overlayTheme) TextEmphasized() lipgloss.AdaptiveColor {
+	return o.base.TextEmphasized()
+}
+
+func (o *overlayTheme) Background() lipgloss.AdaptiveColor {
+	return o.base.Background()
+}
+
+func (o *overlayTheme) BackgroundSecondary() lipgloss.AdaptiveColor {
+	return o.base.BackgroundSecondary()
+}
+
+func (o *overlayTheme) BackgroundDarker() lipgloss.AdaptiveColor {
+	return o.base.BackgroundDarker()
+}
+
+func (o *overlayTheme) BorderNormal() lipgloss.AdaptiveColor {
+	return o.base.BorderNormal()
+}
+
+func (o *overlayTheme) BorderFocused() lipgloss.AdaptiveColor {
+	return o.base.BorderFocused()
+}
+
+func (o *overlayTheme) BorderDim() lipgloss.AdaptiveColor {
+	return o.base.BorderDim()
+}
