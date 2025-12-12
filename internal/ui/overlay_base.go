@@ -219,9 +219,10 @@ func (b *OverlayBuilder) FooterText(text string) *OverlayBuilder {
 }
 
 // Build returns the final styled overlay content.
+// The overlay is sized to boxWidth to ensure dividers span the full width.
 func (b *OverlayBuilder) Build() string {
 	content := strings.Join(b.lines, "\n")
-	return styleOverlay().Render(content)
+	return styleOverlay().Width(b.boxWidth).Render(content)
 }
 
 // BuildRaw returns the content without the overlay wrapper style.
@@ -231,9 +232,10 @@ func (b *OverlayBuilder) BuildRaw() string {
 }
 
 // BuildDanger returns the content with danger styling (red border).
+// The overlay is sized to boxWidth to ensure dividers span the full width.
 func (b *OverlayBuilder) BuildDanger() string {
 	content := strings.Join(b.lines, "\n")
-	return styleOverlayDanger().Render(content)
+	return styleOverlayDanger().Width(b.boxWidth).Render(content)
 }
 
 // Overlay Styles
@@ -280,15 +282,12 @@ func styleOverlaySectionLabel() lipgloss.Style {
 // BaseOverlayLayer creates a centered Layer from an overlay's View function.
 // This eliminates the need for copy-pasted Layer() methods in each overlay.
 //
-// IMPORTANT: This function automatically ensures bright (non-dimmed) theme
-// when rendering overlay content. Overlays should never have muted text -
-// only the background behind the overlay should be dimmed.
+// Overlays render with the standard theme. The caller (view.go) is responsible
+// for restoring the standard theme before rendering overlays - dimming is only
+// applied to background content, not overlays.
 func BaseOverlayLayer(viewFn func() string, width, height, topMargin, bottomMargin int) Layer {
 	return LayerFunc(func() *Canvas {
-		// Ensure bright theme for overlay content - overlays should never be dimmed
-		restore := useOverlayTheme()
 		content := viewFn()
-		restore()
 
 		if strings.TrimSpace(content) == "" {
 			return nil

@@ -1505,7 +1505,7 @@ func TestTreeViewStatusIconsMatchDocs(t *testing.T) {
 	blocked := &graph.Node{Issue: beads.FullIssue{ID: "ab-703", Title: "Blocked", Status: "open"}, IsBlocked: true}
 	closed := &graph.Node{Issue: beads.FullIssue{ID: "ab-704", Title: "Closed", Status: "closed"}}
 	m := buildTreeTestApp(inProgress, ready, blocked, closed)
-	view := m.renderTreeView(false)
+	view := m.renderTreeView()
 	cases := []struct {
 		id   string
 		icon string
@@ -1535,7 +1535,7 @@ func TestTreeViewMarkersTogglePerDocs(t *testing.T) {
 		Children: []*graph.Node{{Issue: beads.FullIssue{ID: "ab-713", Title: "Hidden"}}},
 	}
 	m := buildTreeTestApp(expanded, collapsed)
-	view := m.renderTreeView(false)
+	view := m.renderTreeView()
 	expandedLine := treeLineContaining(t, view, "ab-711")
 	if !strings.Contains(expandedLine, "▼") {
 		t.Fatalf("expected expanded marker ▼, got %q", expandedLine)
@@ -1554,7 +1554,7 @@ func TestTreeViewCollapsedNodesShowCountBadge(t *testing.T) {
 		Children: []*graph.Node{child},
 	}
 	m := buildTreeTestApp(collapsed)
-	view := m.renderTreeView(false)
+	view := m.renderTreeView()
 	line := treeLineContaining(t, view, "ab-721")
 	if !strings.Contains(line, "[+1]") {
 		t.Fatalf("expected collapsed node to show [+1] badge, got %q", line)
@@ -1565,7 +1565,7 @@ func TestTreeScrollKeepsWrappedSelectionVisible(t *testing.T) {
 	app := buildWrappedTreeApp(12)
 	for i := range app.visibleRows {
 		app.cursor = i
-		view := stripANSI(app.renderTreeView(false))
+		view := stripANSI(app.renderTreeView())
 		id := fmt.Sprintf("ab-%02d", i+1)
 		if !strings.Contains(view, id) {
 			t.Fatalf("expected view to include %s at cursor %d:\n%s", id, i, view)

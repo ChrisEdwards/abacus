@@ -12,15 +12,9 @@ import (
 
 const treeScrollMargin = 1
 
-func (m *App) renderTreeView(dimmed bool) string {
-	var restore func()
-	if dimmed {
-		restore = useDimmedTheme()
-	} else {
-		restore = func() {} // No theme override when no overlay
-	}
-	defer restore()
-
+// renderTreeView renders the tree list. Theme is managed by the caller (view.go)
+// which sets dimmed theme when an overlay is active.
+func (m *App) renderTreeView() string {
 	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
 	if len(m.visibleRows) == 0 {
 		m.treeTopLine = 0

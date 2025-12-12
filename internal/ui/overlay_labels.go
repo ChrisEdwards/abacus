@@ -39,9 +39,10 @@ func NewLabelsOverlay(issueID, beadTitle string, currentLabels, allProjectLabels
 	copy(originalChips, currentLabels)
 
 	// Create ChipComboBox with all labels as options
-	// Use OverlayWidthStandard for consistent sizing
+	// Use contentWidth (not boxWidth) so it fits inside the overlay's padding
+	contentWidth := OverlayContentWidth(OverlayWidthStandard)
 	chipCombo := NewChipComboBox(sortedLabels).
-		WithWidth(OverlayWidthStandard).
+		WithWidth(contentWidth).
 		WithMaxVisible(10). // More visible items in labels popup
 		WithPlaceholder("type to filter...").
 		WithAllowNew(true, "New label: %s")

@@ -32,21 +32,6 @@ func useDimmedTheme() func() {
 	}
 }
 
-// useOverlayTheme sets bright palette for overlay content.
-// Promotes TextMuted to Text so overlay text is never dimmed.
-// Returns a restore function to revert to the previous theme state.
-func useOverlayTheme() func() {
-	prev := currentStyleTheme
-	currentStyleTheme = styleThemeState{
-		override: theme.Current().Overlay(),
-		active:   true,
-		dimmed:   false,
-	}
-	return func() {
-		currentStyleTheme = prev
-	}
-}
-
 func currentThemeWrapper() theme.ThemeWrapper {
 	if currentStyleTheme.active {
 		return currentStyleTheme.override

@@ -2617,19 +2617,19 @@ func TestTypeInferenceIntegration(t *testing.T) {
 func TestCreateOverlayFooter(t *testing.T) {
 	t.Run("DefaultFooter", func(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
-		footer := overlay.renderFooter(44)
+		view := overlay.View()
 
 		// New pill format uses symbols: ⏎ for Enter, ^⏎ for Ctrl+Enter
-		if !strings.Contains(footer, "⏎") || !strings.Contains(footer, "Create") {
+		if !strings.Contains(view, "⏎") || !strings.Contains(view, "Create") {
 			t.Error("expected default footer to contain '⏎' and 'Create'")
 		}
-		if !strings.Contains(footer, "^⏎") || !strings.Contains(footer, "Create+Add") {
+		if !strings.Contains(view, "^⏎") || !strings.Contains(view, "Create+Add") {
 			t.Error("expected default footer to contain bulk entry hint (^⏎ Create+Add)")
 		}
-		if !strings.Contains(footer, "Tab") || !strings.Contains(footer, "Next") {
+		if !strings.Contains(view, "Tab") || !strings.Contains(view, "Next") {
 			t.Error("expected default footer to contain 'Tab' and 'Next'")
 		}
-		if !strings.Contains(footer, "esc") || !strings.Contains(footer, "Cancel") {
+		if !strings.Contains(view, "esc") || !strings.Contains(view, "Cancel") {
 			t.Error("expected default footer to contain 'esc' and 'Cancel'")
 		}
 	})
@@ -2648,18 +2648,18 @@ func TestCreateOverlayFooter(t *testing.T) {
 		// Type to open dropdown in Filtering mode
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 
-		footer := overlay.renderFooter(44)
+		view := overlay.View()
 
 		// New pill format uses ⏎ for Enter
-		if !strings.Contains(footer, "⏎") || !strings.Contains(footer, "Select") {
-			t.Errorf("expected parent search footer to contain '⏎' and 'Select', got: %s", footer)
+		if !strings.Contains(view, "⏎") || !strings.Contains(view, "Select") {
+			t.Errorf("expected parent search footer to contain '⏎' and 'Select', got: %s", view)
 		}
-		if !strings.Contains(footer, "esc") || !strings.Contains(footer, "Revert") {
-			t.Errorf("expected parent search footer to contain 'esc' and 'Revert', got: %s", footer)
+		if !strings.Contains(view, "esc") || !strings.Contains(view, "Revert") {
+			t.Errorf("expected parent search footer to contain 'esc' and 'Revert', got: %s", view)
 		}
 		// Should NOT contain "Create+Add" (the bulk entry hint unique to default footer)
-		if strings.Contains(footer, "Create+Add") {
-			t.Errorf("expected parent search footer to not contain 'Create+Add', got: %s", footer)
+		if strings.Contains(view, "Create+Add") {
+			t.Errorf("expected parent search footer to not contain 'Create+Add', got: %s", view)
 		}
 	})
 
@@ -2667,13 +2667,13 @@ func TestCreateOverlayFooter(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		overlay.isCreating = true
 
-		footer := overlay.renderFooter(44)
+		view := overlay.View()
 
-		if !strings.Contains(footer, "Creating bead...") {
+		if !strings.Contains(view, "Creating bead...") {
 			t.Error("expected creating footer to contain 'Creating bead...'")
 		}
 		// Should NOT contain the default footer hints
-		if strings.Contains(footer, "Create+Add") {
+		if strings.Contains(view, "Create+Add") {
 			t.Error("expected creating footer to not contain 'Create+Add'")
 		}
 	})
@@ -2696,8 +2696,8 @@ func TestCreateOverlayFooter(t *testing.T) {
 		})
 
 		// Initially should show default footer (with Create+Add bulk hint)
-		footer := overlay.renderFooter(44)
-		if !strings.Contains(footer, "Create+Add") {
+		view := overlay.View()
+		if !strings.Contains(view, "Create+Add") {
 			t.Error("expected default footer initially (with Create+Add)")
 		}
 
@@ -2708,18 +2708,18 @@ func TestCreateOverlayFooter(t *testing.T) {
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
 
 		// Should now show parent search footer (Select, not Create+Add)
-		footer = overlay.renderFooter(44)
-		if !strings.Contains(footer, "Select") || strings.Contains(footer, "Create+Add") {
-			t.Errorf("expected parent search footer after opening dropdown, got: %s", footer)
+		view = overlay.View()
+		if !strings.Contains(view, "Select") || strings.Contains(view, "Create+Add") {
+			t.Errorf("expected parent search footer after opening dropdown, got: %s", view)
 		}
 
 		// Close dropdown with Esc
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEsc})
 
 		// Should show browse hint (focused on parent field but dropdown closed)
-		footer = overlay.renderFooter(44)
-		if !strings.Contains(footer, "Browse") {
-			t.Errorf("expected browse hint after closing dropdown, got: %s", footer)
+		view = overlay.View()
+		if !strings.Contains(view, "Browse") {
+			t.Errorf("expected browse hint after closing dropdown, got: %s", view)
 		}
 	})
 
@@ -2733,14 +2733,14 @@ func TestCreateOverlayFooter(t *testing.T) {
 		// Navigate to parent field (but don't open dropdown)
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyShiftTab}) // From Title to Parent
 
-		footer := overlay.renderFooter(44)
+		view := overlay.View()
 
 		// New pill format: ↓ key with Browse description
-		if !strings.Contains(footer, "↓") || !strings.Contains(footer, "Browse") {
-			t.Errorf("expected footer to contain '↓' and 'Browse' on parent field, got: %s", footer)
+		if !strings.Contains(view, "↓") || !strings.Contains(view, "Browse") {
+			t.Errorf("expected footer to contain '↓' and 'Browse' on parent field, got: %s", view)
 		}
-		if !strings.Contains(footer, "⏎") || !strings.Contains(footer, "Create") {
-			t.Errorf("expected footer to contain '⏎' and 'Create' on parent field, got: %s", footer)
+		if !strings.Contains(view, "⏎") || !strings.Contains(view, "Create") {
+			t.Errorf("expected footer to contain '⏎' and 'Create' on parent field, got: %s", view)
 		}
 	})
 
@@ -2752,11 +2752,11 @@ func TestCreateOverlayFooter(t *testing.T) {
 		// Navigate to labels field
 		overlay.focus = FocusLabels
 
-		footer := overlay.renderFooter(44)
+		view := overlay.View()
 
 		// New pill format: ↓ key with Browse description
-		if !strings.Contains(footer, "↓") || !strings.Contains(footer, "Browse") {
-			t.Errorf("expected footer to contain '↓' and 'Browse' on labels field, got: %s", footer)
+		if !strings.Contains(view, "↓") || !strings.Contains(view, "Browse") {
+			t.Errorf("expected footer to contain '↓' and 'Browse' on labels field, got: %s", view)
 		}
 	})
 
@@ -2768,11 +2768,11 @@ func TestCreateOverlayFooter(t *testing.T) {
 		// Navigate to assignee field
 		overlay.focus = FocusAssignee
 
-		footer := overlay.renderFooter(44)
+		view := overlay.View()
 
 		// New pill format: ↓ key with Browse description
-		if !strings.Contains(footer, "↓") || !strings.Contains(footer, "Browse") {
-			t.Errorf("expected footer to contain '↓' and 'Browse' on assignee field, got: %s", footer)
+		if !strings.Contains(view, "↓") || !strings.Contains(view, "Browse") {
+			t.Errorf("expected footer to contain '↓' and 'Browse' on assignee field, got: %s", view)
 		}
 	})
 
@@ -2786,10 +2786,10 @@ func TestCreateOverlayFooter(t *testing.T) {
 		overlay.focus = FocusLabels
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
 
-		footer := overlay.renderFooter(44)
+		view := overlay.View()
 		// New pill format: ⏎ key with Select description
-		if !strings.Contains(footer, "⏎") || !strings.Contains(footer, "Select") {
-			t.Errorf("expected '⏎' and 'Select' when labels dropdown open, got: %s", footer)
+		if !strings.Contains(view, "⏎") || !strings.Contains(view, "Select") {
+			t.Errorf("expected '⏎' and 'Select' when labels dropdown open, got: %s", view)
 		}
 
 		// Close labels dropdown
@@ -2799,10 +2799,10 @@ func TestCreateOverlayFooter(t *testing.T) {
 		overlay.focus = FocusAssignee
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyDown})
 
-		footer = overlay.renderFooter(44)
+		view = overlay.View()
 		// New pill format: ⏎ key with Select description
-		if !strings.Contains(footer, "⏎") || !strings.Contains(footer, "Select") {
-			t.Errorf("expected '⏎' and 'Select' when assignee dropdown open, got: %s", footer)
+		if !strings.Contains(view, "⏎") || !strings.Contains(view, "Select") {
+			t.Errorf("expected '⏎' and 'Select' when assignee dropdown open, got: %s", view)
 		}
 	})
 }
@@ -2839,8 +2839,8 @@ func TestCreateOverlayFooterState(t *testing.T) {
 		overlay.focus = FocusTitle
 
 		// Before submission
-		footer := overlay.renderFooter(44)
-		if strings.Contains(footer, "Creating bead...") {
+		view := overlay.View()
+		if strings.Contains(view, "Creating bead...") {
 			t.Error("should not show creating footer before submission")
 		}
 
@@ -2848,8 +2848,8 @@ func TestCreateOverlayFooterState(t *testing.T) {
 		overlay, _ = overlay.handleSubmit(false)
 
 		// After submission
-		footer = overlay.renderFooter(44)
-		if !strings.Contains(footer, "Creating bead...") {
+		view = overlay.View()
+		if !strings.Contains(view, "Creating bead...") {
 			t.Error("expected creating footer after submission")
 		}
 	})

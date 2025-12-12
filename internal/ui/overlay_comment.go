@@ -106,8 +106,10 @@ func (m *CommentOverlay) View() string {
 	b := NewOverlayBuilder(OverlaySizeWide, 0)
 	contentWidth := b.ContentWidth()
 
-	// Update textarea width to match builder
-	taContentWidth := TextareaContentWidth(contentWidth+4, commentTextareaPad)
+	// Textarea container width: contentWidth - 2 to account for border (outside Width)
+	// This makes the visual width = contentWidth, matching dividers
+	taContainerWidth := contentWidth - 2
+	taContentWidth := TextareaContentWidth(taContainerWidth, commentTextareaPad)
 	m.textarea.SetWidth(taContentWidth)
 
 	// Header
@@ -122,9 +124,9 @@ func (m *CommentOverlay) View() string {
 	b.Line(contextLine)
 	b.BlankLine()
 
-	// Textarea with border
+	// Textarea with border - use taContainerWidth so visual width matches contentWidth
 	taView := PadTextareaView(m.textarea.View(), commentTextareaPad)
-	taStyle := styleCommentTextarea(contentWidth + 4)
+	taStyle := styleCommentTextarea(taContainerWidth)
 	b.Line(taStyle.Render(taView))
 
 	// Character count

@@ -18,14 +18,15 @@ func (m *App) View() string {
 	// Determine if background should be dimmed (overlay active)
 	dimmed := m.activeOverlay != OverlayNone || m.showHelp
 
-	// Apply dimmed palette for background elements when overlay is active
+	// Apply dimmed palette for background elements when overlay is active.
+	// We restore to standard theme before rendering overlays - dimming only
+	// affects the background content, not the overlays themselves.
 	var restoreTheme func()
 	if dimmed {
 		restoreTheme = useDimmedTheme()
 	} else {
 		restoreTheme = func() {} // No theme override when no overlay
 	}
-	defer restoreTheme()
 
 	stats := m.getStats()
 	status := fmt.Sprintf("Beads: %d", stats.Total)
@@ -76,7 +77,7 @@ func (m *App) View() string {
 	}
 	// Ensure header fills full width with background
 	header = baseStyle().Width(m.width).Render(header)
-	treeViewStr := m.renderTreeView(dimmed)
+	treeViewStr := m.renderTreeView()
 
 	var mainBody string
 	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
@@ -171,6 +172,10 @@ func (m *App) View() string {
 	content := fmt.Sprintf("%s\n%s\n%s", header, mainBody, bottomBar)
 	base := wrapWithBackground(content)
 
+	// Restore standard theme before rendering overlays and toasts.
+	// Dimming only applies to background content.
+	restoreTheme()
+
 	var overlayErrorLayer Layer
 	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
 		overlayErrorLayer = m.errorToastLayer(m.width, m.height, mainBodyStart, mainBodyHeight)
@@ -198,11 +203,9 @@ func (m *App) View() string {
 
 	if len(overlayLayers) > 0 {
 		canvas := NewCanvas(m.width, m.height)
-		// Background is already rendered with dimmed theme
 		canvas.DrawStringAt(0, 0, base)
 
-		// Switch to bright theme for overlay rendering
-		restoreBright := useOverlayTheme()
+		// Overlays render with standard theme (restored above)
 		for _, layer := range overlayLayers {
 			if layer == nil {
 				continue
@@ -221,7 +224,6 @@ func (m *App) View() string {
 				canvas.OverlayCanvas(c)
 			}
 		}
-		restoreBright()
 
 		return canvas.Render()
 	}

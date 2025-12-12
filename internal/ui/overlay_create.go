@@ -1004,176 +1004,162 @@ func styleCreateDimmed() lipgloss.Style {
 }
 
 // View implements tea.Model - 5-zone HUD layout per spec Section 3.
+// Uses the unified OverlayBuilder framework for consistent sizing and layout.
 func (m *CreateOverlay) View() string {
-	var b strings.Builder
+	// Use responsive width via OverlayBuilder
+	dialogWidth := m.calcDialogWidth()
+	ob := NewOverlayBuilderWithWidth(dialogWidth)
+	contentWidth := ob.ContentWidth()
 
 	// Check if parent search is active for dimming effect (spec Section 2.4)
 	parentSearchActive := m.parentCombo.IsDropdownOpen()
 
-	// Header (use responsive width)
-	dialogWidth := m.calcDialogWidth()
-	title := styleHelpTitle().Render(m.header())
 	// Parent combo box (always editable; placeholder shows root state)
 	if m.parentCombo.Value() == "" {
 		m.parentCombo = m.parentCombo.WithPlaceholder("No Parent (Root Item)")
 	}
 
-	// Pre-render primary views to measure widths
-	parentView := m.parentCombo.View()
-
-	titleLabel := styleCreateLabel().Render("TITLE")
-	if m.focus == FocusTitle {
-		titleLabel = styleHelpSectionHeader().Render("TITLE")
-	}
-	if parentSearchActive {
-		titleLabel = styleCreateDimmed().Render("TITLE")
-	}
-
-	titleStyle := styleCreateInput(dialogWidth)
-	if m.focus == FocusTitle {
-		titleStyle = styleCreateInputFocused(dialogWidth)
-	}
-	if m.titleValidationError {
-		titleStyle = styleCreateInputError(dialogWidth)
-	}
-	titleView := titleStyle.Render(m.titleInput.View())
-	if parentSearchActive {
-		titleView = styleCreateDimmed().Render(m.titleInput.View())
-	}
-
-	descStyle := styleCreateInput(dialogWidth)
-	if m.focus == FocusDescription {
-		descStyle = styleCreateInputFocused(dialogWidth)
-	}
-	descView := descStyle.Render(m.descriptionInput.View())
-	if parentSearchActive {
-		descView = styleCreateDimmed().Render(m.descriptionInput.View())
-	}
-
-	labelsView := m.labelsCombo.View()
-	if parentSearchActive {
-		labelsView = styleCreateDimmed().Render(labelsView)
-	}
-
-	assigneeView := m.assigneeCombo.View()
-	if parentSearchActive {
-		assigneeView = styleCreateDimmed().Render(assigneeView)
-	}
-
-	// Determine content width based on rendered views
-	contentWidth := dialogWidth
-	widths := []int{
-		lipgloss.Width(parentView),
-		lipgloss.Width(titleView),
-		lipgloss.Width(descView),
-		lipgloss.Width(labelsView),
-		lipgloss.Width(assigneeView),
-	}
-	for _, w := range widths {
-		if w > contentWidth {
-			contentWidth = w
-		}
-	}
-
-	divider := styleHelpDivider().Render(strings.Repeat("─", contentWidth))
-
-	b.WriteString(title)
-	b.WriteString("\n")
-	b.WriteString(divider)
-	b.WriteString("\n\n")
+	// Header
+	ob.Line(styleOverlayTitle().Render(m.header()))
+	ob.Line(ob.Divider())
+	ob.BlankLine()
 
 	// Zone 1: Parent (anchor at top) - never dimmed
-	parentLabel := styleCreateLabel().Render("PARENT")
-	if m.focus == FocusParent {
-		parentLabel = styleHelpSectionHeader().Render("PARENT")
-	}
-	hintStyle := lipgloss.NewStyle().Foreground(currentThemeWrapper().TextMuted())
+	parentLabel := m.renderSectionLabel("PARENT", m.focus == FocusParent, false)
 	hint := "Shift+Tab"
+	hintStyle := lipgloss.NewStyle().Foreground(currentThemeWrapper().TextMuted())
 	parentLabelWidth := lipgloss.Width(parentLabel)
 	padding := contentWidth - parentLabelWidth - lipgloss.Width(hint)
 	if padding < 1 {
 		padding = 1
 	}
-	b.WriteString(parentLabel)
-	b.WriteString(hintStyle.Render(strings.Repeat(" ", padding) + hint))
-	b.WriteString("\n")
-
-	b.WriteString(parentView)
-	b.WriteString("\n\n")
+	ob.Line(parentLabel + hintStyle.Render(strings.Repeat(" ", padding)+hint))
+	ob.Line(m.parentCombo.View())
+	ob.BlankLine()
 
 	// Zone 2: Title (hero element) - dimmed when parent search active
-	b.WriteString(titleLabel)
-	b.WriteString("\n")
+	ob.Line(m.renderSectionLabel("TITLE", m.focus == FocusTitle, parentSearchActive))
+	titleView := m.renderTitleInput(contentWidth, parentSearchActive)
+	ob.Line(titleView)
+	ob.BlankLine()
 
-	b.WriteString(titleView)
+	// Zone 2b: Description - dimmed when parent search active
+	ob.Line(m.renderSectionLabel("DESCRIPTION", m.focus == FocusDescription, parentSearchActive))
+	descView := m.renderDescInput(contentWidth, parentSearchActive)
+	ob.Line(descView)
+	ob.BlankLine()
 
-	b.WriteString("\n\n")
-
-	// Zone 2b: Description (multi-line textarea) - dimmed when parent search active
-	descLabel := styleCreateLabel().Render("DESCRIPTION")
-	if m.focus == FocusDescription {
-		descLabel = styleHelpSectionHeader().Render("DESCRIPTION")
-	}
-	if parentSearchActive {
-		descLabel = styleCreateDimmed().Render("DESCRIPTION")
-	}
-	b.WriteString(descLabel)
-	b.WriteString("\n")
-
-	b.WriteString(descView)
-	b.WriteString("\n\n")
-
-	// Zone 3: Type and Priority (vertical stack with horizontal options) - dimmed when parent search active
+	// Zone 3: Type and Priority - dimmed when parent search active
 	var propsGrid string
 	if m.isEditMode() {
-		propsGrid = lipgloss.JoinVertical(lipgloss.Left,
-			m.renderPriorityRow(),
-		)
+		propsGrid = m.renderPriorityRow()
 	} else {
 		propsGrid = lipgloss.JoinVertical(lipgloss.Left,
 			m.renderTypeRow(),
-			"", // Spacing line
+			"",
 			m.renderPriorityRow(),
 		)
 	}
 	if parentSearchActive {
 		propsGrid = styleCreateDimmed().Render(propsGrid)
 	}
-	b.WriteString(propsGrid)
-	b.WriteString("\n\n")
+	ob.Line(propsGrid)
+	ob.BlankLine()
 
-	// Zone 4: Labels (inline chips) - dimmed when parent search active
-	labelsLabel := styleCreateLabel().Render("LABELS")
-	if m.focus == FocusLabels {
-		labelsLabel = styleHelpSectionHeader().Render("LABELS")
-	}
+	// Zone 4: Labels - dimmed when parent search active
+	ob.Line(m.renderSectionLabel("LABELS", m.focus == FocusLabels, parentSearchActive))
+	labelsView := m.labelsCombo.View()
 	if parentSearchActive {
-		labelsLabel = styleCreateDimmed().Render("LABELS")
+		labelsView = styleCreateDimmed().Render(labelsView)
 	}
-	b.WriteString(labelsLabel)
-	b.WriteString("\n")
-	b.WriteString(labelsView)
-	b.WriteString("\n\n")
+	ob.Line(labelsView)
+	ob.BlankLine()
 
 	// Zone 5: Assignee - dimmed when parent search active
-	assigneeLabel := styleCreateLabel().Render("ASSIGNEE")
-	if m.focus == FocusAssignee {
-		assigneeLabel = styleHelpSectionHeader().Render("ASSIGNEE")
-	}
+	ob.Line(m.renderSectionLabel("ASSIGNEE", m.focus == FocusAssignee, parentSearchActive))
+	assigneeView := m.assigneeCombo.View()
 	if parentSearchActive {
-		assigneeLabel = styleCreateDimmed().Render("ASSIGNEE")
+		assigneeView = styleCreateDimmed().Render(assigneeView)
 	}
-	b.WriteString(assigneeLabel)
-	b.WriteString("\n")
-	b.WriteString(assigneeView)
-	b.WriteString("\n\n")
+	ob.Line(assigneeView)
+	ob.BlankLine()
 
-	// Footer with keyboard hints (spec Section 4.1 - footer flipping)
-	b.WriteString(divider)
-	b.WriteString("\n")
-	b.WriteString(m.renderFooter(contentWidth))
+	// Footer - show "Creating bead..." when submitting, otherwise show hints
+	if m.isCreating {
+		ob.FooterText("Creating bead...")
+	} else {
+		ob.Footer(m.footerHints())
+	}
 
-	return styleOverlay().Render(b.String())
+	return ob.Build()
+}
+
+// renderSectionLabel renders a section label with appropriate styling.
+func (m *CreateOverlay) renderSectionLabel(label string, focused, dimmed bool) string {
+	if dimmed {
+		return styleCreateDimmed().Render(label)
+	}
+	if focused {
+		return styleHelpSectionHeader().Render(label)
+	}
+	return styleCreateLabel().Render(label)
+}
+
+// renderTitleInput renders the title textarea with appropriate styling.
+func (m *CreateOverlay) renderTitleInput(contentWidth int, dimmed bool) string {
+	if dimmed {
+		return styleCreateDimmed().Render(m.titleInput.View())
+	}
+	style := styleCreateInput(contentWidth)
+	if m.focus == FocusTitle {
+		style = styleCreateInputFocused(contentWidth)
+	}
+	if m.titleValidationError {
+		style = styleCreateInputError(contentWidth)
+	}
+	return style.Render(m.titleInput.View())
+}
+
+// renderDescInput renders the description textarea with appropriate styling.
+func (m *CreateOverlay) renderDescInput(contentWidth int, dimmed bool) string {
+	if dimmed {
+		return styleCreateDimmed().Render(m.descriptionInput.View())
+	}
+	style := styleCreateInput(contentWidth)
+	if m.focus == FocusDescription {
+		style = styleCreateInputFocused(contentWidth)
+	}
+	return style.Render(m.descriptionInput.View())
+}
+
+// footerHints returns the footer hints based on current state.
+func (m *CreateOverlay) footerHints() []footerHint {
+	if m.parentCombo.IsDropdownOpen() || m.labelsCombo.IsDropdownOpen() || m.assigneeCombo.IsDropdownOpen() {
+		return []footerHint{
+			{"⏎", "Select"},
+			{"esc", "Revert"},
+		}
+	}
+	if m.focus == FocusParent || m.focus == FocusLabels || m.focus == FocusAssignee {
+		return []footerHint{
+			{"↓", "Browse"},
+			{"⏎", m.submitFooterText()},
+			{"Tab", "Next"},
+			{"esc", "Cancel"},
+		}
+	}
+	// Default state
+	primary := m.submitFooterText()
+	bulk := "Create+Add"
+	if m.isEditMode() {
+		bulk = primary
+	}
+	return []footerHint{
+		{"⏎", primary},
+		{"^⏎", bulk},
+		{"Tab", "Next"},
+		{"esc", "Cancel"},
+	}
 }
 
 // Layer returns a centered layer for the create overlay.
@@ -1305,51 +1291,6 @@ func renderHorizontalOption(style lipgloss.Style, label string, selected bool, u
 	}
 
 	return style.Render(content.String())
-}
-
-// renderFooter returns the dynamic footer based on current context (spec Section 4.1).
-// Footer "flips" between states to eliminate ambiguity of intent.
-// Uses keyPill() for consistency with the global footer styling.
-func (m *CreateOverlay) renderFooter(contentWidth int) string {
-	var hints []footerHint
-
-	switch {
-	case m.isCreating:
-		// Creating state: user must wait (no hints, just message)
-		return styleFooterMuted().Render("Creating bead...")
-	case m.parentCombo.IsDropdownOpen() || m.labelsCombo.IsDropdownOpen() || m.assigneeCombo.IsDropdownOpen():
-		// Dropdown search active: Enter selects, Esc reverts
-		hints = []footerHint{
-			{"⏎", "Select"},
-			{"esc", "Revert"},
-		}
-	case m.focus == FocusParent || m.focus == FocusLabels || m.focus == FocusAssignee:
-		// Combo box field focused (but dropdown closed): show browse hint
-		hints = []footerHint{
-			{"↓", "Browse"},
-			{"⏎", m.submitFooterText()},
-			{"Tab", "Next"},
-			{"esc", "Cancel"},
-		}
-	default:
-		primary := m.submitFooterText()
-		bulk := "Create+Add"
-		if m.isEditMode() {
-			bulk = primary
-		}
-		// Default state: Title, Type, Priority fields
-		hints = []footerHint{
-			{"⏎", primary},
-			{"^⏎", bulk},
-			{"Tab", "Next"},
-			{"esc", "Cancel"},
-		}
-	}
-
-	if contentWidth <= 0 {
-		contentWidth = m.calcDialogWidth()
-	}
-	return overlayFooterLine(hints, contentWidth)
 }
 
 // BeadUpdatedMsg is sent when edit form is submitted.
@@ -1485,16 +1426,16 @@ func (m *CreateOverlay) calcDialogWidth() int {
 func (m *CreateOverlay) SetSize(width, height int) {
 	m.termWidth = width
 	dialogWidth := m.calcDialogWidth()
-	// lipgloss Width includes padding but excludes border
-	// Padding(0,1) = 2 chars (1 left + 1 right), border adds 2 more outside
-	contentWidth := dialogWidth - 2 // Only subtract padding, border is outside Width
+	// Use OverlayContentWidth for consistency with the unified overlay framework
+	contentWidth := OverlayContentWidth(dialogWidth)
 
-	// Update text areas to fill the content area inside padding
-	m.titleInput.SetWidth(contentWidth)
-	m.descriptionInput.SetWidth(contentWidth)
+	// Update text areas to fill the content area inside overlay padding
+	// Textareas have their own border+padding, so subtract 4 more (2 border + 2 padding)
+	m.titleInput.SetWidth(contentWidth - 4)
+	m.descriptionInput.SetWidth(contentWidth - 4)
 
-	// Update combo boxes
-	m.parentCombo = m.parentCombo.WithWidth(dialogWidth)
-	m.labelsCombo = m.labelsCombo.WithWidth(dialogWidth)
-	m.assigneeCombo = m.assigneeCombo.WithWidth(dialogWidth)
+	// Update combo boxes - they should fit within contentWidth
+	m.parentCombo = m.parentCombo.WithWidth(contentWidth)
+	m.labelsCombo = m.labelsCombo.WithWidth(contentWidth)
+	m.assigneeCombo = m.assigneeCombo.WithWidth(contentWidth)
 }
