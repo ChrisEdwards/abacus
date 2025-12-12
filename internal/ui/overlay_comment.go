@@ -39,20 +39,16 @@ type CommentOverlay struct {
 
 // NewCommentOverlay creates a new comment modal overlay.
 func NewCommentOverlay(issueID, beadTitle string) *CommentOverlay {
-	ta := textarea.New()
-	ta.Placeholder = "Type your comment here..."
-	ta.Prompt = "" // Remove default left prompt to align background with input text
-	ta.CharLimit = commentCharLimit
-	ta.SetWidth(commentModalWidth + 6) // Temporary default; updated in View based on padding
-	ta.SetHeight(commentTextareaLines)
-	ta.ShowLineNumbers = false
+	taModel := NewBaseTextarea(commentModalWidth+6, commentTextareaLines)
+	taModel.Placeholder = "Type your comment here..."
+	taModel.CharLimit = commentCharLimit
 
-	ta.Focus()
+	taModel.Focus()
 
 	return &CommentOverlay{
 		issueID:   issueID,
 		beadTitle: beadTitle,
-		textarea:  ta,
+		textarea:  taModel,
 	}
 }
 
@@ -108,21 +104,10 @@ func (m *CommentOverlay) View() string {
 	var b strings.Builder
 
 	containerWidth := commentModalWidth + 11
-	taContentWidth := containerWidth - (commentTextareaPad * 2)
+	taContentWidth := TextareaContentWidth(containerWidth, commentTextareaPad)
 	m.textarea.SetWidth(taContentWidth)
 
-	leftPad := lipgloss.NewStyle().
-		Background(theme.Current().BackgroundSecondary()).
-		Render(strings.Repeat(" ", commentTextareaPad))
-	rightPad := leftPad
-	taViewLines := strings.Split(m.textarea.View(), "\n")
-	for i, line := range taViewLines {
-		if line == "" && i == len(taViewLines)-1 {
-			continue
-		}
-		taViewLines[i] = leftPad + line + rightPad
-	}
-	taView := strings.Join(taViewLines, "\n")
+	taView := PadTextareaView(m.textarea.View(), commentTextareaPad)
 
 	// Header
 	header := styleHelpTitle().Render("ADD COMMENT")
