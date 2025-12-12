@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"abacus/internal/ui/theme"
@@ -12,9 +13,10 @@ import (
 )
 
 const (
-	commentModalWidth    = 54 // Content width
+	commentModalWidth    = 54 // Base content width (without padding)
 	commentTextareaLines = 6  // Visible lines
 	commentCharLimit     = 2000
+	commentTextareaPad   = 1 // Space between border and text area content
 )
 
 // CommentAddedMsg is sent when the user submits a comment.
@@ -39,10 +41,12 @@ type CommentOverlay struct {
 func NewCommentOverlay(issueID, beadTitle string) *CommentOverlay {
 	ta := textarea.New()
 	ta.Placeholder = "Type your comment here..."
+	ta.Prompt = "" // Remove default left prompt to align background with input text
 	ta.CharLimit = commentCharLimit
-	ta.SetWidth(commentModalWidth)
+	ta.SetWidth(commentModalWidth + 6) // Temporary default; updated in View based on padding
 	ta.SetHeight(commentTextareaLines)
 	ta.ShowLineNumbers = false
+
 	ta.Focus()
 
 	return &CommentOverlay{
@@ -61,8 +65,8 @@ func (m *CommentOverlay) Init() tea.Cmd {
 func (m *CommentOverlay) Update(msg tea.Msg) (*CommentOverlay, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch {
-		case msg.Type == tea.KeyEsc:
+		switch msg.Type {
+		case tea.KeyEsc:
 			// Multi-stage escape: clear text first, then cancel
 			if strings.TrimSpace(m.textarea.Value()) != "" {
 				m.textarea.SetValue("")
@@ -71,10 +75,8 @@ func (m *CommentOverlay) Update(msg tea.Msg) (*CommentOverlay, tea.Cmd) {
 			}
 			return m, func() tea.Msg { return CommentCancelledMsg{} }
 
-		case msg.Type == tea.KeyCtrlJ,
-			msg.String() == "ctrl+enter",
-			msg.String() == "shift+enter":
-			// Ctrl+Enter, Shift+Enter, or Ctrl+J to submit
+		case tea.KeyCtrlS:
+			// Ctrl+S to submit/save
 			return m.submit()
 		}
 	}
@@ -105,9 +107,26 @@ func (m *CommentOverlay) submit() (*CommentOverlay, tea.Cmd) {
 func (m *CommentOverlay) View() string {
 	var b strings.Builder
 
+	containerWidth := commentModalWidth + 11
+	taContentWidth := containerWidth - (commentTextareaPad * 2)
+	m.textarea.SetWidth(taContentWidth)
+
+	leftPad := lipgloss.NewStyle().
+		Background(theme.Current().BackgroundSecondary()).
+		Render(strings.Repeat(" ", commentTextareaPad))
+	rightPad := leftPad
+	taViewLines := strings.Split(m.textarea.View(), "\n")
+	for i, line := range taViewLines {
+		if line == "" && i == len(taViewLines)-1 {
+			continue
+		}
+		taViewLines[i] = leftPad + line + rightPad
+	}
+	taView := strings.Join(taViewLines, "\n")
+
 	// Header
 	header := styleHelpTitle().Render("ADD COMMENT")
-	divider := styleHelpDivider().Render(strings.Repeat("─", commentModalWidth+4))
+	divider := styleHelpDivider().Render(strings.Repeat("─", containerWidth))
 
 	b.WriteString(header)
 	b.WriteString("\n")
@@ -126,8 +145,8 @@ func (m *CommentOverlay) View() string {
 	b.WriteString("\n\n")
 
 	// Textarea with border
-	taStyle := styleCommentTextarea(commentModalWidth + 4)
-	b.WriteString(taStyle.Render(m.textarea.View()))
+	taStyle := styleCommentTextarea(containerWidth)
+	b.WriteString(taStyle.Render(taView))
 	b.WriteString("\n")
 
 	// Character count
@@ -156,12 +175,16 @@ func (m *CommentOverlay) View() string {
 	b.WriteString(divider)
 	b.WriteString("\n")
 
-	// Footer
+	// Footer - show ⌘S on Mac, ^S elsewhere
+	saveKey := "^S"
+	if runtime.GOOS == "darwin" {
+		saveKey = "⌘S"
+	}
 	hints := []footerHint{
-		{"⇧⏎", "Submit"},
+		{saveKey, "Save"},
 		{"esc", "Cancel"},
 	}
-	b.WriteString(overlayFooterLine(hints, commentModalWidth+4))
+	b.WriteString(overlayFooterLine(hints, containerWidth))
 
 	return styleHelpOverlay().Render(b.String())
 }

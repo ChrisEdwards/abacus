@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func TestCommentOverlay_NewCommentOverlay(t *testing.T) {
@@ -21,8 +22,8 @@ func TestCommentOverlay_NewCommentOverlay(t *testing.T) {
 func TestCommentOverlay_EmptySubmit(t *testing.T) {
 	overlay := NewCommentOverlay("ab-123", "Test")
 
-	// Try to submit empty
-	overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	// Try to submit empty with Ctrl+S
+	overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 
 	if overlay.errorMsg == "" {
 		t.Error("expected error message for empty comment")
@@ -33,7 +34,7 @@ func TestCommentOverlay_ValidSubmit(t *testing.T) {
 	overlay := NewCommentOverlay("ab-123", "Test")
 	overlay.textarea.SetValue("This is a valid comment")
 
-	_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 
 	if cmd == nil {
 		t.Error("expected command to be returned")
@@ -87,8 +88,8 @@ func TestCommentOverlay_WhitespaceOnlySubmit(t *testing.T) {
 	overlay := NewCommentOverlay("ab-123", "Test")
 	overlay.textarea.SetValue("   \n\t  ")
 
-	// Try to submit whitespace-only
-	overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	// Try to submit whitespace-only with Ctrl+S
+	overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 
 	if overlay.errorMsg == "" {
 		t.Error("expected error message for whitespace-only comment")
@@ -109,5 +110,44 @@ func TestCommentOverlay_TitleTruncation(t *testing.T) {
 	// The view should contain the bead ID
 	if !strings.Contains(view, "ab-123") {
 		t.Error("view should contain the bead ID")
+	}
+}
+
+func TestCommentOverlay_TextareaPaddingMatchesDescription(t *testing.T) {
+	overlay := NewCommentOverlay("ab-123", "Test bead title")
+
+	view := stripANSI(overlay.View())
+	var textareaLine string
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, "Type your comment here") {
+			textareaLine = line
+			break
+		}
+	}
+	if textareaLine == "" {
+		t.Fatal("could not find textarea placeholder line")
+	}
+
+	parts := strings.Split(textareaLine, "│")
+	if len(parts) < 5 {
+		t.Fatalf("unexpected textarea layout: %q", textareaLine)
+	}
+	textareaSegment := parts[2] // content between textarea borders
+	runes := []rune(textareaSegment)
+	if len(runes) < 2 {
+		t.Fatalf("textarea segment too short: %q", textareaSegment)
+	}
+	if runes[0] != ' ' {
+		t.Fatalf("expected left padding space before content, got %q", string(runes[0]))
+	}
+	if runes[commentTextareaPad] != 'T' {
+		t.Errorf("textarea content should start after padding, got %q", string(runes[commentTextareaPad]))
+	}
+
+	textareaViewWidth := lipgloss.Width(stripANSI(overlay.textarea.View()))
+	segmentWidth := lipgloss.Width(textareaSegment)
+	expectedWidth := textareaViewWidth + (commentTextareaPad * 2)
+	if segmentWidth != expectedWidth {
+		t.Errorf("textarea width %d, expected %d (view width + padding)", segmentWidth, expectedWidth)
 	}
 }
