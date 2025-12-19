@@ -28,7 +28,9 @@ const (
 )
 
 const (
-	defaultAutoRefreshSeconds = 3
+	// DefaultAutoRefreshSeconds is the default auto-refresh interval in seconds.
+	// Exported so UI can use same default as fallback.
+	DefaultAutoRefreshSeconds = 10
 	envPrefix                 = "AB"
 )
 
@@ -270,7 +272,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeySkipVersionCheck, false)
 	v.SetDefault(KeyOutputFormat, "rich")
 	v.SetDefault(KeyOutputJSON, false)
-	v.SetDefault(KeyAutoRefreshSeconds, defaultAutoRefreshSeconds)
+	v.SetDefault(KeyAutoRefreshSeconds, DefaultAutoRefreshSeconds)
 	v.SetDefault(KeyTheme, "tokyonight")
 }
 

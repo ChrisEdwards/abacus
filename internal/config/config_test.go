@@ -32,8 +32,8 @@ func TestDefaults(t *testing.T) {
 		t.Fatalf("Initialize returned error: %v", err)
 	}
 
-	if got := GetInt(KeyAutoRefreshSeconds); got != defaultAutoRefreshSeconds {
-		t.Fatalf("expected default %s to be %ds, got %d", KeyAutoRefreshSeconds, defaultAutoRefreshSeconds, got)
+	if got := GetInt(KeyAutoRefreshSeconds); got != DefaultAutoRefreshSeconds {
+		t.Fatalf("expected default %s to be %ds, got %d", KeyAutoRefreshSeconds, DefaultAutoRefreshSeconds, got)
 	}
 	if got := GetString(KeyDatabasePath); got != "" {
 		t.Fatalf("expected default %s to be empty, got %q", KeyDatabasePath, got)

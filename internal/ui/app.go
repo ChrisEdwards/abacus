@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"abacus/internal/beads"
+	"abacus/internal/config"
 	"abacus/internal/graph"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -22,7 +23,6 @@ const (
 	minViewportHeight      = 5
 	minTreeWidth           = 18
 	minListHeight          = 5
-	defaultRefreshInterval = 10 * time.Second
 	refreshDisplayDuration = 3 * time.Second // How long delta metrics stay visible in footer
 )
 
@@ -224,7 +224,7 @@ func (m *App) errorHotkeyAvailable() bool {
 // NewApp creates a new UI app instance based on configuration and current working directory.
 func NewApp(cfg Config) (*App, error) {
 	if cfg.RefreshInterval <= 0 {
-		cfg.RefreshInterval = defaultRefreshInterval
+		cfg.RefreshInterval = time.Duration(config.DefaultAutoRefreshSeconds) * time.Second
 	}
 
 	reporter := cfg.StartupReporter

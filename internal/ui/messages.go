@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"abacus/internal/config"
 	"abacus/internal/graph"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,7 +20,7 @@ type refreshCompleteMsg struct {
 
 func scheduleTick(interval time.Duration) tea.Cmd {
 	if interval <= 0 {
-		interval = defaultRefreshInterval
+		interval = time.Duration(config.DefaultAutoRefreshSeconds) * time.Second
 	}
 	return tea.Tick(interval, func(time.Time) tea.Msg { return tickMsg{} })
 }
