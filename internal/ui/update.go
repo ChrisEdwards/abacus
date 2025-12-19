@@ -349,6 +349,12 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, tea.Batch(cmds...)
+	case startBackgroundCommentLoadMsg:
+		// Load comments in background (ab-fkyz)
+		return m, m.loadCommentsInBackground()
+	case backgroundCommentLoadCompleteMsg:
+		// Comments loaded - no action needed, data is already in nodes
+		return m, nil
 	case refreshCompleteMsg:
 		m.refreshInFlight = false
 		if msg.err != nil {

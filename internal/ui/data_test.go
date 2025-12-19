@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"abacus/internal/beads"
-	"abacus/internal/graph"
 )
 
 func TestLoadDataUsesExport(t *testing.T) {
@@ -36,7 +35,9 @@ func TestLoadDataUsesExport(t *testing.T) {
 	}
 }
 
-func TestLoadDataPreloadsComments(t *testing.T) {
+func TestLoadDataDoesNotPreloadComments(t *testing.T) {
+	// Comments are now loaded in background after TUI starts (ab-fkyz)
+	// This test verifies loadData doesn't block on comment loading
 	mock := beads.NewMockClient()
 	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
 		return []beads.FullIssue{
@@ -57,26 +58,10 @@ func TestLoadDataPreloadsComments(t *testing.T) {
 	if len(roots) != 2 {
 		t.Fatalf("expected 2 root nodes, got %d", len(roots))
 	}
-	if mock.CommentsCallCount != 2 {
-		t.Fatalf("expected comments called twice, got %d", mock.CommentsCallCount)
+	// Comments should NOT be loaded during loadData - they're loaded in background
+	if mock.CommentsCallCount != 0 {
+		t.Fatalf("expected no comments calls during loadData, got %d", mock.CommentsCallCount)
 	}
-
-	var check func(nodes []*graph.Node)
-	check = func(nodes []*graph.Node) {
-		for _, n := range nodes {
-			if !n.CommentsLoaded {
-				t.Fatalf("node %s not marked comments loaded", n.Issue.ID)
-			}
-			if n.CommentError != "" {
-				t.Fatalf("unexpected comment error for %s: %s", n.Issue.ID, n.CommentError)
-			}
-			if len(n.Issue.Comments) != 1 {
-				t.Fatalf("expected exactly one comment for %s", n.Issue.ID)
-			}
-			check(n.Children)
-		}
-	}
-	check(roots)
 }
 
 func TestLoadDataReturnsErrorWhenNoIssues(t *testing.T) {
@@ -115,13 +100,11 @@ func TestLoadDataReportsStartupStages(t *testing.T) {
 		t.Fatalf("loadData returned error: %v", err)
 	}
 
-	// With Export, we have fewer stages since we don't have intermediate progress reporting
+	// Comments are now loaded in background (ab-fkyz), so no comment loading stages
 	want := []StartupStage{
-		StartupStageLoadingIssues,  // "Loading issues..."
-		StartupStageLoadingIssues,  // "Loaded X issues"
-		StartupStageBuildingGraph,  // "Building dependency graph..."
-		StartupStageOrganizingTree, // "Loading comments..."
-		StartupStageOrganizingTree, // "Loading comments... X/Y" (progress)
+		StartupStageLoadingIssues, // "Loading issues..."
+		StartupStageLoadingIssues, // "Loaded X issues"
+		StartupStageBuildingGraph, // "Building dependency graph..."
 	}
 	if len(reporter.stages) != len(want) {
 		t.Fatalf("expected %d stage events, got %d: %#v", len(want), len(reporter.stages), reporter.stages)

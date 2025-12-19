@@ -1749,9 +1749,8 @@ func TestNewAppWithMockClientLoadsIssues(t *testing.T) {
 	if len(app.roots) != 1 {
 		t.Fatalf("expected a single root, got %d", len(app.roots))
 	}
-	if mock.CommentsCallCount != len(fixture) {
-		t.Fatalf("expected comments fetched for all issues, got %d", mock.CommentsCallCount)
-	}
+	// Comments are now loaded in background after TUI starts (ab-fkyz)
+	// so we don't check CommentsCallCount here - see TestPreloadAllComments
 }
 
 func TestAppRefreshWithMockClient(t *testing.T) {

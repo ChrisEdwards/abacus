@@ -321,6 +321,8 @@ func (m *App) Init() tea.Cmd {
 	if m.autoRefresh && m.refreshInterval > 0 {
 		cmds = append(cmds, scheduleTick(m.refreshInterval))
 	}
+	// Start background comment loading after TUI is displayed (ab-fkyz)
+	cmds = append(cmds, scheduleBackgroundCommentLoad())
 	return tea.Batch(cmds...)
 }
 

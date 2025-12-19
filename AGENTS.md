@@ -63,6 +63,8 @@ Fast code search tool available via command line. Common patterns:
 ## Issue Tracking with Beads
 We use beads for issue tracking and work planning. If you need more information, execute `bd quickstart`
 
+**IMPORTANT**: Beads (`bd` CLI) is a third-party tool we do not maintain. Do not propose changes to the beads codebase. The beads source may be in a sibling folder for reference, but we cannot modify it.
+
 ### Dependencies
 ```bash
 bd dep add <child> <parent> --type parent-child   # Make child a subtask of parent

@@ -141,11 +141,8 @@ func loadData(ctx context.Context, client beads.Client, reporter StartupReporter
 		}
 		return a.Issue.CreatedAt < b.Issue.CreatedAt
 	})
-	if reporter != nil {
-		reporter.Stage(StartupStageOrganizingTree, "Loading comments...")
-	}
-
-	preloadAllComments(ctx, client, roots, reporter)
+	// Comments are now loaded in background after TUI starts (ab-fkyz)
+	// Lazy loading via fetchCommentsForNode() handles the detail view case
 	return roots, nil
 }
 

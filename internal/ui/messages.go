@@ -64,3 +64,15 @@ func scheduleThemeToastTick() tea.Cmd {
 		return themeToastTickMsg{}
 	})
 }
+
+// Background comment loading messages (ab-fkyz)
+type startBackgroundCommentLoadMsg struct{}
+
+type backgroundCommentLoadCompleteMsg struct{}
+
+func scheduleBackgroundCommentLoad() tea.Cmd {
+	// Small delay to ensure TUI is fully rendered before starting background work
+	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+		return startBackgroundCommentLoadMsg{}
+	})
+}

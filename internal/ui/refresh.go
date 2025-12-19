@@ -170,3 +170,21 @@ func (m *App) scheduleEventualRefresh() tea.Cmd {
 		return eventualRefreshMsg{}
 	})
 }
+
+// loadCommentsInBackground loads comments for all issues without blocking the UI (ab-fkyz).
+// This is called after the TUI is displayed to avoid startup delay.
+func (m *App) loadCommentsInBackground() tea.Cmd {
+	if m.client == nil || len(m.roots) == 0 {
+		return func() tea.Msg { return backgroundCommentLoadCompleteMsg{} }
+	}
+
+	client := m.client
+	roots := m.roots
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		preloadAllComments(ctx, client, roots, nil)
+		return backgroundCommentLoadCompleteMsg{}
+	}
+}
