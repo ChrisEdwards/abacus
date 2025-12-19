@@ -20,7 +20,7 @@ type refreshCompleteMsg struct {
 
 func scheduleTick(interval time.Duration) tea.Cmd {
 	if interval <= 0 {
-		interval = time.Duration(config.DefaultAutoRefreshSeconds) * time.Second
+		interval = time.Duration(config.GetInt(config.KeyAutoRefreshSeconds)) * time.Second
 	}
 	return tea.Tick(interval, func(time.Time) tea.Msg { return tickMsg{} })
 }

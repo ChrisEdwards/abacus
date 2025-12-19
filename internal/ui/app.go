@@ -224,7 +224,7 @@ func (m *App) errorHotkeyAvailable() bool {
 // NewApp creates a new UI app instance based on configuration and current working directory.
 func NewApp(cfg Config) (*App, error) {
 	if cfg.RefreshInterval <= 0 {
-		cfg.RefreshInterval = time.Duration(config.DefaultAutoRefreshSeconds) * time.Second
+		cfg.RefreshInterval = time.Duration(config.GetInt(config.KeyAutoRefreshSeconds)) * time.Second
 	}
 
 	reporter := cfg.StartupReporter
