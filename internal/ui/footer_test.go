@@ -172,8 +172,9 @@ func TestRenderRefreshStatus(t *testing.T) {
 	t.Run("RefreshingState", func(t *testing.T) {
 		m := &App{refreshInFlight: true}
 		status := m.renderRefreshStatus()
-		if !strings.Contains(status, "Refreshing") {
-			t.Errorf("expected refreshing indicator, got: %q", status)
+		// Should show spinner only (no "Refreshing" text to prevent layout shifts)
+		if status == "" || status == " " {
+			t.Errorf("expected spinner indicator when refreshing, got: %q", status)
 		}
 	})
 
@@ -194,8 +195,9 @@ func TestRenderRefreshStatus(t *testing.T) {
 			lastRefreshTime:  time.Now(),
 		}
 		status := m.renderRefreshStatus()
-		if status != "" {
-			t.Errorf("expected empty status when no changes, got: %q", status)
+		// Returns single space to reserve layout space for spinner
+		if status != " " {
+			t.Errorf("expected space placeholder when no changes, got: %q", status)
 		}
 	})
 
@@ -205,8 +207,9 @@ func TestRenderRefreshStatus(t *testing.T) {
 			lastRefreshTime:  time.Now().Add(-refreshDisplayDuration - time.Second),
 		}
 		status := m.renderRefreshStatus()
-		if status != "" {
-			t.Errorf("expected empty status after display duration, got: %q", status)
+		// Returns single space to reserve layout space for spinner
+		if status != " " {
+			t.Errorf("expected space placeholder after display duration, got: %q", status)
 		}
 	})
 

@@ -118,7 +118,7 @@ func (m *App) renderRefreshStatus() string {
 		return styleErrorIndicator().Render("⚠ Error (!)")
 	}
 	if m.refreshInFlight {
-		return styleFooterMuted().Render(m.spinner.View() + " Refreshing...")
+		return styleFooterMuted().Render(m.spinner.View())
 	}
 	// Only show delta if something changed and within display duration
 	if m.lastRefreshStats != "" &&
@@ -126,7 +126,8 @@ func (m *App) renderRefreshStatus() string {
 		time.Since(m.lastRefreshTime) < refreshDisplayDuration {
 		return styleFooterMuted().Render("Δ " + m.lastRefreshStats)
 	}
-	return ""
+	// Reserve space for spinner to prevent layout shifts when refresh starts
+	return " "
 }
 
 // keyPill renders a single key hint as a pill with description.

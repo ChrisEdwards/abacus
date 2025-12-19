@@ -1441,19 +1441,19 @@ func TestRefreshDeltaDisplayMatchesDocs(t *testing.T) {
 		t.Fatalf("expected refresh delta to be visible with changes, got: %q", status)
 	}
 
-	// Test empty state (after display duration)
+	// Test placeholder state (after display duration) - returns space to reserve layout
 	m.lastRefreshTime = time.Now().Add(-refreshDisplayDuration - time.Millisecond)
 	status = m.renderRefreshStatus()
-	if status != "" {
-		t.Fatalf("expected refresh status to be empty after display duration, got: %q", status)
+	if status != " " {
+		t.Fatalf("expected refresh status to be space placeholder after display duration, got: %q", status)
 	}
 
-	// Test no-change state (should not show delta)
+	// Test no-change state (should not show delta, just space placeholder)
 	m.lastRefreshStats = "+0 / Δ0 / -0"
 	m.lastRefreshTime = time.Now()
 	status = m.renderRefreshStatus()
-	if status != "" {
-		t.Fatalf("expected refresh status to be empty when no changes, got: %q", status)
+	if status != " " {
+		t.Fatalf("expected refresh status to be space placeholder when no changes, got: %q", status)
 	}
 }
 

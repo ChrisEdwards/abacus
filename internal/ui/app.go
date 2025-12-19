@@ -22,7 +22,7 @@ const (
 	minViewportHeight      = 5
 	minTreeWidth           = 18
 	minListHeight          = 5
-	defaultRefreshInterval = 3 * time.Second
+	defaultRefreshInterval = 10 * time.Second
 	refreshDisplayDuration = 3 * time.Second // How long delta metrics stay visible in footer
 )
 
