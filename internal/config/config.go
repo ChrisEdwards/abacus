@@ -300,6 +300,15 @@ func reset() {
 	userConfigPathOverride = ""
 }
 
+// ResetForTesting clears package state for tests in other packages.
+// Returns a cleanup function that should be deferred.
+func ResetForTesting(t interface{ TempDir() string }) func() {
+	reset()
+	tmp := t.TempDir()
+	_ = Initialize(WithWorkingDir(tmp))
+	return reset
+}
+
 // setUserConfigPathOverride sets the user config path for tests.
 //
 //nolint:unused // Used in config_test.go

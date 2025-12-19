@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"abacus/internal/beads"
+	"abacus/internal/config"
 	"abacus/internal/graph"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -3845,5 +3846,51 @@ func TestTickAlwaysReschedules(t *testing.T) {
 				t.Fatalf("tick must always reschedule, got nil command")
 			}
 		})
+	}
+}
+
+func TestNewAppUsesConfiguredRefreshInterval(t *testing.T) {
+	cleanup := config.ResetForTesting(t)
+	defer cleanup()
+
+	// Set a custom refresh interval via config (not the default)
+	customSeconds := 42
+	if err := config.Set(config.KeyAutoRefreshSeconds, customSeconds); err != nil {
+		t.Fatalf("failed to set config: %v", err)
+	}
+
+	// Verify config returns our custom value
+	if got := config.GetInt(config.KeyAutoRefreshSeconds); got != customSeconds {
+		t.Fatalf("config not set correctly: expected %d, got %d", customSeconds, got)
+	}
+
+	// Set up mock client with required functions
+	mock := beads.NewMockClient()
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		return []beads.FullIssue{
+			{ID: "ab-001", Title: "Test Issue", Status: "open"},
+		}, nil
+	}
+	mock.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
+		return nil, nil
+	}
+
+	// Create App with RefreshInterval=0 to trigger fallback
+	dbFile := createTempDBFile(t)
+	cfg := Config{
+		RefreshInterval: 0, // Should fall back to config value
+		DBPathOverride:  dbFile,
+		Client:          mock,
+	}
+
+	app, err := NewApp(cfg)
+	if err != nil {
+		t.Fatalf("NewApp failed: %v", err)
+	}
+
+	// Verify the app uses the configured value, not the hardcoded default
+	expected := time.Duration(customSeconds) * time.Second
+	if app.refreshInterval != expected {
+		t.Errorf("NewApp should use configured refresh interval: expected %v, got %v", expected, app.refreshInterval)
 	}
 }
