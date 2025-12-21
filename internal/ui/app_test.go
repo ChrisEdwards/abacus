@@ -643,6 +643,83 @@ func TestPreloadAllComments(t *testing.T) {
 	})
 }
 
+func TestLoadCommentsInBackgroundUpdatesNodes(t *testing.T) {
+	// This test verifies that loadCommentsInBackground correctly updates
+	// the nodes in m.roots and that the same nodes are visible in m.visibleRows.
+	// This was added to debug ab-o0fm where comments showed "Loading..." indefinitely.
+
+	root := &graph.Node{
+		Issue: beads.FullIssue{ID: "ab-bg1", Title: "Background Load Test"},
+		Children: []*graph.Node{
+			{Issue: beads.FullIssue{ID: "ab-bg2", Title: "Child Issue"}},
+		},
+	}
+
+	client := beads.NewMockClient()
+	client.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
+		return []beads.Comment{
+			{ID: 1, IssueID: issueID, Author: "tester", Text: "test comment", CreatedAt: time.Now().UTC().Format(time.RFC3339)},
+		}, nil
+	}
+
+	app := &App{
+		roots:       []*graph.Node{root},
+		visibleRows: nodesToRows(root, root.Children[0]),
+		client:      client,
+	}
+
+	// Verify initial state
+	if root.CommentsLoaded {
+		t.Fatal("expected root CommentsLoaded to be false initially")
+	}
+	if app.visibleRows[0].Node.CommentsLoaded {
+		t.Fatal("expected visibleRows[0].Node CommentsLoaded to be false initially")
+	}
+
+	// Verify node identity - visibleRows should reference same nodes as roots
+	if app.visibleRows[0].Node != root {
+		t.Fatal("expected visibleRows[0].Node to be same pointer as root")
+	}
+	if app.visibleRows[1].Node != root.Children[0] {
+		t.Fatal("expected visibleRows[1].Node to be same pointer as root.Children[0]")
+	}
+
+	// Call loadCommentsInBackground and execute the returned command
+	cmd := app.loadCommentsInBackground()
+	if cmd == nil {
+		t.Fatal("expected non-nil command from loadCommentsInBackground")
+	}
+
+	// Execute the command synchronously (simulates what Bubble Tea runtime does)
+	msg := cmd()
+
+	// Verify the correct message type was returned
+	if _, ok := msg.(backgroundCommentLoadCompleteMsg); !ok {
+		t.Fatalf("expected backgroundCommentLoadCompleteMsg, got %T", msg)
+	}
+
+	// Verify nodes in m.roots are now marked as loaded
+	if !root.CommentsLoaded {
+		t.Error("expected root CommentsLoaded to be true after loading")
+	}
+	if !root.Children[0].CommentsLoaded {
+		t.Error("expected root.Children[0] CommentsLoaded to be true after loading")
+	}
+
+	// CRITICAL: Verify nodes in visibleRows are also updated (same pointers)
+	if !app.visibleRows[0].Node.CommentsLoaded {
+		t.Error("expected visibleRows[0].Node CommentsLoaded to be true - this means node identity was lost")
+	}
+	if !app.visibleRows[1].Node.CommentsLoaded {
+		t.Error("expected visibleRows[1].Node CommentsLoaded to be true - this means node identity was lost")
+	}
+
+	// Verify comments were actually loaded
+	if len(root.Issue.Comments) != 1 {
+		t.Errorf("expected 1 comment on root, got %d", len(root.Issue.Comments))
+	}
+}
+
 func TestCaptureState(t *testing.T) {
 	child := &graph.Node{Issue: beads.FullIssue{ID: "ab-002"}}
 	root := &graph.Node{

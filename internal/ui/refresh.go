@@ -182,7 +182,7 @@ func (m *App) loadCommentsInBackground() tea.Cmd {
 	roots := m.roots
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 		preloadAllComments(ctx, client, roots, nil)
 		return backgroundCommentLoadCompleteMsg{}

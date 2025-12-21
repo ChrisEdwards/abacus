@@ -378,7 +378,8 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.errorShownOnce = false
 		m.applyRefresh(msg.roots, msg.digest, msg.dbModTime)
-		return m, nil
+		// Reload comments for new nodes after refresh (ab-o0fm)
+		return m, scheduleBackgroundCommentLoad()
 	case eventualRefreshMsg:
 		// Only refresh if not actively creating beads
 		if m.activeOverlay != OverlayCreate {
