@@ -28,6 +28,23 @@ bd label add <issue-id> <label>
 bd label remove <issue-id> <label>
 ```
 
+## Go Code Size Limits
+
+Keep code modular and maintainable by respecting these limits:
+
+| Metric | Production | Test Files |
+|--------|------------|------------|
+| File length | 500 lines | 800 lines |
+| Function length | 60 lines | 80 lines |
+| Function statements | 40 | 60 |
+| Line length | 120 chars | 120 chars |
+| Cyclomatic complexity | 10 | 15 |
+
+If a file or function exceeds these limits, decompose it:
+- Split files by domain concept, lifecycle, or abstraction level
+- Extract helper functions for repeated logic
+- Use Go naming conventions: `_view.go`, `_handlers.go`, `_types.go`
+
 ## Testing Requirements
 Write tests for any changes made in this codebase. All code must build successfully, pass linting, and all tests must pass before marking a bead as closed.
 
