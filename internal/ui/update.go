@@ -353,7 +353,8 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Load comments in background (ab-fkyz)
 		return m, m.loadCommentsInBackground()
 	case backgroundCommentLoadCompleteMsg:
-		// Comments loaded - no action needed, data is already in nodes
+		// Comments loaded in background - refresh detail panel to show them (ab-o0fm)
+		m.updateViewportContent()
 		return m, nil
 	case refreshCompleteMsg:
 		m.refreshInFlight = false

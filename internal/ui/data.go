@@ -17,24 +17,6 @@ var ErrNoIssues = errors.New("no issues found in beads database")
 
 const maxConcurrentCommentFetches = 8
 
-func fetchCommentsForNode(ctx context.Context, client beads.Client, n *graph.Node) error {
-	if n.CommentsLoaded {
-		return nil
-	}
-	if client == nil {
-		return fmt.Errorf("comments client unavailable")
-	}
-
-	comments, err := client.Comments(ctx, n.Issue.ID)
-	if err != nil {
-		return fmt.Errorf("fetch comments for %s: %w", n.Issue.ID, err)
-	}
-	n.Issue.Comments = comments
-	n.CommentsLoaded = true
-	n.CommentError = ""
-	return nil
-}
-
 func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph.Node, reporter StartupReporter) {
 	if client == nil {
 		return
@@ -141,8 +123,7 @@ func loadData(ctx context.Context, client beads.Client, reporter StartupReporter
 		}
 		return a.Issue.CreatedAt < b.Issue.CreatedAt
 	})
-	// Comments are now loaded in background after TUI starts (ab-fkyz)
-	// Lazy loading via fetchCommentsForNode() handles the detail view case
+	// Comments are loaded in background after TUI starts (ab-fkyz, ab-o0fm)
 	return roots, nil
 }
 

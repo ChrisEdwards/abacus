@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -28,11 +27,8 @@ func (m *App) updateViewportContent() {
 	}
 	node := m.visibleRows[m.cursor].Node
 
-	if !node.CommentsLoaded && node.CommentError == "" {
-		if err := fetchCommentsForNode(context.Background(), m.client, node); err != nil {
-			node.CommentError = err.Error()
-		}
-	}
+	// Comments are loaded asynchronously in background (ab-fkyz).
+	// Do NOT block navigation - show loading state if comments not ready.
 
 	iss := node.Issue
 	if m.detailIssueID != iss.ID {
@@ -214,6 +210,10 @@ func (m *App) updateViewportContent() {
 		errorBody := styleBlockedText().Render("Failed to load comments. Press 'c' to retry.") + "\n" +
 			indentBlock(wordwrap.String(node.CommentError, vpWidth-4), 2)
 		descSections = append(descSections, renderContentSection("Comments:", errorBody))
+	} else if !node.CommentsLoaded {
+		// Show loading state while comments are fetched in background (ab-o0fm)
+		loadingBody := styleStatsDim().Render("Loading comments...")
+		descSections = append(descSections, renderContentSection("Comments:", loadingBody))
 	} else if len(iss.Comments) > 0 {
 		var commentBlocks []string
 		for _, c := range iss.Comments {
