@@ -116,7 +116,10 @@ func (m *App) applyRefresh(newRoots []*graph.Node, newDigest map[string]string, 
 	state := m.captureState()
 	oldDigest := buildIssueDigest(m.roots)
 
+	// Preserve loaded comments from old nodes to avoid flicker during refresh
+	oldCommentState := collectCommentState(m.roots)
 	m.roots = newRoots
+	transferCommentState(m.roots, oldCommentState)
 	if !newModTime.IsZero() {
 		m.lastDBModTime = newModTime
 	}
@@ -187,4 +190,47 @@ func (m *App) loadCommentsInBackground() tea.Cmd {
 		preloadAllComments(ctx, client, roots, nil)
 		return backgroundCommentLoadCompleteMsg{}
 	}
+}
+
+// commentState holds the comment data for a single issue.
+type commentState struct {
+	comments       []beads.Comment
+	commentsLoaded bool
+	commentError   string
+}
+
+// collectCommentState builds a map of issue ID -> comment state from the tree.
+func collectCommentState(roots []*graph.Node) map[string]commentState {
+	state := make(map[string]commentState)
+	var walk func([]*graph.Node)
+	walk = func(nodes []*graph.Node) {
+		for _, n := range nodes {
+			if n.CommentsLoaded || n.CommentError != "" {
+				state[n.Issue.ID] = commentState{
+					comments:       n.Issue.Comments,
+					commentsLoaded: n.CommentsLoaded,
+					commentError:   n.CommentError,
+				}
+			}
+			walk(n.Children)
+		}
+	}
+	walk(roots)
+	return state
+}
+
+// transferCommentState applies previously collected comment state to new nodes.
+func transferCommentState(roots []*graph.Node, state map[string]commentState) {
+	var walk func([]*graph.Node)
+	walk = func(nodes []*graph.Node) {
+		for _, n := range nodes {
+			if cs, ok := state[n.Issue.ID]; ok {
+				n.Issue.Comments = cs.comments
+				n.CommentsLoaded = cs.commentsLoaded
+				n.CommentError = cs.commentError
+			}
+			walk(n.Children)
+		}
+	}
+	walk(roots)
 }
