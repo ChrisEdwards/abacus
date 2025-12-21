@@ -352,9 +352,19 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case startBackgroundCommentLoadMsg:
 		// Load comments in background (ab-fkyz)
 		return m, m.loadCommentsInBackground()
-	case backgroundCommentLoadCompleteMsg:
-		// Comments loaded in background - refresh detail panel to show them (ab-o0fm)
-		m.updateViewportContent()
+	case commentLoadedMsg:
+		if m.applyLoadedComment(msg) {
+			m.updateViewportContent()
+		}
+		return m, nil
+	case commentBatchLoadedMsg:
+		refreshedDetail := false
+		for _, res := range msg.results {
+			refreshedDetail = m.applyLoadedComment(res) || refreshedDetail
+		}
+		if refreshedDetail {
+			m.updateViewportContent()
+		}
 		return m, nil
 	case refreshCompleteMsg:
 		m.refreshInFlight = false
@@ -378,6 +388,13 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.errorShownOnce = false
 		m.applyRefresh(msg.roots, msg.digest, msg.dbModTime)
+		// Capture the latest DB mod time after refresh in case the export itself
+		// touched the database (some bd installs update WAL timestamps). This
+		// prevents a self-triggered refresh loop when auto-refresh compares
+		// mod times.
+		if modTime, err := m.latestDBModTime(); err == nil && !modTime.IsZero() {
+			m.lastDBModTime = modTime
+		}
 		// Reload comments for new nodes after refresh (ab-o0fm)
 		return m, scheduleBackgroundCommentLoad()
 	case eventualRefreshMsg:
@@ -862,6 +879,28 @@ func (m *App) isDetailScrollKey(msg tea.KeyMsg) bool {
 		return true
 	}
 	return msg.Type == tea.KeySpace
+}
+
+// applyLoadedComment updates a single node's comment state and returns true if the
+// currently focused detail pane should be refreshed.
+func (m *App) applyLoadedComment(msg commentLoadedMsg) bool {
+	node := m.findNodeByID(msg.issueID)
+	if node == nil {
+		return false
+	}
+	if msg.err != nil {
+		node.CommentError = fmt.Sprintf("failed: %v", msg.err)
+		node.CommentsLoaded = false
+	} else {
+		node.CommentError = ""
+		node.Issue.Comments = msg.comments
+		node.CommentsLoaded = true
+	}
+
+	if len(m.visibleRows) == 0 || m.cursor < 0 || m.cursor >= len(m.visibleRows) {
+		return false
+	}
+	return m.visibleRows[m.cursor].Node.Issue.ID == msg.issueID
 }
 
 // Message types for status operations

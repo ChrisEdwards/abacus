@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"abacus/internal/beads"
@@ -178,17 +179,82 @@ func (m *App) scheduleEventualRefresh() tea.Cmd {
 // This is called after the TUI is displayed to avoid startup delay.
 func (m *App) loadCommentsInBackground() tea.Cmd {
 	if m.client == nil || len(m.roots) == 0 {
-		return func() tea.Msg { return backgroundCommentLoadCompleteMsg{} }
+		return func() tea.Msg { return commentBatchLoadedMsg{} }
 	}
 
 	client := m.client
-	roots := m.roots
+	// Prioritize the currently focused issue so the detail pane updates quickly.
+	var priorityIDs []string
+	if len(m.visibleRows) > 0 && m.cursor >= 0 && m.cursor < len(m.visibleRows) {
+		priorityIDs = append(priorityIDs, m.visibleRows[m.cursor].Node.Issue.ID)
+	}
+	nodes := collectCommentNodes(m.roots, priorityIDs)
+	if len(nodes) == 0 {
+		return func() tea.Msg { return commentBatchLoadedMsg{} }
+	}
+
+	workerLimit := maxConcurrentCommentFetches
+	if len(nodes) < workerLimit {
+		workerLimit = len(nodes)
+	}
+	if workerLimit <= 0 {
+		workerLimit = 1
+	}
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-		preloadAllComments(ctx, client, roots, nil)
-		return backgroundCommentLoadCompleteMsg{}
+
+		type result struct {
+			id       string
+			comments []beads.Comment
+			err      error
+		}
+
+		results := make([]result, 0, len(nodes))
+		var mu sync.Mutex
+
+		jobs := make(chan *graph.Node, workerLimit)
+		var wg sync.WaitGroup
+
+		for i := 0; i < workerLimit; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for node := range jobs {
+					comments, err := client.Comments(ctx, node.Issue.ID)
+					if err == nil && comments == nil {
+						comments = []beads.Comment{}
+					}
+					mu.Lock()
+					results = append(results, result{
+						id:       node.Issue.ID,
+						comments: comments,
+						err:      err,
+					})
+					mu.Unlock()
+				}
+			}()
+		}
+
+		for _, n := range nodes {
+			jobs <- n
+		}
+		close(jobs)
+		wg.Wait()
+
+		batch := commentBatchLoadedMsg{
+			results: make([]commentLoadedMsg, 0, len(results)),
+		}
+		for _, r := range results {
+			batch.results = append(batch.results, commentLoadedMsg{
+				issueID:  r.id,
+				comments: r.comments,
+				err:      r.err,
+			})
+		}
+
+		return batch
 	}
 }
 

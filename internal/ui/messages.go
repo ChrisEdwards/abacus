@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"abacus/internal/beads"
 	"abacus/internal/config"
 	"abacus/internal/graph"
 
@@ -67,6 +68,16 @@ func scheduleThemeToastTick() tea.Cmd {
 
 // Background comment loading messages (ab-fkyz)
 type startBackgroundCommentLoadMsg struct{}
+
+type commentLoadedMsg struct {
+	issueID  string
+	comments []beads.Comment
+	err      error
+}
+
+type commentBatchLoadedMsg struct {
+	results []commentLoadedMsg
+}
 
 type backgroundCommentLoadCompleteMsg struct{}
 

@@ -17,21 +17,83 @@ var ErrNoIssues = errors.New("no issues found in beads database")
 
 const maxConcurrentCommentFetches = 8
 
+// collectCommentNodes flattens the tree into a slice and optionally prioritizes
+// specific issue IDs at the front of the list. Nodes are included only once.
+func collectCommentNodes(roots []*graph.Node, priorityIDs []string) []*graph.Node {
+	if len(roots) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	priorityMap := make(map[string]struct{}, len(priorityIDs))
+	for _, id := range priorityIDs {
+		if id != "" {
+			priorityMap[id] = struct{}{}
+		}
+	}
+
+	var ordered []*graph.Node
+
+	// Depth-first traversal preserves a stable order for the rest of the nodes.
+	var walk func([]*graph.Node)
+	walk = func(nodes []*graph.Node) {
+		for _, n := range nodes {
+			if n == nil {
+				continue
+			}
+			if seen[n.Issue.ID] {
+				continue
+			}
+			// Only append non-priority nodes here; priority ones get appended first.
+			if _, isPriority := priorityMap[n.Issue.ID]; !isPriority {
+				seen[n.Issue.ID] = true
+				ordered = append(ordered, n)
+			}
+			walk(n.Children)
+		}
+	}
+
+	walk(roots)
+
+	// Prepend priority nodes in the order provided.
+	prepended := make([]*graph.Node, 0, len(priorityIDs)+len(ordered))
+	for _, id := range priorityIDs {
+		if seen[id] {
+			// Already added during traversal.
+			continue
+		}
+		var find func([]*graph.Node) *graph.Node
+		find = func(nodes []*graph.Node) *graph.Node {
+			for _, n := range nodes {
+				if n == nil {
+					continue
+				}
+				if n.Issue.ID == id {
+					return n
+				}
+				if found := find(n.Children); found != nil {
+					return found
+				}
+			}
+			return nil
+		}
+		if node := find(roots); node != nil {
+			prepended = append(prepended, node)
+			seen[id] = true
+		}
+	}
+
+	// Append the remaining (non-priority) traversal order.
+	prepended = append(prepended, ordered...)
+	return prepended
+}
+
 func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph.Node, reporter StartupReporter) {
 	if client == nil {
 		return
 	}
-	nodeMap := make(map[string]*graph.Node)
-	var collectNodes func([]*graph.Node)
-	collectNodes = func(nodes []*graph.Node) {
-		for _, n := range nodes {
-			nodeMap[n.Issue.ID] = n
-			collectNodes(n.Children)
-		}
-	}
-	collectNodes(roots)
-
-	total := len(nodeMap)
+	nodes := collectCommentNodes(roots, nil)
+	total := len(nodes)
 	if total == 0 {
 		return
 	}
@@ -50,7 +112,8 @@ func preloadAllComments(ctx context.Context, client beads.Client, roots []*graph
 	var mu sync.Mutex
 	completed := 0
 
-	for issueID, node := range nodeMap {
+	for _, node := range nodes {
+		issueID := node.Issue.ID
 		wg.Add(1)
 		go func(id string, n *graph.Node) {
 			defer wg.Done()
