@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Add comments**: Press `m` to add comments to beads directly from the TUI with a multi-line textarea (ab-d03)
+- **SQLite direct read**: Abacus now reads beads directly from the SQLite database instead of spawning CLI processes, significantly reducing overhead (ab-c6o9)
+- **Background comment loading**: Comments load asynchronously on startup for faster TUI launch (ab-fkyz)
+
+### Changed
+- **Instantaneous tree navigation**: Removed blocking comment fetch so keystrokes never queue up (ab-o0fm)
+- **Unified overlay framework**: All overlays now share consistent styling with automatic bright theme support (ab-kfms)
+- **Auto-refresh improvements**: Reduced update frequency and improved refresh indicator UX
+
+### Fixed
+- **Refresh placeholder styling**: Fixed grey background artifact when refresh indicator appears
+- **Comment flicker**: Comments now preserved during refresh to prevent visual flicker
+- **Border overflow**: Corrected border width overflow in input components
+- **Shift+Enter submission**: Comment textarea now properly supports Shift+Enter for submission
+
 ## [0.5.0] - 2025-12-11
 
 ### Added
