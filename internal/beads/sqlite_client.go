@@ -73,7 +73,9 @@ func (c *sqliteClient) List(ctx context.Context) ([]LiteIssue, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT id
@@ -84,7 +86,9 @@ func (c *sqliteClient) List(ctx context.Context) ([]LiteIssue, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query issues: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var issues []LiteIssue
 	for rows.Next() {
@@ -123,7 +127,9 @@ func (c *sqliteClient) Export(ctx context.Context) ([]FullIssue, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	issueMap, ordered, err := loadIssues(ctx, db)
 	if err != nil {
@@ -159,7 +165,9 @@ func loadIssues(ctx context.Context, db *sql.DB) (map[string]*FullIssue, []*Full
 	if err != nil {
 		return nil, nil, fmt.Errorf("query issues: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	issues := make(map[string]*FullIssue)
 	var ordered []*FullIssue
@@ -202,7 +210,9 @@ func loadLabels(ctx context.Context, db *sql.DB, issues map[string]*FullIssue) e
 	if err != nil {
 		return fmt.Errorf("query labels: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	for rows.Next() {
 		var issueID, label string
@@ -224,7 +234,9 @@ func loadDependencies(ctx context.Context, db *sql.DB, issues map[string]*FullIs
 	if err != nil {
 		return fmt.Errorf("query dependencies: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	for rows.Next() {
 		var issueID, dependsOnID, depType string
@@ -250,7 +262,9 @@ func loadComments(ctx context.Context, db *sql.DB, issues map[string]*FullIssue)
 	if err != nil {
 		return fmt.Errorf("query comments: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	for rows.Next() {
 		var c Comment
@@ -269,7 +283,9 @@ func (c *sqliteClient) Comments(ctx context.Context, issueID string) ([]Comment,
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT id, issue_id, author, text, created_at
@@ -280,7 +296,9 @@ func (c *sqliteClient) Comments(ctx context.Context, issueID string) ([]Comment,
 	if err != nil {
 		return nil, fmt.Errorf("query comments: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var comments []Comment
 	for rows.Next() {
