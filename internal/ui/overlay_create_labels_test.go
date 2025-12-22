@@ -783,21 +783,17 @@ func TestLabelsZoneViewRendering(t *testing.T) {
 		}
 	})
 }
-func TestNewLabelAddedMsgType(t *testing.T) {
-	t.Run("MessageHasLabelField", func(t *testing.T) {
+func TestNewLabelAndAssigneeMessages(t *testing.T) {
+	t.Run("NewLabelAddedMsg", func(t *testing.T) {
 		msg := NewLabelAddedMsg{Label: "test-label"}
 		if msg.Label != "test-label" {
 			t.Errorf("expected label 'test-label', got '%s'", msg.Label)
 		}
 	})
-}
-func TestNewAssigneeAddedMsgType(t *testing.T) {
-	t.Run("MessageHasAssigneeField", func(t *testing.T) {
+	t.Run("NewAssigneeAddedMsg", func(t *testing.T) {
 		msg := NewAssigneeAddedMsg{Assignee: "test-user"}
 		if msg.Assignee != "test-user" {
 			t.Errorf("expected assignee 'test-user', got '%s'", msg.Assignee)
 		}
 	})
 }
-
-// Tests for Tab/Shift+Tab Focus Cycling (ab-z58)

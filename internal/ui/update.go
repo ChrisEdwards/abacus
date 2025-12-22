@@ -1,358 +1,70 @@
 package ui
 
 import (
-	"errors"
-	"fmt"
 	"time"
 
-	"abacus/internal/config"
-	"abacus/internal/ui/theme"
-
-	"github.com/atotto/clipboard"
-	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const epicParentConstraintMessage = "Epics may only be children of other epics. Note: beads does not currently support changing bead types (see GitHub issue #522)."
-
-var errInvalidEpicParent = errors.New("epics may only be children of other epics")
-
+// Update handles all tea messages for the App model.
+// It dispatches to focused handlers for overlay, background, and key messages.
 func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Handle overlay messages regardless of overlay state
-	switch msg := msg.(type) {
-	case StatusChangedMsg:
-		m.activeOverlay = OverlayNone
-		oldStatus := ""
-		if m.statusOverlay != nil {
-			oldStatus = m.statusOverlay.currentStatus
-		}
-		m.statusOverlay = nil
-		if msg.NewStatus != "" {
-			m.displayStatusToast(msg.IssueID, msg.NewStatus)
-			// Use Reopen command when transitioning from closed to open
-			if oldStatus == "closed" && msg.NewStatus == "open" {
-				return m, tea.Batch(m.executeReopenCmd(msg.IssueID), scheduleStatusToastTick())
-			}
-			return m, tea.Batch(m.executeStatusChangeCmd(msg.IssueID, msg.NewStatus), scheduleStatusToastTick())
-		}
-		return m, nil
-	case StatusCancelledMsg:
-		m.activeOverlay = OverlayNone
-		m.statusOverlay = nil
-		return m, nil
-	case statusUpdateCompleteMsg:
-		if msg.err != nil {
-			m.lastError = msg.err.Error()
-			m.lastErrorSource = errorSourceOperation
-			m.showErrorToast = true
-			m.errorToastStart = time.Now()
-			return m, scheduleErrorToastTick()
-		}
-		return m, m.forceRefresh()
-	case statusToastTickMsg:
-		if !m.statusToastVisible {
-			return m, nil
-		}
-		if time.Since(m.statusToastStart) >= 7*time.Second {
-			m.statusToastVisible = false
-			return m, nil
-		}
-		return m, scheduleStatusToastTick()
-	case LabelsUpdatedMsg:
-		m.activeOverlay = OverlayNone
-		m.labelsOverlay = nil
-		if len(msg.Added) > 0 || len(msg.Removed) > 0 {
-			m.displayLabelsToast(msg.IssueID, msg.Added, msg.Removed)
-			return m, tea.Batch(m.executeLabelsUpdate(msg), scheduleLabelsToastTick())
-		}
-		return m, nil
-	case LabelsCancelledMsg:
-		m.activeOverlay = OverlayNone
-		m.labelsOverlay = nil
-		return m, nil
-	case ComboBoxEnterSelectedMsg, ComboBoxTabSelectedMsg:
-		// Route to labelsOverlay if active (for adding chips)
-		if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
-			var labelCmd tea.Cmd
-			m.labelsOverlay, labelCmd = m.labelsOverlay.Update(msg)
-			return m, labelCmd
-		}
-		// Route to createOverlay if active (for adding label chips - ab-mod2 fix)
-		if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-			var createCmd tea.Cmd
-			m.createOverlay, createCmd = m.createOverlay.Update(msg)
-			return m, createCmd
-		}
-		return m, nil
-	case labelUpdateCompleteMsg:
-		if msg.err != nil {
-			m.lastError = msg.err.Error()
-			m.lastErrorSource = errorSourceOperation
-			m.showErrorToast = true
-			m.errorToastStart = time.Now()
-			return m, scheduleErrorToastTick()
-		}
-		return m, m.forceRefresh()
-	case labelsToastTickMsg:
-		if !m.labelsToastVisible {
-			return m, nil
-		}
-		if time.Since(m.labelsToastStart) >= 7*time.Second {
-			m.labelsToastVisible = false
-			return m, nil
-		}
-		return m, scheduleLabelsToastTick()
-	case BeadCreatedMsg:
-		// Don't close overlay yet - wait for backend confirmation (spec Section 4.4)
-		// Modal will close in createCompleteMsg if successful
-		return m, m.executeCreateBead(msg)
-	case CreateCancelledMsg:
-		m.activeOverlay = OverlayNone
-		m.createOverlay = nil
-		return m, nil
-	case DismissErrorToastMsg:
-		// Dismiss the global error toast (sent from overlay when ESC pressed with error)
-		m.showErrorToast = false
-		return m, nil
-	case createCompleteMsg:
-		if msg.err != nil {
-			// Backend error: show toast and notify overlay (spec Section 4.4)
-			errMsg := msg.err.Error()
-			m.lastError = errMsg
-			m.lastErrorSource = errorSourceOperation
-			m.showErrorToast = true
-			m.errorToastStart = time.Now()
-
-			if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-				// Also notify overlay so it knows ESC should dismiss toast first
-				cmd := func() tea.Msg {
-					return backendErrorMsg{
-						err:    msg.err,
-						errMsg: errMsg,
-					}
-				}
-				return m, tea.Batch(cmd, scheduleErrorToastTick())
-			}
-			return m, scheduleErrorToastTick()
-		}
-
-		// NEW: Fast injection path (if fullIssue available)
-		if msg.fullIssue != nil {
-			if err := m.fastInjectBead(*msg.fullIssue, msg.parentID); err != nil {
-				// Fall back to full refresh on error
-				m.lastError = fmt.Sprintf("Fast injection failed: %v, refreshing...", err)
-				m.lastErrorSource = errorSourceOperation
-				// Continue to full refresh below
-			} else {
-				// Success! Show toast and return
-				m.createToastBeadID = msg.id
-				m.displayCreateToast("", false)
-
-				// Close modal if not in bulk mode (spec Section 4.3)
-				if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-					if !msg.stayOpen {
-						m.activeOverlay = OverlayNone
-						m.createOverlay = nil
-					}
-					// else: bulk mode, keep overlay open for next entry
-				}
-
-				// Schedule eventual consistency refresh (2 seconds delay)
-				return m, tea.Batch(
-					scheduleCreateToastTick(),
-					m.scheduleEventualRefresh(),
-				)
-			}
-		}
-
-		// Fallback: Success with full refresh (old path or injection failed)
-		if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-			if !msg.stayOpen {
-				m.activeOverlay = OverlayNone
-				m.createOverlay = nil
-			}
-			// else: bulk mode, keep overlay open for next entry
-		}
-
-		// Show success toast and refresh
-		m.createToastBeadID = msg.id
-		m.displayCreateToast("", false)
-		return m, tea.Batch(m.forceRefresh(), scheduleCreateToastTick())
-	case createToastTickMsg:
-		if !m.createToastVisible {
-			return m, nil
-		}
-		if time.Since(m.createToastStart) >= 7*time.Second {
-			m.createToastVisible = false
-			return m, nil
-		}
-		return m, scheduleCreateToastTick()
-	case NewLabelAddedMsg:
-		// New label was created during bead creation - show toast
-		m.displayNewLabelToast(msg.Label)
-		return m, scheduleNewLabelToastTick()
-	case newLabelToastTickMsg:
-		if !m.newLabelToastVisible {
-			return m, nil
-		}
-		if time.Since(m.newLabelToastStart) >= 3*time.Second {
-			m.newLabelToastVisible = false
-			return m, nil
-		}
-		return m, scheduleNewLabelToastTick()
-	case NewAssigneeAddedMsg:
-		// New assignee was created during bead creation - show toast
-		m.displayNewAssigneeToast(msg.Assignee)
-		return m, scheduleNewAssigneeToastTick()
-	case BeadUpdatedMsg:
-		if err := m.validateUpdate(msg); err != nil {
-			if errors.Is(err, errInvalidEpicParent) {
-				m.lastError = epicParentConstraintMessage
-			} else {
-				m.lastError = err.Error()
-			}
-			m.lastErrorSource = errorSourceOperation
-			m.showErrorToast = true
-			m.errorToastStart = time.Now()
-			if m.createOverlay != nil {
-				m.createOverlay.isCreating = false
-			}
-			return m, scheduleErrorToastTick()
-		}
-		return m, m.executeUpdateCmd(msg)
-	case updateCompleteMsg:
-		m.activeOverlay = OverlayNone
-		m.createOverlay = nil
-		if msg.Err != nil {
-			m.showErrorToast = true
-			m.errorToastStart = time.Now()
-			m.lastError = msg.Err.Error()
-			m.lastErrorSource = errorSourceOperation
-			return m, scheduleErrorToastTick()
-		}
-		m.createToastBeadID = msg.ID
-		m.createToastIsUpdate = true
-		m.displayCreateToast(msg.Title, true)
-		return m, tea.Batch(m.forceRefresh(), scheduleCreateToastTick())
-	case typeInferenceFlashMsg:
-		// Forward to CreateOverlay to clear the type inference flash (ab-i0ye)
-		if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-			var cmd tea.Cmd
-			m.createOverlay, cmd = m.createOverlay.Update(msg)
-			return m, cmd
-		}
-		return m, nil
-	case newAssigneeToastTickMsg:
-		if !m.newAssigneeToastVisible {
-			return m, nil
-		}
-		if time.Since(m.newAssigneeToastStart) >= 3*time.Second {
-			m.newAssigneeToastVisible = false
-			return m, nil
-		}
-		return m, scheduleNewAssigneeToastTick()
-	case themeToastTickMsg:
-		if !m.themeToastVisible {
-			return m, nil
-		}
-		if time.Since(m.themeToastStart) >= 3*time.Second {
-			m.themeToastVisible = false
-			return m, nil
-		}
-		return m, scheduleThemeToastTick()
-	case DeleteConfirmedMsg:
-		m.activeOverlay = OverlayNone
-		m.deleteOverlay = nil
-		return m, tea.Batch(m.executeDelete(msg.IssueID, msg.Cascade, msg.Children), scheduleDeleteToastTick())
-	case DeleteCancelledMsg:
-		m.activeOverlay = OverlayNone
-		m.deleteOverlay = nil
-		return m, nil
-	case deleteCompleteMsg:
-		if msg.err != nil {
-			m.lastError = msg.err.Error()
-			m.lastErrorSource = errorSourceOperation
-			m.showErrorToast = true
-			m.errorToastStart = time.Now()
-			return m, scheduleErrorToastTick()
-		}
-		// Immediately remove from tree for instant visual feedback
-		m.removeNodeFromTree(msg.issueID)
-		for _, childID := range msg.children {
-			m.removeNodeFromTree(childID)
-		}
-		m.recalcVisibleRows()
-		return m, m.forceRefresh()
-	case deleteToastTickMsg:
-		if !m.deleteToastVisible {
-			return m, nil
-		}
-		if time.Since(m.deleteToastStart) >= 5*time.Second {
-			m.deleteToastVisible = false
-			return m, nil
-		}
-		return m, scheduleDeleteToastTick()
-	case CommentAddedMsg:
-		m.activeOverlay = OverlayNone
-		m.commentOverlay = nil
-		return m, tea.Batch(
-			m.executeAddComment(msg),
-			scheduleCommentToastTick(),
-		)
-	case CommentCancelledMsg:
-		m.activeOverlay = OverlayNone
-		m.commentOverlay = nil
-		return m, nil
-	case commentCompleteMsg:
-		if msg.err != nil {
-			m.lastError = msg.err.Error()
-			m.lastErrorSource = errorSourceOperation
-			m.showErrorToast = true
-			m.errorToastStart = time.Now()
-			return m, scheduleErrorToastTick()
-		}
-		m.displayCommentToast(msg.issueID)
-		return m, tea.Batch(m.forceRefresh(), scheduleCommentToastTick())
-	case commentToastTickMsg:
-		if !m.commentToastVisible {
-			return m, nil
-		}
-		if time.Since(m.commentToastStart) >= 7*time.Second {
-			m.commentToastVisible = false
-			return m, nil
-		}
-		return m, scheduleCommentToastTick()
+	// Overlay messages have highest priority
+	if model, cmd, handled := m.handleOverlayMsg(msg); handled {
+		return model, cmd
 	}
 
-	// Handle background messages before delegating to overlays
-	// This ensures auto-refresh continues even when overlays are open
-	var cmd tea.Cmd
+	// Background and system messages
+	if model, cmd, handled := m.handleBackgroundMsg(msg); handled {
+		return model, cmd
+	}
+
+	// Key messages
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		return m.handleKeyMsg(keyMsg)
+	}
+
+	// Viewport updates when detail pane is focused
+	if m.ShowDetails && m.focus == FocusDetails {
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
+	}
+
+	return m, nil
+}
+
+// handleBackgroundMsg processes background/system messages (spinner, tick, refresh, window).
+// Returns (model, cmd, handled). If handled is false, the message was not processed.
+func (m *App) handleBackgroundMsg(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case spinner.TickMsg:
 		if m.refreshInFlight {
+			var cmd tea.Cmd
 			m.spinner, cmd = m.spinner.Update(msg)
-			return m, cmd
+			return m, cmd, true
 		}
-		return m, nil
+		return m, nil, true
+
 	case tickMsg:
 		cmds := []tea.Cmd{scheduleTick(m.refreshInterval)}
-
 		if m.autoRefresh {
 			if cmd := m.checkDBForChanges(); cmd != nil {
 				cmds = append(cmds, cmd)
 			}
 		}
+		return m, tea.Batch(cmds...), true
 
-		return m, tea.Batch(cmds...)
 	case startBackgroundCommentLoadMsg:
-		// Load comments in background (ab-fkyz)
-		return m, m.loadCommentsInBackground()
+		return m, m.loadCommentsInBackground(), true
+
 	case commentLoadedMsg:
 		if m.applyLoadedComment(msg) {
 			m.updateViewportContent()
 		}
-		return m, nil
+		return m, nil, true
+
 	case commentBatchLoadedMsg:
 		refreshedDetail := false
 		for _, res := range msg.results {
@@ -361,22 +73,22 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if refreshedDetail {
 			m.updateViewportContent()
 		}
-		return m, nil
+		return m, nil, true
+
 	case refreshCompleteMsg:
 		m.refreshInFlight = false
 		if msg.err != nil {
 			m.lastError = msg.err.Error()
 			m.lastErrorSource = errorSourceRefresh
-			m.lastRefreshStats = "" // Clear stats when we have an error
+			m.lastRefreshStats = ""
 			if !m.errorShownOnce {
 				m.showErrorToast = true
 				m.errorToastStart = time.Now()
 				m.errorShownOnce = true
-				return m, scheduleErrorToastTick()
+				return m, scheduleErrorToastTick(), true
 			}
-			return m, nil
+			return m, nil, true
 		}
-		// On success, clear only refresh-related errors
 		if m.lastErrorSource == errorSourceRefresh {
 			m.lastError = ""
 			m.lastErrorSource = errorSourceNone
@@ -384,41 +96,37 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.errorShownOnce = false
 		m.applyRefresh(msg.roots, msg.digest, msg.dbModTime)
-		// Capture the latest DB mod time after refresh in case the export itself
-		// touched the database (some bd installs update WAL timestamps). This
-		// prevents a self-triggered refresh loop when auto-refresh compares
-		// mod times.
 		if modTime, err := m.latestDBModTime(); err == nil && !modTime.IsZero() {
 			m.lastDBModTime = modTime
 		}
-		// Reload comments for new nodes after refresh (ab-o0fm)
-		return m, scheduleBackgroundCommentLoad()
+		return m, scheduleBackgroundCommentLoad(), true
+
 	case eventualRefreshMsg:
-		// Only refresh if not actively creating beads
 		if m.activeOverlay != OverlayCreate {
-			return m, m.forceRefresh()
+			return m, m.forceRefresh(), true
 		}
-		// If still in create overlay, skip refresh (user is bulk creating)
-		return m, nil
+		return m, nil, true
+
 	case errorToastTickMsg:
 		if !m.showErrorToast {
-			return m, nil
+			return m, nil, true
 		}
-		elapsed := time.Since(m.errorToastStart)
-		if elapsed >= 10*time.Second {
+		if time.Since(m.errorToastStart) >= 10*time.Second {
 			m.showErrorToast = false
-			return m, nil
+			return m, nil, true
 		}
-		return m, scheduleErrorToastTick()
+		return m, scheduleErrorToastTick(), true
+
 	case copyToastTickMsg:
 		if !m.showCopyToast {
-			return m, nil
+			return m, nil, true
 		}
 		if time.Since(m.copyToastStart) >= 5*time.Second {
 			m.showCopyToast = false
-			return m, nil
+			return m, nil, true
 		}
-		return m, scheduleCopyToastTick()
+		return m, scheduleCopyToastTick(), true
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -433,333 +141,13 @@ func (m *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyViewportTheme()
 		m.updateViewportContent()
 
-		// Propagate size to create overlay if active (ab-11wd responsive sizing)
 		if m.createOverlay != nil {
 			m.createOverlay.SetSize(msg.Width, msg.Height)
 		}
-
-	case tea.KeyMsg:
-		// Help overlay takes precedence - blocks all other keys
-		if m.showHelp {
-			switch {
-			case key.Matches(msg, m.keys.Help),
-				key.Matches(msg, m.keys.Escape),
-				key.Matches(msg, m.keys.Quit):
-				m.showHelp = false
-			}
-			return m, nil
-		}
-
-		// Allow error recall even when overlays are open, as long as we're
-		// not focused on a text input (e.g., create modal fields).
-		if key.Matches(msg, m.keys.Error) && m.errorHotkeyAvailable() {
-			if m.lastError != "" && !m.showErrorToast {
-				m.showErrorToast = true
-				m.errorToastStart = time.Now()
-				return m, scheduleErrorToastTick()
-			}
-		}
-
-		if m.searching {
-			switch {
-			case key.Matches(msg, m.keys.Enter):
-				m.searching = false
-				m.textInput.Blur()
-				return m, nil
-			case key.Matches(msg, m.keys.Escape):
-				m.clearSearchFilter()
-				return m, nil
-			default:
-				m.textInput, cmd = m.textInput.Update(msg)
-				m.setFilterText(m.textInput.Value())
-				m.recalcVisibleRows()
-				return m, cmd
-			}
-		}
-
-		// Delegate to overlays BEFORE global keys (overlays get priority)
-		// This prevents global hotkeys from interfering with text input
-		if m.activeOverlay == OverlayStatus && m.statusOverlay != nil {
-			m.statusOverlay, cmd = m.statusOverlay.Update(msg)
-			return m, cmd
-		}
-
-		if m.activeOverlay == OverlayLabels && m.labelsOverlay != nil {
-			m.labelsOverlay, cmd = m.labelsOverlay.Update(msg)
-			return m, cmd
-		}
-
-		if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-			m.createOverlay, cmd = m.createOverlay.Update(msg)
-			return m, cmd
-		}
-
-		if m.activeOverlay == OverlayDelete && m.deleteOverlay != nil {
-			m.deleteOverlay, cmd = m.deleteOverlay.Update(msg)
-			return m, cmd
-		}
-
-		if m.activeOverlay == OverlayComment && m.commentOverlay != nil {
-			m.commentOverlay, cmd = m.commentOverlay.Update(msg)
-			return m, cmd
-		}
-
-		if handled, detailCmd := m.handleDetailNavigationKey(msg); handled {
-			return m, detailCmd
-		}
-
-		switch {
-		case key.Matches(msg, m.keys.Search):
-			if !m.searching {
-				m.searching = true
-				m.textInput.Focus()
-				m.textInput.SetValue(m.filterText)
-				m.textInput.SetCursor(len(m.filterText))
-			}
-		case key.Matches(msg, m.keys.Escape):
-			// ESC dismisses error toast first, then clears search filter
-			if m.showErrorToast {
-				m.showErrorToast = false
-				return m, nil
-			}
-			if m.filterText != "" {
-				m.clearSearchFilter()
-				return m, nil
-			}
-		case key.Matches(msg, m.keys.Tab):
-			if m.ShowDetails {
-				if m.focus == FocusTree {
-					m.focus = FocusDetails
-				} else {
-					m.focus = FocusTree
-				}
-			}
-		case key.Matches(msg, m.keys.ShiftTab):
-			if m.ShowDetails {
-				if m.focus == FocusDetails {
-					m.focus = FocusTree
-				} else {
-					m.focus = FocusDetails
-				}
-			}
-		case key.Matches(msg, m.keys.Quit):
-			return m, tea.Quit
-		case key.Matches(msg, m.keys.Enter):
-			m.ShowDetails = !m.ShowDetails
-			m.focus = FocusTree
-			m.updateViewportContent()
-		case key.Matches(msg, m.keys.Refresh):
-			if refreshCmd := m.forceRefresh(); refreshCmd != nil {
-				return m, refreshCmd
-			}
-		case key.Matches(msg, m.keys.Down):
-			m.cursor++
-			m.clampCursor()
-			m.updateViewportContent()
-		case key.Matches(msg, m.keys.Up):
-			m.cursor--
-			m.clampCursor()
-			m.updateViewportContent()
-		case key.Matches(msg, m.keys.Home):
-			m.cursor = 0
-			m.clampCursor()
-			m.updateViewportContent()
-		case key.Matches(msg, m.keys.End):
-			m.cursor = len(m.visibleRows) - 1
-			m.clampCursor()
-			m.updateViewportContent()
-		case key.Matches(msg, m.keys.PageDown):
-			m.cursor += clampDimension(m.viewport.Height, 1, len(m.visibleRows))
-			m.clampCursor()
-			m.updateViewportContent()
-		case key.Matches(msg, m.keys.PageUp):
-			m.cursor -= clampDimension(m.viewport.Height, 1, len(m.visibleRows))
-			m.clampCursor()
-			m.updateViewportContent()
-		case key.Matches(msg, m.keys.Space), key.Matches(msg, m.keys.Right):
-			if len(m.visibleRows) == 0 {
-				return m, nil
-			}
-			row := m.visibleRows[m.cursor]
-			if len(row.Node.Children) > 0 {
-				if m.isNodeExpandedInView(row) {
-					m.collapseNodeForView(row)
-				} else {
-					m.expandNodeForView(row)
-				}
-				m.recalcVisibleRows()
-			}
-		case key.Matches(msg, m.keys.Left):
-			if len(m.visibleRows) == 0 {
-				return m, nil
-			}
-			row := m.visibleRows[m.cursor]
-			if len(row.Node.Children) > 0 && m.isNodeExpandedInView(row) {
-				m.collapseNodeForView(row)
-				m.recalcVisibleRows()
-			}
-		case key.Matches(msg, m.keys.Delete):
-			// Delete key opens delete confirmation (only when tree focused)
-			if m.activeOverlay == OverlayNone && !m.searching && len(m.visibleRows) > 0 {
-				row := m.visibleRows[m.cursor]
-				childInfo, descendantIDs := collectChildInfo(row.Node)
-				m.deleteOverlay = NewDeleteOverlay(row.Node.Issue.ID, row.Node.Issue.Title, childInfo, descendantIDs)
-				m.activeOverlay = OverlayDelete
-			}
-			return m, nil
-		case key.Matches(msg, m.keys.Backspace):
-			// Backspace deletes filter chars if filter is active
-			if !m.ShowDetails && !m.searching && len(m.filterText) > 0 {
-				m.setFilterText(m.filterText[:len(m.filterText)-1])
-				m.recalcVisibleRows()
-				m.updateViewportContent()
-				return m, nil
-			}
-			// Backspace also opens delete confirmation when no filter is active
-			if m.activeOverlay == OverlayNone && !m.searching && m.filterText == "" && len(m.visibleRows) > 0 {
-				row := m.visibleRows[m.cursor]
-				childInfo, descendantIDs := collectChildInfo(row.Node)
-				m.deleteOverlay = NewDeleteOverlay(row.Node.Issue.ID, row.Node.Issue.Title, childInfo, descendantIDs)
-				m.activeOverlay = OverlayDelete
-			}
-		case key.Matches(msg, m.keys.Copy):
-			if len(m.visibleRows) > 0 {
-				id := m.visibleRows[m.cursor].Node.Issue.ID
-				if err := clipboard.WriteAll(id); err == nil {
-					m.copiedBeadID = id
-					m.showCopyToast = true
-					m.copyToastStart = time.Now()
-					return m, scheduleCopyToastTick()
-				}
-			}
-		case key.Matches(msg, m.keys.Theme):
-			// Cycle to next theme and show toast
-			newTheme := theme.CycleTheme()
-			_ = config.SaveTheme(newTheme) // Persist theme (ignore errors to avoid disrupting UX)
-			m.applyViewportTheme()
-			m.themeToastVisible = true
-			m.themeToastStart = time.Now()
-			m.themeToastName = newTheme
-			// Force viewport refresh to apply new theme colors
-			m.detailIssueID = ""
-			m.updateViewportContent()
-			return m, scheduleThemeToastTick()
-		case key.Matches(msg, m.keys.ThemePrev):
-			// Cycle to previous theme and show toast
-			newTheme := theme.CyclePreviousTheme()
-			_ = config.SaveTheme(newTheme) // Persist theme (ignore errors to avoid disrupting UX)
-			m.applyViewportTheme()
-			m.themeToastVisible = true
-			m.themeToastStart = time.Now()
-			m.themeToastName = newTheme
-			// Force viewport refresh to apply new theme colors
-			m.detailIssueID = ""
-			m.updateViewportContent()
-			return m, scheduleThemeToastTick()
-		case key.Matches(msg, m.keys.CycleViewMode):
-			// Cycle view mode forward (All → Active → Ready → All)
-			m.viewMode = m.viewMode.Next()
-			m.recalcVisibleRows()
-			return m, nil
-		case key.Matches(msg, m.keys.CycleViewModeBack):
-			// Cycle view mode backward (All → Ready → Active → All)
-			m.viewMode = m.viewMode.Prev()
-			m.recalcVisibleRows()
-			return m, nil
-		case key.Matches(msg, m.keys.Error):
-			// Show error toast if there's an error and toast isn't already visible
-			if m.lastError != "" && !m.showErrorToast {
-				m.showErrorToast = true
-				m.errorToastStart = time.Now()
-				return m, scheduleErrorToastTick()
-			}
-		case key.Matches(msg, m.keys.Help):
-			m.showHelp = true
-			return m, nil
-		case key.Matches(msg, m.keys.Status):
-			if len(m.visibleRows) > 0 {
-				row := m.visibleRows[m.cursor]
-				m.statusOverlay = NewStatusOverlay(row.Node.Issue.ID, row.Node.Issue.Title, row.Node.Issue.Status)
-				m.activeOverlay = OverlayStatus
-			}
-			return m, nil
-		case key.Matches(msg, m.keys.Labels):
-			if len(m.visibleRows) > 0 {
-				row := m.visibleRows[m.cursor]
-				allLabels := m.getAllLabels()
-				m.labelsOverlay = NewLabelsOverlay(
-					row.Node.Issue.ID,
-					row.Node.Issue.Title,
-					row.Node.Issue.Labels,
-					allLabels,
-				)
-				m.activeOverlay = OverlayLabels
-				return m, m.labelsOverlay.Init()
-			}
-			return m, nil
-		case key.Matches(msg, m.keys.Edit):
-			if len(m.visibleRows) > 0 {
-				row := m.visibleRows[m.cursor]
-				parentID := ""
-				if row.Parent != nil {
-					parentID = row.Parent.Issue.ID
-				}
-				m.createOverlay = NewEditOverlay(&row.Node.Issue, CreateOverlayOptions{
-					DefaultParentID:    parentID,
-					AvailableParents:   m.getAvailableParents(),
-					AvailableLabels:    m.getAllLabels(),
-					AvailableAssignees: m.getAllAssignees(),
-					IsRootMode:         parentID == "",
-				})
-				m.createOverlay.SetSize(m.width, m.height)
-				m.activeOverlay = OverlayCreate
-				return m, m.createOverlay.Init()
-			}
-			return m, nil
-		case key.Matches(msg, m.keys.Comment):
-			if len(m.visibleRows) > 0 {
-				row := m.visibleRows[m.cursor]
-				m.commentOverlay = NewCommentOverlay(row.Node.Issue.ID, row.Node.Issue.Title)
-				m.commentOverlay.SetSize(m.width, m.height)
-				m.activeOverlay = OverlayComment
-				return m, m.commentOverlay.Init()
-			}
-			return m, nil
-		case key.Matches(msg, m.keys.NewBead):
-			defaultParent := ""
-			if len(m.visibleRows) > 0 {
-				defaultParent = m.visibleRows[m.cursor].Node.Issue.ID
-			}
-			m.createOverlay = NewCreateOverlay(CreateOverlayOptions{
-				DefaultParentID:    defaultParent,
-				AvailableParents:   m.getAvailableParents(),
-				AvailableLabels:    m.getAllLabels(),
-				AvailableAssignees: m.getAllAssignees(),
-				IsRootMode:         false,
-			})
-			m.createOverlay.SetSize(m.width, m.height)
-			m.activeOverlay = OverlayCreate
-			return m, m.createOverlay.Init()
-		case key.Matches(msg, m.keys.NewRootBead):
-			m.createOverlay = NewCreateOverlay(CreateOverlayOptions{
-				DefaultParentID:    "",
-				AvailableParents:   m.getAvailableParents(),
-				AvailableLabels:    m.getAllLabels(),
-				AvailableAssignees: m.getAllAssignees(),
-				IsRootMode:         true,
-			})
-			m.createOverlay.SetSize(m.width, m.height)
-			m.activeOverlay = OverlayCreate
-			return m, m.createOverlay.Init()
-		}
-	default:
-		if m.ShowDetails && m.focus == FocusDetails {
-			m.viewport, cmd = m.viewport.Update(msg)
-			return m, cmd
-		}
+		return m, nil, true
 	}
 
-	return m, cmd
+	return nil, nil, false
 }
 
 // Message types for status operations
