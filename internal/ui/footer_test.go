@@ -195,8 +195,8 @@ func TestRenderRefreshStatus(t *testing.T) {
 			lastRefreshTime:  time.Now(),
 		}
 		status := m.renderRefreshStatus()
-		// Returns single space to reserve layout space for spinner
-		if status != " " {
+		// Returns styled space to reserve layout space for spinner
+		if !strings.Contains(status, " ") || len(status) == 0 {
 			t.Errorf("expected space placeholder when no changes, got: %q", status)
 		}
 	})
@@ -207,8 +207,8 @@ func TestRenderRefreshStatus(t *testing.T) {
 			lastRefreshTime:  time.Now().Add(-refreshDisplayDuration - time.Second),
 		}
 		status := m.renderRefreshStatus()
-		// Returns single space to reserve layout space for spinner
-		if status != " " {
+		// Returns styled space to reserve layout space for spinner
+		if !strings.Contains(status, " ") || len(status) == 0 {
 			t.Errorf("expected space placeholder after display duration, got: %q", status)
 		}
 	})

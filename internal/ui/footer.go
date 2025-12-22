@@ -127,7 +127,7 @@ func (m *App) renderRefreshStatus() string {
 		return styleFooterMuted().Render("Δ " + m.lastRefreshStats)
 	}
 	// Reserve space for spinner to prevent layout shifts when refresh starts
-	return " "
+	return baseStyle().Render(" ")
 }
 
 // keyPill renders a single key hint as a pill with description.
