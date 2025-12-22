@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-12-21
+
 ### Added
 - **Add comments**: Press `m` to add comments to beads directly from the TUI with a multi-line textarea (ab-d03)
 - **SQLite direct read**: Abacus now reads beads directly from the SQLite database instead of spawning CLI processes, significantly reducing overhead (ab-c6o9)
