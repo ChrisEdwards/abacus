@@ -108,8 +108,8 @@ func TestCheckVersionTooOld(t *testing.T) {
 		LookPath: func(bin string) (string, error) {
 			return "/usr/bin/" + bin, nil
 		},
-		Runner:     stubRunner{output: "Beads CLI v0.24.9"},
-		MinVersion: "0.25.0",
+		Runner:     stubRunner{output: "Beads CLI v0.29.9"},
+		MinVersion: "0.30.0",
 	}
 	info, err := CheckVersion(context.Background(), opts)
 	var vErr VersionError
@@ -119,10 +119,10 @@ func TestCheckVersionTooOld(t *testing.T) {
 	if vErr.Kind != VersionErrorTooOld {
 		t.Fatalf("expected too old, got %s", vErr.Kind)
 	}
-	if info.Installed != "v0.24.9" {
+	if info.Installed != "v0.29.9" {
 		t.Fatalf("expected installed version recorded, got %s", info.Installed)
 	}
-	if info.Required != "v0.25.0" {
+	if info.Required != "v0.30.0" {
 		t.Fatalf("expected required version recorded, got %s", info.Required)
 	}
 }
@@ -132,17 +132,17 @@ func TestCheckVersionSuccess(t *testing.T) {
 		LookPath: func(bin string) (string, error) {
 			return "/opt/" + bin, nil
 		},
-		Runner:     stubRunner{output: "Beads CLI 0.25.1"},
-		MinVersion: "0.25.0",
+		Runner:     stubRunner{output: "Beads CLI 0.30.1"},
+		MinVersion: "0.30.0",
 	}
 	info, err := CheckVersion(context.Background(), opts)
 	if err != nil {
 		t.Fatalf("expected success, got error %v", err)
 	}
-	if info.Installed != "v0.25.1" {
+	if info.Installed != "v0.30.1" {
 		t.Fatalf("expected normalized installed version, got %s", info.Installed)
 	}
-	if info.Required != "v0.25.0" {
+	if info.Required != "v0.30.0" {
 		t.Fatalf("expected normalized required version, got %s", info.Required)
 	}
 }
