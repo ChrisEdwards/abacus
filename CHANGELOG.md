@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Require Beads CLI 0.30.0 or later (previously 0.25.0) for improved compatibility (ab-pa68)
+
 ## [0.6.0] - 2025-12-21
 
 ### Added
