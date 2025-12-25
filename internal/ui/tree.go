@@ -153,6 +153,7 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 				idDisplay,
 				titleLines[0],
 				textStyle,
+				treeWidth,
 				totalWidth,
 				columns.render(node, columnRenderSelected),
 			)
@@ -174,6 +175,7 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 				idDisplay,
 				titleLines[0],
 				textStyle,
+				treeWidth,
 				totalWidth,
 				columns.render(node, columnRenderCrossHighlight),
 			)
@@ -190,6 +192,8 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 			}
 			line1 += styleID().Render(idDisplay) + sp + textStyle.Render(titleLines[0])
 			if showColumns {
+				// Pad tree content to treeWidth so columns align vertically
+				line1 = padToWidth(line1, treeWidth, styleNormalText())
 				line1 += columns.render(node, columnRenderNormal)
 			}
 			lines = append(lines, line1)
@@ -321,9 +325,21 @@ func treePrefixWidth(indent, marker, icon, priority, id string) int {
 	return width
 }
 
+// padToWidth pads a string to exactly the target width using spaces styled with the given style.
+// If the string is already wider than target, it's returned unchanged.
+func padToWidth(s string, targetWidth int, style lipgloss.Style) string {
+	currentWidth := lipgloss.Width(s)
+	if currentWidth >= targetWidth {
+		return s
+	}
+	padding := strings.Repeat(" ", targetWidth-currentWidth)
+	return s + style.Render(padding)
+}
+
 // buildSelectedRow creates a full-width row with selection background.
 // It preserves the icon's status color while applying selection background to all elements.
-func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, priority, id, title string, textStyle lipgloss.Style, width int, columns string) string {
+// treeWidth is the width for the tree portion (before columns), totalWidth is the full row width.
+func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, priority, id, title string, textStyle lipgloss.Style, treeWidth, totalWidth int, columns string) string {
 	t := currentThemeWrapper()
 	bg := t.BackgroundSecondary()
 
@@ -335,26 +351,28 @@ func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, pri
 	selectedID := selectedBase.Foreground(t.Accent()).Bold(true)
 	selectedText := selectedBase.Bold(true).Foreground(textStyle.GetForeground())
 
-	// Build the row content
-	content := selectedPrefix.Render(fmt.Sprintf(" %s%s ", indent, marker)) +
+	// Build the tree content (without columns)
+	treeContent := selectedPrefix.Render(fmt.Sprintf(" %s%s ", indent, marker)) +
 		selectedIcon.Render(icon) + selectedBase.Render(" ")
 
 	if priority != "" {
-		content += selectedPriority.Render(priority) + selectedBase.Render(" ")
+		treeContent += selectedPriority.Render(priority) + selectedBase.Render(" ")
 	}
 
-	content += selectedID.Render(id) + selectedBase.Render(" ") +
+	treeContent += selectedID.Render(id) + selectedBase.Render(" ") +
 		selectedText.Render(title)
 
+	// Pad tree content to treeWidth so columns align vertically
 	if columns != "" {
-		content += columns
+		treeContent = padToWidth(treeContent, treeWidth, selectedBase)
+		treeContent += columns
 	}
 
 	// Pad to full width with selection background
 	return lipgloss.NewStyle().
 		Background(bg).
-		Width(width).
-		Render(content)
+		Width(totalWidth).
+		Render(treeContent)
 }
 
 // buildSelectedContinuation creates a continuation line for wrapped titles with selection background.
@@ -376,7 +394,8 @@ func buildSelectedContinuation(text string, textStyle lipgloss.Style, width int)
 }
 
 // buildCrossHighlightRow creates a full-width row with cross-highlight background.
-func buildCrossHighlightRow(indent, marker, icon string, iconStyle lipgloss.Style, priority, id, title string, textStyle lipgloss.Style, width int, columns string) string {
+// treeWidth is the width for the tree portion (before columns), totalWidth is the full row width.
+func buildCrossHighlightRow(indent, marker, icon string, iconStyle lipgloss.Style, priority, id, title string, textStyle lipgloss.Style, treeWidth, totalWidth int, columns string) string {
 	t := currentThemeWrapper()
 	bg := t.BorderNormal()
 
@@ -388,24 +407,26 @@ func buildCrossHighlightRow(indent, marker, icon string, iconStyle lipgloss.Styl
 	crossID := crossBase.Foreground(t.Accent()).Bold(true)
 	crossText := crossBase.Foreground(textStyle.GetForeground())
 
-	// Build the row content
-	content := crossPrefix.Render(fmt.Sprintf(" %s%s ", indent, marker)) +
+	// Build the tree content (without columns)
+	treeContent := crossPrefix.Render(fmt.Sprintf(" %s%s ", indent, marker)) +
 		crossIcon.Render(icon) + crossBase.Render(" ")
 
 	if priority != "" {
-		content += crossPriority.Render(priority) + crossBase.Render(" ")
+		treeContent += crossPriority.Render(priority) + crossBase.Render(" ")
 	}
 
-	content += crossID.Render(id) + crossBase.Render(" ") +
+	treeContent += crossID.Render(id) + crossBase.Render(" ") +
 		crossText.Render(title)
 
+	// Pad tree content to treeWidth so columns align vertically
 	if columns != "" {
-		content += columns
+		treeContent = padToWidth(treeContent, treeWidth, crossBase)
+		treeContent += columns
 	}
 
 	// Pad to full width with cross-highlight background
 	return lipgloss.NewStyle().
 		Background(bg).
-		Width(width).
-		Render(content)
+		Width(totalWidth).
+		Render(treeContent)
 }
