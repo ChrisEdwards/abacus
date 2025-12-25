@@ -109,7 +109,7 @@ func TestCLIClient_CreateFull_ReturnsFullIssue(t *testing.T) {
 	script := filepath.Join(dir, "fakebd.sh")
 
 	// Fake bd script that returns valid JSON
-	jsonResponse := `{"id":"ab-test","title":"Test Issue","description":"Test desc","status":"open","priority":2,"issue_type":"task","created_at":"2025-12-01T00:00:00Z","updated_at":"2025-12-01T00:00:00Z","labels":["test"]}`
+	jsonResponse := `{"id":"ab-test","title":"Test Issue","description":"Test desc","status":"open","priority":2,"issue_type":"task","created_at":"2025-12-01T00:00:00Z","updated_at":"2025-12-01T00:00:00Z","labels":["test"],"duplicate_of":"ab-parent","superseded_by":"ab-new"}`
 	scriptBody := "#!/bin/sh\n" +
 		"echo '" + jsonResponse + "'\n" +
 		"exit 0\n"
@@ -140,6 +140,12 @@ func TestCLIClient_CreateFull_ReturnsFullIssue(t *testing.T) {
 	}
 	if len(issue.Labels) != 1 || issue.Labels[0] != "test" {
 		t.Errorf("expected Labels [%q], got %v", "test", issue.Labels)
+	}
+	if issue.DuplicateOf != "ab-parent" {
+		t.Errorf("expected DuplicateOf %q, got %q", "ab-parent", issue.DuplicateOf)
+	}
+	if issue.SupersededBy != "ab-new" {
+		t.Errorf("expected SupersededBy %q, got %q", "ab-new", issue.SupersededBy)
 	}
 }
 

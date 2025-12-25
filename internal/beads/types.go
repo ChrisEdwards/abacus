@@ -46,4 +46,7 @@ type FullIssue struct {
 	Comments           []Comment    `json:"comments"`
 	Dependencies       []Dependency `json:"dependencies"`
 	Dependents         []Dependent  `json:"dependents"`
+	// Graph link fields (issue-level, from beads v0.0.31+)
+	DuplicateOf  string `json:"duplicate_of,omitempty"`
+	SupersededBy string `json:"superseded_by,omitempty"`
 }
