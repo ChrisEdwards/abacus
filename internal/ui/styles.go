@@ -79,6 +79,10 @@ func styleStatsDim() lipgloss.Style {
 	return baseStyle().Foreground(currentThemeWrapper().TextMuted())
 }
 
+func stylePriority() lipgloss.Style {
+	return baseStyle().Foreground(currentThemeWrapper().TextMuted())
+}
+
 func styleColumnSeparator() lipgloss.Style {
 	return baseStyle().Foreground(currentThemeWrapper().BorderNormal())
 }

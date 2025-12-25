@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"abacus/internal/config"
 	"abacus/internal/domain"
 
 	"github.com/charmbracelet/lipgloss"
@@ -67,6 +68,7 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 	cursorStart, cursorEnd := -1, -1
 	columns, treeWidth := prepareColumnState(totalWidth)
 	showColumns := columns.enabled()
+	showPriority := config.GetBool(config.KeyTreeShowPriority)
 
 	// Track which nodes are selected for cross-highlighting
 	var selectedID string
@@ -109,7 +111,10 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 			idDisplay = node.Issue.ID + "*"
 		}
 
-		totalPrefixWidth := treePrefixWidth(indent, marker, iconStr, idDisplay)
+		// Format priority (e.g., "P2") or empty string if not shown
+		priorityStr := formatPriority(node.Issue.Priority, showPriority)
+
+		totalPrefixWidth := treePrefixWidth(indent, marker, iconStr, priorityStr, idDisplay)
 		titleLines := []string{node.Issue.Title}
 
 		if showColumns {
@@ -144,6 +149,7 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 				marker,
 				iconStr,
 				iconStyle,
+				priorityStr,
 				idDisplay,
 				titleLines[0],
 				textStyle,
@@ -164,6 +170,7 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 				marker,
 				iconStr,
 				iconStyle,
+				priorityStr,
 				idDisplay,
 				titleLines[0],
 				textStyle,
@@ -177,7 +184,11 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 		} else {
 			// Style the indent and all spacing with background
 			styledIndent := styleNormalText().Render(" " + indent)
-			line1 := styledIndent + iconStyle.Render(marker) + sp + iconStyle.Render(iconStr) + sp + styleID().Render(idDisplay) + sp + textStyle.Render(titleLines[0])
+			line1 := styledIndent + iconStyle.Render(marker) + sp + iconStyle.Render(iconStr) + sp
+			if priorityStr != "" {
+				line1 += stylePriority().Render(priorityStr) + sp
+			}
+			line1 += styleID().Render(idDisplay) + sp + textStyle.Render(titleLines[0])
 			if showColumns {
 				line1 += columns.render(node, columnRenderNormal)
 			}
@@ -288,8 +299,21 @@ func truncateWithEllipsis(text string, maxWidth int) string {
 	return strings.Repeat(".", maxWidth)
 }
 
-func treePrefixWidth(indent, marker, icon, id string) int {
-	raw := fmt.Sprintf(" %s%s %s %s ", indent, marker, icon, id)
+// formatPriority returns a compact priority string (e.g., "P2") or empty if priority is not shown.
+func formatPriority(priority int, showPriority bool) string {
+	if !showPriority {
+		return ""
+	}
+	return fmt.Sprintf("P%d", priority)
+}
+
+func treePrefixWidth(indent, marker, icon, priority, id string) int {
+	var raw string
+	if priority == "" {
+		raw = fmt.Sprintf(" %s%s %s %s ", indent, marker, icon, id)
+	} else {
+		raw = fmt.Sprintf(" %s%s %s %s %s ", indent, marker, icon, priority, id)
+	}
 	width := lipgloss.Width(raw)
 	if width < 0 {
 		return 0
@@ -299,7 +323,7 @@ func treePrefixWidth(indent, marker, icon, id string) int {
 
 // buildSelectedRow creates a full-width row with selection background.
 // It preserves the icon's status color while applying selection background to all elements.
-func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, id, title string, textStyle lipgloss.Style, width int, columns string) string {
+func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, priority, id, title string, textStyle lipgloss.Style, width int, columns string) string {
 	t := currentThemeWrapper()
 	bg := t.BackgroundSecondary()
 
@@ -307,13 +331,19 @@ func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, id,
 	selectedBase := lipgloss.NewStyle().Background(bg)
 	selectedPrefix := selectedBase.Bold(true).Foreground(t.Primary())
 	selectedIcon := selectedBase.Foreground(iconStyle.GetForeground())
+	selectedPriority := selectedBase.Foreground(t.TextMuted())
 	selectedID := selectedBase.Foreground(t.Accent()).Bold(true)
 	selectedText := selectedBase.Bold(true).Foreground(textStyle.GetForeground())
 
 	// Build the row content
 	content := selectedPrefix.Render(fmt.Sprintf(" %s%s ", indent, marker)) +
-		selectedIcon.Render(icon) + selectedBase.Render(" ") +
-		selectedID.Render(id) + selectedBase.Render(" ") +
+		selectedIcon.Render(icon) + selectedBase.Render(" ")
+
+	if priority != "" {
+		content += selectedPriority.Render(priority) + selectedBase.Render(" ")
+	}
+
+	content += selectedID.Render(id) + selectedBase.Render(" ") +
 		selectedText.Render(title)
 
 	if columns != "" {
@@ -346,7 +376,7 @@ func buildSelectedContinuation(text string, textStyle lipgloss.Style, width int)
 }
 
 // buildCrossHighlightRow creates a full-width row with cross-highlight background.
-func buildCrossHighlightRow(indent, marker, icon string, iconStyle lipgloss.Style, id, title string, textStyle lipgloss.Style, width int, columns string) string {
+func buildCrossHighlightRow(indent, marker, icon string, iconStyle lipgloss.Style, priority, id, title string, textStyle lipgloss.Style, width int, columns string) string {
 	t := currentThemeWrapper()
 	bg := t.BorderNormal()
 
@@ -354,13 +384,19 @@ func buildCrossHighlightRow(indent, marker, icon string, iconStyle lipgloss.Styl
 	crossBase := lipgloss.NewStyle().Background(bg)
 	crossPrefix := crossBase.Foreground(t.TextMuted())
 	crossIcon := crossBase.Foreground(iconStyle.GetForeground())
+	crossPriority := crossBase.Foreground(t.TextMuted())
 	crossID := crossBase.Foreground(t.Accent()).Bold(true)
 	crossText := crossBase.Foreground(textStyle.GetForeground())
 
 	// Build the row content
 	content := crossPrefix.Render(fmt.Sprintf(" %s%s ", indent, marker)) +
-		crossIcon.Render(icon) + crossBase.Render(" ") +
-		crossID.Render(id) + crossBase.Render(" ") +
+		crossIcon.Render(icon) + crossBase.Render(" ")
+
+	if priority != "" {
+		content += crossPriority.Render(priority) + crossBase.Render(" ")
+	}
+
+	content += crossID.Render(id) + crossBase.Render(" ") +
 		crossText.Render(title)
 
 	if columns != "" {

@@ -315,19 +315,32 @@ func TestTreePrefixWidth(t *testing.T) {
 	marker := " ▶"
 	icon := "◐"
 	id := "ab-123"
+	priority := ""
 
-	got := treePrefixWidth(indent, marker, icon, id)
+	// Test without priority
+	got := treePrefixWidth(indent, marker, icon, priority, id)
 	want := lipgloss.Width(fmt.Sprintf(" %s%s %s %s ", indent, marker, icon, id))
 	if got != want {
 		t.Fatalf("expected %d, got %d", want, got)
 	}
 
+	// Test with multi-byte glyph (no priority)
 	icon = "🧪"
 	marker = " ⛔"
-	got = treePrefixWidth(indent, marker, icon, id)
+	got = treePrefixWidth(indent, marker, icon, priority, id)
 	want = lipgloss.Width(fmt.Sprintf(" %s%s %s %s ", indent, marker, icon, id))
 	if got != want {
 		t.Fatalf("expected %d, got %d for multi-byte glyph", want, got)
+	}
+
+	// Test with priority
+	icon = "○"
+	marker = " •"
+	priority = "P2"
+	got = treePrefixWidth(indent, marker, icon, priority, id)
+	want = lipgloss.Width(fmt.Sprintf(" %s%s %s %s %s ", indent, marker, icon, priority, id))
+	if got != want {
+		t.Fatalf("expected %d, got %d for priority display", want, got)
 	}
 }
 
