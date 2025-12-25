@@ -41,6 +41,18 @@ func TestDefaults(t *testing.T) {
 	if got := GetString(KeyOutputFormat); got != "rich" {
 		t.Fatalf("expected default %s to be rich, got %q", KeyOutputFormat, got)
 	}
+	if got := GetBool(KeyTreeShowPriority); !got {
+		t.Fatalf("expected default %s to be true, got %t", KeyTreeShowPriority, got)
+	}
+	if got := GetBool(KeyTreeShowColumns); !got {
+		t.Fatalf("expected default %s to be true, got %t", KeyTreeShowColumns, got)
+	}
+	if got := GetBool(KeyTreeColumnsLastUpdated); !got {
+		t.Fatalf("expected default %s to be true, got %t", KeyTreeColumnsLastUpdated, got)
+	}
+	if got := GetBool(KeyTreeColumnsComments); !got {
+		t.Fatalf("expected default %s to be true, got %t", KeyTreeColumnsComments, got)
+	}
 }
 
 func TestConfigFile(t *testing.T) {
@@ -83,6 +95,44 @@ database:
 	}
 	if got := GetInt(KeyAutoRefreshSeconds); got != 10 {
 		t.Fatalf("expected project auto-refresh seconds of 10, got %d", got)
+	}
+}
+
+func TestTreeConfigNestedKeys(t *testing.T) {
+	reset()
+	t.Cleanup(reset)
+
+	tmp := t.TempDir()
+	projectDir := filepath.Join(tmp, "repo")
+	mustMkdir(t, filepath.Join(projectDir, ".abacus"))
+	projectCfg := filepath.Join(projectDir, ".abacus", "config.yaml")
+	writeFile(t, projectCfg, `
+tree:
+  showPriority: false
+  showColumns: false
+  columns:
+    lastUpdated: false
+    comments: false
+`)
+
+	if err := Initialize(
+		WithWorkingDir(projectDir),
+		WithProjectConfig(projectCfg),
+	); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	if got := GetBool(KeyTreeShowPriority); got {
+		t.Fatalf("expected %s to load false from config, got true", KeyTreeShowPriority)
+	}
+	if got := GetBool(KeyTreeShowColumns); got {
+		t.Fatalf("expected %s to load false from config, got true", KeyTreeShowColumns)
+	}
+	if got := GetBool(KeyTreeColumnsLastUpdated); got {
+		t.Fatalf("expected %s to load false from config, got true", KeyTreeColumnsLastUpdated)
+	}
+	if got := GetBool(KeyTreeColumnsComments); got {
+		t.Fatalf("expected %s to load false from config, got true", KeyTreeColumnsComments)
 	}
 }
 
@@ -210,6 +260,13 @@ func TestSetUpdatesValue(t *testing.T) {
 
 	if got := GetInt(KeyAutoRefreshSeconds); got != want {
 		t.Fatalf("expected Set to update %s to %d, got %d", KeyAutoRefreshSeconds, want, got)
+	}
+
+	if err := Set(KeyTreeShowColumns, false); err != nil {
+		t.Fatalf("Set returned error for %s: %v", KeyTreeShowColumns, err)
+	}
+	if got := GetBool(KeyTreeShowColumns); got {
+		t.Fatalf("expected Set to update %s to false, got true", KeyTreeShowColumns)
 	}
 }
 

@@ -21,10 +21,14 @@ const (
 	KeyNoAutoRefresh      = "no-auto-refresh"  // Deprecated: use KeyAutoRefreshSeconds.
 	KeySkipVersionCheck   = "skip-version-check"
 
-	KeyDatabasePath = "database.path"
-	KeyOutputFormat = "output.format"
-	KeyOutputJSON   = "output.json"
-	KeyTheme        = "theme"
+	KeyDatabasePath           = "database.path"
+	KeyOutputFormat           = "output.format"
+	KeyOutputJSON             = "output.json"
+	KeyTheme                  = "theme"
+	KeyTreeShowPriority       = "tree.showPriority"
+	KeyTreeShowColumns        = "tree.showColumns"
+	KeyTreeColumnsLastUpdated = "tree.columns.lastUpdated"
+	KeyTreeColumnsComments    = "tree.columns.comments"
 )
 
 const (
@@ -274,6 +278,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeyOutputJSON, false)
 	v.SetDefault(KeyAutoRefreshSeconds, DefaultAutoRefreshSeconds)
 	v.SetDefault(KeyTheme, "tokyonight")
+	v.SetDefault(KeyTreeShowPriority, true)
+	v.SetDefault(KeyTreeShowColumns, true)
+	v.SetDefault(KeyTreeColumnsLastUpdated, true)
+	v.SetDefault(KeyTreeColumnsComments, true)
 }
 
 func getViper() (*viper.Viper, error) {

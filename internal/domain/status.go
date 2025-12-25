@@ -9,25 +9,49 @@ const (
 	StatusUnknown    Status = ""
 	StatusOpen       Status = "open"
 	StatusInProgress Status = "in_progress"
+	StatusBlocked    Status = "blocked"
+	StatusDeferred   Status = "deferred"
 	StatusClosed     Status = "closed"
+	// StatusTombstone is internal only - not in validStatuses.
+	StatusTombstone Status = "tombstone"
 )
 
 var validStatuses = map[Status]struct{}{
 	StatusOpen:       {},
 	StatusInProgress: {},
+	StatusBlocked:    {},
+	StatusDeferred:   {},
 	StatusClosed:     {},
 }
 
 var allowedTransitions = map[Status]map[Status]struct{}{
 	StatusOpen: {
 		StatusInProgress: {},
+		StatusBlocked:    {},
+		StatusDeferred:   {},
 		StatusClosed:     {},
 	},
 	StatusInProgress: {
-		StatusOpen:   {},
-		StatusClosed: {},
+		StatusOpen:     {},
+		StatusBlocked:  {},
+		StatusDeferred: {},
+		StatusClosed:   {},
 	},
-	StatusClosed: {},
+	StatusBlocked: {
+		StatusOpen:       {},
+		StatusInProgress: {},
+		StatusDeferred:   {},
+		StatusClosed:     {},
+	},
+	StatusDeferred: {
+		StatusOpen:       {},
+		StatusInProgress: {},
+		StatusBlocked:    {},
+		StatusClosed:     {},
+	},
+	StatusClosed: {
+		StatusOpen: {},
+	},
 }
 
 // ParseStatus normalises and validates an incoming status string.
