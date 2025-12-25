@@ -244,14 +244,8 @@ func (m *CreateOverlay) footerHints() []footerHint {
 		}
 	}
 	// Default state
-	primary := m.submitFooterText()
-	bulk := "Create+Add"
-	if m.isEditMode() {
-		bulk = primary
-	}
 	return []footerHint{
-		{"⏎", primary},
-		{"^⏎", bulk},
+		{"⏎", m.submitFooterText()},
 		{"Tab", "Next"},
 		{"esc", "Cancel"},
 	}

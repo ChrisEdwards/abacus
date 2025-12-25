@@ -12,7 +12,6 @@ type labelsToastTickMsg struct{}
 type createCompleteMsg struct {
 	id        string
 	err       error
-	stayOpen  bool             // from BeadCreatedMsg (Ctrl+Enter bulk mode)
 	fullIssue *beads.FullIssue // full issue data for fast injection
 	parentID  string           // Explicit parent context for fast injection
 }

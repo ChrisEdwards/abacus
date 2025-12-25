@@ -41,7 +41,7 @@ func (m *CreateOverlay) handleEscape() (*CreateOverlay, tea.Cmd) {
 	return m, func() tea.Msg { return CreateCancelledMsg{} }
 }
 
-func (m *CreateOverlay) handleSubmit(stayOpen bool) (*CreateOverlay, tea.Cmd) {
+func (m *CreateOverlay) handleSubmit() (*CreateOverlay, tea.Cmd) {
 	if strings.TrimSpace(m.titleInput.Value()) == "" {
 		m.titleValidationError = true
 		return m, titleFlashCmd()
@@ -54,14 +54,7 @@ func (m *CreateOverlay) handleSubmit(stayOpen bool) (*CreateOverlay, tea.Cmd) {
 		return m, m.submitEdit()
 	}
 
-	if stayOpen {
-		return m, tea.Batch(
-			m.submitWithMode(true),
-			m.prepareForNextEntry(),
-		)
-	}
-
-	return m, m.submitWithMode(false)
+	return m, m.submit()
 }
 
 func (m *CreateOverlay) handleTab() (*CreateOverlay, tea.Cmd) {
@@ -347,8 +340,8 @@ func (m *CreateOverlay) handlePriorityHotkey(r rune) {
 	}
 }
 
-// submitWithMode creates BeadCreatedMsg with the specified StayOpen mode (spec Section 4.3).
-func (m *CreateOverlay) submitWithMode(stayOpen bool) tea.Cmd {
+// submit creates BeadCreatedMsg with form data.
+func (m *CreateOverlay) submit() tea.Cmd {
 	return func() tea.Msg {
 		parentID := ""
 		selectedParentDisplay := m.parentCombo.Value()
@@ -369,15 +362,7 @@ func (m *CreateOverlay) submitWithMode(stayOpen bool) tea.Cmd {
 			ParentID:    parentID,
 			Labels:      m.labelsCombo.GetChips(),
 			Assignee:    m.getAssigneeValue(),
-			StayOpen:    stayOpen,
 		}
-	}
-}
-
-// prepareForNextEntry resets Title only, keeps everything else persistent (spec Section 4.3).
-func (m *CreateOverlay) prepareForNextEntry() tea.Cmd {
-	return func() tea.Msg {
-		return bulkEntryResetMsg{}
 	}
 }
 

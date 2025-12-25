@@ -161,11 +161,10 @@ func (m *App) executeCreateBead(msg BeadCreatedMsg) tea.Cmd {
 		ctx := context.Background()
 		issue, err := m.client.CreateFull(ctx, msg.Title, msg.IssueType, msg.Priority, msg.Labels, msg.Assignee, msg.Description, msg.ParentID)
 		if err != nil {
-			return createCompleteMsg{err: err, stayOpen: msg.StayOpen}
+			return createCompleteMsg{err: err}
 		}
 		return createCompleteMsg{
 			id:        issue.ID,
-			stayOpen:  msg.StayOpen,
 			fullIssue: &issue,
 			parentID:  msg.ParentID,
 		}

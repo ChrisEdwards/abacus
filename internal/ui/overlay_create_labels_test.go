@@ -244,21 +244,15 @@ func TestParentFieldFooterUpdates(t *testing.T) {
 		if !contains(view, "esc") || !contains(view, "Revert") {
 			t.Error("expected footer to show 'esc' and 'Revert' when parent dropdown open")
 		}
-		if contains(view, "Create+Add") {
-			t.Error("expected footer NOT to show 'Create+Add' when parent dropdown open")
-		}
 	})
 
 	t.Run("FooterShowsNormalWhenParentDropdownClosed", func(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
 
 		view := overlay.View()
-		// New pill format: ⏎ for Enter, ^⏎ for Ctrl+Enter
+		// New pill format: ⏎ for Enter
 		if !contains(view, "⏎") || !contains(view, "Create") {
 			t.Error("expected footer to show '⏎' and 'Create' when dropdown closed")
-		}
-		if !contains(view, "^⏎") || !contains(view, "Create+Add") {
-			t.Error("expected footer to show '^⏎' and 'Create+Add' when dropdown closed")
 		}
 	})
 }

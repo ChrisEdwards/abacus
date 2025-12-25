@@ -16,12 +16,9 @@ func TestCreateOverlayFooter(t *testing.T) {
 		overlay := NewCreateOverlay(CreateOverlayOptions{})
 		view := overlay.View()
 
-		// New pill format uses symbols: ⏎ for Enter, ^⏎ for Ctrl+Enter
+		// New pill format uses symbols: ⏎ for Enter
 		if !strings.Contains(view, "⏎") || !strings.Contains(view, "Create") {
 			t.Error("expected default footer to contain '⏎' and 'Create'")
-		}
-		if !strings.Contains(view, "^⏎") || !strings.Contains(view, "Create+Add") {
-			t.Error("expected default footer to contain bulk entry hint (^⏎ Create+Add)")
 		}
 		if !strings.Contains(view, "Tab") || !strings.Contains(view, "Next") {
 			t.Error("expected default footer to contain 'Tab' and 'Next'")
@@ -54,10 +51,6 @@ func TestCreateOverlayFooter(t *testing.T) {
 		if !strings.Contains(view, "esc") || !strings.Contains(view, "Revert") {
 			t.Errorf("expected parent search footer to contain 'esc' and 'Revert', got: %s", view)
 		}
-		// Should NOT contain "Create+Add" (the bulk entry hint unique to default footer)
-		if strings.Contains(view, "Create+Add") {
-			t.Errorf("expected parent search footer to not contain 'Create+Add', got: %s", view)
-		}
 	})
 
 	t.Run("CreatingFooter", func(t *testing.T) {
@@ -68,10 +61,6 @@ func TestCreateOverlayFooter(t *testing.T) {
 
 		if !strings.Contains(view, "Creating bead...") {
 			t.Error("expected creating footer to contain 'Creating bead...'")
-		}
-		// Should NOT contain the default footer hints
-		if strings.Contains(view, "Create+Add") {
-			t.Error("expected creating footer to not contain 'Create+Add'")
 		}
 	})
 
@@ -92,10 +81,10 @@ func TestCreateOverlayFooter(t *testing.T) {
 			},
 		})
 
-		// Initially should show default footer (with Create+Add bulk hint)
+		// Initially should show default footer
 		view := overlay.View()
-		if !strings.Contains(view, "Create+Add") {
-			t.Error("expected default footer initially (with Create+Add)")
+		if !strings.Contains(view, "⏎") || !strings.Contains(view, "Create") {
+			t.Error("expected default footer initially")
 		}
 
 		// Navigate to parent field
@@ -104,9 +93,9 @@ func TestCreateOverlayFooter(t *testing.T) {
 		// Type to open dropdown
 		overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
 
-		// Should now show parent search footer (Select, not Create+Add)
+		// Should now show parent search footer (Select)
 		view = overlay.View()
-		if !strings.Contains(view, "Select") || strings.Contains(view, "Create+Add") {
+		if !strings.Contains(view, "Select") {
 			t.Errorf("expected parent search footer after opening dropdown, got: %s", view)
 		}
 
@@ -211,22 +200,10 @@ func TestCreateOverlayFooterState(t *testing.T) {
 		overlay.focus = FocusTitle
 
 		// Submit form
-		overlay, _ = overlay.handleSubmit(false)
+		overlay, _ = overlay.handleSubmit()
 
 		if !overlay.isCreating {
 			t.Error("expected isCreating=true after handleSubmit")
-		}
-	})
-
-	t.Run("IsCreatingClearedOnBulkReset", func(t *testing.T) {
-		overlay := NewCreateOverlay(CreateOverlayOptions{})
-		overlay.isCreating = true
-
-		// Process bulk entry reset message
-		overlay, _ = overlay.Update(bulkEntryResetMsg{})
-
-		if overlay.isCreating {
-			t.Error("expected isCreating=false after bulkEntryResetMsg")
 		}
 	})
 
@@ -242,7 +219,7 @@ func TestCreateOverlayFooterState(t *testing.T) {
 		}
 
 		// Submit form
-		overlay, _ = overlay.handleSubmit(false)
+		overlay, _ = overlay.handleSubmit()
 
 		// After submission
 		view = overlay.View()
@@ -278,7 +255,7 @@ func TestBackendErrorHandling(t *testing.T) {
 		overlay.hasBackendError = true
 
 		// Retry submission
-		overlay, _ = overlay.handleSubmit(false)
+		overlay, _ = overlay.handleSubmit()
 
 		if overlay.hasBackendError {
 			t.Error("expected hasBackendError=false when retrying after error")

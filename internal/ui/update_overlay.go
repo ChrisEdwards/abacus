@@ -308,10 +308,8 @@ func (m *App) handleCreateComplete(msg createCompleteMsg) (tea.Model, tea.Cmd, b
 			m.displayCreateToast("", false)
 
 			if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-				if !msg.stayOpen {
-					m.activeOverlay = OverlayNone
-					m.createOverlay = nil
-				}
+				m.activeOverlay = OverlayNone
+				m.createOverlay = nil
 			}
 
 			return m, tea.Batch(scheduleCreateToastTick(), m.scheduleEventualRefresh()), true
@@ -320,10 +318,8 @@ func (m *App) handleCreateComplete(msg createCompleteMsg) (tea.Model, tea.Cmd, b
 
 	// Fallback: Success with full refresh
 	if m.activeOverlay == OverlayCreate && m.createOverlay != nil {
-		if !msg.stayOpen {
-			m.activeOverlay = OverlayNone
-			m.createOverlay = nil
-		}
+		m.activeOverlay = OverlayNone
+		m.createOverlay = nil
 	}
 
 	m.createToastBeadID = msg.id

@@ -44,9 +44,6 @@ func typeInferenceFlashCmd() tea.Cmd {
 	})
 }
 
-// bulkEntryResetMsg signals to reset for next bulk entry (spec Section 4.3).
-type bulkEntryResetMsg struct{}
-
 // CreateFocus represents which zone has focus in the create overlay.
 type CreateFocus int
 
@@ -129,7 +126,6 @@ type BeadCreatedMsg struct {
 	ParentID    string
 	Labels      []string // Selected labels (backend integration in ab-l1k)
 	Assignee    string   // Selected assignee (backend integration in ab-39r)
-	StayOpen    bool     // true for Ctrl+Enter bulk entry (spec Section 4.3)
 }
 
 // CreateCancelledMsg is sent when the overlay is dismissed without action.
@@ -329,15 +325,6 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 		m.typeInferenceActive = false
 		return m, nil
 
-	case bulkEntryResetMsg:
-		// Clear title and description, keep other fields persistent (spec Section 4.3)
-		m.titleInput.SetValue("")
-		m.descriptionInput.SetValue("")
-		m.titleValidationError = false
-		m.isCreating = false // Clear creating state (spec Section 4.1)
-		m.focus = FocusTitle
-		return m, m.titleInput.Focus()
-
 	case ChipComboBoxTabMsg:
 		// Labels combo requested Tab - move to Assignee
 		m.focus = FocusAssignee
@@ -397,23 +384,18 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 				return m, nil
 			}
 
-			// Ctrl+Enter bulk mode (removal is ab-6yr0)
-			if msg.String() == "ctrl+enter" {
-				return m.handleSubmit(true)
-			}
-
 			// In description field: Slack-style Enter submits, Shift+Enter for newline
 			if m.focus == FocusDescription {
 				if msg.String() == "shift+enter" {
 					return m.handleZoneInput(msg)
 				}
-				return m.handleSubmit(false)
+				return m.handleSubmit()
 			}
 
 			// Other fields: Enter submits if not in dropdown
 			// Also check if labelsCombo has a pending value (ab-mod2: value selected but not yet added as chip)
 			if !m.isAnyDropdownOpen() && m.labelsCombo.combo.Value() == "" {
-				return m.handleSubmit(false)
+				return m.handleSubmit()
 			}
 
 		case tea.KeyTab:
