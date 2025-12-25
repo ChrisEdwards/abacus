@@ -201,8 +201,8 @@ func configure(settings *initSettings) error {
 	applyLegacyAutoRefreshConfig(v)
 
 	configMu.Lock()
+	defer configMu.Unlock()
 	configInst = v
-	configMu.Unlock()
 	return nil
 }
 
