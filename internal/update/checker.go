@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime"
+	"strings"
 	"time"
 )
 
@@ -22,15 +24,24 @@ var (
 	ErrInvalidVersion = fmt.Errorf("invalid version format")
 )
 
+// ReleaseAsset represents a downloadable file attached to a release.
+type ReleaseAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+	ContentType        string `json:"content_type"`
+	Size               int64  `json:"size"`
+}
+
 // ReleaseInfo contains information about a GitHub release.
 type ReleaseInfo struct {
-	TagName     string    `json:"tag_name"`
-	Name        string    `json:"name"`
-	Body        string    `json:"body"`
-	HTMLURL     string    `json:"html_url"`
-	PublishedAt time.Time `json:"published_at"`
-	Prerelease  bool      `json:"prerelease"`
-	Draft       bool      `json:"draft"`
+	TagName     string         `json:"tag_name"`
+	Name        string         `json:"name"`
+	Body        string         `json:"body"`
+	HTMLURL     string         `json:"html_url"`
+	PublishedAt time.Time      `json:"published_at"`
+	Prerelease  bool           `json:"prerelease"`
+	Draft       bool           `json:"draft"`
+	Assets      []ReleaseAsset `json:"assets"`
 }
 
 // UpdateInfo contains the result of a version check.
@@ -39,6 +50,7 @@ type UpdateInfo struct {
 	LatestVersion   Version
 	UpdateAvailable bool
 	ReleaseURL      string
+	DownloadURL     string // Direct binary download URL for current platform
 	ReleaseNotes    string
 	PublishedAt     time.Time
 	IsPrerelease    bool
@@ -111,10 +123,17 @@ func NewChecker(owner, repo string, opts ...CheckerOption) *Checker {
 }
 
 // Check queries GitHub for the latest release and compares it to the current version.
+// Returns nil without error for development builds or if the version cannot be parsed.
 func (c *Checker) Check(ctx context.Context, currentVersion string) (*UpdateInfo, error) {
+	// Skip check for development builds
+	if currentVersion == "" || currentVersion == "dev" || currentVersion == "development" {
+		return nil, nil
+	}
+
 	current, err := ParseVersion(currentVersion)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidVersion, err)
+		// Silently skip check if version is unparseable (likely a dev build)
+		return nil, nil
 	}
 
 	release, err := c.fetchLatestRelease(ctx)
@@ -132,6 +151,7 @@ func (c *Checker) Check(ctx context.Context, currentVersion string) (*UpdateInfo
 		LatestVersion:   latest,
 		UpdateAvailable: current.LessThan(latest),
 		ReleaseURL:      release.HTMLURL,
+		DownloadURL:     findDownloadURL(release.Assets),
 		ReleaseNotes:    release.Body,
 		PublishedAt:     release.PublishedAt,
 		IsPrerelease:    release.Prerelease,
@@ -185,4 +205,53 @@ func (c *Checker) suggestUpdateCommand(method InstallMethod) string {
 	default:
 		return "bv --update"
 	}
+}
+
+// findDownloadURL finds the download URL for the current platform from release assets.
+func findDownloadURL(assets []ReleaseAsset) string {
+	os := runtime.GOOS
+	arch := runtime.GOARCH
+
+	// Build patterns to match against asset names
+	patterns := buildAssetPatterns(os, arch)
+
+	for _, asset := range assets {
+		name := strings.ToLower(asset.Name)
+		for _, pattern := range patterns {
+			if strings.Contains(name, pattern) {
+				return asset.BrowserDownloadURL
+			}
+		}
+	}
+
+	return ""
+}
+
+// buildAssetPatterns returns patterns to match for the given OS/arch.
+func buildAssetPatterns(os, arch string) []string {
+	// Normalize arch names
+	archPatterns := []string{arch}
+	switch arch {
+	case "amd64":
+		archPatterns = append(archPatterns, "x86_64", "x64")
+	case "arm64":
+		archPatterns = append(archPatterns, "aarch64")
+	}
+
+	// Normalize OS names
+	osPatterns := []string{os}
+	switch os {
+	case "darwin":
+		osPatterns = append(osPatterns, "macos", "osx")
+	}
+
+	// Build all combinations
+	var patterns []string
+	for _, o := range osPatterns {
+		for _, a := range archPatterns {
+			patterns = append(patterns, o+"_"+a, o+"-"+a, a+"_"+o, a+"-"+o)
+		}
+	}
+
+	return patterns
 }

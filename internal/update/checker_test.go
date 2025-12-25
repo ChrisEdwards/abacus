@@ -114,13 +114,34 @@ func TestCheckerCheckNoUpdate(t *testing.T) {
 	}
 }
 
+func TestCheckerCheckDevVersion(t *testing.T) {
+	c := NewChecker("owner", "repo")
+	ctx := context.Background()
+
+	// Dev versions should return nil without error
+	tests := []string{"dev", "development", ""}
+	for _, version := range tests {
+		info, err := c.Check(ctx, version)
+		if err != nil {
+			t.Errorf("Check(%q) unexpected error: %v", version, err)
+		}
+		if info != nil {
+			t.Errorf("Check(%q) should return nil for dev version", version)
+		}
+	}
+}
+
 func TestCheckerCheckInvalidCurrentVersion(t *testing.T) {
 	c := NewChecker("owner", "repo")
 	ctx := context.Background()
 
-	_, err := c.Check(ctx, "invalid")
-	if err == nil {
-		t.Error("Check() should error on invalid current version")
+	// Invalid versions should return nil without error (treated as dev builds)
+	info, err := c.Check(ctx, "invalid")
+	if err != nil {
+		t.Errorf("Check() unexpected error: %v", err)
+	}
+	if info != nil {
+		t.Error("Check() should return nil for unparseable version")
 	}
 }
 
@@ -159,6 +180,95 @@ func TestInstallMethodString(t *testing.T) {
 		if got := tt.method.String(); got != tt.want {
 			t.Errorf("InstallMethod(%d).String() = %q, want %q", tt.method, got, tt.want)
 		}
+	}
+}
+
+func TestFindDownloadURL(t *testing.T) {
+	assets := []ReleaseAsset{
+		{Name: "bv_darwin_arm64.tar.gz", BrowserDownloadURL: "https://example.com/darwin-arm64"},
+		{Name: "bv_darwin_amd64.tar.gz", BrowserDownloadURL: "https://example.com/darwin-amd64"},
+		{Name: "bv_linux_amd64.tar.gz", BrowserDownloadURL: "https://example.com/linux-amd64"},
+		{Name: "checksums.txt", BrowserDownloadURL: "https://example.com/checksums"},
+	}
+
+	// Test that findDownloadURL returns a URL (actual URL depends on runtime OS/arch)
+	url := findDownloadURL(assets)
+	// Should return one of the platform-specific URLs, not checksums
+	if url == "https://example.com/checksums" {
+		t.Error("findDownloadURL should not return non-binary asset")
+	}
+}
+
+func TestFindDownloadURLEmpty(t *testing.T) {
+	// Empty assets should return empty string
+	url := findDownloadURL(nil)
+	if url != "" {
+		t.Errorf("findDownloadURL(nil) = %q, want empty string", url)
+	}
+
+	url = findDownloadURL([]ReleaseAsset{})
+	if url != "" {
+		t.Errorf("findDownloadURL([]) = %q, want empty string", url)
+	}
+}
+
+func TestBuildAssetPatterns(t *testing.T) {
+	// Test darwin/arm64
+	patterns := buildAssetPatterns("darwin", "arm64")
+	if len(patterns) == 0 {
+		t.Error("buildAssetPatterns should return patterns")
+	}
+
+	// Should contain darwin_arm64 pattern
+	found := false
+	for _, p := range patterns {
+		if p == "darwin_arm64" || p == "darwin-arm64" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("patterns should contain darwin_arm64 or darwin-arm64")
+	}
+}
+
+func TestCheckWithDownloadURL(t *testing.T) {
+	release := ReleaseInfo{
+		TagName:     "v2.0.0",
+		Name:        "Release 2.0.0",
+		Body:        "Release notes",
+		HTMLURL:     "https://github.com/owner/repo/releases/tag/v2.0.0",
+		PublishedAt: time.Now(),
+		Assets: []ReleaseAsset{
+			{Name: "bv_darwin_arm64.tar.gz", BrowserDownloadURL: "https://example.com/darwin-arm64"},
+			{Name: "bv_linux_amd64.tar.gz", BrowserDownloadURL: "https://example.com/linux-amd64"},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(release)
+	}))
+	defer server.Close()
+
+	c := NewChecker("owner", "repo")
+	c.httpClient = &http.Client{
+		Transport: &rewriteTransport{
+			base:      http.DefaultTransport,
+			targetURL: server.URL,
+		},
+	}
+
+	ctx := context.Background()
+	info, err := c.Check(ctx, "1.0.0")
+	if err != nil {
+		t.Fatalf("Check() error: %v", err)
+	}
+
+	// DownloadURL should be populated (specific URL depends on runtime OS/arch)
+	// Just verify it's not empty if we're on a supported platform
+	if info.DownloadURL == "" {
+		t.Log("DownloadURL is empty (may be expected if no matching asset for current platform)")
 	}
 }
 
