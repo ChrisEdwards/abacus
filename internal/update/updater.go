@@ -19,13 +19,16 @@ import (
 
 // Error variables for updater-specific errors.
 var (
-	ErrPermissionDenied  = fmt.Errorf("permission denied")
-	ErrChecksumMismatch  = fmt.Errorf("checksum verification failed")
-	ErrUnsupportedOS     = fmt.Errorf("unsupported operating system")
-	ErrDownloadFailed    = fmt.Errorf("download failed")
-	ErrExtractionFailed  = fmt.Errorf("extraction failed")
+	ErrPermissionDenied    = fmt.Errorf("permission denied")
+	ErrChecksumMismatch    = fmt.Errorf("checksum verification failed")
+	ErrUnsupportedOS       = fmt.Errorf("unsupported operating system")
+	ErrDownloadFailed      = fmt.Errorf("download failed")
+	ErrExtractionFailed    = fmt.Errorf("extraction failed")
 	ErrWindowsNoAutoUpdate = fmt.Errorf("auto-update not supported on Windows; please download manually")
 )
+
+// keep getAssetName referenced until asset downloads are wired up
+var _ = getAssetName
 
 // Updater handles downloading and installing updates.
 type Updater struct {

@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"abacus/internal/beads"
 	"abacus/internal/config"
@@ -80,34 +81,105 @@ func TestTruncateWithEllipsis(t *testing.T) {
 }
 
 func TestBuildTreeLines_TruncatesWhenColumnsEnabled(t *testing.T) {
-	previous := config.GetBool(config.KeyTreeShowColumns)
-	if err := config.Set(config.KeyTreeShowColumns, true); err != nil {
-		t.Fatalf("failed to set showColumns: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = config.Set(config.KeyTreeShowColumns, previous)
-	})
+	restoreColumnsConfig := captureColumnConfig(t)
+	setColumnConfig(t, true, true, true)
+	t.Cleanup(restoreColumnsConfig)
 
-	node := &graph.Node{Issue: beads.FullIssue{ID: "ab-111", Title: "This is a very long title that should wrap or truncate for testing purposes", Status: "open"}}
+	fixedNow := time.Date(2025, time.December, 25, 12, 0, 0, 0, time.UTC)
+	origNow := timeNow
+	timeNow = func() time.Time { return fixedNow }
+	t.Cleanup(func() { timeNow = origNow })
+
+	node := &graph.Node{Issue: beads.FullIssue{
+		ID:        "ab-111",
+		Title:     "This is a very long title that should wrap or truncate for testing purposes",
+		Status:    "open",
+		UpdatedAt: fixedNow.Add(-30 * time.Second).Format(time.RFC3339),
+	}}
 	m := App{
 		visibleRows: []graph.TreeRow{{Node: node}},
 		cursor:      -1,
 	}
 
-	lines, _, _ := m.buildTreeLines(30)
+	lines, _, _ := m.buildTreeLines(50)
 	if len(lines) != 1 {
 		t.Fatalf("expected single line when columns enabled, got %d", len(lines))
 	}
 	if !strings.Contains(lines[0], "...") {
 		t.Fatalf("expected ellipsis in truncated title, got %q", lines[0])
 	}
-
-	if err := config.Set(config.KeyTreeShowColumns, false); err != nil {
-		t.Fatalf("failed to disable showColumns: %v", err)
+	if !strings.Contains(lines[0], "│") {
+		t.Fatalf("expected column separator when columns enabled, got %q", lines[0])
 	}
+	if !strings.Contains(lines[0], "now") {
+		t.Fatalf("expected last updated column content, got %q", lines[0])
+	}
+
+	setColumnConfig(t, false, true, true)
 	wrappedLines, _, _ := m.buildTreeLines(30)
 	if len(wrappedLines) <= 1 {
 		t.Fatalf("expected wrapped lines when columns disabled, got %d", len(wrappedLines))
+	}
+	if strings.Contains(wrappedLines[0], "│") {
+		t.Fatalf("expected no column separator when columns disabled, got %q", wrappedLines[0])
+	}
+}
+
+func TestBuildTreeLines_RendersCommentColumn(t *testing.T) {
+	restoreColumnsConfig := captureColumnConfig(t)
+	setColumnConfig(t, true, true, true)
+	t.Cleanup(restoreColumnsConfig)
+
+	fixedNow := time.Date(2025, time.December, 25, 12, 0, 0, 0, time.UTC)
+	origNow := timeNow
+	timeNow = func() time.Time { return fixedNow }
+	t.Cleanup(func() { timeNow = origNow })
+
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-222",
+			Title:     "Has comments",
+			Status:    "open",
+			UpdatedAt: fixedNow.Format(time.RFC3339),
+			Comments: []beads.Comment{
+				{ID: 1, IssueID: "ab-222", Text: "first"},
+				{ID: 2, IssueID: "ab-222", Text: "second"},
+			},
+		},
+		CommentsLoaded: true,
+	}
+
+	m := App{
+		visibleRows: []graph.TreeRow{{Node: node}},
+		cursor:      -1,
+	}
+
+	lines, _, _ := m.buildTreeLines(60)
+	if len(lines) != 1 {
+		t.Fatalf("expected single line output, got %d", len(lines))
+	}
+	if !strings.Contains(lines[0], "💬 2") {
+		t.Fatalf("expected comment column, got %q", lines[0])
+	}
+}
+
+func TestBuildTreeLines_HidesColumnsWhenTooNarrow(t *testing.T) {
+	restoreColumnsConfig := captureColumnConfig(t)
+	setColumnConfig(t, true, true, true)
+	t.Cleanup(restoreColumnsConfig)
+
+	node := &graph.Node{Issue: beads.FullIssue{ID: "ab-333", Title: "Narrow view", Status: "open"}}
+	m := App{
+		visibleRows: []graph.TreeRow{{Node: node}},
+		cursor:      -1,
+	}
+
+	lines, _, _ := m.buildTreeLines(minTreeWidth)
+	if len(lines) != 1 {
+		t.Fatalf("expected single line output, got %d", len(lines))
+	}
+	if strings.Contains(lines[0], "│") {
+		t.Fatalf("expected columns hidden when width too small, got %q", lines[0])
 	}
 }
 
@@ -209,4 +281,29 @@ func TestGetStats(t *testing.T) {
 			t.Fatalf("expected 3 ready (all open, not blocked), got %d", stats.Ready)
 		}
 	})
+}
+
+func captureColumnConfig(t *testing.T) func() {
+	t.Helper()
+	prevShow := config.GetBool(config.KeyTreeShowColumns)
+	prevUpdated := config.GetBool(config.KeyTreeColumnsLastUpdated)
+	prevComments := config.GetBool(config.KeyTreeColumnsComments)
+	return func() {
+		_ = config.Set(config.KeyTreeShowColumns, prevShow)
+		_ = config.Set(config.KeyTreeColumnsLastUpdated, prevUpdated)
+		_ = config.Set(config.KeyTreeColumnsComments, prevComments)
+	}
+}
+
+func setColumnConfig(t *testing.T, showColumns, showUpdated, showComments bool) {
+	t.Helper()
+	if err := config.Set(config.KeyTreeShowColumns, showColumns); err != nil {
+		t.Fatalf("failed to set showColumns: %v", err)
+	}
+	if err := config.Set(config.KeyTreeColumnsLastUpdated, showUpdated); err != nil {
+		t.Fatalf("failed to set showColumns.lastUpdated: %v", err)
+	}
+	if err := config.Set(config.KeyTreeColumnsComments, showComments); err != nil {
+		t.Fatalf("failed to set showColumns.comments: %v", err)
+	}
 }

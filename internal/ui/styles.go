@@ -79,6 +79,14 @@ func styleStatsDim() lipgloss.Style {
 	return baseStyle().Foreground(currentThemeWrapper().TextMuted())
 }
 
+func styleColumnSeparator() lipgloss.Style {
+	return baseStyle().Foreground(currentThemeWrapper().BorderNormal())
+}
+
+func styleColumnText() lipgloss.Style {
+	return baseStyle().Foreground(currentThemeWrapper().TextMuted())
+}
+
 // Status icon styles
 
 func styleIconOpen() lipgloss.Style {

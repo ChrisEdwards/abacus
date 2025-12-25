@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"abacus/internal/config"
 	"abacus/internal/domain"
 
 	"github.com/charmbracelet/lipgloss"
@@ -115,6 +114,9 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 
 		if showColumns {
 			availableWidth := treeWidth - totalPrefixWidth
+			if availableWidth < 1 {
+				availableWidth = 1
+			}
 			titleLines[0] = truncateWithEllipsis(node.Issue.Title, availableWidth)
 		} else {
 			wrapWidth := treeWidth - 4
@@ -137,17 +139,37 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 		if i == m.cursor {
 			cursorStart = len(lines)
 			// Build full-width selected row
-			line := buildSelectedRow(indent, marker, iconStr, iconStyle, idDisplay, titleLines[0], textStyle, treeWidth)
+			line := buildSelectedRow(
+				indent,
+				marker,
+				iconStr,
+				iconStyle,
+				idDisplay,
+				titleLines[0],
+				textStyle,
+				totalWidth,
+				columns.render(node, columnRenderSelected),
+			)
 			lines = append(lines, line)
 			// Handle wrapped continuation lines with selection background
 			for k := 1; k < len(titleLines); k++ {
-				contLine := buildSelectedContinuation(titleLines[k], textStyle, treeWidth)
+				contLine := buildSelectedContinuation(titleLines[k], textStyle, totalWidth)
 				lines = append(lines, contLine)
 			}
 			cursorEnd = len(lines)
 		} else if isCrossHighlight {
 			// Cross-highlight style for duplicate instances - also full width
-			line := buildCrossHighlightRow(indent, marker, iconStr, iconStyle, idDisplay, titleLines[0], textStyle, treeWidth)
+			line := buildCrossHighlightRow(
+				indent,
+				marker,
+				iconStr,
+				iconStyle,
+				idDisplay,
+				titleLines[0],
+				textStyle,
+				totalWidth,
+				columns.render(node, columnRenderCrossHighlight),
+			)
 			lines = append(lines, line)
 			for k := 1; k < len(titleLines); k++ {
 				lines = append(lines, sp+textStyle.Render(titleLines[k]))
@@ -156,6 +178,9 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 			// Style the indent and all spacing with background
 			styledIndent := styleNormalText().Render(" " + indent)
 			line1 := styledIndent + iconStyle.Render(marker) + sp + iconStyle.Render(iconStr) + sp + styleID().Render(idDisplay) + sp + textStyle.Render(titleLines[0])
+			if showColumns {
+				line1 += columns.render(node, columnRenderNormal)
+			}
 			lines = append(lines, line1)
 			for k := 1; k < len(titleLines); k++ {
 				lines = append(lines, sp+textStyle.Render(titleLines[k]))
@@ -274,7 +299,7 @@ func treePrefixWidth(indent, marker, icon, id string) int {
 
 // buildSelectedRow creates a full-width row with selection background.
 // It preserves the icon's status color while applying selection background to all elements.
-func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, id, title string, textStyle lipgloss.Style, width int) string {
+func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, id, title string, textStyle lipgloss.Style, width int, columns string) string {
 	t := currentThemeWrapper()
 	bg := t.BackgroundSecondary()
 
@@ -290,6 +315,10 @@ func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, id,
 		selectedIcon.Render(icon) + selectedBase.Render(" ") +
 		selectedID.Render(id) + selectedBase.Render(" ") +
 		selectedText.Render(title)
+
+	if columns != "" {
+		content += columns
+	}
 
 	// Pad to full width with selection background
 	return lipgloss.NewStyle().
@@ -317,7 +346,7 @@ func buildSelectedContinuation(text string, textStyle lipgloss.Style, width int)
 }
 
 // buildCrossHighlightRow creates a full-width row with cross-highlight background.
-func buildCrossHighlightRow(indent, marker, icon string, iconStyle lipgloss.Style, id, title string, textStyle lipgloss.Style, width int) string {
+func buildCrossHighlightRow(indent, marker, icon string, iconStyle lipgloss.Style, id, title string, textStyle lipgloss.Style, width int, columns string) string {
 	t := currentThemeWrapper()
 	bg := t.BorderNormal()
 
@@ -333,6 +362,10 @@ func buildCrossHighlightRow(indent, marker, icon string, iconStyle lipgloss.Styl
 		crossIcon.Render(icon) + crossBase.Render(" ") +
 		crossID.Render(id) + crossBase.Render(" ") +
 		crossText.Render(title)
+
+	if columns != "" {
+		content += columns
+	}
 
 	// Pad to full width with cross-highlight background
 	return lipgloss.NewStyle().
