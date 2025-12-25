@@ -373,7 +373,10 @@ func (m *App) handleCommentKey() (tea.Model, tea.Cmd) {
 // handleNewBeadKey opens the create overlay for a new bead.
 func (m *App) handleNewBeadKey(isRoot bool) (tea.Model, tea.Cmd) {
 	defaultParent := ""
-	if !isRoot && len(m.visibleRows) > 0 {
+	// When no beads exist, 'n' should behave like 'N' (create root node)
+	if len(m.visibleRows) == 0 {
+		isRoot = true
+	} else if !isRoot {
 		defaultParent = m.visibleRows[m.cursor].Node.Issue.ID
 	}
 	m.createOverlay = NewCreateOverlay(CreateOverlayOptions{

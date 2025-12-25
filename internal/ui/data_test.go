@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -74,13 +73,17 @@ func TestLoadDataReturnsErrorWhenNoIssues(t *testing.T) {
 	}
 }
 
-func TestLoadDataReturnsErrorForEmptyExport(t *testing.T) {
+func TestLoadDataReturnsNilForEmptyExport(t *testing.T) {
 	mock := beads.NewMockClient()
 	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
 		return []beads.FullIssue{}, nil
 	}
-	if _, err := loadData(context.Background(), mock, nil); !errors.Is(err, ErrNoIssues) {
-		t.Fatalf("expected ErrNoIssues, got %v", err)
+	roots, err := loadData(context.Background(), mock, nil)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if roots != nil {
+		t.Fatalf("expected nil roots for empty database, got %v", roots)
 	}
 }
 

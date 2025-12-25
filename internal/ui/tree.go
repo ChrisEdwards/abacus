@@ -19,16 +19,20 @@ func (m *App) renderTreeView() string {
 	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
 	if len(m.visibleRows) == 0 {
 		m.treeTopLine = 0
-		return ""
+		// Show empty state message with hint to create first bead
+		emptyMsg := styleStatsDim().Render("No beads yet. Press ") +
+			styleID().Render("n") +
+			styleStatsDim().Render(" to add your first bead.")
+		return emptyMsg
 	}
 
-	treeWidth := m.width - 2
+	totalWidth := m.width - 2
 	if m.ShowDetails {
-		treeWidth = m.width - m.viewport.Width - 4
+		totalWidth = m.width - m.viewport.Width - 4
 	}
-	treeWidth = clampDimension(treeWidth, minTreeWidth, m.width-2)
+	totalWidth = clampDimension(totalWidth, minTreeWidth, m.width-2)
 
-	lines, cursorStart, cursorEnd := m.buildTreeLines(treeWidth)
+	lines, cursorStart, cursorEnd := m.buildTreeLines(totalWidth)
 	totalLines := len(lines)
 	if totalLines == 0 {
 		return ""
@@ -59,10 +63,11 @@ func (m *App) renderTreeView() string {
 	return strings.Join(visible, "\n")
 }
 
-func (m *App) buildTreeLines(treeWidth int) ([]string, int, int) {
+func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 	lines := make([]string, 0, len(m.visibleRows))
 	cursorStart, cursorEnd := -1, -1
-	showColumns := config.GetBool(config.KeyTreeShowColumns)
+	columns, treeWidth := prepareColumnState(totalWidth)
+	showColumns := columns.enabled()
 
 	// Track which nodes are selected for cross-highlighting
 	var selectedID string

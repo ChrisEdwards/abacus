@@ -218,17 +218,21 @@ func TestNewAppCapturesClientError(t *testing.T) {
 	}
 }
 
-func TestNewAppReturnsErrorWhenNoIssues(t *testing.T) {
+func TestNewAppSucceedsWithEmptyDatabase(t *testing.T) {
 	mock := beads.NewMockClient()
 	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
 		return []beads.FullIssue{}, nil
 	}
 	dbFile := createTempDBFile(t)
-	if _, err := NewApp(Config{
+	app, err := NewApp(Config{
 		DBPathOverride: dbFile,
 		Client:         mock,
-	}); !errors.Is(err, ErrNoIssues) {
-		t.Fatalf("expected ErrNoIssues, got %v", err)
+	})
+	if err != nil {
+		t.Fatalf("expected no error for empty database, got %v", err)
+	}
+	if len(app.roots) != 0 {
+		t.Fatalf("expected empty roots, got %d", len(app.roots))
 	}
 }
 

@@ -39,7 +39,7 @@ func findBeadsDB() (string, time.Time, error) {
 	fallback := filepath.Join(homeDir, ".beads", "default.db")
 	info, err := os.Stat(fallback)
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("locate beads db: %w", err)
+		return "", time.Time{}, fmt.Errorf("no beads database found. Install beads first: https://github.com/steveyegge/beads")
 	}
 	if info.IsDir() {
 		return "", time.Time{}, fmt.Errorf("default beads db is a directory: %s", fallback)
