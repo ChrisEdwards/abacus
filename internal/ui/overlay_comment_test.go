@@ -22,8 +22,8 @@ func TestCommentOverlay_NewCommentOverlay(t *testing.T) {
 func TestCommentOverlay_EmptySubmit(t *testing.T) {
 	overlay := NewCommentOverlay("ab-123", "Test")
 
-	// Try to submit empty with Ctrl+S
-	overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	// Try to submit empty with Enter
+	overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	if overlay.errorMsg == "" {
 		t.Error("expected error message for empty comment")
@@ -34,7 +34,7 @@ func TestCommentOverlay_ValidSubmit(t *testing.T) {
 	overlay := NewCommentOverlay("ab-123", "Test")
 	overlay.textarea.SetValue("This is a valid comment")
 
-	_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	if cmd == nil {
 		t.Error("expected command to be returned")
@@ -88,11 +88,29 @@ func TestCommentOverlay_WhitespaceOnlySubmit(t *testing.T) {
 	overlay := NewCommentOverlay("ab-123", "Test")
 	overlay.textarea.SetValue("   \n\t  ")
 
-	// Try to submit whitespace-only with Ctrl+S
-	overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	// Try to submit whitespace-only with Enter
+	overlay, _ = overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	if overlay.errorMsg == "" {
 		t.Error("expected error message for whitespace-only comment")
+	}
+}
+
+func TestCommentOverlay_EnterSubmitsWithContent(t *testing.T) {
+	overlay := NewCommentOverlay("ab-123", "Test")
+	overlay.textarea.SetValue("Some text")
+
+	// Enter should submit when there's content
+	_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if cmd == nil {
+		t.Error("Enter should produce a command (submit)")
+	}
+
+	// Verify it's a submit command
+	result := cmd()
+	if _, ok := result.(CommentAddedMsg); !ok {
+		t.Error("expected CommentAddedMsg from Enter key")
 	}
 }
 

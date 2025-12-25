@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -73,13 +72,16 @@ func (m *CommentOverlay) Update(msg tea.Msg) (*CommentOverlay, tea.Cmd) {
 			}
 			return m, func() tea.Msg { return CommentCancelledMsg{} }
 
-		case tea.KeyCtrlS:
-			// Ctrl+S to submit/save
-			return m.submit()
+		case tea.KeyEnter:
+			// Slack-style: Enter submits, Shift+Enter inserts newline
+			// Shift+Enter falls through to textarea.Update() below
+			if msg.String() != "shift+enter" {
+				return m.submit()
+			}
 		}
 	}
 
-	// Pass to textarea
+	// Pass to textarea (handles Shift+Enter newline insertion)
 	var cmd tea.Cmd
 	m.textarea, cmd = m.textarea.Update(msg)
 	return m, cmd
@@ -151,13 +153,10 @@ func (m *CommentOverlay) View() string {
 
 	b.BlankLine()
 
-	// Footer - show ⌘S on Mac, ^S elsewhere
-	saveKey := "^S"
-	if runtime.GOOS == "darwin" {
-		saveKey = "⌘S"
-	}
+	// Footer - Slack-style hints
 	hints := []footerHint{
-		{saveKey, "Save"},
+		{"⏎", "Save"},
+		{"⇧⏎", "Newline"},
 		{"esc", "Cancel"},
 	}
 	b.Footer(hints)
