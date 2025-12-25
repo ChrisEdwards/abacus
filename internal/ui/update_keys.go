@@ -193,6 +193,8 @@ func (m *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.viewMode = m.viewMode.Prev()
 		m.recalcVisibleRows()
 		return m, nil
+	case key.Matches(msg, m.keys.ToggleColumns):
+		return m.handleToggleColumnsKey()
 	case key.Matches(msg, m.keys.Error):
 		if m.lastError != "" && !m.showErrorToast {
 			m.showErrorToast = true
@@ -289,6 +291,18 @@ func (m *App) handleCopyKey() (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// handleToggleColumnsKey toggles the columns display.
+func (m *App) handleToggleColumnsKey() (tea.Model, tea.Cmd) {
+	current := config.GetBool(config.KeyTreeShowColumns)
+	newVal := !current
+	_ = config.Set(config.KeyTreeShowColumns, newVal)
+	m.recalcVisibleRows()
+	m.columnsToastVisible = true
+	m.columnsToastStart = time.Now()
+	m.columnsToastEnabled = newVal
+	return m, scheduleColumnsToastTick()
 }
 
 // handleThemeKey cycles the theme forward or backward.

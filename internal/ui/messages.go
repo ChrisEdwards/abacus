@@ -66,6 +66,14 @@ func scheduleThemeToastTick() tea.Cmd {
 	})
 }
 
+type columnsToastTickMsg struct{}
+
+func scheduleColumnsToastTick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+		return columnsToastTickMsg{}
+	})
+}
+
 // Background comment loading messages (ab-fkyz)
 type startBackgroundCommentLoadMsg struct{}
 

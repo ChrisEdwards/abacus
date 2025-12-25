@@ -183,6 +183,7 @@ func (m *App) View() string {
 	var toastLayer Layer
 	toastFactories := []func(int, int, int, int) Layer{
 		m.themeToastLayer,
+		m.columnsToastLayer,
 		m.deleteToastLayer,
 		m.createToastLayer,
 		m.commentToastLayer,

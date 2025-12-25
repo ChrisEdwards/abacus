@@ -400,3 +400,48 @@ func (m *App) themeToastLayer(width, height, mainBodyStart, mainBodyHeight int) 
 	content := heroLine + "\n" + paddingSpaces + countdownStr
 	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
+
+// columnsToastLayer renders the columns toggle toast if visible.
+func (m *App) columnsToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
+	if !m.columnsToastVisible {
+		return nil
+	}
+	elapsed := time.Since(m.columnsToastStart)
+	remaining := 3 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Line 1: "Columns: ON" or "Columns: OFF"
+	icon := baseStyle().Render(" ☰ ")
+	label := styleStatsDim().Render("Columns:")
+	space := baseStyle().Render(" ")
+	var state string
+	if m.columnsToastEnabled {
+		state = styleLabelChecked().Render("ON")
+	} else {
+		state = styleStatsDim().Render("OFF")
+	}
+	heroLine := lipgloss.JoinHorizontal(lipgloss.Left, icon, label, space, state)
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
+
+	// Calculate spacing for right-aligned countdown
+	heroWidth := lipgloss.Width(heroLine)
+	countdownWidth := lipgloss.Width(countdownStr)
+
+	targetWidth := heroWidth
+	if targetWidth < 25 {
+		targetWidth = 25
+	}
+	padding := targetWidth - countdownWidth
+	if padding < 2 {
+		padding = 2
+	}
+
+	paddingSpaces := ""
+	if padding > 0 {
+		paddingSpaces = baseStyle().Render(strings.Repeat(" ", padding))
+	}
+	content := heroLine + "\n" + paddingSpaces + countdownStr
+	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
+}

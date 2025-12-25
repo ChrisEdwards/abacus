@@ -207,6 +207,16 @@ func (m *App) handleOverlayMsg(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		}
 		return m, scheduleThemeToastTick(), true
 
+	case columnsToastTickMsg:
+		if !m.columnsToastVisible {
+			return m, nil, true
+		}
+		if time.Since(m.columnsToastStart) >= 3*time.Second {
+			m.columnsToastVisible = false
+			return m, nil, true
+		}
+		return m, scheduleColumnsToastTick(), true
+
 	case DeleteConfirmedMsg:
 		m.activeOverlay = OverlayNone
 		m.deleteOverlay = nil

@@ -98,6 +98,12 @@ func TestDefaultKeyMap(t *testing.T) {
 			t.Error("expected e to match Edit binding")
 		}
 	})
+
+	t.Run("ToggleColumnsBinding", func(t *testing.T) {
+		if !key.Matches(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'C'}}, km.ToggleColumns) {
+			t.Error("expected C (Shift+c) to match ToggleColumns binding")
+		}
+	})
 }
 
 func TestKeyBindingsHaveHelpText(t *testing.T) {
@@ -130,6 +136,7 @@ func TestKeyBindingsHaveHelpText(t *testing.T) {
 		{"NewBead", km.NewBead},
 		{"NewRootBead", km.NewRootBead},
 		{"Edit", km.Edit},
+		{"ToggleColumns", km.ToggleColumns},
 	}
 
 	for _, b := range bindings {

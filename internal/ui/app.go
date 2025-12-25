@@ -204,6 +204,11 @@ type App struct {
 	commentToastStart   time.Time
 	commentToastBeadID  string
 
+	// Columns toast state
+	columnsToastVisible bool
+	columnsToastStart   time.Time
+	columnsToastEnabled bool
+
 	// Session tracking for exit summary
 	sessionStart time.Time
 	initialStats Stats

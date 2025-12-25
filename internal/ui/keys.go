@@ -49,6 +49,9 @@ type KeyMap struct {
 	// View Mode
 	CycleViewMode     key.Binding
 	CycleViewModeBack key.Binding
+
+	// Columns
+	ToggleColumns key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings for Abacus.
@@ -189,6 +192,12 @@ func DefaultKeyMap() KeyMap {
 		CycleViewModeBack: key.NewBinding(
 			key.WithKeys("V"),
 			key.WithHelp("v/V", "Cycle view"),
+		),
+
+		// Columns
+		ToggleColumns: key.NewBinding(
+			key.WithKeys("C"),
+			key.WithHelp("C", "Toggle columns"),
 		),
 	}
 }
