@@ -39,3 +39,6 @@ wt.sh
 # Release artifacts
 .release-notes.md
 specs/
+
+# bv (beads viewer) local config and caches
+.bv/

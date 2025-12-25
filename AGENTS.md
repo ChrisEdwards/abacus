@@ -195,3 +195,61 @@ Pitfalls to avoid
 - Don't create or manage tasks in Mail; treat Beads as the single task queue.
 - Always include `bd-###` in message `thread_id` to avoid ID drift across tools.
 
+
+## Memory System: cass-memory
+
+The Cass Memory System (cm) is a tool for giving agents an effective memory based on the ability to quickly search across previous coding agent sessions across an array of different coding agent tools (e.g., Claude Code, Codex, Gemini-CLI, Cursor, etc) and projects (and even across multiple machines, optionally) and then reflect on what they find and learn in new sessions to draw out useful lessons and takeaways; these lessons are then stored and can be queried and retrieved later, much like how human memory works.
+
+The `cm onboard` command guides you through analyzing historical sessions and extracting valuable rules.
+
+### Quick Start
+
+```bash
+# 1. Check status and see recommendations
+cm onboard status
+
+# 2. Get sessions to analyze (filtered by gaps in your playbook)
+cm onboard sample --fill-gaps
+
+# 3. Read a session with rich context
+cm onboard read /path/to/session.jsonl --template
+
+# 4. Add extracted rules (one at a time or batch)
+cm playbook add "Your rule content" --category "debugging"
+# Or batch add:
+cm playbook add --file rules.json
+
+# 5. Mark session as processed
+cm onboard mark-done /path/to/session.jsonl
+```
+
+Before starting complex tasks, retrieve relevant context:
+
+```bash
+cm context "<task description>" --json
+```
+
+This returns:
+- **relevantBullets**: Rules that may help with your task
+- **antiPatterns**: Pitfalls to avoid
+- **historySnippets**: Past sessions that solved similar problems
+- **suggestedCassQueries**: Searches for deeper investigation
+
+### Protocol
+
+1. **START**: Run `cm context "<task>" --json` before non-trivial work
+2. **WORK**: Reference rule IDs when following them (e.g., "Following b-8f3a2c...")
+3. **FEEDBACK**: Leave inline comments when rules help/hurt:
+   - `// [cass: helpful b-xyz] - reason`
+   - `// [cass: harmful b-xyz] - reason`
+4. **END**: Just finish your work. Learning happens automatically.
+
+### Key Flags
+
+| Flag | Purpose |
+|------|---------|
+| `--json` | Machine-readable JSON output (required!) |
+| `--limit N` | Cap number of rules returned |
+| `--no-history` | Skip historical snippets for faster response |
+
+stdout = data only, stderr = diagnostics. Exit 0 = success.

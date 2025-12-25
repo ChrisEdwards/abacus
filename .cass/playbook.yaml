@@ -1,0 +1,237 @@
+# Project-specific playbook rules
+# These are merged with your global ~/.cass-memory/playbook.yaml
+# Project rules take precedence over global rules
+schema_version: 2
+name: repo-playbook
+description: Abacus TUI design patterns and conventions
+metadata:
+  createdAt: 2025-12-25T14:40:32.756Z
+  totalReflections: 0
+  totalSessionsProcessed: 6
+deprecatedPatterns: []
+bullets:
+  - id: b-mjlkh9fh-jfp49e
+    scope: workspace
+    category: ui
+    content: For multi-line text inputs in forms, Enter should insert newlines (not
+      submit). Use Ctrl+Enter as the universal submit shortcut that works from
+      any field
+    source: learned
+    type: rule
+    isNegative: false
+    kind: workflow_rule
+    state: draft
+    maturity: candidate
+    helpfulCount: 0
+    harmfulCount: 0
+    feedbackEvents: []
+    confidenceDecayHalfLifeDays: 90
+    createdAt: 2025-12-25T14:57:41.885Z
+    updatedAt: 2025-12-25T15:05:00.000Z
+    pinned: false
+    deprecated: false
+    sourceSessions:
+      - manual-cli
+    sourceAgents:
+      - unknown
+    tags: [tui, forms]
+  - id: b-mjlkh9rc-ngj959
+    scope: workspace
+    category: ui
+    content: "Keep quick-entry modals fast and focused: essential fields only
+      (title, type, priority). Users can enrich later via detail view. Don't
+      bloat create flows with rarely-needed fields"
+    source: learned
+    type: rule
+    isNegative: false
+    kind: workflow_rule
+    state: draft
+    maturity: candidate
+    helpfulCount: 0
+    harmfulCount: 0
+    feedbackEvents: []
+    confidenceDecayHalfLifeDays: 90
+    createdAt: 2025-12-25T14:57:42.312Z
+    updatedAt: 2025-12-25T15:05:00.000Z
+    pinned: false
+    deprecated: false
+    sourceSessions:
+      - manual-cli
+    sourceAgents:
+      - unknown
+    tags: [tui, modals]
+  - id: b-mjlkhagi-who1un
+    scope: workspace
+    category: ui
+    content: "For bulk entry flows, decide per-field: does this value persist (type,
+      priority) or clear (title, description)? Persistent = same for all
+      entries, Clear = unique per entry"
+    source: learned
+    type: rule
+    isNegative: false
+    kind: workflow_rule
+    state: draft
+    maturity: candidate
+    helpfulCount: 0
+    harmfulCount: 0
+    feedbackEvents: []
+    confidenceDecayHalfLifeDays: 90
+    createdAt: 2025-12-25T14:57:43.218Z
+    updatedAt: 2025-12-25T15:05:00.000Z
+    pinned: false
+    deprecated: false
+    sourceSessions:
+      - manual-cli
+    sourceAgents:
+      - unknown
+    tags: [tui, forms]
+  - id: b-mjlkjii5-mtfzwf
+    scope: workspace
+    category: ui
+    content: Scannability over readability - users should understand UI elements in
+      under 1 second. Use icons and colors to communicate faster than words.
+      Single focal point - one thing draws the eye
+    source: learned
+    type: rule
+    isNegative: false
+    kind: workflow_rule
+    state: draft
+    maturity: candidate
+    helpfulCount: 0
+    harmfulCount: 0
+    feedbackEvents: []
+    confidenceDecayHalfLifeDays: 90
+    createdAt: 2025-12-25T14:59:26.957Z
+    updatedAt: 2025-12-25T15:05:00.000Z
+    pinned: false
+    deprecated: false
+    sourceSessions:
+      - manual-cli
+    sourceAgents:
+      - unknown
+    tags: [tui, design]
+  - id: b-mjlkjitf-plylle
+    scope: workspace
+    category: ui
+    content: "For cursor vs selection state: cursor uses background highlight (where
+      you ARE), selection uses foreground color (what's CHECKED). Never use same
+      color for both - creates confusion"
+    source: learned
+    type: rule
+    isNegative: false
+    kind: workflow_rule
+    state: draft
+    maturity: candidate
+    helpfulCount: 0
+    harmfulCount: 0
+    feedbackEvents: []
+    confidenceDecayHalfLifeDays: 90
+    createdAt: 2025-12-25T14:59:27.363Z
+    updatedAt: 2025-12-25T15:05:00.000Z
+    pinned: false
+    deprecated: false
+    sourceSessions:
+      - manual-cli
+    sourceAgents:
+      - unknown
+    tags: [tui, selection]
+  - id: b-mjlkjj65-h5hsiz
+    scope: workspace
+    category: ui
+    content: "Color-coded feedback: Green = additions/positive (+label), Red =
+      removals/negative (-label), Gray = neutral/supporting info. Universal
+      associations for instant comprehension"
+    source: learned
+    type: rule
+    isNegative: false
+    kind: workflow_rule
+    state: draft
+    maturity: candidate
+    helpfulCount: 0
+    harmfulCount: 0
+    feedbackEvents: []
+    confidenceDecayHalfLifeDays: 90
+    createdAt: 2025-12-25T14:59:27.821Z
+    updatedAt: 2025-12-25T15:05:00.000Z
+    pinned: false
+    deprecated: false
+    sourceSessions:
+      - manual-cli
+    sourceAgents:
+      - unknown
+    tags: [tui, colors]
+  - id: b-mjlkjjj3-5gjzjs
+    scope: workspace
+    category: ui
+    content: "Toast notifications: hero line (action + result in color) + supporting
+      line (ID + countdown). 7 second duration with visible countdown. Trigger
+      data refresh after successful action"
+    source: learned
+    type: rule
+    isNegative: false
+    kind: workflow_rule
+    state: draft
+    maturity: candidate
+    helpfulCount: 0
+    harmfulCount: 0
+    feedbackEvents: []
+    confidenceDecayHalfLifeDays: 90
+    createdAt: 2025-12-25T14:59:28.287Z
+    updatedAt: 2025-12-25T15:05:00.000Z
+    pinned: false
+    deprecated: false
+    sourceSessions:
+      - manual-cli
+    sourceAgents:
+      - unknown
+    tags: [tui, toast]
+  - id: b-mjlkjjw9-mnqcpz
+    scope: workspace
+    category: ui
+    content: "Overlay design: breadcrumb header (subject > field), no verbose titles
+      (options make it obvious), hotkeys in footer not inline, disable invalid
+      options (gray out, skip in navigation)"
+    source: learned
+    type: rule
+    isNegative: false
+    kind: workflow_rule
+    state: draft
+    maturity: candidate
+    helpfulCount: 0
+    harmfulCount: 0
+    feedbackEvents: []
+    confidenceDecayHalfLifeDays: 90
+    createdAt: 2025-12-25T14:59:28.761Z
+    updatedAt: 2025-12-25T15:05:00.000Z
+    pinned: false
+    deprecated: false
+    sourceSessions:
+      - manual-cli
+    sourceAgents:
+      - unknown
+    tags: [tui, overlays]
+  - id: b-mjlkjka2-3rnt5d
+    scope: workspace
+    category: ui
+    content: "Hotkey design: mnemonic (o=Open, i=In progress, c=Close), discoverable
+      (show in footer), enable quick chaining workflows (si = open popup +
+      select in-progress)"
+    source: learned
+    type: rule
+    isNegative: false
+    kind: workflow_rule
+    state: draft
+    maturity: candidate
+    helpfulCount: 0
+    harmfulCount: 0
+    feedbackEvents: []
+    confidenceDecayHalfLifeDays: 90
+    createdAt: 2025-12-25T14:59:29.258Z
+    updatedAt: 2025-12-25T15:05:00.000Z
+    pinned: false
+    deprecated: false
+    sourceSessions:
+      - manual-cli
+    sourceAgents:
+      - unknown
+    tags: [tui, hotkeys]
