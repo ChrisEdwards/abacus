@@ -121,6 +121,68 @@ if node.SupersededBy != nil {
 2. **duplicates**: Run `bd duplicate X --of Y`, verify X shows "Duplicate Of: Y" in detail view
 3. **supersedes**: Run `bd supersede X --with Y`, verify X shows "Superseded By: Y" in detail view
 
+## Backward Compatibility (beads v0.0.30)
+
+Abacus must work with both beads v0.0.30 (no graph link columns) and v0.0.31+ (has columns).
+
+### Problem
+
+The SQLite client queries the `issues` table directly. If we add `duplicate_of, superseded_by` to the SELECT and those columns don't exist, the query fails.
+
+### Solution: Lazy Schema Detection
+
+**File:** `internal/beads/sqlite_client.go`
+
+```go
+type sqliteClient struct {
+    // ... existing fields ...
+
+    // Schema detection (lazy, cached)
+    schemaOnce       sync.Once
+    hasGraphLinkCols bool
+}
+
+func (c *sqliteClient) detectSchema(ctx context.Context, db *sql.DB) {
+    c.schemaOnce.Do(func() {
+        rows, _ := db.QueryContext(ctx, `PRAGMA table_info(issues)`)
+        if rows == nil {
+            return
+        }
+        defer rows.Close()
+
+        for rows.Next() {
+            var cid int
+            var name, colType string
+            var notNull, pk int
+            var dfltValue sql.NullString
+            rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk)
+            if name == "duplicate_of" || name == "superseded_by" {
+                c.hasGraphLinkCols = true
+                return
+            }
+        }
+    })
+}
+```
+
+In `loadIssues()`, conditionally include columns:
+
+```go
+c.detectSchema(ctx, db)
+
+cols := `id, title, ...`
+if c.hasGraphLinkCols {
+    cols += `, COALESCE(duplicate_of, ''), COALESCE(superseded_by, '')`
+}
+```
+
+### Why This Approach?
+
+- **Lazy**: No cost if Export() never called
+- **Cached**: sync.Once ensures detection runs exactly once
+- **Safe**: Missing columns → empty strings, no errors
+- **No version checks**: Works regardless of beads version string
+
 ## Notes
 
 - `related` vs `relates-to`: Both map to `node.Related`. The old `related` is one-way (manual), the new `relates-to` is bidirectional (auto). Dedup check prevents double-linking.
