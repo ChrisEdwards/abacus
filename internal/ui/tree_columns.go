@@ -103,29 +103,41 @@ func prepareColumnState(totalWidth int) (columnState, int) {
 		return columnState{}, totalWidth
 	}
 
-	state := columnState{
-		columns: make([]treeColumn, 0, len(defaultTreeColumns)),
-	}
+	// Gather all enabled columns
+	enabledCols := make([]treeColumn, 0, len(defaultTreeColumns))
 	for _, col := range defaultTreeColumns {
 		if config.GetBool(col.ConfigKey) {
-			state.columns = append(state.columns, col)
+			enabledCols = append(enabledCols, col)
 		}
 	}
-	if len(state.columns) == 0 {
+	if len(enabledCols) == 0 {
 		return columnState{}, totalWidth
 	}
 
-	state.totalWidth = columnSeparatorWidth
-	for _, col := range state.columns {
-		state.totalWidth += col.Width
+	// Progressive hiding: remove columns from right to left until they fit
+	// Columns are ordered left-to-right by priority (leftmost = highest priority)
+	// so we remove from the end (rightmost = lowest priority = hides first)
+	for len(enabledCols) > 0 {
+		width := columnSeparatorWidth
+		for _, col := range enabledCols {
+			width += col.Width
+		}
+
+		treeWidth := totalWidth - width
+		if treeWidth >= minTreeWidth {
+			// Columns fit while respecting minimum tree width
+			return columnState{
+				columns:    enabledCols,
+				totalWidth: width,
+			}, treeWidth
+		}
+
+		// Remove rightmost column (lowest priority) and try again
+		enabledCols = enabledCols[:len(enabledCols)-1]
 	}
 
-	treeWidth := totalWidth - state.totalWidth
-	if treeWidth < minTreeWidth {
-		// Not enough space to show columns while respecting minimum tree width.
-		return columnState{}, totalWidth
-	}
-	return state, treeWidth
+	// No columns fit - return empty state
+	return columnState{}, totalWidth
 }
 
 func renderLastUpdatedColumn(node *graph.Node) string {
