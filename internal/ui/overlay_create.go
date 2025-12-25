@@ -397,14 +397,22 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 				return m, nil
 			}
 
-			// Ctrl+Enter always submits
+			// Ctrl+Enter bulk mode (removal is ab-6yr0)
 			if msg.String() == "ctrl+enter" {
 				return m.handleSubmit(true)
 			}
-			// Regular Enter submits if not in a dropdown and not in description
-			// (Description field uses Enter for newlines, not submit)
+
+			// In description field: Slack-style Enter submits, Shift+Enter for newline
+			if m.focus == FocusDescription {
+				if msg.String() == "shift+enter" {
+					return m.handleZoneInput(msg)
+				}
+				return m.handleSubmit(false)
+			}
+
+			// Other fields: Enter submits if not in dropdown
 			// Also check if labelsCombo has a pending value (ab-mod2: value selected but not yet added as chip)
-			if !m.isAnyDropdownOpen() && m.focus != FocusDescription && m.labelsCombo.combo.Value() == "" {
+			if !m.isAnyDropdownOpen() && m.labelsCombo.combo.Value() == "" {
 				return m.handleSubmit(false)
 			}
 
