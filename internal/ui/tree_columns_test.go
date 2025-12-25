@@ -3,8 +3,16 @@ package ui
 import (
 	"testing"
 
+	"abacus/internal/beads"
 	"abacus/internal/config"
+	"abacus/internal/graph"
 )
+
+func makeTestNodeWithComments(count int) *graph.Node {
+	node := &graph.Node{CommentsLoaded: true}
+	node.Issue.Comments = make([]beads.Comment, count)
+	return node
+}
 
 func TestPrepareColumnState_ResponsiveHiding(t *testing.T) {
 	// Save original config and restore after test
@@ -81,4 +89,43 @@ func TestPrepareColumnState_ResponsiveHiding(t *testing.T) {
 			t.Fatalf("expected full width returned, got %d", treeWidth)
 		}
 	})
+}
+
+func TestRenderCommentsColumn(t *testing.T) {
+	tests := []struct {
+		name     string
+		count    int
+		expected string
+	}{
+		{name: "zero comments", count: 0, expected: ""},
+		{name: "one comment no space", count: 1, expected: "💬1"},
+		{name: "five comments no space", count: 5, expected: "💬5"},
+		{name: "nine comments no space", count: 9, expected: "💬9"},
+		{name: "ten comments", count: 10, expected: "💬10"},
+		{name: "fifty comments", count: 50, expected: "💬50"},
+		{name: "ninety nine comments", count: 99, expected: "💬99"},
+		{name: "over ninety nine capped", count: 100, expected: "💬99+"},
+		{name: "way over ninety nine", count: 500, expected: "💬99+"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			node := makeTestNodeWithComments(tt.count)
+			got := renderCommentsColumn(node)
+			if got != tt.expected {
+				t.Errorf("renderCommentsColumn(%d comments) = %q, want %q", tt.count, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestRenderCommentsColumn_NoNode(t *testing.T) {
+	if got := renderCommentsColumn(nil); got != "" {
+		t.Errorf("renderCommentsColumn(nil) = %q, want empty", got)
+	}
+
+	node := &graph.Node{CommentsLoaded: false}
+	if got := renderCommentsColumn(node); got != "" {
+		t.Errorf("renderCommentsColumn(not loaded) = %q, want empty", got)
+	}
 }

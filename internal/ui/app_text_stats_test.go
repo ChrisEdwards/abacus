@@ -158,7 +158,7 @@ func TestBuildTreeLines_RendersCommentColumn(t *testing.T) {
 	if len(lines) != 1 {
 		t.Fatalf("expected single line output, got %d", len(lines))
 	}
-	if !strings.Contains(lines[0], "💬 2") {
+	if !strings.Contains(lines[0], "💬2") {
 		t.Fatalf("expected comment column, got %q", lines[0])
 	}
 }

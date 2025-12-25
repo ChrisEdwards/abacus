@@ -25,11 +25,15 @@ func TestFormatRelativeTime(t *testing.T) {
 		{name: "over one hour", ts: fixedNow.Add(-61 * time.Minute), want: "1h ago"},
 		{name: "days", ts: fixedNow.Add(-48 * time.Hour), want: "2d ago"},
 		{name: "six days", ts: fixedNow.Add(-6 * 24 * time.Hour), want: "6d ago"},
-		{name: "seven days absolute", ts: fixedNow.Add(-7 * 24 * time.Hour), want: "Dec 18"},
+		{name: "seven days relative", ts: fixedNow.Add(-7 * 24 * time.Hour), want: "7d ago"},
+		{name: "fifteen days relative", ts: fixedNow.Add(-15 * 24 * time.Hour), want: "15d ago"},
+		{name: "thirty days relative", ts: fixedNow.Add(-30 * 24 * time.Hour), want: "30d ago"},
+		{name: "ninety nine days relative", ts: fixedNow.Add(-99 * 24 * time.Hour), want: "99d ago"},
+		{name: "hundred days absolute", ts: fixedNow.Add(-100 * 24 * time.Hour), want: "Sep 16"},
 		{
 			name: "previous year absolute",
-			ts:   time.Date(2024, time.December, 31, 23, 0, 0, 0, time.UTC),
-			want: "Dec '24",
+			ts:   time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+			want: "Jan '24",
 		},
 	}
 

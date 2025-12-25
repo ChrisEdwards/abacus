@@ -35,7 +35,7 @@ func FormatRelativeTime(t time.Time) string {
 	case diff < 24*time.Hour:
 		hours := int(diff / time.Hour)
 		return fmt.Sprintf("%dh ago", hours)
-	case diff < 7*24*time.Hour:
+	case diff < 100*24*time.Hour:
 		days := int(diff / (24 * time.Hour))
 		return fmt.Sprintf("%dd ago", days)
 	default:

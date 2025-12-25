@@ -162,9 +162,7 @@ func renderCommentsColumn(node *graph.Node) string {
 	switch {
 	case count > 99:
 		return "💬99+"
-	case count > 9:
-		return fmt.Sprintf("💬%d", count)
 	default:
-		return fmt.Sprintf("💬 %d", count)
+		return fmt.Sprintf("💬%d", count)
 	}
 }
