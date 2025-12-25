@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"abacus/internal/config"
 	"abacus/internal/domain"
 
 	"github.com/charmbracelet/lipgloss"
@@ -61,6 +62,7 @@ func (m *App) renderTreeView() string {
 func (m *App) buildTreeLines(treeWidth int) ([]string, int, int) {
 	lines := make([]string, 0, len(m.visibleRows))
 	cursorStart, cursorEnd := -1, -1
+	showColumns := config.GetBool(config.KeyTreeShowColumns)
 
 	// Track which nodes are selected for cross-highlighting
 	var selectedID string
@@ -103,15 +105,22 @@ func (m *App) buildTreeLines(treeWidth int) ([]string, int, int) {
 			idDisplay = node.Issue.ID + "*"
 		}
 
-		wrapWidth := treeWidth - 4
-		if wrapWidth < 1 {
-			wrapWidth = 1
-		}
 		totalPrefixWidth := treePrefixWidth(indent, marker, iconStr, idDisplay)
-		wrappedTitle := wrapWithHangingIndent(totalPrefixWidth, node.Issue.Title, wrapWidth)
-		titleLines := strings.Split(wrappedTitle, "\n")
-		if len(titleLines) == 0 {
-			titleLines = []string{""}
+		titleLines := []string{node.Issue.Title}
+
+		if showColumns {
+			availableWidth := treeWidth - totalPrefixWidth
+			titleLines[0] = truncateWithEllipsis(node.Issue.Title, availableWidth)
+		} else {
+			wrapWidth := treeWidth - 4
+			if wrapWidth < 1 {
+				wrapWidth = 1
+			}
+			wrappedTitle := wrapWithHangingIndent(totalPrefixWidth, node.Issue.Title, wrapWidth)
+			titleLines = strings.Split(wrappedTitle, "\n")
+			if len(titleLines) == 0 {
+				titleLines = []string{""}
+			}
 		}
 
 		// Cross-highlighting: same node appears under multiple parents
@@ -221,6 +230,32 @@ func wrapWithHangingIndent(prefixWidth int, text string, maxWidth int) string {
 		sb.WriteString(lines[i])
 	}
 	return sb.String()
+}
+
+func truncateWithEllipsis(text string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+
+	if lipgloss.Width(text) <= maxWidth {
+		return text
+	}
+
+	ellipsis := "..."
+	ellipsisWidth := lipgloss.Width(ellipsis)
+	if maxWidth <= ellipsisWidth {
+		return strings.Repeat(".", maxWidth)
+	}
+
+	runes := []rune(text)
+	for i := len(runes); i >= 0; i-- {
+		candidate := string(runes[:i])
+		if lipgloss.Width(candidate)+ellipsisWidth <= maxWidth {
+			return candidate + ellipsis
+		}
+	}
+
+	return strings.Repeat(".", maxWidth)
 }
 
 func treePrefixWidth(indent, marker, icon, id string) int {

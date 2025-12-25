@@ -5,7 +5,10 @@ import (
 	"testing"
 
 	"abacus/internal/beads"
+	"abacus/internal/config"
 	"abacus/internal/graph"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 func TestWrapWithHangingIndent(t *testing.T) {
@@ -46,6 +49,65 @@ func TestIndentBlock(t *testing.T) {
 	want := "  first line\n\n  third line"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestTruncateWithEllipsis(t *testing.T) {
+	t.Run("returnsOriginalWhenFits", func(t *testing.T) {
+		text := "short"
+		got := truncateWithEllipsis(text, 10)
+		if got != text {
+			t.Fatalf("expected %q, got %q", text, got)
+		}
+	})
+
+	t.Run("truncatesAndAppendsEllipsis", func(t *testing.T) {
+		text := "this title should be truncated"
+		got := truncateWithEllipsis(text, 12)
+		if !strings.HasSuffix(got, "...") {
+			t.Fatalf("expected ellipsis suffix, got %q", got)
+		}
+		if lipgloss.Width(got) > 12 {
+			t.Fatalf("expected truncated text to fit within width, got width %d", lipgloss.Width(got))
+		}
+	})
+
+	t.Run("handlesVeryNarrowWidths", func(t *testing.T) {
+		if got := truncateWithEllipsis("wide", 2); got != ".." {
+			t.Fatalf("expected fallback to dots for narrow width, got %q", got)
+		}
+	})
+}
+
+func TestBuildTreeLines_TruncatesWhenColumnsEnabled(t *testing.T) {
+	previous := config.GetBool(config.KeyTreeShowColumns)
+	if err := config.Set(config.KeyTreeShowColumns, true); err != nil {
+		t.Fatalf("failed to set showColumns: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = config.Set(config.KeyTreeShowColumns, previous)
+	})
+
+	node := &graph.Node{Issue: beads.FullIssue{ID: "ab-111", Title: "This is a very long title that should wrap or truncate for testing purposes", Status: "open"}}
+	m := App{
+		visibleRows: []graph.TreeRow{{Node: node}},
+		cursor:      -1,
+	}
+
+	lines, _, _ := m.buildTreeLines(30)
+	if len(lines) != 1 {
+		t.Fatalf("expected single line when columns enabled, got %d", len(lines))
+	}
+	if !strings.Contains(lines[0], "...") {
+		t.Fatalf("expected ellipsis in truncated title, got %q", lines[0])
+	}
+
+	if err := config.Set(config.KeyTreeShowColumns, false); err != nil {
+		t.Fatalf("failed to disable showColumns: %v", err)
+	}
+	wrappedLines, _, _ := m.buildTreeLines(30)
+	if len(wrappedLines) <= 1 {
+		t.Fatalf("expected wrapped lines when columns disabled, got %d", len(wrappedLines))
 	}
 }
 
