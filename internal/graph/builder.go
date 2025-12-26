@@ -74,6 +74,20 @@ func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
 		}
 	}
 
+	// Resolve graph link fields (duplicate_of, superseded_by)
+	for _, node := range nodeMap {
+		if node.Issue.DuplicateOf != "" {
+			if canonical, ok := nodeMap[node.Issue.DuplicateOf]; ok {
+				node.DuplicateOf = canonical
+			}
+		}
+		if node.Issue.SupersededBy != "" {
+			if replacement, ok := nodeMap[node.Issue.SupersededBy]; ok {
+				node.SupersededBy = replacement
+			}
+		}
+	}
+
 	for _, node := range nodeMap {
 		if len(node.Parents) <= 1 {
 			continue

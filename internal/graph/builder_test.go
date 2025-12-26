@@ -645,3 +645,181 @@ func TestBuilderDiscoveredFromRelationships(t *testing.T) {
 		t.Fatalf("expected discovered to have no parents from discovered-from relationship")
 	}
 }
+
+func TestBuilderDuplicateOfResolution(t *testing.T) {
+	issues := []beads.FullIssue{
+		{
+			ID:          "ab-dup",
+			Title:       "Duplicate Issue",
+			Status:      "closed",
+			CreatedAt:   "2024-01-02T00:00:00Z",
+			UpdatedAt:   "2024-01-02T00:00:00Z",
+			DuplicateOf: "ab-canonical",
+		},
+		{
+			ID:        "ab-canonical",
+			Title:     "Canonical Issue",
+			Status:    "open",
+			CreatedAt: "2024-01-01T00:00:00Z",
+			UpdatedAt: "2024-01-01T00:00:00Z",
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	var dup *Node
+	for _, r := range roots {
+		if r.Issue.ID == "ab-dup" {
+			dup = r
+			break
+		}
+	}
+	if dup == nil {
+		t.Fatalf("duplicate node not found")
+	}
+
+	// DuplicateOf should be resolved to canonical node
+	if dup.DuplicateOf == nil {
+		t.Fatalf("expected DuplicateOf to be resolved")
+	}
+	if dup.DuplicateOf.Issue.ID != "ab-canonical" {
+		t.Fatalf("expected DuplicateOf to point to ab-canonical, got %s", dup.DuplicateOf.Issue.ID)
+	}
+
+	// DuplicateOf should NOT affect parent-child relationship
+	if len(dup.Parents) != 0 {
+		t.Fatalf("expected dup to have no parents from duplicate relationship")
+	}
+}
+
+func TestBuilderSupersededByResolution(t *testing.T) {
+	issues := []beads.FullIssue{
+		{
+			ID:           "ab-old",
+			Title:        "Old Issue",
+			Status:       "closed",
+			CreatedAt:    "2024-01-01T00:00:00Z",
+			UpdatedAt:    "2024-01-01T00:00:00Z",
+			SupersededBy: "ab-new",
+		},
+		{
+			ID:        "ab-new",
+			Title:     "New Issue",
+			Status:    "open",
+			CreatedAt: "2024-01-02T00:00:00Z",
+			UpdatedAt: "2024-01-02T00:00:00Z",
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	var old *Node
+	for _, r := range roots {
+		if r.Issue.ID == "ab-old" {
+			old = r
+			break
+		}
+	}
+	if old == nil {
+		t.Fatalf("old node not found")
+	}
+
+	// SupersededBy should be resolved to replacement node
+	if old.SupersededBy == nil {
+		t.Fatalf("expected SupersededBy to be resolved")
+	}
+	if old.SupersededBy.Issue.ID != "ab-new" {
+		t.Fatalf("expected SupersededBy to point to ab-new, got %s", old.SupersededBy.Issue.ID)
+	}
+
+	// SupersededBy should NOT affect parent-child relationship
+	if len(old.Parents) != 0 {
+		t.Fatalf("expected old to have no parents from supersede relationship")
+	}
+}
+
+func TestBuilderGraphLinksWithMissingTarget(t *testing.T) {
+	// When duplicate_of or superseded_by reference an issue not in the current view,
+	// the pointers should remain nil (graceful degradation)
+	issues := []beads.FullIssue{
+		{
+			ID:           "ab-orphan",
+			Title:        "Orphan Issue",
+			Status:       "closed",
+			CreatedAt:    "2024-01-01T00:00:00Z",
+			UpdatedAt:    "2024-01-01T00:00:00Z",
+			DuplicateOf:  "ab-missing-canonical",
+			SupersededBy: "ab-missing-replacement",
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	var orphan *Node
+	for _, r := range roots {
+		if r.Issue.ID == "ab-orphan" {
+			orphan = r
+			break
+		}
+	}
+	if orphan == nil {
+		t.Fatalf("orphan node not found")
+	}
+
+	// Pointers should be nil when target is not found
+	if orphan.DuplicateOf != nil {
+		t.Fatalf("expected DuplicateOf to be nil when target missing")
+	}
+	if orphan.SupersededBy != nil {
+		t.Fatalf("expected SupersededBy to be nil when target missing")
+	}
+}
+
+func TestBuilderGraphLinksBackwardCompatibility(t *testing.T) {
+	// Issues from beads v0.0.30 won't have duplicate_of/superseded_by fields
+	// (they'll be empty strings). Builder should handle gracefully.
+	issues := []beads.FullIssue{
+		{
+			ID:           "ab-legacy",
+			Title:        "Legacy Issue",
+			Status:       "open",
+			CreatedAt:    "2024-01-01T00:00:00Z",
+			UpdatedAt:    "2024-01-01T00:00:00Z",
+			DuplicateOf:  "", // Empty from old beads versions
+			SupersededBy: "", // Empty from old beads versions
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	var legacy *Node
+	for _, r := range roots {
+		if r.Issue.ID == "ab-legacy" {
+			legacy = r
+			break
+		}
+	}
+	if legacy == nil {
+		t.Fatalf("legacy node not found")
+	}
+
+	// Pointers should be nil when fields are empty
+	if legacy.DuplicateOf != nil {
+		t.Fatalf("expected DuplicateOf to be nil for empty field")
+	}
+	if legacy.SupersededBy != nil {
+		t.Fatalf("expected SupersededBy to be nil for empty field")
+	}
+}
