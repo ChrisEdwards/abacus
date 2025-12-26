@@ -6,7 +6,7 @@ package ui
 // The goal is to surface actionable items first and show logical implementation order.
 //
 // Sorting principles:
-// - sortSubtasks: Status-first (in_progress → ready → blocked → closed),
+// - sortSubtasks: Status-first (in_progress → ready → blocked → deferred → closed),
 //   within ready: high-impact items (that unblock others) first,
 //   within blocked: items closest to ready (fewest blockers) first
 // - sortBlockers: Topological order - items you can work on now appear first,
@@ -25,7 +25,8 @@ const (
 	statusInProgress = 1
 	statusReady      = 2
 	statusBlocked    = 3
-	statusClosed     = 4
+	statusDeferred   = 4
+	statusClosed     = 5
 )
 
 // nodeStatusCategory returns the sorting category for a node
@@ -35,6 +36,12 @@ func nodeStatusCategory(n *graph.Node) int {
 		return statusInProgress
 	case "closed":
 		return statusClosed
+	case "blocked":
+		// Explicit blocked status
+		return statusBlocked
+	case "deferred":
+		// Deferred (on ice) - lower priority than blocked
+		return statusDeferred
 	default: // open
 		if n.IsBlocked {
 			return statusBlocked
