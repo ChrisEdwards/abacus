@@ -38,9 +38,12 @@ func nodeMatchesViewMode(mode ViewMode, node *graph.Node) bool {
 		// Fallback to direct string comparison
 		switch mode {
 		case ViewModeActive:
-			return node.Issue.Status != "closed"
+			// Active excludes closed, blocked, and deferred
+			s := node.Issue.Status
+			return s != "closed" && s != "blocked" && s != "deferred"
 		case ViewModeReady:
-			return node.Issue.Status != "closed" && !node.IsBlocked
+			// Ready = open status + not blocked by dependencies
+			return node.Issue.Status == "open" && !node.IsBlocked
 		default:
 			return true
 		}
@@ -48,10 +51,11 @@ func nodeMatchesViewMode(mode ViewMode, node *graph.Node) bool {
 
 	switch mode {
 	case ViewModeActive:
-		// Show non-closed issues
-		return domainIssue.Status() != domain.StatusClosed
+		// Active excludes closed, blocked, and deferred
+		s := domainIssue.Status()
+		return s != domain.StatusClosed && s != domain.StatusBlocked && s != domain.StatusDeferred
 	case ViewModeReady:
-		// Show ready issues (open + not blocked)
+		// Ready = open status + not blocked by dependencies
 		return domainIssue.IsReady()
 	default:
 		return true
