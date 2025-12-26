@@ -18,6 +18,10 @@ type Node struct {
 	Related        []*Node
 	DiscoveredFrom []*Node
 
+	// Graph link pointers (resolved from issue fields)
+	DuplicateOf  *Node // Points to canonical issue (this is a duplicate)
+	SupersededBy *Node // Points to replacement issue (this is obsolete)
+
 	IsBlocked      bool
 	CommentsLoaded bool
 	CommentError   string
