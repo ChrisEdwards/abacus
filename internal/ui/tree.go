@@ -99,7 +99,14 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 			iconStr, iconStyle, textStyle = "◐", styleIconInProgress(), styleInProgressText()
 		case "closed":
 			iconStr, iconStyle, textStyle = "✔", styleIconDone(), styleDoneText()
+		case "blocked":
+			// Explicit blocked status - same visual as dependency-blocked
+			iconStr, iconStyle, textStyle = "⛔", styleIconBlocked(), styleBlockedText()
+		case "deferred":
+			// Deferred (on ice) - snowflake icon with muted styling
+			iconStr, iconStyle, textStyle = "❄", styleIconDeferred(), styleDeferredText()
 		default:
+			// Open status - check if blocked by dependencies
 			if node.IsBlocked {
 				iconStr, iconStyle, textStyle = "⛔", styleIconBlocked(), styleBlockedText()
 			}

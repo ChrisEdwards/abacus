@@ -75,7 +75,6 @@ func styleBlockedText() lipgloss.Style {
 	return baseStyle().Foreground(currentThemeWrapper().Error())
 }
 
-//nolint:unused // Used by ab-lqny and ab-meoq beads for deferred status rendering
 func styleDeferredText() lipgloss.Style {
 	return baseStyle().Foreground(currentThemeWrapper().TextMuted())
 }
@@ -114,7 +113,6 @@ func styleIconBlocked() lipgloss.Style {
 	return baseStyle().Foreground(currentThemeWrapper().Error())
 }
 
-//nolint:unused // Used by ab-lqny and ab-meoq beads for deferred status icon
 func styleIconDeferred() lipgloss.Style {
 	return baseStyle().Foreground(currentThemeWrapper().Secondary())
 }
