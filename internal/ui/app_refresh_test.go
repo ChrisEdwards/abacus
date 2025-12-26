@@ -625,3 +625,50 @@ func TestRefreshUpdatesLastDBModTimeToLatest(t *testing.T) {
 		t.Fatal("expected refreshInFlight to be false after refreshComplete")
 	}
 }
+
+func TestFindBeadsDBReturnsHelpfulErrorWhenNoDatabaseFound(t *testing.T) {
+	// Set up an empty temp directory with no database anywhere
+	t.Setenv("BEADS_DB", "")
+	projectDir := t.TempDir()
+	cleanup := changeWorkingDir(t, projectDir)
+	defer cleanup()
+
+	// Use a temp home directory that also has no database
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	_, _, err := findBeadsDB()
+	if err == nil {
+		t.Fatal("expected error when no database found")
+	}
+
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "beads init") {
+		t.Errorf("error message should mention 'beads init', got: %s", errMsg)
+	}
+	if !strings.Contains(errMsg, "github.com/steveyegge/beads") {
+		t.Errorf("error message should mention GitHub URL, got: %s", errMsg)
+	}
+}
+
+func TestNewAppReturnsErrorWhenNoDatabaseAndNoClient(t *testing.T) {
+	// Set up an empty environment with no database
+	t.Setenv("BEADS_DB", "")
+	projectDir := t.TempDir()
+	cleanup := changeWorkingDir(t, projectDir)
+	defer cleanup()
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Call NewApp with no injected client - should fail with helpful error
+	_, err := NewApp(Config{})
+	if err == nil {
+		t.Fatal("expected NewApp to return error when no database found")
+	}
+
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "beads init") {
+		t.Errorf("error message should mention 'beads init', got: %s", errMsg)
+	}
+}
