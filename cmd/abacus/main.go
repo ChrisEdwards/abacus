@@ -13,6 +13,7 @@ import (
 	"abacus/internal/config"
 	"abacus/internal/ui"
 	"abacus/internal/ui/theme"
+	"abacus/internal/update"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -236,12 +237,31 @@ func runWithRuntime(
 		spinner = spinnerFactory()
 	}
 
+	// Start async update check (ab-a4qc)
+	var updateChan chan *update.UpdateInfo
+	if Version != "" && Version != "dev" && Version != "development" {
+		updateChan = make(chan *update.UpdateInfo, 1)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					updateChan <- nil
+				}
+			}()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			checker := update.NewChecker(update.DefaultRepoOwner, update.DefaultRepoName)
+			info, _ := checker.Check(ctx, Version)
+			updateChan <- info // nil on error, which is fine
+		}()
+	}
+
 	cfg := ui.Config{
 		RefreshInterval: runtime.refreshInterval,
 		AutoRefresh:     runtime.autoRefresh,
 		DBPathOverride:  runtime.dbPath,
 		OutputFormat:    runtime.outputFormat,
 		Version:         Version,
+		UpdateChan:      updateChan,
 	}
 	if spinner != nil {
 		cfg.StartupReporter = spinner

@@ -80,6 +80,7 @@ type Config struct {
 	StartupReporter StartupReporter
 	Client          beads.Client
 	Version         string // Version string to display in header
+	UpdateChan      <-chan *update.UpdateInfo
 }
 
 // errorSource tracks where the last error originated so refresh success can
@@ -218,6 +219,7 @@ type App struct {
 	updateInProgress bool
 	//nolint:unused // Used by ab-y0fn (update hotkey feature)
 	updateError string
+	updateChan  <-chan *update.UpdateInfo
 
 	// Session tracking for exit summary
 	sessionStart time.Time
@@ -317,6 +319,7 @@ func NewApp(cfg Config) (*App, error) {
 		spinner:         s,
 		keys:            DefaultKeyMap(),
 		sessionStart:    time.Now(),
+		updateChan:      cfg.UpdateChan,
 	}
 	if dbErr != nil {
 		app.lastRefreshStats = fmt.Sprintf("refresh unavailable: %v", dbErr)
@@ -338,6 +341,10 @@ func (m *App) Init() tea.Cmd {
 	}
 	// Start background comment loading after TUI is displayed (ab-fkyz)
 	cmds = append(cmds, scheduleBackgroundCommentLoad())
+	// Start waiting for update check result (ab-a4qc)
+	if m.updateChan != nil {
+		cmds = append(cmds, m.waitForUpdateCheck())
+	}
 	return tea.Batch(cmds...)
 }
 

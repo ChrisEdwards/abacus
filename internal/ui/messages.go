@@ -6,6 +6,7 @@ import (
 	"abacus/internal/beads"
 	"abacus/internal/config"
 	"abacus/internal/graph"
+	"abacus/internal/update"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -94,4 +95,28 @@ func scheduleBackgroundCommentLoad() tea.Cmd {
 	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
 		return startBackgroundCommentLoadMsg{}
 	})
+}
+
+// Update check messages (ab-a4qc)
+type updateAvailableMsg struct {
+	info *update.UpdateInfo
+}
+
+type updateToastTickMsg struct{}
+
+func scheduleUpdateToastTick() tea.Cmd {
+	return tea.Tick(time.Second, func(time.Time) tea.Msg {
+		return updateToastTickMsg{}
+	})
+}
+
+// waitForUpdateCheck returns a tea.Cmd that waits for the update check result.
+func (m *App) waitForUpdateCheck() tea.Cmd {
+	return func() tea.Msg {
+		if m.updateChan == nil {
+			return nil
+		}
+		info := <-m.updateChan
+		return updateAvailableMsg{info: info}
+	}
 }

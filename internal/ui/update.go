@@ -127,6 +127,25 @@ func (m *App) handleBackgroundMsg(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		}
 		return m, scheduleCopyToastTick(), true
 
+	case updateAvailableMsg:
+		if msg.info != nil && msg.info.UpdateAvailable {
+			m.updateInfo = msg.info
+			m.updateToastVisible = true
+			m.updateToastStart = time.Now()
+			return m, scheduleUpdateToastTick(), true
+		}
+		return m, nil, true
+
+	case updateToastTickMsg:
+		if !m.updateToastVisible {
+			return m, nil, true
+		}
+		if time.Since(m.updateToastStart) >= 10*time.Second {
+			m.updateToastVisible = false
+			return m, nil, true
+		}
+		return m, scheduleUpdateToastTick(), true
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
