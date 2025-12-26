@@ -11,6 +11,7 @@ import (
 
 	"abacus/internal/beads"
 	"abacus/internal/config"
+	"abacus/internal/debug"
 	"abacus/internal/ui"
 	"abacus/internal/ui/theme"
 	"abacus/internal/update"
@@ -45,12 +46,19 @@ func main() {
 	outputFormatFlag := flag.String("output-format", outputFormatDefault, "Detail panel markdown style (rich, light, plain)")
 	skipVersionCheckFlag := flag.Bool("skip-version-check", skipVersionCheckDefault, "Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)")
 	jsonOutputFlag := flag.Bool("json-output", config.GetBool(config.KeyOutputJSON), "Print all issues as JSON and exit")
+	debugFlag := flag.Bool("debug", config.GetBool(config.KeyDebug), "Enable debug logging to ~/.abacus/debug.log")
 	flag.Parse()
 
 	if *versionFlag {
 		printVersion()
 		os.Exit(0)
 	}
+
+	// Initialize debug logging (must be after flag parsing)
+	if err := debug.Init(*debugFlag); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to initialize debug logging: %v\n", err)
+	}
+	defer debug.Close()
 
 	visited := map[string]struct{}{}
 	flag.CommandLine.Visit(func(f *flag.Flag) {
