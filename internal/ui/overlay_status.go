@@ -39,16 +39,18 @@ func NewStatusOverlay(issueID, issueTitle, currentStatus string) *StatusOverlay 
 	options := []statusOption{
 		{value: "open", label: "Open"},
 		{value: "in_progress", label: "In Progress"},
+		{value: "blocked", label: "Blocked"},
+		{value: "deferred", label: "Deferred"},
 		{value: "closed", label: "Closed"},
 	}
 
 	// Mark invalid transitions as disabled
-	// Special case: allow closed → open (reopen) even though domain model disallows it
+	// Special case: allow closed → any non-terminal status (reopen variants)
 	for i := range options {
 		target := domain.Status(options[i].value)
 		if current.CanTransitionTo(target) != nil && current != target {
-			// Allow reopening: closed → open
-			if currentStatus == "closed" && options[i].value == "open" {
+			// Allow reopening: closed → open, blocked, in_progress, or deferred
+			if currentStatus == "closed" && options[i].value != "closed" {
 				continue
 			}
 			options[i].disabled = true
@@ -91,11 +93,15 @@ func (m *StatusOverlay) Update(msg tea.Msg) (*StatusOverlay, tea.Cmd) {
 			return m, m.confirm()
 		case key.Matches(msg, key.NewBinding(key.WithKeys("esc"))):
 			return m, func() tea.Msg { return StatusCancelledMsg{} }
-		// Hotkeys: o=Open, i=In Progress, c=Closed
+		// Hotkeys: o=Open, i=In Progress, b=Blocked, d=Deferred, c=Closed
 		case key.Matches(msg, key.NewBinding(key.WithKeys("o"))):
 			return m, m.selectByValue("open")
 		case key.Matches(msg, key.NewBinding(key.WithKeys("i"))):
 			return m, m.selectByValue("in_progress")
+		case key.Matches(msg, key.NewBinding(key.WithKeys("b"))):
+			return m, m.selectByValue("blocked")
+		case key.Matches(msg, key.NewBinding(key.WithKeys("d"))):
+			return m, m.selectByValue("deferred")
 		case key.Matches(msg, key.NewBinding(key.WithKeys("c"))):
 			return m, m.selectByValue("closed")
 		}
