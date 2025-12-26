@@ -43,6 +43,7 @@ func NewCommentOverlay(issueID, beadTitle string) *CommentOverlay {
 	taModel := NewBaseTextarea(taWidth, commentTextareaLines)
 	taModel.Placeholder = "Type your comment here..."
 	taModel.CharLimit = commentCharLimit
+	// Enter inserts newlines (default textarea behavior)
 
 	taModel.Focus()
 
@@ -72,16 +73,13 @@ func (m *CommentOverlay) Update(msg tea.Msg) (*CommentOverlay, tea.Cmd) {
 			}
 			return m, func() tea.Msg { return CommentCancelledMsg{} }
 
-		case tea.KeyEnter:
-			// Slack-style: Enter submits, Shift+Enter inserts newline
-			// Shift+Enter falls through to textarea.Update() below
-			if msg.String() != "shift+enter" {
-				return m.submit()
-			}
+		case tea.KeyCtrlS:
+			// Ctrl+S saves the comment
+			return m.submit()
 		}
 	}
 
-	// Pass to textarea (handles Shift+Enter newline insertion)
+	// Pass to textarea (Enter inserts newlines)
 	var cmd tea.Cmd
 	m.textarea, cmd = m.textarea.Update(msg)
 	return m, cmd
@@ -155,8 +153,7 @@ func (m *CommentOverlay) View() string {
 
 	// Footer - Slack-style hints
 	hints := []footerHint{
-		{"⏎", "Save"},
-		{"⇧⏎", "Newline"},
+		{"^s", "Save"},
 		{"esc", "Cancel"},
 	}
 	b.Footer(hints)

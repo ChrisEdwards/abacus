@@ -234,11 +234,10 @@ func (m *CreateOverlay) footerHints() []footerHint {
 			{"esc", "Cancel"},
 		}
 	}
-	// Description field: Slack-style Enter submits, Shift+Enter for newline
+	// Description field: Enter inserts newlines, Ctrl+S submits
 	if m.focus == FocusDescription {
 		return []footerHint{
-			{"⏎", m.submitFooterText()},
-			{"⇧⏎", "Newline"},
+			{"^s", m.submitFooterText()},
 			{"Tab", "Next"},
 			{"esc", "Cancel"},
 		}

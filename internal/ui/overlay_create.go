@@ -172,6 +172,7 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 	desc.SetHeight(5)
 	desc.CharLimit = 2000 // Reasonable limit for descriptions
 	desc.ShowLineNumbers = false
+	// Enter inserts newlines (default textarea behavior)
 
 	// Zone 1: Parent combo box
 	parentDisplays := make([]string, len(opts.AvailableParents))
@@ -378,18 +379,22 @@ func (m *CreateOverlay) Update(msg tea.Msg) (*CreateOverlay, tea.Cmd) {
 		case tea.KeyEsc:
 			return m.handleEscape()
 
+		case tea.KeyCtrlS:
+			// Ctrl+S always submits (works from any field including description)
+			if !m.isCreating {
+				return m.handleSubmit()
+			}
+			return m, nil
+
 		case tea.KeyEnter:
 			// Guard: prevent duplicate submissions (ab-ip2p)
 			if m.isCreating {
 				return m, nil
 			}
 
-			// In description field: Slack-style Enter submits, Shift+Enter for newline
+			// Enter in description field inserts newline (handled by textarea)
 			if m.focus == FocusDescription {
-				if msg.String() == "shift+enter" {
-					return m.handleZoneInput(msg)
-				}
-				return m.handleSubmit()
+				return m.handleZoneInput(msg)
 			}
 
 			// Other fields: Enter submits if not in dropdown
