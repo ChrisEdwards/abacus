@@ -26,6 +26,41 @@ func TestSortSubtasks(t *testing.T) {
 		}
 	})
 
+	t.Run("ordersExplicitBlockedAndDeferredStatuses", func(t *testing.T) {
+		inProgress := &graph.Node{Issue: beads.FullIssue{ID: "ab-ip", Status: "in_progress"}}
+		ready := &graph.Node{Issue: beads.FullIssue{ID: "ab-ready", Status: "open"}}
+		explicitBlocked := &graph.Node{Issue: beads.FullIssue{ID: "ab-explicit-blocked", Status: "blocked"}}
+		deferred := &graph.Node{Issue: beads.FullIssue{ID: "ab-deferred", Status: "deferred"}}
+		closed := &graph.Node{Issue: beads.FullIssue{ID: "ab-closed", Status: "closed"}}
+
+		// Provide in reverse order
+		input := []*graph.Node{closed, deferred, explicitBlocked, ready, inProgress}
+		result := sortSubtasks(input)
+
+		// Expected: in_progress → ready → blocked → deferred → closed
+		expected := []string{"ab-ip", "ab-ready", "ab-explicit-blocked", "ab-deferred", "ab-closed"}
+		for i, id := range expected {
+			if result[i].Issue.ID != id {
+				t.Fatalf("position %d: expected %s, got %s", i, id, result[i].Issue.ID)
+			}
+		}
+	})
+
+	t.Run("explicitBlockedBeforeDependencyBlocked", func(t *testing.T) {
+		// Both are in "blocked" category but explicit status first (same priority)
+		explicitBlocked := &graph.Node{Issue: beads.FullIssue{ID: "ab-explicit", Status: "blocked", Priority: 2}}
+		depBlocked := &graph.Node{Issue: beads.FullIssue{ID: "ab-dep", Status: "open", Priority: 2}, IsBlocked: true}
+
+		input := []*graph.Node{depBlocked, explicitBlocked}
+		result := sortSubtasks(input)
+
+		// With same priority and category, sorted by ID
+		if result[0].Issue.ID != "ab-dep" || result[1].Issue.ID != "ab-explicit" {
+			t.Fatalf("expected alphabetical order within same category, got %s, %s",
+				result[0].Issue.ID, result[1].Issue.ID)
+		}
+	})
+
 	t.Run("readyItemsThatUnblockOthersFirst", func(t *testing.T) {
 		// Ready item that blocks nothing
 		readyNoImpact := &graph.Node{Issue: beads.FullIssue{ID: "ab-no-impact", Status: "open", Priority: 2}}

@@ -61,6 +61,34 @@ func TestConstructNodeFromIssue(t *testing.T) {
 			wantHasReady:      false,
 			wantHasInProgress: false,
 		},
+		{
+			name: "blocked status",
+			issue: beads.FullIssue{
+				ID:        "ab-blocked",
+				Title:     "Blocked task",
+				Status:    "blocked",
+				Priority:  2,
+				CreatedAt: "2025-12-01T10:00:00Z",
+			},
+			wantPriority:      3, // sortPriorityBlocked
+			wantIsBlocked:     false,
+			wantHasReady:      false,
+			wantHasInProgress: false,
+		},
+		{
+			name: "deferred status",
+			issue: beads.FullIssue{
+				ID:        "ab-deferred",
+				Title:     "Deferred task",
+				Status:    "deferred",
+				Priority:  2,
+				CreatedAt: "2025-12-01T10:00:00Z",
+			},
+			wantPriority:      3, // sortPriorityBlocked (same category for deferred)
+			wantIsBlocked:     false,
+			wantHasReady:      false,
+			wantHasInProgress: false,
+		},
 	}
 
 	for _, tt := range tests {
