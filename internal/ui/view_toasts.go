@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"abacus/internal/update"
+
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -399,6 +401,63 @@ func (m *App) themeToastLayer(width, height, mainBodyStart, mainBodyHeight int) 
 	}
 	content := heroLine + "\n" + paddingSpaces + countdownStr
 	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
+}
+
+// updateToastLayer renders the update notification toast if visible.
+func (m *App) updateToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
+	if !m.updateToastVisible || m.updateInfo == nil || !m.updateInfo.UpdateAvailable {
+		return nil
+	}
+	elapsed := time.Since(m.updateToastStart)
+	remaining := 10 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Line 1: "⬆ Update available: v0.6.2"
+	icon := baseStyle().Render(" ⬆ ")
+	label := styleStatsDim().Render("Update available:")
+	space := baseStyle().Render(" ")
+	version := styleID().Render(m.updateInfo.LatestVersion.String())
+	heroLine := lipgloss.JoinHorizontal(lipgloss.Left, icon, label, space, version)
+
+	// Line 2: Action instruction + countdown
+	// Different content based on install method
+	var actionText string
+	if m.updateInfo.InstallMethod == update.InstallHomebrew {
+		actionText = "Run: " + m.updateInfo.UpdateCommand
+	} else {
+		actionText = "Press [U] to update"
+	}
+	actionPart := " " + styleStatsDim().Render(actionText)
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
+
+	// Calculate spacing for right-aligned countdown
+	heroWidth := lipgloss.Width(heroLine)
+	actionWidth := lipgloss.Width(actionPart)
+	countdownWidth := lipgloss.Width(countdownStr)
+
+	// Use wider of hero or action line for alignment
+	targetWidth := heroWidth
+	if actionWidth > targetWidth {
+		targetWidth = actionWidth + countdownWidth + 2
+	}
+	if targetWidth < 30 {
+		targetWidth = 30
+	}
+	padding := targetWidth - actionWidth - countdownWidth
+	if padding < 2 {
+		padding = 2
+	}
+
+	paddingSpaces := ""
+	if padding > 0 {
+		paddingSpaces = baseStyle().Render(strings.Repeat(" ", padding))
+	}
+	infoLine := actionPart + paddingSpaces + countdownStr
+
+	content := heroLine + "\n" + infoLine
+	return newToastLayer(styleInfoToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
 
 // columnsToastLayer renders the columns toggle toast if visible.

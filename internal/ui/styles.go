@@ -233,6 +233,15 @@ func styleSuccessToast() lipgloss.Style {
 		Padding(0, 1)
 }
 
+func styleInfoToast() lipgloss.Style {
+	return baseStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderBackground(currentThemeWrapper().Background()).
+		BorderForeground(currentThemeWrapper().Secondary()).
+		Foreground(currentThemeWrapper().Text()).
+		Padding(0, 1)
+}
+
 // Help overlay styles
 
 func styleHelpOverlay() lipgloss.Style {

@@ -11,6 +11,7 @@ import (
 	"abacus/internal/beads"
 	"abacus/internal/config"
 	"abacus/internal/graph"
+	"abacus/internal/update"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -208,6 +209,15 @@ type App struct {
 	columnsToastVisible bool
 	columnsToastStart   time.Time
 	columnsToastEnabled bool
+
+	// Update notification state
+	updateToastVisible bool
+	updateToastStart   time.Time
+	updateInfo         *update.UpdateInfo
+	//nolint:unused // Used by ab-y0fn (update hotkey feature)
+	updateInProgress bool
+	//nolint:unused // Used by ab-y0fn (update hotkey feature)
+	updateError string
 
 	// Session tracking for exit summary
 	sessionStart time.Time
