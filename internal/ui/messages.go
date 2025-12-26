@@ -120,3 +120,8 @@ func (m *App) waitForUpdateCheck() tea.Cmd {
 		return updateAvailableMsg{info: info}
 	}
 }
+
+// App update execution messages (ab-y0fn)
+type appUpdateCompleteMsg struct {
+	err error
+}

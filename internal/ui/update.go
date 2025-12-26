@@ -146,6 +146,23 @@ func (m *App) handleBackgroundMsg(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		}
 		return m, scheduleUpdateToastTick(), true
 
+	case appUpdateCompleteMsg:
+		m.updateInProgress = false
+		m.updateToastVisible = false
+		if msg.err != nil {
+			m.updateError = msg.err.Error()
+			// Show error toast with the update error
+			m.lastError = "Update failed: " + msg.err.Error()
+			m.lastErrorSource = errorSourceOperation
+			m.showErrorToast = true
+			m.errorToastStart = time.Now()
+			return m, scheduleErrorToastTick(), true
+		}
+		// Success: show a success message via status toast mechanism
+		// Note: ab-w1wp will add proper success/failure toasts
+		m.updateError = ""
+		return m, nil, true
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height

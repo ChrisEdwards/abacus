@@ -215,11 +215,9 @@ type App struct {
 	updateToastVisible bool
 	updateToastStart   time.Time
 	updateInfo         *update.UpdateInfo
-	//nolint:unused // Used by ab-y0fn (update hotkey feature)
-	updateInProgress bool
-	//nolint:unused // Used by ab-y0fn (update hotkey feature)
-	updateError string
-	updateChan  <-chan *update.UpdateInfo
+	updateInProgress   bool
+	updateError        string
+	updateChan         <-chan *update.UpdateInfo
 
 	// Session tracking for exit summary
 	sessionStart time.Time
@@ -273,6 +271,12 @@ func NewApp(cfg Config) (*App, error) {
 	}
 	if reporter != nil && dbPath != "" && dbErr == nil {
 		reporter.Stage(StartupStageFindingDatabase, fmt.Sprintf("Using database at %s", dbPath))
+	}
+
+	// If no database found and no client was injected (e.g., for tests), fail early
+	// with a helpful error message telling the user how to set up beads.
+	if dbErr != nil && cfg.Client == nil {
+		return nil, dbErr
 	}
 
 	client := cfg.Client

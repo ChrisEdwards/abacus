@@ -52,6 +52,9 @@ type KeyMap struct {
 
 	// Columns
 	ToggleColumns key.Binding
+
+	// Update
+	Update key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings for Abacus.
@@ -198,6 +201,12 @@ func DefaultKeyMap() KeyMap {
 		ToggleColumns: key.NewBinding(
 			key.WithKeys("C"),
 			key.WithHelp("C", "Toggle columns"),
+		),
+
+		// Update
+		Update: key.NewBinding(
+			key.WithKeys("U"),
+			key.WithHelp("U", "Update app"),
 		),
 	}
 }

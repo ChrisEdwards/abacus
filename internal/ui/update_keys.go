@@ -1,10 +1,12 @@
 package ui
 
 import (
+	"context"
 	"time"
 
 	"abacus/internal/config"
 	"abacus/internal/ui/theme"
+	"abacus/internal/update"
 
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/key"
@@ -216,6 +218,8 @@ func (m *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleNewBeadKey(false)
 	case key.Matches(msg, m.keys.NewRootBead):
 		return m.handleNewBeadKey(true)
+	case key.Matches(msg, m.keys.Update):
+		return m.handleUpdateKey()
 	}
 
 	return m, nil
@@ -403,4 +407,33 @@ func (m *App) handleNewBeadKey(isRoot bool) (tea.Model, tea.Cmd) {
 	m.createOverlay.SetSize(m.width, m.height)
 	m.activeOverlay = OverlayCreate
 	return m, m.createOverlay.Init()
+}
+
+// handleUpdateKey triggers the auto-update when conditions are met.
+func (m *App) handleUpdateKey() (tea.Model, tea.Cmd) {
+	// Only active when:
+	// 1. Update toast is visible (update available)
+	// 2. Not a Homebrew install (would desync brew's package tracking)
+	// 3. Update not already in progress
+	if !m.updateToastVisible || m.updateInfo == nil {
+		return m, nil
+	}
+	if m.updateInfo.InstallMethod == update.InstallHomebrew {
+		return m, nil
+	}
+	if m.updateInProgress {
+		return m, nil
+	}
+
+	m.updateInProgress = true
+	return m, m.startUpdate()
+}
+
+// startUpdate returns a command that performs the update asynchronously.
+func (m *App) startUpdate() tea.Cmd {
+	return func() tea.Msg {
+		updater := update.NewUpdater("ChrisEdwards", "abacus")
+		err := updater.Update(context.Background(), m.updateInfo.LatestVersion.String())
+		return appUpdateCompleteMsg{err: err}
+	}
 }
