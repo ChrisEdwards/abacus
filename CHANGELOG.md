@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Textarea submit shortcut**: Comment and description textareas now use `Ctrl+S` to submit, while `Enter` inserts newlines (standard cross-terminal behavior)
+
 ## [0.6.1] - 2025-12-24
 
 ### Changed
@@ -28,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Refresh placeholder styling**: Fixed grey background artifact when refresh indicator appears
 - **Comment flicker**: Comments now preserved during refresh to prevent visual flicker
 - **Border overflow**: Corrected border width overflow in input components
-- **Shift+Enter submission**: Comment textarea now properly supports Shift+Enter for submission
+- **Comment textarea submission**: Comment textarea submission key handling improved
 
 ## [0.5.0] - 2025-12-11
 
