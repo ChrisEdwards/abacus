@@ -41,6 +41,8 @@ var detailsFooterHints = []footerHint{
 var statusOverlayFooterHints = []footerHint{
 	{"o", "Open"},
 	{"i", "In Progress"},
+	{"b", "Blocked"},
+	{"d", "Deferred"},
 	{"c", "Close"},
 	{"esc", "Cancel"},
 }
