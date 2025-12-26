@@ -81,7 +81,9 @@ func (c *sqliteClient) detectSchema(ctx context.Context, db *sql.DB) {
 		if err != nil {
 			return // Assume no new columns on error
 		}
-		defer rows.Close()
+		defer func() {
+			_ = rows.Close()
+		}()
 
 		for rows.Next() {
 			var cid int
@@ -195,6 +197,7 @@ func loadIssues(ctx context.Context, db *sql.DB, hasGraphLinkCols bool) (map[str
 	if hasGraphLinkCols {
 		baseCols += `, COALESCE(duplicate_of, ''), COALESCE(superseded_by, '')`
 	}
+	//nolint:gosec // G201: baseCols is hardcoded column names, not user input
 	query := fmt.Sprintf(`SELECT %s FROM issues WHERE status != 'tombstone' AND (deleted_at IS NULL) ORDER BY created_at, id`, baseCols)
 
 	rows, err := db.QueryContext(ctx, query)
