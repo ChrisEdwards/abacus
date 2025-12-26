@@ -78,9 +78,9 @@ func TestGetHelpSections(t *testing.T) {
 		}
 	})
 
-	t.Run("BeadActionsHas8Rows", func(t *testing.T) {
-		if len(sections[2].rows) != 8 {
-			t.Errorf("Bead Actions section: expected 8 rows, got %d", len(sections[2].rows))
+	t.Run("BeadActionsHas10Rows", func(t *testing.T) {
+		if len(sections[2].rows) != 10 {
+			t.Errorf("Bead Actions section: expected 10 rows, got %d", len(sections[2].rows))
 		}
 	})
 
