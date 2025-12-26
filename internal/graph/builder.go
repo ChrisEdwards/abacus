@@ -43,10 +43,20 @@ func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
 					}
 					blocker.Blocks = append(blocker.Blocks, node)
 				}
-			case "related":
+			case "related", "relates-to":
 				if related, ok := nodeMap[dep.TargetID]; ok {
-					node.Related = append(node.Related, related)
-					related.Related = append(related.Related, node)
+					// Dedup check: relates-to stores both directions, avoid double-linking
+					alreadyLinked := false
+					for _, r := range node.Related {
+						if r.Issue.ID == related.Issue.ID {
+							alreadyLinked = true
+							break
+						}
+					}
+					if !alreadyLinked {
+						node.Related = append(node.Related, related)
+						related.Related = append(related.Related, node)
+					}
 				}
 			case "discovered-from":
 				if source, ok := nodeMap[dep.TargetID]; ok {
