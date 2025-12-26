@@ -171,6 +171,33 @@ func renderRefRowWithIcon(icon string, iconStyle lipgloss.Style, id, title strin
 	return strings.Join(lines, "\n")
 }
 
+// formatStatusDisplay returns a styled status string with icon for the detail view header.
+// It considers both explicit status and dependency-blocked state.
+func formatStatusDisplay(status string, isBlocked bool) string {
+	var icon string
+	var iconStyle, textStyle lipgloss.Style
+
+	switch status {
+	case "in_progress":
+		icon, iconStyle, textStyle = "◐", styleIconInProgress(), styleInProgressText()
+	case "closed":
+		icon, iconStyle, textStyle = "✔", styleIconDone(), styleDoneText()
+	case "blocked":
+		icon, iconStyle, textStyle = "⛔", styleIconBlocked(), styleBlockedText()
+	case "deferred":
+		icon, iconStyle, textStyle = "❄", styleIconDeferred(), styleDeferredText()
+	default:
+		// Open status - check if blocked by dependencies
+		if isBlocked {
+			icon, iconStyle, textStyle = "⛔", styleIconBlocked(), styleBlockedText()
+		} else {
+			icon, iconStyle, textStyle = "○", styleIconOpen(), styleNormalText()
+		}
+	}
+
+	return iconStyle.Render(icon) + " " + textStyle.Render(status)
+}
+
 func relatedStatusPresentation(node *graph.Node) (string, lipgloss.Style, lipgloss.Style) {
 	domainIssue, err := domain.NewIssueFromFull(node.Issue, node.IsBlocked)
 	status := node.Issue.Status
@@ -182,7 +209,14 @@ func relatedStatusPresentation(node *graph.Node) (string, lipgloss.Style, lipglo
 		return "◐", styleIconInProgress(), styleInProgressText()
 	case "closed":
 		return "✔", styleIconDone(), styleDoneText()
+	case "blocked":
+		// Explicit blocked status - same visual as dependency-blocked
+		return "⛔", styleIconBlocked(), styleBlockedText()
+	case "deferred":
+		// Deferred (on ice) - snowflake icon with muted styling
+		return "❄", styleIconDeferred(), styleDeferredText()
 	default:
+		// Open status - check if blocked by dependencies
 		if node.IsBlocked {
 			return "⛔", styleIconBlocked(), styleBlockedText()
 		}

@@ -55,7 +55,7 @@ func (m *App) updateViewportContent() {
 	bgStyle := baseStyle()
 
 	col1 := []string{
-		makeRow("Status:", iss.Status),
+		makeRow("Status:", formatStatusDisplay(iss.Status, node.IsBlocked)),
 		makeRow("Type:", iss.IssueType),
 		makeRow("Created:", formatTime(iss.CreatedAt)),
 	}
