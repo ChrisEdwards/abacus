@@ -952,3 +952,63 @@ func TestBuilderHandlesMixedRelatedTypes(t *testing.T) {
 		t.Fatalf("expected nodeD.Related to contain ab-c")
 	}
 }
+
+func TestNodeSelfSortKeyBlockedDeferred(t *testing.T) {
+	tests := []struct {
+		name             string
+		status           string
+		isBlocked        bool
+		expectedPriority int
+	}{
+		{"in_progress", "in_progress", false, sortPriorityInProgress},
+		{"open_ready", "open", false, sortPriorityReady},
+		{"open_blocked_by_deps", "open", true, sortPriorityBlocked},
+		{"blocked_status", "blocked", false, sortPriorityBlocked},
+		{"deferred_status", "deferred", false, sortPriorityDeferred},
+		{"closed", "closed", false, sortPriorityClosed},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			node := &Node{
+				Issue:     beads.FullIssue{ID: "ab-test", Status: tc.status, CreatedAt: "2024-01-01T00:00:00Z"},
+				IsBlocked: tc.isBlocked,
+			}
+			priority, _ := NodeSelfSortKey(node)
+			if priority != tc.expectedPriority {
+				t.Errorf("NodeSelfSortKey(%s, isBlocked=%v) = %d, want %d",
+					tc.status, tc.isBlocked, priority, tc.expectedPriority)
+			}
+		})
+	}
+}
+
+func TestSortOrderBlockedDeferredClosed(t *testing.T) {
+	// Test that the full sort order is: in_progress → ready → blocked → deferred → closed
+	inProgress := &Node{Issue: beads.FullIssue{ID: "ab-1", Status: "in_progress", CreatedAt: "2024-01-01T00:00:00Z", UpdatedAt: "2024-01-01T00:00:00Z"}}
+	ready := &Node{Issue: beads.FullIssue{ID: "ab-2", Status: "open", CreatedAt: "2024-01-01T00:00:00Z"}}
+	blockedByDeps := &Node{Issue: beads.FullIssue{ID: "ab-3", Status: "open", CreatedAt: "2024-01-01T00:00:00Z"}, IsBlocked: true}
+	blockedStatus := &Node{Issue: beads.FullIssue{ID: "ab-4", Status: "blocked", CreatedAt: "2024-01-01T00:00:00Z", UpdatedAt: "2024-01-01T00:00:00Z"}}
+	deferred := &Node{Issue: beads.FullIssue{ID: "ab-5", Status: "deferred", CreatedAt: "2024-01-01T00:00:00Z", UpdatedAt: "2024-01-01T00:00:00Z"}}
+	closed := &Node{Issue: beads.FullIssue{ID: "ab-6", Status: "closed", CreatedAt: "2024-01-01T00:00:00Z", ClosedAt: "2024-01-01T00:00:00Z"}}
+
+	// Shuffle them in wrong order
+	parent := &Node{
+		Issue:    beads.FullIssue{ID: "ab-0", Status: "open", CreatedAt: "2024-01-01T00:00:00Z"},
+		Children: []*Node{closed, deferred, blockedStatus, blockedByDeps, ready, inProgress},
+	}
+
+	computeSortMetrics(parent)
+
+	// Verify sort order
+	wantOrder := []string{"ab-1", "ab-2", "ab-3", "ab-4", "ab-5", "ab-6"}
+	for i, want := range wantOrder {
+		if parent.Children[i].Issue.ID != want {
+			got := make([]string, len(parent.Children))
+			for j, c := range parent.Children {
+				got[j] = c.Issue.ID
+			}
+			t.Fatalf("sort order mismatch at position %d: got %v, want %v", i, got, wantOrder)
+		}
+	}
+}

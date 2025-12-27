@@ -241,8 +241,9 @@ func computeStates(n *Node) {
 const (
 	sortPriorityInProgress = 1
 	sortPriorityReady      = 2
-	sortPriorityOpen       = 3
-	sortPriorityClosed     = 4
+	sortPriorityBlocked    = 3
+	sortPriorityDeferred   = 4
+	sortPriorityClosed     = 5
 )
 
 var distantFuture = time.Date(9999, time.January, 1, 0, 0, 0, 0, time.UTC)
@@ -264,6 +265,7 @@ func computeSortMetrics(node *Node) (int, time.Time) {
 
 // NodeSelfSortKey computes the sort priority and timestamp for a node based on its status.
 // This is exported for use by the fast tree injection logic.
+// Sort order: in_progress → ready → blocked → deferred → closed
 func NodeSelfSortKey(node *Node) (int, time.Time) {
 	status := strings.ToLower(strings.TrimSpace(node.Issue.Status))
 	switch status {
@@ -271,11 +273,16 @@ func NodeSelfSortKey(node *Node) (int, time.Time) {
 		return sortPriorityInProgress, pickTimestamp(node.Issue.UpdatedAt, node.Issue.CreatedAt)
 	case "closed":
 		return sortPriorityClosed, pickTimestamp(node.Issue.ClosedAt, node.Issue.UpdatedAt, node.Issue.CreatedAt)
+	case "blocked":
+		return sortPriorityBlocked, pickTimestamp(node.Issue.UpdatedAt, node.Issue.CreatedAt)
+	case "deferred":
+		return sortPriorityDeferred, pickTimestamp(node.Issue.UpdatedAt, node.Issue.CreatedAt)
 	}
-	if status == "open" && !node.IsBlocked {
-		return sortPriorityReady, pickTimestamp(node.Issue.CreatedAt)
+	// For "open" status: check if blocked by dependencies
+	if node.IsBlocked {
+		return sortPriorityBlocked, pickTimestamp(node.Issue.CreatedAt)
 	}
-	return sortPriorityOpen, pickTimestamp(node.Issue.CreatedAt)
+	return sortPriorityReady, pickTimestamp(node.Issue.CreatedAt)
 }
 
 func pickTimestamp(values ...string) time.Time {

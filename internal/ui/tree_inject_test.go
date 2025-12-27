@@ -56,7 +56,7 @@ func TestConstructNodeFromIssue(t *testing.T) {
 				CreatedAt: "2025-12-01T10:00:00Z",
 				ClosedAt:  "2025-12-01T12:00:00Z",
 			},
-			wantPriority:      4, // sortPriorityClosed
+			wantPriority:      5, // sortPriorityClosed
 			wantIsBlocked:     false,
 			wantHasReady:      false,
 			wantHasInProgress: false,
@@ -84,7 +84,7 @@ func TestConstructNodeFromIssue(t *testing.T) {
 				Priority:  2,
 				CreatedAt: "2025-12-01T10:00:00Z",
 			},
-			wantPriority:      3, // sortPriorityBlocked (same category for deferred)
+			wantPriority:      4, // sortPriorityDeferred
 			wantIsBlocked:     false,
 			wantHasReady:      false,
 			wantHasInProgress: false,
