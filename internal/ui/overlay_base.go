@@ -311,6 +311,79 @@ func BaseOverlayLayer(viewFn func() string, width, height, topMargin, bottomMarg
 	})
 }
 
+// Bead Formatting Helpers for Overlays
+//
+// These functions format bead ID + title for display in overlays/dialogs.
+// They use lipgloss.Width() for proper display width calculation (not byte length).
+// This is separate from tree rendering which has column-aware formatting.
+
+// formatOverlayBeadLine formats a bead ID and title for display in an overlay.
+// It ensures the ID is never truncated and only truncates the title if needed.
+// The prefix (e.g., "└─ ") and separator between ID and title are included in width calculation.
+//
+// Parameters:
+//   - prefix: Leading characters (e.g., "  ", "└─ ", "    └─ ")
+//   - id: The bead ID (never truncated)
+//   - title: The bead title (truncated with ellipsis if needed)
+//   - maxWidth: Maximum display width for the entire line
+//   - idStyle: Style for rendering the ID
+//   - titleStyle: Style for rendering the title
+//
+// Returns a single formatted line that fits within maxWidth.
+func formatOverlayBeadLine(prefix, id, title string, maxWidth int, idStyle, titleStyle lipgloss.Style) string {
+	separator := "  " // Two spaces between ID and title
+
+	// Calculate fixed parts width
+	prefixWidth := lipgloss.Width(prefix)
+	idRendered := idStyle.Render(id)
+	idWidth := lipgloss.Width(idRendered)
+	separatorWidth := lipgloss.Width(separator)
+
+	// Available width for title
+	availableForTitle := maxWidth - prefixWidth - idWidth - separatorWidth
+	if availableForTitle < 4 { // Need at least room for "..."
+		availableForTitle = 4
+	}
+
+	// Truncate title if needed using display width
+	displayTitle := truncateByDisplayWidth(title, availableForTitle)
+
+	return prefix + idRendered + titleStyle.Render(separator+displayTitle)
+}
+
+// truncateByDisplayWidth truncates a string to fit within maxWidth display characters.
+// Uses lipgloss.Width() for proper Unicode/emoji width calculation.
+// Adds "..." ellipsis if truncation occurs.
+func truncateByDisplayWidth(text string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+
+	currentWidth := lipgloss.Width(text)
+	if currentWidth <= maxWidth {
+		return text
+	}
+
+	ellipsis := "..."
+	ellipsisWidth := lipgloss.Width(ellipsis)
+	if maxWidth <= ellipsisWidth {
+		return ellipsis[:maxWidth]
+	}
+
+	targetWidth := maxWidth - ellipsisWidth
+	runes := []rune(text)
+
+	// Binary search would be faster, but for typical title lengths this is fine
+	for i := len(runes); i >= 0; i-- {
+		candidate := string(runes[:i])
+		if lipgloss.Width(candidate) <= targetWidth {
+			return candidate + ellipsis
+		}
+	}
+
+	return ellipsis
+}
+
 // Form Field Helpers
 //
 // These extend textarea_helpers.go with overlay-aware sizing.

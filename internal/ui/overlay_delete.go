@@ -111,7 +111,7 @@ func (m *DeleteOverlay) deleteLabel() string {
 	return fmt.Sprintf("Delete All (%d)", len(m.children)+1)
 }
 
-func (m *DeleteOverlay) renderDangerBlock(overlayBg lipgloss.AdaptiveColor, _ int) []string {
+func (m *DeleteOverlay) renderDangerBlock(overlayBg lipgloss.AdaptiveColor, contentWidth int) []string {
 	var lines []string
 
 	body := lipgloss.NewStyle().
@@ -126,8 +126,10 @@ func (m *DeleteOverlay) renderDangerBlock(overlayBg lipgloss.AdaptiveColor, _ in
 	lines = append(lines, dangerIcon+" "+body.Bold(true).Render("Delete this bead?"))
 	lines = append(lines, "")
 
-	beadTitle := truncateTitle(m.issueTitle, 38)
-	beadLine := "  " + body.Render("● ") + styleID().Background(overlayBg).Render(m.issueID) + body.Render("  "+beadTitle)
+	// Format main bead line using overlay-specific formatter (not tree formatter)
+	idStyle := styleID().Background(overlayBg)
+	titleStyle := body
+	beadLine := formatOverlayBeadLine("  ● ", m.issueID, m.issueTitle, contentWidth, idStyle, titleStyle)
 	lines = append(lines, beadLine)
 	lines = append(lines, "")
 	lines = append(lines, warning.Render("This action cannot be undone."))
@@ -135,16 +137,16 @@ func (m *DeleteOverlay) renderDangerBlock(overlayBg lipgloss.AdaptiveColor, _ in
 	if len(m.children) > 0 {
 		summary := fmt.Sprintf("This will also delete %d %s:", len(m.children), childWord(len(m.children)))
 		lines = append(lines, "", warningIcon+" "+body.Render(summary))
-		lines = append(lines, m.renderChildLines(overlayBg)...)
+		lines = append(lines, m.renderChildLines(overlayBg, contentWidth)...)
 	}
 
 	return lines
 }
 
-func (m *DeleteOverlay) renderChildLines(overlayBg lipgloss.AdaptiveColor) []string {
+func (m *DeleteOverlay) renderChildLines(overlayBg lipgloss.AdaptiveColor, contentWidth int) []string {
 	var lines []string
 	idStyle := styleID().Background(overlayBg)
-	textStyle := lipgloss.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Background(overlayBg).
 		Foreground(currentThemeWrapper().TextMuted())
 	for _, child := range m.children {
@@ -153,7 +155,8 @@ func (m *DeleteOverlay) renderChildLines(overlayBg lipgloss.AdaptiveColor) []str
 			indent += "  "
 		}
 		prefix := indent + "└─ "
-		entry := prefix + idStyle.Render(child.ID) + textStyle.Render("  "+truncateTitle(child.Title, 32))
+		// Use overlay-specific formatter (not tree formatter)
+		entry := formatOverlayBeadLine(prefix, child.ID, child.Title, contentWidth, idStyle, titleStyle)
 		lines = append(lines, entry)
 	}
 	return lines
