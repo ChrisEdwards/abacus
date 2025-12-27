@@ -431,12 +431,16 @@ func (m *App) handleUpdateKey() (tea.Model, tea.Cmd) {
 
 // startUpdate returns a command that performs the update asynchronously.
 func (m *App) startUpdate() tea.Cmd {
+	// Capture values for the closure
+	version := m.updateInfo.LatestVersion.String()
+	downloadURL := m.updateInfo.DownloadURL
 	return func() tea.Msg {
 		// Use 5-minute timeout to prevent hanging indefinitely on network issues
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 		updater := update.NewUpdater("ChrisEdwards", "abacus")
-		err := updater.Update(ctx, m.updateInfo.LatestVersion.String())
+		// Use the download URL discovered by the checker if available
+		err := updater.UpdateWithURL(ctx, version, downloadURL)
 		return appUpdateCompleteMsg{err: err}
 	}
 }

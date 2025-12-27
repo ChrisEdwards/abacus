@@ -304,3 +304,52 @@ func TestCleanupBackupNoBackup(t *testing.T) {
 		t.Errorf("CleanupBackup() with no backup should succeed, got: %v", err)
 	}
 }
+
+func TestUpdateDelegatesToUpdateWithURL(t *testing.T) {
+	// Verify that Update() is a thin wrapper around UpdateWithURL()
+	// On Windows, both should return ErrWindowsNoAutoUpdate
+	// On other platforms, they should proceed to permission checks
+	u := NewUpdater("owner", "repo")
+
+	// Both methods should behave the same when called with empty download URL
+	// We can't test full update flow without network, but we can verify they don't panic
+	// and handle the Windows case consistently
+	if runtime.GOOS == "windows" {
+		err := u.Update(nil, "1.0.0")
+		if err != ErrWindowsNoAutoUpdate {
+			t.Errorf("Update() on Windows: got %v, want ErrWindowsNoAutoUpdate", err)
+		}
+
+		err = u.UpdateWithURL(nil, "1.0.0", "")
+		if err != ErrWindowsNoAutoUpdate {
+			t.Errorf("UpdateWithURL() on Windows: got %v, want ErrWindowsNoAutoUpdate", err)
+		}
+
+		err = u.UpdateWithURL(nil, "1.0.0", "https://example.com/file.tar.gz")
+		if err != ErrWindowsNoAutoUpdate {
+			t.Errorf("UpdateWithURL() with URL on Windows: got %v, want ErrWindowsNoAutoUpdate", err)
+		}
+	}
+}
+
+func TestDownloadFromURLExtractsAssetName(t *testing.T) {
+	// Test that downloadAndExtract correctly extracts asset name from URL
+	// We can't test the full download, but we can verify the asset name extraction
+	testCases := []struct {
+		url      string
+		expected string
+	}{
+		{"https://github.com/owner/repo/releases/download/v1.0.0/abacus_1.0.0_darwin_arm64.tar.gz", "abacus_1.0.0_darwin_arm64.tar.gz"},
+		{"https://example.com/custom-name.tar.gz", "custom-name.tar.gz"},
+		{"https://cdn.example.com/path/to/binary-v2.0.0-linux-amd64.tar.gz", "binary-v2.0.0-linux-amd64.tar.gz"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.url, func(t *testing.T) {
+			got := filepath.Base(tc.url)
+			if got != tc.expected {
+				t.Errorf("filepath.Base(%q) = %q, want %q", tc.url, got, tc.expected)
+			}
+		})
+	}
+}

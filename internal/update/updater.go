@@ -65,7 +65,15 @@ func NewUpdater(owner, repo string, opts ...UpdaterOption) *Updater {
 // Update downloads and installs the specified version.
 // It performs an atomic replacement of the current binary.
 // Returns ErrWindowsNoAutoUpdate on Windows (manual update required).
+// Deprecated: Use UpdateWithURL when a download URL is available.
 func (u *Updater) Update(ctx context.Context, version string) error {
+	return u.UpdateWithURL(ctx, version, "")
+}
+
+// UpdateWithURL downloads and installs the specified version using the provided download URL.
+// If downloadURL is empty, it falls back to constructing a URL from the version.
+// This is the preferred method when UpdateInfo.DownloadURL is available from the checker.
+func (u *Updater) UpdateWithURL(ctx context.Context, version, downloadURL string) error {
 	// Windows cannot replace a running executable
 	if runtime.GOOS == "windows" {
 		return ErrWindowsNoAutoUpdate
@@ -86,7 +94,7 @@ func (u *Updater) Update(ctx context.Context, version string) error {
 	}
 
 	// Download and extract new binary
-	tempBinary, cleanup, err := u.downloadAndExtract(ctx, version)
+	tempBinary, cleanup, err := u.downloadAndExtract(ctx, version, downloadURL)
 	if err != nil {
 		return err
 	}
@@ -184,15 +192,25 @@ func (u *Updater) HasBackup() bool {
 
 // downloadAndExtract downloads and extracts the release tarball.
 // Returns the path to the extracted binary and a cleanup function.
-func (u *Updater) downloadAndExtract(ctx context.Context, version string) (string, func(), error) {
+// If downloadURL is provided, it will be used directly instead of constructing a URL.
+func (u *Updater) downloadAndExtract(ctx context.Context, version, downloadURL string) (string, func(), error) {
 	// Normalize version tag for URL construction
 	if !strings.HasPrefix(version, "v") {
 		version = "v" + version
 	}
 
-	assetName, err := getTarballName(version)
-	if err != nil {
-		return "", nil, err
+	// Determine asset name and download URL
+	var assetName string
+	if downloadURL != "" {
+		// Extract asset name from URL for temp file naming
+		assetName = filepath.Base(downloadURL)
+	} else {
+		// Fall back to constructed URL
+		var err error
+		assetName, err = getTarballName(version)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	// Create temp directory for download and extraction
@@ -207,9 +225,18 @@ func (u *Updater) downloadAndExtract(ctx context.Context, version string) (strin
 
 	// Download tarball to temp file
 	tarballPath := filepath.Join(tempDir, assetName)
-	if err := u.downloadFile(ctx, version, assetName, tarballPath); err != nil {
-		cleanup()
-		return "", nil, err
+	if downloadURL != "" {
+		// Use the provided download URL directly
+		if err := u.downloadFromURL(ctx, downloadURL, tarballPath); err != nil {
+			cleanup()
+			return "", nil, err
+		}
+	} else {
+		// Fall back to constructing URL from version
+		if err := u.downloadFile(ctx, version, assetName, tarballPath); err != nil {
+			cleanup()
+			return "", nil, err
+		}
 	}
 
 	// Verify checksum if available
@@ -260,6 +287,40 @@ func (u *Updater) downloadFile(ctx context.Context, version, assetName, destPath
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%w: status %d", ErrDownloadFailed, resp.StatusCode)
+	}
+
+	//nolint:gosec // G304: destPath is controlled by caller in temp directory
+	outFile, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("create file: %w", err)
+	}
+	defer func() { _ = outFile.Close() }()
+
+	if _, err := io.Copy(outFile, resp.Body); err != nil {
+		return fmt.Errorf("write file: %w", err)
+	}
+
+	return nil
+}
+
+// downloadFromURL downloads a file from a direct URL to a local file.
+// This is used when UpdateInfo.DownloadURL is available.
+func (u *Updater) downloadFromURL(ctx context.Context, url, destPath string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Accept", "application/octet-stream")
+	req.Header.Set("User-Agent", "abacus-updater")
+
+	resp, err := u.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrDownloadFailed, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%w: status %d from %s", ErrDownloadFailed, resp.StatusCode, url)
 	}
 
 	//nolint:gosec // G304: destPath is controlled by caller in temp directory
