@@ -147,6 +147,42 @@ func TestClose(t *testing.T) {
 	Close()
 }
 
+func TestClose_DisablesLogging(t *testing.T) {
+	// Reset state
+	resetForTest()
+
+	// Use temp directory for log file
+	tmpDir := t.TempDir()
+	origGetLogPath := getLogPath
+	getLogPath = func() (string, error) {
+		return filepath.Join(tmpDir, LogDirName, LogFileName), nil
+	}
+	t.Cleanup(func() {
+		getLogPath = origGetLogPath
+		resetForTest()
+	})
+
+	err := Init(true)
+	if err != nil {
+		t.Fatalf("Init(true) failed: %v", err)
+	}
+
+	if !Enabled() {
+		t.Error("Enabled() should return true after Init(true)")
+	}
+
+	Close()
+
+	// After Close, Enabled() should return false
+	if Enabled() {
+		t.Error("Enabled() should return false after Close()")
+	}
+
+	// Log calls after Close should not panic (they become no-ops)
+	Log("test after close")
+	Logf("test %s after close", "formatted")
+}
+
 func TestGetLogPath(t *testing.T) {
 	path, err := GetLogPath()
 	if err != nil {

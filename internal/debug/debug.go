@@ -76,6 +76,7 @@ func Init(enable bool) error {
 
 // Close closes the debug log file if open.
 // Safe to call even if logging is disabled.
+// After Close, Enabled() returns false and Log/Logf become no-ops.
 func Close() {
 	mu.Lock()
 	defer mu.Unlock()
@@ -84,6 +85,10 @@ func Close() {
 		_ = logFile.Close()
 		logFile = nil
 	}
+
+	// Disable logging and reset logger to prevent writes to closed file
+	enabled = false
+	logger = log.New(io.Discard, "", 0)
 }
 
 // Log writes a debug message if debug logging is enabled.
