@@ -174,6 +174,58 @@ func TestLog_WhenDisabled(t *testing.T) {
 	Logf("test %d %s", 123, "fmt")
 }
 
+func TestInit_EnabledFalseOnError(t *testing.T) {
+	// Reset state
+	resetForTest()
+
+	// Override getLogPath to return an error
+	origGetLogPath := getLogPath
+	getLogPath = func() (string, error) {
+		return "", os.ErrNotExist
+	}
+	t.Cleanup(func() {
+		getLogPath = origGetLogPath
+		resetForTest()
+	})
+
+	err := Init(true)
+	if err == nil {
+		t.Fatal("Init(true) should fail when getLogPath returns error")
+	}
+
+	// Enabled should be false after failed initialization
+	if Enabled() {
+		t.Error("Enabled() should return false when Init(true) fails")
+	}
+}
+
+func TestInit_EnabledFalseOnOpenFileError(t *testing.T) {
+	// Reset state
+	resetForTest()
+
+	// Use a path that will fail to open (directory path as file)
+	tmpDir := t.TempDir()
+	origGetLogPath := getLogPath
+	getLogPath = func() (string, error) {
+		// Return a path that points to a directory (can't open as file)
+		return tmpDir, nil
+	}
+	t.Cleanup(func() {
+		getLogPath = origGetLogPath
+		resetForTest()
+	})
+
+	err := Init(true)
+	if err == nil {
+		t.Fatal("Init(true) should fail when OpenFile fails")
+	}
+
+	// Enabled should be false after failed initialization
+	if Enabled() {
+		t.Error("Enabled() should return false when Init(true) fails due to OpenFile error")
+	}
+}
+
 // resetForTest resets the package state for testing.
 func resetForTest() {
 	mu.Lock()

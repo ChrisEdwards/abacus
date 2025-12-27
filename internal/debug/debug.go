@@ -37,7 +37,9 @@ func Init(enable bool) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	enabled = enable
+	// Reset state - only set enabled=true after successful initialization
+	enabled = false
+
 	if !enable {
 		logger = log.New(io.Discard, "", 0)
 		return nil
@@ -65,6 +67,9 @@ func Init(enable bool) error {
 
 	logger = log.New(f, "", log.Ldate|log.Ltime|log.Lmicroseconds)
 	logger.Printf("=== Abacus debug log started at %s ===", time.Now().Format(time.RFC3339))
+
+	// Only mark as enabled after all initialization succeeds
+	enabled = true
 
 	return nil
 }

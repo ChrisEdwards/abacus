@@ -257,3 +257,22 @@ func TestParseChecksumFileEmpty(t *testing.T) {
 		t.Errorf("expected empty map, got %d entries", len(checksums))
 	}
 }
+
+func TestHasBackup(t *testing.T) {
+	u := NewUpdater("owner", "repo")
+
+	// There should be no backup for the current executable
+	// (unless a previous failed test left one, which is unlikely)
+	// This is a basic sanity check that the function doesn't panic
+	_ = u.HasBackup()
+}
+
+func TestCleanupBackupNoBackup(t *testing.T) {
+	u := NewUpdater("owner", "repo")
+
+	// Cleaning up when no backup exists should succeed (no-op)
+	err := u.CleanupBackup()
+	if err != nil {
+		t.Errorf("CleanupBackup() with no backup should succeed, got: %v", err)
+	}
+}

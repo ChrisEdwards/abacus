@@ -113,8 +113,8 @@ func (u *Updater) Update(ctx context.Context, version string) error {
 		return fmt.Errorf("set executable permission: %w", err)
 	}
 
-	// Clean up backup file after successful update
-	_ = os.Remove(backupPath)
+	// Keep backup for rollback capability. Call CleanupBackup() after
+	// confirming the new binary works correctly.
 
 	return nil
 }
@@ -140,6 +140,46 @@ func (u *Updater) Rollback() error {
 	}
 
 	return nil
+}
+
+// CleanupBackup removes the backup file after confirming the new binary works.
+// Call this after the updated binary has been verified to work correctly.
+func (u *Updater) CleanupBackup() error {
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("get executable path: %w", err)
+	}
+	execPath, err = filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return fmt.Errorf("resolve symlinks: %w", err)
+	}
+
+	backupPath := execPath + ".backup"
+	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+		return nil // No backup to clean up
+	}
+
+	if err := os.Remove(backupPath); err != nil {
+		return fmt.Errorf("remove backup: %w", err)
+	}
+
+	return nil
+}
+
+// HasBackup returns true if a backup file exists from a previous update.
+func (u *Updater) HasBackup() bool {
+	execPath, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	execPath, err = filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return false
+	}
+
+	backupPath := execPath + ".backup"
+	_, err = os.Stat(backupPath)
+	return err == nil
 }
 
 // downloadAndExtract downloads and extracts the release tarball.
