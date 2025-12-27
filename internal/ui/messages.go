@@ -125,3 +125,20 @@ func (m *App) waitForUpdateCheck() tea.Cmd {
 type appUpdateCompleteMsg struct {
 	err error
 }
+
+// Update success/failure toast messages (ab-w1wp)
+type updateSuccessToastTickMsg struct{}
+
+func scheduleUpdateSuccessToastTick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+		return updateSuccessToastTickMsg{}
+	})
+}
+
+type updateFailureToastTickMsg struct{}
+
+func scheduleUpdateFailureToastTick() tea.Cmd {
+	return tea.Tick(time.Second, func(time.Time) tea.Msg {
+		return updateFailureToastTickMsg{}
+	})
+}

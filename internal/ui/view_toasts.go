@@ -460,6 +460,115 @@ func (m *App) updateToastLayer(width, height, mainBodyStart, mainBodyHeight int)
 	return newToastLayer(styleInfoToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
 
+// updateSuccessToastLayer renders the update success toast if visible (ab-w1wp).
+func (m *App) updateSuccessToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
+	if !m.updateSuccessToastVisible {
+		return nil
+	}
+	elapsed := time.Since(m.updateSuccessToastStart)
+	remaining := 5 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Line 1: "✓ Updated to v0.6.2"
+	icon := baseStyle().Render(" ✓ ")
+	label := styleStatsDim().Render("Updated to")
+	space := baseStyle().Render(" ")
+	version := styleID().Render(m.updateSuccessVersion)
+	heroLine := lipgloss.JoinHorizontal(lipgloss.Left, icon, label, space, version)
+
+	// Line 2: "Please restart abacus" + countdown
+	restartPart := " " + styleStatsDim().Render("Please restart abacus")
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
+
+	// Calculate spacing for right-aligned countdown
+	heroWidth := lipgloss.Width(heroLine)
+	restartWidth := lipgloss.Width(restartPart)
+	countdownWidth := lipgloss.Width(countdownStr)
+
+	// Use wider of hero or restart line for alignment
+	targetWidth := heroWidth
+	if restartWidth > targetWidth {
+		targetWidth = restartWidth + countdownWidth + 2
+	}
+	if targetWidth < 30 {
+		targetWidth = 30
+	}
+	padding := targetWidth - restartWidth - countdownWidth
+	if padding < 2 {
+		padding = 2
+	}
+
+	paddingSpaces := ""
+	if padding > 0 {
+		paddingSpaces = baseStyle().Render(strings.Repeat(" ", padding))
+	}
+	infoLine := restartPart + paddingSpaces + countdownStr
+
+	content := heroLine + "\n" + infoLine
+	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
+}
+
+// updateFailureToastLayer renders the update failure toast if visible (ab-w1wp).
+func (m *App) updateFailureToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
+	if !m.updateFailureToastVisible {
+		return nil
+	}
+	elapsed := time.Since(m.updateFailureToastStart)
+	remaining := 10 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Line 1: "⚠ Update failed"
+	heroLine := " ⚠ " + styleStatsDim().Render("Update failed")
+
+	// Line 2: Fallback command or error
+	var actionText string
+	if m.updateFailureCommand != "" {
+		actionText = m.updateFailureCommand
+	} else if m.updateFailureError != "" {
+		// Truncate error message if too long
+		errMsg := m.updateFailureError
+		if len(errMsg) > 50 {
+			errMsg = errMsg[:47] + "..."
+		}
+		actionText = errMsg
+	} else {
+		actionText = "Download from releases"
+	}
+	actionPart := " " + styleStatsDim().Render(actionText)
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
+
+	// Calculate spacing for right-aligned countdown
+	heroWidth := lipgloss.Width(heroLine)
+	actionWidth := lipgloss.Width(actionPart)
+	countdownWidth := lipgloss.Width(countdownStr)
+
+	// Use wider of hero or action line for alignment
+	targetWidth := heroWidth
+	if actionWidth > targetWidth {
+		targetWidth = actionWidth + countdownWidth + 2
+	}
+	if targetWidth < 30 {
+		targetWidth = 30
+	}
+	padding := targetWidth - actionWidth - countdownWidth
+	if padding < 2 {
+		padding = 2
+	}
+
+	paddingSpaces := ""
+	if padding > 0 {
+		paddingSpaces = baseStyle().Render(strings.Repeat(" ", padding))
+	}
+	infoLine := actionPart + paddingSpaces + countdownStr
+
+	content := heroLine + "\n" + infoLine
+	return newToastLayer(styleErrorToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
+}
+
 // columnsToastLayer renders the columns toggle toast if visible.
 func (m *App) columnsToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.columnsToastVisible {

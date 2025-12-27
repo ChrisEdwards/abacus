@@ -219,6 +219,16 @@ type App struct {
 	updateError        string
 	updateChan         <-chan *update.UpdateInfo
 
+	// Update success/failure toast state (ab-w1wp)
+	updateSuccessToastVisible bool
+	updateSuccessToastStart   time.Time
+	updateSuccessVersion      string
+
+	updateFailureToastVisible bool
+	updateFailureToastStart   time.Time
+	updateFailureError        string
+	updateFailureCommand      string
+
 	// Session tracking for exit summary
 	sessionStart time.Time
 	initialStats Stats

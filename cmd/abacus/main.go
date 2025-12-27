@@ -39,12 +39,14 @@ func main() {
 	dbPathDefault := config.GetString(config.KeyDatabasePath)
 	outputFormatDefault := config.GetString(config.KeyOutputFormat)
 	skipVersionCheckDefault := config.GetBool(config.KeySkipVersionCheck)
+	skipUpdateCheckDefault := config.GetBool(config.KeySkipUpdateCheck)
 
 	versionFlag := flag.Bool("version", false, "Print version information and exit")
 	autoRefreshSecondsFlag := flag.Int("auto-refresh-seconds", autoRefreshSecondsDefault, "Auto-refresh interval in seconds (0 disables auto refresh)")
 	dbPathFlag := flag.String("db-path", dbPathDefault, "Path to the Beads database file")
 	outputFormatFlag := flag.String("output-format", outputFormatDefault, "Detail panel markdown style (rich, light, plain)")
 	skipVersionCheckFlag := flag.Bool("skip-version-check", skipVersionCheckDefault, "Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)")
+	skipUpdateCheckFlag := flag.Bool("skip-update-check", skipUpdateCheckDefault, "Skip checking for updates at startup (or set AB_SKIP_UPDATE_CHECK=true)")
 	jsonOutputFlag := flag.Bool("json-output", config.GetBool(config.KeyOutputJSON), "Print all issues as JSON and exit")
 	debugFlag := flag.Bool("debug", config.GetBool(config.KeyDebug), "Enable debug logging to ~/.abacus/debug.log")
 	flag.Parse()
@@ -70,6 +72,7 @@ func main() {
 		dbPath:             dbPathFlag,
 		outputFormat:       outputFormatFlag,
 		skipVersionCheck:   skipVersionCheckFlag,
+		skipUpdateCheck:    skipUpdateCheckFlag,
 		jsonOutput:         jsonOutputFlag,
 	}, visited)
 
@@ -151,6 +154,7 @@ type runtimeFlags struct {
 	dbPath             *string
 	outputFormat       *string
 	skipVersionCheck   *bool
+	skipUpdateCheck    *bool
 	jsonOutput         *bool
 }
 
@@ -160,6 +164,7 @@ type runtimeOptions struct {
 	dbPath           string
 	outputFormat     string
 	skipVersionCheck bool
+	skipUpdateCheck  bool
 	jsonOutput       bool
 }
 
@@ -186,6 +191,11 @@ func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runt
 		skipVersionCheck = *flags.skipVersionCheck
 	}
 
+	skipUpdateCheck := config.GetBool(config.KeySkipUpdateCheck)
+	if flagWasExplicitlySet("skip-update-check", visited) {
+		skipUpdateCheck = *flags.skipUpdateCheck
+	}
+
 	jsonOutput := config.GetBool(config.KeyOutputJSON)
 	if flagWasExplicitlySet("json-output", visited) {
 		jsonOutput = *flags.jsonOutput
@@ -197,6 +207,7 @@ func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runt
 		dbPath:           dbPath,
 		outputFormat:     outputFormat,
 		skipVersionCheck: skipVersionCheck,
+		skipUpdateCheck:  skipUpdateCheck,
 		jsonOutput:       jsonOutput,
 	}
 }
@@ -247,7 +258,7 @@ func runWithRuntime(
 
 	// Start async update check (ab-a4qc)
 	var updateChan chan *update.UpdateInfo
-	if Version != "" && Version != "dev" && Version != "development" {
+	if !runtime.skipUpdateCheck && Version != "" && Version != "dev" && Version != "development" {
 		updateChan = make(chan *update.UpdateInfo, 1)
 		go func() {
 			defer func() {

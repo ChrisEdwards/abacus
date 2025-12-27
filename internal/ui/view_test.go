@@ -171,3 +171,121 @@ func TestUpdateToastShowsHotkeyForDirect(t *testing.T) {
 		t.Errorf("expected direct install toast to contain '[U]' hotkey, got: %q", out)
 	}
 }
+
+// Tests for update success/failure toasts (ab-w1wp)
+
+func TestUpdateSuccessToastRenders(t *testing.T) {
+	app := &App{
+		updateSuccessToastVisible: true,
+		updateSuccessToastStart:   time.Now(),
+		updateSuccessVersion:      "v1.2.3",
+	}
+
+	layer := app.updateSuccessToastLayer(80, 24, 2, 10)
+	if layer == nil {
+		t.Fatal("expected update success toast to render when visible")
+	}
+
+	canvas := layer.Render()
+	if canvas == nil {
+		t.Fatal("expected canvas from update success toast layer")
+	}
+	out := canvas.Render()
+	if !strings.Contains(out, "Updated to") {
+		t.Errorf("expected toast to contain 'Updated to', got: %q", out)
+	}
+	if !strings.Contains(out, "v1.2.3") {
+		t.Errorf("expected toast to contain version 'v1.2.3', got: %q", out)
+	}
+	if !strings.Contains(out, "restart") {
+		t.Errorf("expected toast to contain 'restart' message, got: %q", out)
+	}
+}
+
+func TestUpdateSuccessToastNotRenderedWhenInvisible(t *testing.T) {
+	app := &App{
+		updateSuccessToastVisible: false,
+		updateSuccessVersion:      "v1.0.0",
+	}
+
+	layer := app.updateSuccessToastLayer(80, 24, 2, 10)
+	if layer != nil {
+		t.Error("expected update success toast not to render when invisible")
+	}
+}
+
+func TestUpdateFailureToastRenders(t *testing.T) {
+	app := &App{
+		updateFailureToastVisible: true,
+		updateFailureToastStart:   time.Now(),
+		updateFailureError:        "permission denied",
+		updateFailureCommand:      "Download from releases",
+	}
+
+	layer := app.updateFailureToastLayer(80, 24, 2, 10)
+	if layer == nil {
+		t.Fatal("expected update failure toast to render when visible")
+	}
+
+	canvas := layer.Render()
+	if canvas == nil {
+		t.Fatal("expected canvas from update failure toast layer")
+	}
+	out := canvas.Render()
+	if !strings.Contains(out, "Update failed") {
+		t.Errorf("expected toast to contain 'Update failed', got: %q", out)
+	}
+}
+
+func TestUpdateFailureToastShowsCommand(t *testing.T) {
+	app := &App{
+		updateFailureToastVisible: true,
+		updateFailureToastStart:   time.Now(),
+		updateFailureCommand:      "Download from releases",
+	}
+
+	layer := app.updateFailureToastLayer(80, 24, 2, 10)
+	if layer == nil {
+		t.Fatal("expected update failure toast to render")
+	}
+
+	canvas := layer.Render()
+	out := canvas.Render()
+	if !strings.Contains(out, "Download from releases") {
+		t.Errorf("expected toast to contain fallback command, got: %q", out)
+	}
+}
+
+func TestUpdateFailureToastNotRenderedWhenInvisible(t *testing.T) {
+	app := &App{
+		updateFailureToastVisible: false,
+		updateFailureError:        "some error",
+	}
+
+	layer := app.updateFailureToastLayer(80, 24, 2, 10)
+	if layer != nil {
+		t.Error("expected update failure toast not to render when invisible")
+	}
+}
+
+func TestUpdateFailureToastTruncatesLongError(t *testing.T) {
+	longError := strings.Repeat("x", 100)
+	app := &App{
+		updateFailureToastVisible: true,
+		updateFailureToastStart:   time.Now(),
+		updateFailureError:        longError,
+		updateFailureCommand:      "", // Empty to use error instead
+	}
+
+	layer := app.updateFailureToastLayer(80, 24, 2, 10)
+	if layer == nil {
+		t.Fatal("expected update failure toast to render")
+	}
+
+	canvas := layer.Render()
+	out := canvas.Render()
+	// Error should be truncated with "..."
+	if strings.Contains(out, longError) {
+		t.Error("expected long error to be truncated")
+	}
+}

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -189,5 +190,151 @@ func TestUpdateToastTickMsgExpiration(t *testing.T) {
 	updatedApp := model.(*App)
 	if updatedApp.updateToastVisible {
 		t.Error("updateToastVisible should be false after expiration")
+	}
+}
+
+// Tests for update success/failure toast messages (ab-w1wp)
+
+func TestUpdateSuccessToastTickMsgExpiration(t *testing.T) {
+	app := &App{
+		updateSuccessToastVisible: true,
+		updateSuccessToastStart:   time.Now().Add(-6 * time.Second), // Expired (5s)
+	}
+
+	model, _, handled := app.handleBackgroundMsg(updateSuccessToastTickMsg{})
+
+	if !handled {
+		t.Fatal("updateSuccessToastTickMsg should be handled")
+	}
+
+	updatedApp := model.(*App)
+	if updatedApp.updateSuccessToastVisible {
+		t.Error("updateSuccessToastVisible should be false after expiration")
+	}
+}
+
+func TestUpdateSuccessToastTickMsgNotExpired(t *testing.T) {
+	app := &App{
+		updateSuccessToastVisible: true,
+		updateSuccessToastStart:   time.Now(), // Not expired yet
+	}
+
+	model, cmd, handled := app.handleBackgroundMsg(updateSuccessToastTickMsg{})
+
+	if !handled {
+		t.Fatal("updateSuccessToastTickMsg should be handled")
+	}
+
+	updatedApp := model.(*App)
+	if !updatedApp.updateSuccessToastVisible {
+		t.Error("updateSuccessToastVisible should still be true before expiration")
+	}
+
+	if cmd == nil {
+		t.Error("should return a command to schedule next tick")
+	}
+}
+
+func TestUpdateFailureToastTickMsgExpiration(t *testing.T) {
+	app := &App{
+		updateFailureToastVisible: true,
+		updateFailureToastStart:   time.Now().Add(-11 * time.Second), // Expired (10s)
+	}
+
+	model, _, handled := app.handleBackgroundMsg(updateFailureToastTickMsg{})
+
+	if !handled {
+		t.Fatal("updateFailureToastTickMsg should be handled")
+	}
+
+	updatedApp := model.(*App)
+	if updatedApp.updateFailureToastVisible {
+		t.Error("updateFailureToastVisible should be false after expiration")
+	}
+}
+
+func TestUpdateFailureToastTickMsgNotExpired(t *testing.T) {
+	app := &App{
+		updateFailureToastVisible: true,
+		updateFailureToastStart:   time.Now(), // Not expired yet
+	}
+
+	model, cmd, handled := app.handleBackgroundMsg(updateFailureToastTickMsg{})
+
+	if !handled {
+		t.Fatal("updateFailureToastTickMsg should be handled")
+	}
+
+	updatedApp := model.(*App)
+	if !updatedApp.updateFailureToastVisible {
+		t.Error("updateFailureToastVisible should still be true before expiration")
+	}
+
+	if cmd == nil {
+		t.Error("should return a command to schedule next tick")
+	}
+}
+
+func TestAppUpdateCompleteMsgSuccess(t *testing.T) {
+	app := &App{
+		updateInProgress:   true,
+		updateToastVisible: true,
+		updateInfo: &update.UpdateInfo{
+			LatestVersion: update.Version{Major: 1, Minor: 2, Patch: 3},
+		},
+	}
+
+	model, cmd, handled := app.handleBackgroundMsg(appUpdateCompleteMsg{err: nil})
+
+	if !handled {
+		t.Fatal("appUpdateCompleteMsg should be handled")
+	}
+
+	updatedApp := model.(*App)
+	if updatedApp.updateInProgress {
+		t.Error("updateInProgress should be false after completion")
+	}
+	if updatedApp.updateToastVisible {
+		t.Error("updateToastVisible should be hidden after completion")
+	}
+	if !updatedApp.updateSuccessToastVisible {
+		t.Error("updateSuccessToastVisible should be true on success")
+	}
+	if updatedApp.updateSuccessVersion != "v1.2.3" {
+		t.Errorf("updateSuccessVersion = %q, want v1.2.3", updatedApp.updateSuccessVersion)
+	}
+	if cmd == nil {
+		t.Error("should return a command to schedule success toast tick")
+	}
+}
+
+func TestAppUpdateCompleteMsgFailure(t *testing.T) {
+	app := &App{
+		updateInProgress:   true,
+		updateToastVisible: true,
+	}
+
+	testErr := fmt.Errorf("permission denied")
+	model, cmd, handled := app.handleBackgroundMsg(appUpdateCompleteMsg{err: testErr})
+
+	if !handled {
+		t.Fatal("appUpdateCompleteMsg should be handled")
+	}
+
+	updatedApp := model.(*App)
+	if updatedApp.updateInProgress {
+		t.Error("updateInProgress should be false after completion")
+	}
+	if updatedApp.updateToastVisible {
+		t.Error("updateToastVisible should be hidden after completion")
+	}
+	if !updatedApp.updateFailureToastVisible {
+		t.Error("updateFailureToastVisible should be true on failure")
+	}
+	if updatedApp.updateFailureError != "permission denied" {
+		t.Errorf("updateFailureError = %q, want 'permission denied'", updatedApp.updateFailureError)
+	}
+	if cmd == nil {
+		t.Error("should return a command to schedule failure toast tick")
 	}
 }

@@ -150,18 +150,42 @@ func (m *App) handleBackgroundMsg(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.updateInProgress = false
 		m.updateToastVisible = false
 		if msg.err != nil {
+			// Show failure toast (ab-w1wp)
+			m.updateFailureToastVisible = true
+			m.updateFailureToastStart = time.Now()
+			m.updateFailureError = msg.err.Error()
+			m.updateFailureCommand = "Download from releases"
 			m.updateError = msg.err.Error()
-			// Show error toast with the update error
-			m.lastError = "Update failed: " + msg.err.Error()
-			m.lastErrorSource = errorSourceOperation
-			m.showErrorToast = true
-			m.errorToastStart = time.Now()
-			return m, scheduleErrorToastTick(), true
+			return m, scheduleUpdateFailureToastTick(), true
 		}
-		// Success: show a success message via status toast mechanism
-		// Note: ab-w1wp will add proper success/failure toasts
+		// Show success toast (ab-w1wp)
+		m.updateSuccessToastVisible = true
+		m.updateSuccessToastStart = time.Now()
+		if m.updateInfo != nil {
+			m.updateSuccessVersion = m.updateInfo.LatestVersion.String()
+		}
 		m.updateError = ""
-		return m, nil, true
+		return m, scheduleUpdateSuccessToastTick(), true
+
+	case updateSuccessToastTickMsg:
+		if !m.updateSuccessToastVisible {
+			return m, nil, true
+		}
+		if time.Since(m.updateSuccessToastStart) >= 5*time.Second {
+			m.updateSuccessToastVisible = false
+			return m, nil, true
+		}
+		return m, scheduleUpdateSuccessToastTick(), true
+
+	case updateFailureToastTickMsg:
+		if !m.updateFailureToastVisible {
+			return m, nil, true
+		}
+		if time.Since(m.updateFailureToastStart) >= 10*time.Second {
+			m.updateFailureToastVisible = false
+			return m, nil, true
+		}
+		return m, scheduleUpdateFailureToastTick(), true
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width

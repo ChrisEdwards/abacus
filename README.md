@@ -125,6 +125,7 @@ Options:
   --auto-refresh-seconds int  Auto-refresh interval in seconds (0 disables; default: 3)
   --output-format string      Detail panel style: rich, light, plain (default: "rich")
   --skip-version-check        Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)
+  --skip-update-check         Skip checking for updates at startup (or set AB_SKIP_UPDATE_CHECK=true)
 ```
 
 Key workflows are summarized below—run `abacus --help` anytime for the full flag list.
@@ -159,6 +160,21 @@ Items within each section are sorted intelligently:
 - Set `0` to disable background refresh if you want to control reloads manually.
 - Auto-refresh preserves cursor, expanded nodes, and search filters.
 - If a refresh fails, an error toast appears briefly in the bottom-right corner.
+
+### Update Notifications
+
+Abacus checks for updates when you launch it. If a new version is available,
+you'll see a toast notification in the bottom-right corner:
+
+- **Homebrew users**: The toast shows `brew upgrade abacus` command
+- **Direct download users**: Press `U` to auto-update, or download from [releases](https://github.com/ChrisEdwards/abacus/releases)
+
+To disable update checks:
+```bash
+abacus --skip-update-check
+# or
+export AB_SKIP_UPDATE_CHECK=true
+```
 
 ## Keyboard Shortcuts
 
