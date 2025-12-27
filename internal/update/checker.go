@@ -12,8 +12,8 @@ import (
 
 // Default configuration values.
 const (
-	DefaultRepoOwner = "Dicklesworthstone"
-	DefaultRepoName  = "beads_viewer"
+	DefaultRepoOwner = "ChrisEdwards"
+	DefaultRepoName  = "abacus"
 	DefaultTimeout   = 5 * time.Second
 )
 
@@ -172,7 +172,7 @@ func (c *Checker) fetchLatestRelease(ctx context.Context) (*ReleaseInfo, error) 
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "beads-viewer-update-checker")
+	req.Header.Set("User-Agent", "abacus-update-checker")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -199,11 +199,11 @@ func (c *Checker) fetchLatestRelease(ctx context.Context) (*ReleaseInfo, error) 
 func (c *Checker) suggestUpdateCommand(method InstallMethod) string {
 	switch method {
 	case InstallHomebrew:
-		return "brew upgrade bv"
+		return "brew upgrade abacus"
 	case InstallDirect:
-		return "bv --update"
+		return "abacus --update"
 	default:
-		return "bv --update"
+		return "abacus --update"
 	}
 }
 

@@ -113,6 +113,9 @@ func (u *Updater) Update(ctx context.Context, version string) error {
 		return fmt.Errorf("set executable permission: %w", err)
 	}
 
+	// Clean up backup file after successful update
+	_ = os.Remove(backupPath)
+
 	return nil
 }
 
@@ -152,6 +155,51 @@ func (u *Updater) downloadAndExtract(ctx context.Context, version string) (strin
 		version = "v" + version
 	}
 
+	// Create temp directory for download and extraction
+	tempDir, err := os.MkdirTemp("", "abacus-update-*")
+	if err != nil {
+		return "", nil, fmt.Errorf("create temp directory: %w", err)
+	}
+	cleanup := func() { _ = os.RemoveAll(tempDir) }
+
+	// Download checksums file (optional - continue without if unavailable)
+	checksums := u.downloadChecksums(ctx, version)
+
+	// Download tarball to temp file
+	tarballPath := filepath.Join(tempDir, assetName)
+	if err := u.downloadFile(ctx, version, assetName, tarballPath); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+
+	// Verify checksum if available
+	if expectedChecksum, ok := checksums[assetName]; ok {
+		if err := VerifyChecksum(tarballPath, expectedChecksum); err != nil {
+			cleanup()
+			return "", nil, fmt.Errorf("checksum verification failed: %w", err)
+		}
+	}
+
+	// Extract tarball
+	//nolint:gosec // G304: tarballPath is constructed from known temp directory
+	tarballFile, err := os.Open(tarballPath)
+	if err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("open tarball: %w", err)
+	}
+	defer func() { _ = tarballFile.Close() }()
+
+	binaryPath, err := extractTarball(tarballFile, tempDir)
+	if err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("%w: %v", ErrExtractionFailed, err)
+	}
+
+	return binaryPath, cleanup, nil
+}
+
+// downloadFile downloads a release asset to a local file.
+func (u *Updater) downloadFile(ctx context.Context, version, assetName, destPath string) error {
 	url := fmt.Sprintf(
 		"https://github.com/%s/%s/releases/download/%s/%s",
 		u.owner, u.repo, version, assetName,
@@ -159,36 +207,65 @@ func (u *Updater) downloadAndExtract(ctx context.Context, version string) (strin
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", nil, fmt.Errorf("create request: %w", err)
+		return fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/octet-stream")
-	req.Header.Set("User-Agent", "beads-viewer-updater")
+	req.Header.Set("User-Agent", "abacus-updater")
 
 	resp, err := u.httpClient.Do(req)
 	if err != nil {
-		return "", nil, fmt.Errorf("%w: %v", ErrDownloadFailed, err)
+		return fmt.Errorf("%w: %v", ErrDownloadFailed, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", nil, fmt.Errorf("%w: status %d", ErrDownloadFailed, resp.StatusCode)
+		return fmt.Errorf("%w: status %d", ErrDownloadFailed, resp.StatusCode)
 	}
 
-	// Create temp directory for extraction
-	tempDir, err := os.MkdirTemp("", "bv-update-*")
+	//nolint:gosec // G304: destPath is controlled by caller in temp directory
+	outFile, err := os.Create(destPath)
 	if err != nil {
-		return "", nil, fmt.Errorf("create temp directory: %w", err)
+		return fmt.Errorf("create file: %w", err)
 	}
-	cleanup := func() { _ = os.RemoveAll(tempDir) }
+	defer func() { _ = outFile.Close() }()
 
-	// Extract tarball
-	binaryPath, err := extractTarball(resp.Body, tempDir)
+	if _, err := io.Copy(outFile, resp.Body); err != nil {
+		return fmt.Errorf("write file: %w", err)
+	}
+
+	return nil
+}
+
+// downloadChecksums downloads and parses the checksums file for a release.
+// Returns an empty map if the checksums file is unavailable.
+func (u *Updater) downloadChecksums(ctx context.Context, version string) map[string]string {
+	url := fmt.Sprintf(
+		"https://github.com/%s/%s/releases/download/%s/checksums.txt",
+		u.owner, u.repo, version,
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		cleanup()
-		return "", nil, fmt.Errorf("%w: %v", ErrExtractionFailed, err)
+		return nil
+	}
+	req.Header.Set("User-Agent", "abacus-updater")
+
+	resp, err := u.httpClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil
 	}
 
-	return binaryPath, cleanup, nil
+	checksums, err := ParseChecksumFile(resp.Body)
+	if err != nil {
+		return nil
+	}
+
+	return checksums
 }
 
 // extractTarball extracts a .tar.gz archive and returns the path to the binary.
@@ -218,7 +295,7 @@ func extractTarball(r io.Reader, destDir string) (string, error) {
 
 		// Look for the binary (executable file, not a directory)
 		name := filepath.Base(header.Name)
-		if name == "bv" || name == "abacus" || strings.HasPrefix(name, "bv-") {
+		if name == "abacus" || strings.HasPrefix(name, "abacus-") {
 			destPath := filepath.Join(destDir, name)
 			//nolint:gosec // G304: extracting to temp directory we control
 			outFile, err := os.Create(destPath)
@@ -258,14 +335,14 @@ func getTarballName() (string, error) {
 	switch goos {
 	case "darwin":
 		if arch == "arm64" {
-			return "bv_darwin_arm64.tar.gz", nil
+			return "abacus_darwin_arm64.tar.gz", nil
 		}
-		return "bv_darwin_amd64.tar.gz", nil
+		return "abacus_darwin_amd64.tar.gz", nil
 	case "linux":
 		if arch == "arm64" {
-			return "bv_linux_arm64.tar.gz", nil
+			return "abacus_linux_arm64.tar.gz", nil
 		}
-		return "bv_linux_amd64.tar.gz", nil
+		return "abacus_linux_amd64.tar.gz", nil
 	case "windows":
 		return "", ErrWindowsNoAutoUpdate
 	default:
@@ -281,16 +358,16 @@ func getAssetName() (string, error) {
 	switch os {
 	case "darwin":
 		if arch == "arm64" {
-			return "bv-darwin-arm64", nil
+			return "abacus-darwin-arm64", nil
 		}
-		return "bv-darwin-amd64", nil
+		return "abacus-darwin-amd64", nil
 	case "linux":
 		if arch == "arm64" {
-			return "bv-linux-arm64", nil
+			return "abacus-linux-arm64", nil
 		}
-		return "bv-linux-amd64", nil
+		return "abacus-linux-amd64", nil
 	case "windows":
-		return "bv-windows-amd64.exe", nil
+		return "abacus-windows-amd64.exe", nil
 	default:
 		return "", fmt.Errorf("%w: %s/%s", ErrUnsupportedOS, os, arch)
 	}
@@ -299,7 +376,7 @@ func getAssetName() (string, error) {
 // checkWritePermission verifies the current process can write to the path.
 func checkWritePermission(path string) error {
 	dir := filepath.Dir(path)
-	testFile := filepath.Join(dir, ".bv-update-test")
+	testFile := filepath.Join(dir, ".abacus-update-test")
 
 	//nolint:gosec // G304: Path is constructed from known binary directory
 	f, err := os.Create(testFile)
@@ -337,7 +414,7 @@ func DetectInstallMethod() InstallMethod {
 
 // isHomebrewInstalled checks if the app is installed via Homebrew.
 func isHomebrewInstalled() bool {
-	cmd := exec.Command("brew", "list", "bv")
+	cmd := exec.Command("brew", "list", "abacus")
 	err := cmd.Run()
 	return err == nil
 }

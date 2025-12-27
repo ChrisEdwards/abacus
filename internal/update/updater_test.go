@@ -35,15 +35,15 @@ func TestGetAssetName(t *testing.T) {
 	// Verify it contains the expected OS
 	switch runtime.GOOS {
 	case "darwin":
-		if name != "bv-darwin-arm64" && name != "bv-darwin-amd64" {
+		if name != "abacus-darwin-arm64" && name != "abacus-darwin-amd64" {
 			t.Errorf("unexpected asset name for darwin: %s", name)
 		}
 	case "linux":
-		if name != "bv-linux-arm64" && name != "bv-linux-amd64" {
+		if name != "abacus-linux-arm64" && name != "abacus-linux-amd64" {
 			t.Errorf("unexpected asset name for linux: %s", name)
 		}
 	case "windows":
-		if name != "bv-windows-amd64.exe" {
+		if name != "abacus-windows-amd64.exe" {
 			t.Errorf("unexpected asset name for windows: %s", name)
 		}
 	}
@@ -146,7 +146,7 @@ func TestExtractTarball(t *testing.T) {
 	// Add a binary file
 	binaryContent := []byte("#!/bin/sh\necho hello")
 	hdr := &tar.Header{
-		Name: "bv_1.0.0_darwin_arm64/bv",
+		Name: "abacus_1.0.0_darwin_arm64/abacus",
 		Mode: 0755,
 		Size: int64(len(binaryContent)),
 	}
