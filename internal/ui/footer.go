@@ -4,6 +4,8 @@ import (
 	"strings"
 	"time"
 
+	"abacus/internal/update"
+
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -114,7 +116,7 @@ func (m *App) renderFooter() string {
 }
 
 // renderRefreshStatus returns the current refresh status for the footer.
-// Priority: error > refreshing > delta metrics (if changed) > empty
+// Priority: error > refreshing > delta metrics (if changed) > update available > empty
 func (m *App) renderRefreshStatus() string {
 	if m.lastError != "" {
 		return styleErrorIndicator().Render("⚠ Error (!)")
@@ -127,6 +129,13 @@ func (m *App) renderRefreshStatus() string {
 		m.lastRefreshStats != "+0 / Δ0 / -0" &&
 		time.Since(m.lastRefreshTime) < refreshDisplayDuration {
 		return styleFooterMuted().Render("Δ " + m.lastRefreshStats)
+	}
+	// Show persistent update indicator when update is available
+	// (but not for Homebrew installs which should use brew upgrade)
+	if m.updateInfo != nil && m.updateInfo.UpdateAvailable &&
+		m.updateInfo.InstallMethod != update.InstallHomebrew &&
+		!m.updateInProgress {
+		return styleUpdateIndicator().Render("↑ Update [U]")
 	}
 	// Reserve space for spinner to prevent layout shifts when refresh starts
 	return baseStyle().Render(" ")

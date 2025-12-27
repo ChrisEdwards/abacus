@@ -412,10 +412,10 @@ func (m *App) handleNewBeadKey(isRoot bool) (tea.Model, tea.Cmd) {
 // handleUpdateKey triggers the auto-update when conditions are met.
 func (m *App) handleUpdateKey() (tea.Model, tea.Cmd) {
 	// Only active when:
-	// 1. Update toast is visible (update available)
+	// 1. Update is available (updateInfo present with UpdateAvailable=true)
 	// 2. Not a Homebrew install (would desync brew's package tracking)
 	// 3. Update not already in progress
-	if !m.updateToastVisible || m.updateInfo == nil {
+	if m.updateInfo == nil || !m.updateInfo.UpdateAvailable {
 		return m, nil
 	}
 	if m.updateInfo.InstallMethod == update.InstallHomebrew {
@@ -432,8 +432,11 @@ func (m *App) handleUpdateKey() (tea.Model, tea.Cmd) {
 // startUpdate returns a command that performs the update asynchronously.
 func (m *App) startUpdate() tea.Cmd {
 	return func() tea.Msg {
+		// Use 5-minute timeout to prevent hanging indefinitely on network issues
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
 		updater := update.NewUpdater("ChrisEdwards", "abacus")
-		err := updater.Update(context.Background(), m.updateInfo.LatestVersion.String())
+		err := updater.Update(ctx, m.updateInfo.LatestVersion.String())
 		return appUpdateCompleteMsg{err: err}
 	}
 }

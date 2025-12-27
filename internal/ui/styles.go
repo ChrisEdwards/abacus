@@ -224,6 +224,12 @@ func styleErrorIndicator() lipgloss.Style {
 	return applyBold(style, true)
 }
 
+func styleUpdateIndicator() lipgloss.Style {
+	style := lipgloss.NewStyle().
+		Foreground(currentThemeWrapper().Accent())
+	return applyBold(style, true)
+}
+
 func styleSuccessToast() lipgloss.Style {
 	return baseStyle().
 		Border(lipgloss.RoundedBorder()).

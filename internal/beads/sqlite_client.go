@@ -75,6 +75,7 @@ func (c *sqliteClient) openDB(ctx context.Context) (*sql.DB, error) {
 
 // detectSchema checks if the database has the new graph link columns
 // (duplicate_of, superseded_by) added in beads v0.0.31+.
+// Both columns must exist for hasGraphLinkCols to be set true.
 func (c *sqliteClient) detectSchema(ctx context.Context, db *sql.DB) {
 	c.schemaOnce.Do(func() {
 		rows, err := db.QueryContext(ctx, `PRAGMA table_info(issues)`)
@@ -85,6 +86,9 @@ func (c *sqliteClient) detectSchema(ctx context.Context, db *sql.DB) {
 			_ = rows.Close()
 		}()
 
+		hasDuplicateOf := false
+		hasSupersededBy := false
+
 		for rows.Next() {
 			var cid int
 			var name, colType string
@@ -93,11 +97,16 @@ func (c *sqliteClient) detectSchema(ctx context.Context, db *sql.DB) {
 			if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
 				continue
 			}
-			if name == "duplicate_of" || name == "superseded_by" {
-				c.hasGraphLinkCols = true
-				return // Found at least one, that's enough
+			if name == "duplicate_of" {
+				hasDuplicateOf = true
+			}
+			if name == "superseded_by" {
+				hasSupersededBy = true
 			}
 		}
+
+		// Only enable graph link columns if BOTH exist to avoid "no such column" errors
+		c.hasGraphLinkCols = hasDuplicateOf && hasSupersededBy
 	})
 }
 
