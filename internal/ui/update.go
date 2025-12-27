@@ -188,22 +188,46 @@ func (m *App) handleBackgroundMsg(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, scheduleUpdateFailureToastTick(), true
 
 	case tea.WindowSizeMsg:
+		// Always update dimensions immediately so the model is correct
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
-		rawViewportWidth := int(float64(msg.Width)*0.45) - 2
-		maxViewportWidth := msg.Width - minTreeWidth - 4
+		m.resizeLastEvent = time.Now()
+
+		// Schedule debounce tick if not already pending
+		if !m.resizePending {
+			m.resizePending = true
+			return m, scheduleResizeDebounceTick(), true
+		}
+		return m, nil, true
+
+	case resizeDebounceTickMsg:
+		if time.Since(m.resizeLastEvent) < resizeDebounceDelay {
+			// More resize events came in recently; schedule another tick
+			return m, scheduleResizeDebounceTick(), true
+		}
+
+		// Debounce period elapsed - do the expensive redraw
+		m.resizePending = false
+
+		rawViewportWidth := int(float64(m.width)*0.45) - 2
+		maxViewportWidth := m.width - minTreeWidth - 4
 		m.viewport.Width = clampDimension(rawViewportWidth, minViewportWidth, maxViewportWidth)
 
-		rawViewportHeight := msg.Height - 5
-		maxViewportHeight := msg.Height - 2
+		rawViewportHeight := m.height - 5
+		maxViewportHeight := m.height - 2
 		m.viewport.Height = clampDimension(rawViewportHeight, minViewportHeight, maxViewportHeight)
+
 		m.applyViewportTheme()
 		m.updateViewportContent()
 
 		if m.createOverlay != nil {
-			m.createOverlay.SetSize(msg.Width, msg.Height)
+			m.createOverlay.SetSize(m.width, m.height)
 		}
+		if m.commentOverlay != nil {
+			m.commentOverlay.SetSize(m.width, m.height)
+		}
+
 		return m, nil, true
 	}
 

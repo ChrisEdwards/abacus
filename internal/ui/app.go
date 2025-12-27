@@ -122,6 +122,8 @@ type App struct {
 
 	width            int
 	height           int
+	resizePending    bool      // Resize debounce: tick is scheduled
+	resizeLastEvent  time.Time // Resize debounce: time of last WindowSizeMsg
 	refreshInterval  time.Duration
 	autoRefresh      bool
 	dbPath           string

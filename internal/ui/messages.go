@@ -142,3 +142,14 @@ func scheduleUpdateFailureToastTick() tea.Cmd {
 		return updateFailureToastTickMsg{}
 	})
 }
+
+// Resize debounce message (ab-mhto)
+type resizeDebounceTickMsg struct{}
+
+const resizeDebounceDelay = 100 * time.Millisecond
+
+func scheduleResizeDebounceTick() tea.Cmd {
+	return tea.Tick(resizeDebounceDelay, func(time.Time) tea.Msg {
+		return resizeDebounceTickMsg{}
+	})
+}
