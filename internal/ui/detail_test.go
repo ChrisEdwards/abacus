@@ -644,3 +644,104 @@ func TestDetailBlockedByShowsBlockedIcon(t *testing.T) {
 		t.Fatalf("expected blocked icon rendered for dependency:\n%s", content)
 	}
 }
+
+func TestDetailViewShowsDuplicateOf(t *testing.T) {
+	canonical := &graph.Node{
+		Issue:          beads.FullIssue{ID: "ab-canonical", Title: "Original Feature Request", Status: "open"},
+		CommentsLoaded: true,
+	}
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:          "ab-dup",
+			Title:       "Duplicate Report",
+			Status:      "closed",
+			DuplicateOf: "ab-canonical",
+		},
+		DuplicateOf:    canonical,
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []graph.TreeRow{{Node: node}},
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	// "Duplicate Of:" section should be present
+	if !strings.Contains(content, "Duplicate Of:") {
+		t.Fatalf("expected 'Duplicate Of' section for duplicate node:\n%s", content)
+	}
+	// Canonical issue ID should be visible
+	if !strings.Contains(content, "ab-canonical") {
+		t.Fatalf("expected canonical issue ID in Duplicate Of section:\n%s", content)
+	}
+}
+
+func TestDetailViewShowsSupersededBy(t *testing.T) {
+	replacement := &graph.Node{
+		Issue:          beads.FullIssue{ID: "ab-new", Title: "Updated Design Doc v2", Status: "in_progress"},
+		CommentsLoaded: true,
+	}
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:           "ab-old",
+			Title:        "Old Design Doc",
+			Status:       "closed",
+			SupersededBy: "ab-new",
+		},
+		SupersededBy:   replacement,
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []graph.TreeRow{{Node: node}},
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	// "Superseded By:" section should be present
+	if !strings.Contains(content, "Superseded By:") {
+		t.Fatalf("expected 'Superseded By' section for superseded node:\n%s", content)
+	}
+	// Replacement issue ID should be visible
+	if !strings.Contains(content, "ab-new") {
+		t.Fatalf("expected replacement issue ID in Superseded By section:\n%s", content)
+	}
+	// Status icon should be present (in_progress = ◐)
+	if !strings.Contains(content, "◐") {
+		t.Fatalf("expected in-progress icon for replacement:\n%s", content)
+	}
+}
+
+func TestDetailViewHidesEmptyGraphLinks(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:     "ab-normal",
+			Title:  "Normal Issue",
+			Status: "open",
+		},
+		DuplicateOf:    nil, // No duplicate_of
+		SupersededBy:   nil, // No superseded_by
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []graph.TreeRow{{Node: node}},
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	// Neither section should appear when pointers are nil
+	if strings.Contains(content, "Duplicate Of:") {
+		t.Fatalf("did not expect 'Duplicate Of' section when DuplicateOf is nil:\n%s", content)
+	}
+	if strings.Contains(content, "Superseded By:") {
+		t.Fatalf("did not expect 'Superseded By' section when SupersededBy is nil:\n%s", content)
+	}
+}

@@ -189,6 +189,18 @@ func (m *App) updateViewportContent() {
 			relSections = append(relSections, section)
 		}
 	}
+	// Duplicate Of - this issue is a duplicate of another (canonical)
+	if node.DuplicateOf != nil {
+		if section := renderRelSection("Duplicate Of: (1)", []*graph.Node{node.DuplicateOf}); section != "" {
+			relSections = append(relSections, section)
+		}
+	}
+	// Superseded By - this issue was replaced by a newer version
+	if node.SupersededBy != nil {
+		if section := renderRelSection("Superseded By: (1)", []*graph.Node{node.SupersededBy}); section != "" {
+			relSections = append(relSections, section)
+		}
+	}
 	relBlock := joinDetailSections(relSections...)
 
 	renderMarkdown := buildMarkdownRenderer(m.outputFormat, vpWidth-2)

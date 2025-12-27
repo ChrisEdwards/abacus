@@ -823,3 +823,132 @@ func TestBuilderGraphLinksBackwardCompatibility(t *testing.T) {
 		t.Fatalf("expected SupersededBy to be nil for empty field")
 	}
 }
+
+func TestBuilderHandlesRelatesToDependency(t *testing.T) {
+	// relates-to is bidirectional (beads creates both edges via `bd relate`)
+	// The builder should handle the dedup correctly
+	issues := []beads.FullIssue{
+		{
+			ID:        "ab-a",
+			Title:     "Issue A",
+			Status:    "open",
+			CreatedAt: "2024-01-01T00:00:00Z",
+			UpdatedAt: "2024-01-01T00:00:00Z",
+			Dependencies: []beads.Dependency{
+				{Type: "relates-to", TargetID: "ab-b"},
+			},
+		},
+		{
+			ID:        "ab-b",
+			Title:     "Issue B",
+			Status:    "open",
+			CreatedAt: "2024-01-02T00:00:00Z",
+			UpdatedAt: "2024-01-02T00:00:00Z",
+			Dependencies: []beads.Dependency{
+				{Type: "relates-to", TargetID: "ab-a"},
+			},
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	var nodeA, nodeB *Node
+	for _, r := range roots {
+		switch r.Issue.ID {
+		case "ab-a":
+			nodeA = r
+		case "ab-b":
+			nodeB = r
+		}
+	}
+	if nodeA == nil || nodeB == nil {
+		t.Fatalf("expected both nodes in roots")
+	}
+
+	// relates-to should populate Related bidirectionally
+	if len(nodeA.Related) != 1 || nodeA.Related[0].Issue.ID != "ab-b" {
+		t.Fatalf("expected nodeA.Related to contain ab-b, got %v", nodeA.Related)
+	}
+	if len(nodeB.Related) != 1 || nodeB.Related[0].Issue.ID != "ab-a" {
+		t.Fatalf("expected nodeB.Related to contain ab-a, got %v", nodeB.Related)
+	}
+
+	// Should NOT create duplicates (both edges stored, but dedup should prevent double-linking)
+	// This is the key difference from "related" - relates-to already has both edges stored
+}
+
+func TestBuilderHandlesMixedRelatedTypes(t *testing.T) {
+	// Mix of legacy "related" and new "relates-to" types should both work
+	issues := []beads.FullIssue{
+		{
+			ID:        "ab-a",
+			Title:     "Issue A (legacy related to B)",
+			Status:    "open",
+			CreatedAt: "2024-01-01T00:00:00Z",
+			UpdatedAt: "2024-01-01T00:00:00Z",
+			Dependencies: []beads.Dependency{
+				{Type: "related", TargetID: "ab-b"},
+			},
+		},
+		{
+			ID:        "ab-b",
+			Title:     "Issue B",
+			Status:    "open",
+			CreatedAt: "2024-01-02T00:00:00Z",
+			UpdatedAt: "2024-01-02T00:00:00Z",
+		},
+		{
+			ID:        "ab-c",
+			Title:     "Issue C (relates-to D)",
+			Status:    "open",
+			CreatedAt: "2024-01-03T00:00:00Z",
+			UpdatedAt: "2024-01-03T00:00:00Z",
+			Dependencies: []beads.Dependency{
+				{Type: "relates-to", TargetID: "ab-d"},
+			},
+		},
+		{
+			ID:        "ab-d",
+			Title:     "Issue D (relates-to C)",
+			Status:    "open",
+			CreatedAt: "2024-01-04T00:00:00Z",
+			UpdatedAt: "2024-01-04T00:00:00Z",
+			Dependencies: []beads.Dependency{
+				{Type: "relates-to", TargetID: "ab-c"},
+			},
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	nodeMap := make(map[string]*Node)
+	for _, r := range roots {
+		nodeMap[r.Issue.ID] = r
+	}
+
+	// Legacy related: A<->B should be bidirectional
+	nodeA := nodeMap["ab-a"]
+	nodeB := nodeMap["ab-b"]
+	if len(nodeA.Related) != 1 || nodeA.Related[0].Issue.ID != "ab-b" {
+		t.Fatalf("expected nodeA.Related to contain ab-b")
+	}
+	if len(nodeB.Related) != 1 || nodeB.Related[0].Issue.ID != "ab-a" {
+		t.Fatalf("expected nodeB.Related to contain ab-a")
+	}
+
+	// New relates-to: C<->D should also be bidirectional (with dedup)
+	nodeC := nodeMap["ab-c"]
+	nodeD := nodeMap["ab-d"]
+	if len(nodeC.Related) != 1 || nodeC.Related[0].Issue.ID != "ab-d" {
+		t.Fatalf("expected nodeC.Related to contain ab-d")
+	}
+	if len(nodeD.Related) != 1 || nodeD.Related[0].Issue.ID != "ab-c" {
+		t.Fatalf("expected nodeD.Related to contain ab-c")
+	}
+}
