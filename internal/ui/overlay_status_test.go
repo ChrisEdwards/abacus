@@ -45,20 +45,21 @@ func TestNewStatusOverlay(t *testing.T) {
 		}
 	})
 
-	t.Run("ClosedStatusAllowsReopenVariants", func(t *testing.T) {
+	t.Run("ClosedStatusOnlyAllowsReopenToOpen", func(t *testing.T) {
 		overlay := NewStatusOverlay("test-123", "Test Issue", "closed")
-		// From closed, can reopen to any non-terminal status
+		// From closed, can only reopen to open (matches domain.allowedTransitions)
 		if overlay.options[0].disabled {
 			t.Error("expected open to NOT be disabled (reopen allowed)")
 		}
-		if overlay.options[1].disabled {
-			t.Error("expected in_progress to NOT be disabled (reopen variant allowed)")
+		// in_progress, blocked, deferred should be disabled (closed can only → open)
+		if !overlay.options[1].disabled {
+			t.Error("expected in_progress to be disabled (closed can only → open)")
 		}
-		if overlay.options[2].disabled {
-			t.Error("expected blocked to NOT be disabled (reopen variant allowed)")
+		if !overlay.options[2].disabled {
+			t.Error("expected blocked to be disabled (closed can only → open)")
 		}
-		if overlay.options[3].disabled {
-			t.Error("expected deferred to NOT be disabled (reopen variant allowed)")
+		if !overlay.options[3].disabled {
+			t.Error("expected deferred to be disabled (closed can only → open)")
 		}
 		// closed itself should not be disabled
 		if overlay.options[4].disabled {

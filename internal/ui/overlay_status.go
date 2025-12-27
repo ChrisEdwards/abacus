@@ -45,12 +45,12 @@ func NewStatusOverlay(issueID, issueTitle, currentStatus string) *StatusOverlay 
 	}
 
 	// Mark invalid transitions as disabled
-	// Special case: allow closed → any non-terminal status (reopen variants)
+	// Special case: allow closed → open (reopen)
 	for i := range options {
 		target := domain.Status(options[i].value)
 		if current.CanTransitionTo(target) != nil && current != target {
-			// Allow reopening: closed → open, blocked, in_progress, or deferred
-			if currentStatus == "closed" && options[i].value != "closed" {
+			// Allow reopening: closed → open only (matches domain.allowedTransitions)
+			if currentStatus == "closed" && options[i].value == "open" {
 				continue
 			}
 			options[i].disabled = true

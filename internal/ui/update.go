@@ -165,6 +165,8 @@ func (m *App) handleBackgroundMsg(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			m.updateSuccessVersion = m.updateInfo.LatestVersion.String()
 		}
 		m.updateError = ""
+		// Clear updateInfo so footer stops showing update indicator (ab-lsn1)
+		m.updateInfo = nil
 		return m, scheduleUpdateSuccessToastTick(), true
 
 	case updateSuccessToastTickMsg:

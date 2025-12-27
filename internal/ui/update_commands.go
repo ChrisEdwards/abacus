@@ -10,6 +10,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// statusCommandTimeout bounds how long status change commands can run
+// to prevent UI hangs if bd update/reopen hangs (ab-8mg5).
+const statusCommandTimeout = 30 * time.Second
+
 func scheduleStatusToastTick() tea.Cmd {
 	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
 		return statusToastTickMsg{}
@@ -19,7 +23,9 @@ func scheduleStatusToastTick() tea.Cmd {
 // executeStatusChangeCmd runs the bd update command asynchronously without toast.
 func (m *App) executeStatusChangeCmd(issueID, newStatus string) tea.Cmd {
 	return func() tea.Msg {
-		err := m.client.UpdateStatus(context.Background(), issueID, newStatus)
+		ctx, cancel := context.WithTimeout(context.Background(), statusCommandTimeout)
+		defer cancel()
+		err := m.client.UpdateStatus(ctx, issueID, newStatus)
 		return statusUpdateCompleteMsg{err: err}
 	}
 }
@@ -27,7 +33,9 @@ func (m *App) executeStatusChangeCmd(issueID, newStatus string) tea.Cmd {
 // executeReopenCmd runs the bd reopen command asynchronously.
 func (m *App) executeReopenCmd(issueID string) tea.Cmd {
 	return func() tea.Msg {
-		err := m.client.Reopen(context.Background(), issueID)
+		ctx, cancel := context.WithTimeout(context.Background(), statusCommandTimeout)
+		defer cancel()
+		err := m.client.Reopen(ctx, issueID)
 		return statusUpdateCompleteMsg{err: err}
 	}
 }
