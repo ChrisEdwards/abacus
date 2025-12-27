@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-12-26
+
 ### Added
 - **Auto-update system**: Check for updates at startup with non-blocking GitHub API check, toast notification when updates available, and `U` hotkey for one-key self-update (ab-lanr)
 - **Blocked and deferred statuses**: Full support for blocked/deferred in tree view with icons, detail view, status overlay, sorting order, and view filters—blocked/deferred items excluded from Active and Ready views (ab-9sbt, ab-lqny, ab-meoq, ab-gpqt)
