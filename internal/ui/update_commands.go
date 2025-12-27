@@ -49,6 +49,10 @@ func formatStatusLabel(status string) string {
 		return "In Progress"
 	case "closed":
 		return "Closed"
+	case "blocked":
+		return "Blocked"
+	case "deferred":
+		return "Deferred"
 	default:
 		return status
 	}

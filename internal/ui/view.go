@@ -195,7 +195,11 @@ func (m *App) View() string {
 		m.labelsToastLayer,
 		m.statusToastLayer,
 		m.copyToastLayer,
-		m.errorToastLayer,
+	}
+	// Only add errorToastLayer if not already handled by overlayErrorLayer
+	// to avoid double-rendering error toasts when create overlay is open
+	if overlayErrorLayer == nil {
+		toastFactories = append(toastFactories, m.errorToastLayer)
 	}
 	for _, factory := range toastFactories {
 		if layer := factory(m.width, m.height, mainBodyStart, mainBodyHeight); layer != nil {
