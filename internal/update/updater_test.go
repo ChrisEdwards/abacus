@@ -105,7 +105,8 @@ func TestRollbackNoBackup(t *testing.T) {
 }
 
 func TestGetTarballName(t *testing.T) {
-	name, err := getTarballName()
+	version := "0.6.1"
+	name, err := getTarballName(version)
 
 	// On Windows, should return error
 	if runtime.GOOS == "windows" {
@@ -124,6 +125,11 @@ func TestGetTarballName(t *testing.T) {
 		t.Errorf("tarball name should end with .tar.gz, got: %s", name)
 	}
 
+	// Verify it contains the version
+	if !strings.Contains(name, version) {
+		t.Errorf("tarball name should contain version %q, got: %s", version, name)
+	}
+
 	// Verify it contains the expected OS
 	switch runtime.GOOS {
 	case "darwin":
@@ -134,6 +140,28 @@ func TestGetTarballName(t *testing.T) {
 		if !strings.Contains(name, "linux") {
 			t.Errorf("tarball name should contain 'linux', got: %s", name)
 		}
+	}
+}
+
+func TestGetTarballName_StripsVPrefix(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping on Windows")
+	}
+
+	// Version with v prefix should work the same
+	name1, _ := getTarballName("0.6.1")
+	name2, _ := getTarballName("v0.6.1")
+
+	if name1 != name2 {
+		t.Errorf("getTarballName should strip v prefix: %q != %q", name1, name2)
+	}
+
+	// Verify version is in the name without the v
+	if !strings.Contains(name1, "0.6.1") {
+		t.Errorf("tarball name should contain '0.6.1', got: %s", name1)
+	}
+	if strings.Contains(name1, "v0.6.1") {
+		t.Errorf("tarball name should not contain 'v0.6.1', got: %s", name1)
 	}
 }
 

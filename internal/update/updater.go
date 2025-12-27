@@ -185,14 +185,14 @@ func (u *Updater) HasBackup() bool {
 // downloadAndExtract downloads and extracts the release tarball.
 // Returns the path to the extracted binary and a cleanup function.
 func (u *Updater) downloadAndExtract(ctx context.Context, version string) (string, func(), error) {
-	assetName, err := getTarballName()
-	if err != nil {
-		return "", nil, err
-	}
-
-	// Normalize version tag
+	// Normalize version tag for URL construction
 	if !strings.HasPrefix(version, "v") {
 		version = "v" + version
+	}
+
+	assetName, err := getTarballName(version)
+	if err != nil {
+		return "", nil, err
 	}
 
 	// Create temp directory for download and extraction
@@ -368,21 +368,25 @@ func extractTarball(r io.Reader, destDir string) (string, error) {
 }
 
 // getTarballName returns the expected tarball name for the current OS/arch.
-func getTarballName() (string, error) {
+// Version should be without the "v" prefix (e.g., "0.6.1" not "v0.6.1").
+func getTarballName(version string) (string, error) {
 	goos := runtime.GOOS
 	arch := runtime.GOARCH
+
+	// Strip "v" prefix if present
+	version = strings.TrimPrefix(version, "v")
 
 	switch goos {
 	case "darwin":
 		if arch == "arm64" {
-			return "abacus_darwin_arm64.tar.gz", nil
+			return fmt.Sprintf("abacus_%s_darwin_arm64.tar.gz", version), nil
 		}
-		return "abacus_darwin_amd64.tar.gz", nil
+		return fmt.Sprintf("abacus_%s_darwin_amd64.tar.gz", version), nil
 	case "linux":
 		if arch == "arm64" {
-			return "abacus_linux_arm64.tar.gz", nil
+			return fmt.Sprintf("abacus_%s_linux_arm64.tar.gz", version), nil
 		}
-		return "abacus_linux_amd64.tar.gz", nil
+		return fmt.Sprintf("abacus_%s_linux_amd64.tar.gz", version), nil
 	case "windows":
 		return "", ErrWindowsNoAutoUpdate
 	default:

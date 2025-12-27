@@ -46,8 +46,6 @@ func getHelpSections(keys KeyMap) []helpSection {
 			rows: [][]string{
 				{keys.Copy.Help().Key, keys.Copy.Help().Desc},
 				{keys.Status.Help().Key, keys.Status.Help().Desc},
-				{"b", "Set blocked"},
-				{"d", "Set deferred"},
 				{keys.Labels.Help().Key, keys.Labels.Help().Desc},
 				{keys.NewBead.Help().Key, keys.NewBead.Help().Desc},
 				{keys.NewRootBead.Help().Key, keys.NewRootBead.Help().Desc},
