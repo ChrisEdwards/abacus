@@ -7,8 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Auto-update system**: Check for updates at startup with non-blocking GitHub API check, toast notification when updates available, and `U` hotkey for one-key self-update (ab-lanr)
+- **Blocked and deferred statuses**: Full support for blocked/deferred in tree view with icons, detail view, status overlay, sorting order, and view filters—blocked/deferred items excluded from Active and Ready views (ab-9sbt, ab-lqny, ab-meoq, ab-gpqt)
+- **Tree columns**: New column zone showing priority, last updated time, and comment count; toggle with `Shift+C`; responsive hiding on narrow terminals (ab-flie, ab-bzms, ab-opn0, ab-z0ai)
+- **Graph link support**: Display duplicate_of and superseded_by relationships in detail view; handle relates-to dependency type (ab-qdh0)
+- **Debug logging**: Add `--debug` flag for troubleshooting (ab-ur7f)
+- **Stripe-style time formatting**: Human-friendly "2h ago" notation with consistent styling (ab-xcyg, ab-unj4)
+
 ### Changed
 - **Textarea submit shortcut**: Comment and description textareas now use `Ctrl+S` to submit, while `Enter` inserts newlines (standard cross-terminal behavior)
+- **Slack-style multiline input**: Description field uses Enter for newlines, Shift+Enter to submit (consistent with modern chat apps) (ab-aues, ab-qf7y)
+- **Remove bulk create mode**: Removed `Ctrl+Enter` bulk entry mode from create overlay (ab-6yr0)
+
+### Fixed
+- **Updater download URL**: Updater now uses DownloadURL discovered by version checker instead of constructing URLs (ab-uld7)
+- **Tree sort order**: Blocked and deferred statuses now correctly sort after in_progress but before closed (ab-ndns)
+- **Delete overlay formatting**: Fixed bead ID and title formatting in delete confirmation (ab-53rg)
+- **Empty database handling**: Graceful error message when no beads database found (ab-3zw.7)
+- **Window resize**: Added debounce to prevent excessive redraws during resize (ab-mhto)
+- **Status transitions**: Fixed status label formatting and double error toast rendering
+- **Debug logging**: debug.Close() now properly disables logging
 
 ## [0.6.1] - 2025-12-24
 
