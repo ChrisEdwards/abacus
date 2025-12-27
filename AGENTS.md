@@ -2,6 +2,89 @@ READ ~/Users/chrisedwards~/projects/chris/agent-shared/AGENTS.md BEFORE ANYTHING
 
 # Agent Development Guidelines
 
+## RULE 1 – ABSOLUTE (DO NOT EVER VIOLATE THIS)
+
+You may NOT delete any file or directory unless I explicitly give the exact command **in this session**.
+
+- This includes files you just created (tests, tmp files, scripts, etc.).
+- You do not get to decide that something is "safe" to remove.
+- If you think something should be removed, stop and ask. You must receive clear written approval **before** any deletion command is even proposed.
+
+Treat "never delete files without permission" as a hard invariant.
+
+---
+
+## IRREVERSIBLE GIT & FILESYSTEM ACTIONS
+
+Absolutely forbidden unless I give the **exact command and explicit approval** in the same message:
+
+- `git reset --hard`
+- `git clean -fd`
+- `rm -rf`
+- Any command that can delete or overwrite code/data
+
+Rules:
+
+1. If you are not 100% sure what a command will delete, do not propose or run it. Ask first.
+2. Prefer safe tools: `git status`, `git diff`, `git stash`, copying to backups, etc.
+3. After approval, restate the command verbatim, list what it will affect, and wait for confirmation.
+4. When a destructive command is run, record in your response:
+   - The exact user text authorizing it
+   - The command run
+   - When you ran it
+
+If that audit trail is missing, then you must act as if the operation never happened.
+
+---
+
+## Code Editing Discipline
+
+- Do **not** run scripts that bulk-modify code (codemods, invented one-off scripts, giant `sed`/regex refactors).
+- Large mechanical changes: break into smaller, explicit edits and review diffs.
+- Subtle/complex changes: edit by hand, file-by-file, with careful reasoning.
+
+---
+
+## Backwards Compatibility & File Sprawl
+
+We optimize for a clean architecture now, not backwards compatibility.
+
+- No "compat shims" or "v2" file clones.
+- When changing behavior, migrate callers and remove old code.
+- New files are only for genuinely new domains that don't fit existing modules.
+- The bar for adding files is very high.
+
+---
+
+## Landing the Plane (Session Completion)
+
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+
+**MANDATORY WORKFLOW:**
+
+1. **File issues for remaining work** - Create issues for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **PUSH TO REMOTE** - This is MANDATORY:
+   ```bash
+   git pull --rebase
+   bd sync
+   git push
+   git status  # MUST show "up to date with origin"
+   ```
+5. **Clean up** - Clear stashes, prune remote branches
+6. **Verify** - All changes committed AND pushed
+7. **Hand off** - Provide context for next session
+
+**CRITICAL RULES:**
+- Work is NOT complete until `git push` succeeds
+- NEVER stop before pushing - that leaves work stranded locally
+- NEVER say "ready to push when you are" - YOU must push
+- If push fails, resolve and retry until it succeeds
+
+
+---
+
 ## Development Commands
 
 Use these make targets for all checks and tests:
@@ -77,7 +160,72 @@ Fast code search tool available via command line. Common patterns:
 - `rg "pattern" -l` - list matching files only
 - `rg "pattern" -C 3` - show 3 lines of context
 
+---
+
+## MCP Agent Mail — Multi-Agent Coordination
+
+Agent Mail is available as an MCP server for coordinating work across agents.
+
+What Agent Mail gives:
+- Identities, inbox/outbox, searchable threads.
+- Advisory file reservations (leases) to avoid agents clobbering each other.
+- Persistent artifacts in git (human-auditable).
+
+Core patterns:
+
+1. **Same repo**
+   - Register identity:
+     - `ensure_project` then `register_agent` with the repo's absolute path as `project_key`.
+   - Reserve files before editing:
+     - `file_reservation_paths(project_key, agent_name, ["src/**"], ttl_seconds=3600, exclusive=true)`.
+   - Communicate:
+     - `send_message(..., thread_id="FEAT-123")`.
+     - `fetch_inbox`, then `acknowledge_message`.
+   - Fast reads:
+     - `resource://inbox/{Agent}?project=<abs-path>&limit=20`.
+     - `resource://thread/{id}?project=<abs-path>&include_bodies=true`.
+
+2. **Macros vs granular:**
+   - Prefer macros when speed is more important than fine-grained control:
+     - `macro_start_session`, `macro_prepare_thread`, `macro_file_reservation_cycle`, `macro_contact_handshake`.
+   - Use granular tools when you need explicit behavior.
+
+Common pitfalls:
+- "from_agent not registered" → call `register_agent` with correct `project_key`.
+- `FILE_RESERVATION_CONFLICT` → adjust patterns, wait for expiry, or use non-exclusive reservation.
+
+---
+
+## Landing the Plane (Session Completion)
+
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+
+**MANDATORY WORKFLOW:**
+
+1. **File issues for remaining work** - Create issues for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **PUSH TO REMOTE** - This is MANDATORY:
+   ```bash
+   git pull --rebase
+   bd sync
+   git push
+   git status  # MUST show "up to date with origin"
+   ```
+5. **Clean up** - Clear stashes, prune remote branches
+6. **Verify** - All changes committed AND pushed
+7. **Hand off** - Provide context for next session
+
+**CRITICAL RULES:**
+- Work is NOT complete until `git push` succeeds
+- NEVER stop before pushing - that leaves work stranded locally
+- NEVER say "ready to push when you are" - YOU must push
+- If push fails, resolve and retry until it succeeds
+
+---
+
 ## Issue Tracking with Beads
+
 We use beads for issue tracking and work planning. If you need more information, execute `bd quickstart`
 
 **IMPORTANT**: Beads (`bd` CLI) is a third-party tool we do not maintain. Do not propose changes to the beads codebase. The beads source may be in a sibling folder for reference, but we cannot modify it.
@@ -93,9 +241,9 @@ bd dep remove <from> <to>                         # Remove dependency
 ### Bead ID Format
 **IMPORTANT**: Always use standard bead IDs (e.g., `ab-xyz`, `ab-4aw`). Do NOT use dotted notation like `ab-4aw.1` or `ab-4aw.2` for bead names. Each bead should have its own unique ID from the beads system.
 
-## Bead Workflow
+### Bead Workflow
 
-### When Starting Work
+#### When Starting Work
 1. **Read the bead details**: Use `bd show <bead-id>` to view the full bead information
 2. **Read the comments**: Use `bd comments <bead-id>` to read all comments on the bead
    - Comments often contain important context, analysis, or clarifications
@@ -103,17 +251,28 @@ bd dep remove <from> <to>                         # Remove dependency
    - Reviewers may have added specific guidance or considerations
 3. **IMPORTANT!** Set the bead status to `in_progress` when you start work
 
-### Before Closing a Bead
+#### Before Closing a Bead
 You must complete ALL of the following steps before marking a bead as closed:
 
 1. **Write Tests**: Write comprehensive tests for any code you added or changed
 2. **Run Checks and Tests**: Run `make check-test` and fix all issues before committing
    - Remove unused variables and styles
    - Use `//nolint:unparam` only when parameter is used in tests
-3. **Commit Changes**: Only commit files you created or changed (use `git add <specific-files>`, not `git add .`)
-4. **Push and Verify GitHub Build**: Push and wait for GitHub Actions build to pass before closing
-5. **Comment on Bead**: Add a comment with summary and commit hash
-6. **Close Bead**: Only after GitHub build passes
+3. If you discover new work, create a new bead with `discovered-from:<parent-id>`.
+4. **Commit Changes**: Only commit files you created or changed (use `git add <specific-files>`, not `git add .`)
+5. Commit `.beads/` in the same commit as code changes.
+6. **Push and Verify GitHub Build**: Push and wait for GitHub Actions build to pass before closing
+7. **Comment on Bead**: Add a comment with summary and commit hash
+8. **Close Bead**: Only after sucessful push
+
+### Auto-sync:
+- bd exports to `.beads/issues.jsonl` after changes (debounced).
+- It imports from JSONL when newer (e.g. after `git pull`).
+
+### Never:
+- Use markdown TODO lists.
+- Use other trackers.
+- Duplicate tracking.
 
 ### Parent Beads (Epics)
 **IMPORTANT**: Do not mark parent beads as closed until ALL child beads are closed. Parent beads represent collections of work and can only be considered complete when all subtasks are finished.
@@ -124,77 +283,128 @@ Other agents may be working in parallel. Only commit files you created or change
 ### Testing Beads
 If you need to create or modify beads to test some functionality, do it in a bead that is a child (or descendant) of ab-cj3. That is the test beads parent.
 
+---
 
-## MCP Agent Mail: coordination for multi-agent workflows
+## Using bv as an AI sidecar
 
-What it is
-- A mail-like layer that lets coding agents coordinate asynchronously via MCP tools and resources.
-- Provides identities, inbox/outbox, searchable threads, and advisory file reservations, with human-auditable artifacts in Git.
+bv is a graph-aware triage engine for Beads projects (.beads/beads.jsonl). Instead of parsing JSONL or hallucinating graph traversal, use robot flags for deterministic, dependency-aware outputs with precomputed metrics (PageRank, betweenness, critical path, cycles, HITS, eigenvector, k-core).
 
-Why it's useful
-- Prevents agents from stepping on each other with explicit file reservations (leases) for files/globs.
-- Keeps communication out of your token budget by storing messages in a per-project archive.
-- Offers quick reads (`resource://inbox/...`, `resource://thread/...`) and macros that bundle common flows.
+**Scope boundary:** bv handles *what to work on* (triage, priority, planning). For agent-to-agent coordination (messaging, work claiming, file reservations), use MCP Agent Mail, which should be available to you as an an MCP server (if it's not, then flag to the user; they might need to start Agent Mail using the `am` alias or by running `cd "<directory_where_they_installed_agent_mail>/mcp_agent_mail" && bash scripts/run_server_with_token.sh)' if the alias isn't available or isn't working.
 
-How to use effectively
-1) Same repository
-   - Register an identity: call `ensure_project`, then `register_agent` using this repo's absolute path as `project_key`.
-   - Reserve files before you edit: `file_reservation_paths(project_key, agent_name, ["src/**"], ttl_seconds=3600, exclusive=true)` to signal intent and avoid conflict.
-   - Communicate with threads: use `send_message(..., thread_id="FEAT-123")`; check inbox with `fetch_inbox` and acknowledge with `acknowledge_message`.
-   - Read fast: `resource://inbox/{Agent}?project=<abs-path>&limit=20` or `resource://thread/{id}?project=<abs-path>&include_bodies=true`.
-   - Tip: set `AGENT_NAME` in your environment so the pre-commit guard can block commits that conflict with others' active exclusive file reservations.
+**⚠️ CRITICAL: Use ONLY `--robot-*` flags. Bare `bv` launches an interactive TUI that blocks your session.**
 
-2) Across different repos in one project (e.g., Next.js frontend + FastAPI backend)
-   - Option A (single project bus): register both sides under the same `project_key` (shared key/path). Keep reservation patterns specific (e.g., `frontend/**` vs `backend/**`).
-   - Option B (separate projects): each repo has its own `project_key`; use `macro_contact_handshake` or `request_contact`/`respond_contact` to link agents, then message directly. Keep a shared `thread_id` (e.g., ticket key) across repos for clean summaries/audits.
+#### The Workflow: Start With Triage
 
-Macros vs granular tools
-- Prefer macros when you want speed or are on a smaller model: `macro_start_session`, `macro_prepare_thread`, `macro_file_reservation_cycle`, `macro_contact_handshake`.
-- Use granular tools when you need control: `register_agent`, `file_reservation_paths`, `send_message`, `fetch_inbox`, `acknowledge_message`.
+**`bv --robot-triage` is your single entry point.** It returns everything you need in one call:
+- `quick_ref`: at-a-glance counts + top 3 picks
+- `recommendations`: ranked actionable items with scores, reasons, unblock info
+- `quick_wins`: low-effort high-impact items
+- `blockers_to_clear`: items that unblock the most downstream work
+- `project_health`: status/type/priority distributions, graph metrics
+- `commands`: copy-paste shell commands for next steps
 
-Common pitfalls
-- "from_agent not registered": always `register_agent` in the correct `project_key` first.
-- "FILE_RESERVATION_CONFLICT": adjust patterns, wait for expiry, or use a non-exclusive reservation when appropriate.
-- Auth errors: if JWT+JWKS is enabled, include a bearer token with a `kid` that matches server JWKS; static bearer is used only when JWT is disabled.
+bv --robot-triage        # THE MEGA-COMMAND: start here
+bv --robot-next          # Minimal: just the single top pick + claim command
 
+#### Other bv Commands
 
-## Integrating with Beads (dependency-aware task planning)
+**Planning:**
+| Command | Returns |
+|---------|---------|
+| `--robot-plan` | Parallel execution tracks with `unblocks` lists |
+| `--robot-priority` | Priority misalignment detection with confidence |
 
-Beads provides a lightweight, dependency-aware issue database and a CLI (`bd`) for selecting "ready work," setting priorities, and tracking status. It complements MCP Agent Mail's messaging, audit trail, and file-reservation signals. Project: [steveyegge/beads](https://github.com/steveyegge/beads)
+**Graph Analysis:**
+| Command | Returns |
+|---------|---------|
+| `--robot-insights` | Full metrics: PageRank, betweenness, HITS (hubs/authorities), eigenvector, critical path, cycles, k-core, articulation points, slack |
+| `--robot-label-health` | Per-label health: `health_level` (healthy\|warning\|critical), `velocity_score`, `staleness`, `blocked_count` |
+| `--robot-label-flow` | Cross-label dependency: `flow_matrix`, `dependencies`, `bottleneck_labels` |
+| `--robot-label-attention [--attention-limit=N]` | Attention-ranked labels by: (pagerank × staleness × block_impact) / velocity |
 
-Recommended conventions
-- **Single source of truth**: Use **Beads** for task status/priority/dependencies; use **Agent Mail** for conversation, decisions, and attachments (audit).
-- **Shared identifiers**: Use the Beads issue id (e.g., `bd-123`) as the Mail `thread_id` and prefix message subjects with `[bd-123]`.
-- **Reservations**: When starting a `bd-###` task, call `file_reservation_paths(...)` for the affected paths; include the issue id in the `reason` and release on completion.
+**History & Change Tracking:**
+| Command | Returns |
+|---------|---------|
+| `--robot-history` | Bead-to-commit correlations: `stats`, `histories` (per-bead events/commits/milestones), `commit_index` |
+| `--robot-diff --diff-since <ref>` | Changes since ref: new/closed/modified issues, cycles introduced/resolved |
 
-Typical flow (agents)
-1) **Pick ready work** (Beads)
-   - `bd ready --json` → choose one item (highest priority, no blockers). Make sure it does not have  the `requires-human-review` label. If it does, do not work on it.
-2) **Reserve edit surface** (Mail)
-   - `file_reservation_paths(project_key, agent_name, ["src/**"], ttl_seconds=3600, exclusive=true, reason="bd-123")`
-3) **Announce start** (Mail)
-   - `send_message(..., thread_id="bd-123", subject="[bd-123] Start: <short title>", ack_required=true)`
-4) **Work and update**
-   - Reply in-thread with progress and attach artifacts/images; keep the discussion in one thread per issue id
-5) **Complete and release**
-   - `bd close bd-123 --reason "Completed"` (Beads is status authority)
-   - `release_file_reservations(project_key, agent_name, paths=["src/**"])`
-   - Final Mail reply: `[bd-123] Completed` with summary and links
+**Other Commands:**
+| Command | Returns |
+|---------|---------|
+| `--robot-burndown <sprint>` | Sprint burndown, scope changes, at-risk items |
+| `--robot-forecast <id\|all>` | ETA predictions with dependency-aware scheduling |
+| `--robot-alerts` | Stale issues, blocking cascades, priority mismatches |
+| `--robot-suggest` | Hygiene: duplicates, missing deps, label suggestions, cycle breaks |
+| `--robot-graph [--graph-format=json\|dot\|mermaid]` | Dependency graph export |
+| `--export-graph <file.html>` | Self-contained interactive HTML visualization |
 
-Mapping cheat-sheet
-- **Mail `thread_id`** ↔ `bd-###`
-- **Mail subject**: `[bd-###] …`
-- **File reservation `reason`**: `bd-###`
-- **Commit messages (optional)**: include `bd-###` for traceability
+#### Scoping & Filtering
 
-Event mirroring (optional automation)
-- On `bd update --status blocked`, send a high-importance Mail message in thread `bd-###` describing the blocker.
-- On Mail "ACK overdue" for a critical decision, add a Beads label (e.g., `needs-ack`) or bump priority to surface it in `bd ready`.
+bv --robot-plan --label backend              # Scope to label's subgraph
+bv --robot-insights --as-of HEAD~30          # Historical point-in-time
+bv --recipe actionable --robot-plan          # Pre-filter: ready to work (no blockers)
+bv --recipe high-impact --robot-triage       # Pre-filter: top PageRank scores
+bv --robot-triage --robot-triage-by-track    # Group by parallel work streams
+bv --robot-triage --robot-triage-by-label    # Group by domain
 
-Pitfalls to avoid
-- Don't create or manage tasks in Mail; treat Beads as the single task queue.
-- Always include `bd-###` in message `thread_id` to avoid ID drift across tools.
+#### Understanding Robot Output
 
+**All robot JSON includes:**
+- `data_hash` — Fingerprint of source beads.jsonl (verify consistency across calls)
+- `status` — Per-metric state: `computed|approx|timeout|skipped` + elapsed ms
+- `as_of` / `as_of_commit` — Present when using `--as-of`; contains ref and resolved SHA
+
+**Two-phase analysis:**
+- **Phase 1 (instant):** degree, topo sort, density — always available immediately
+- **Phase 2 (async, 500ms timeout):** PageRank, betweenness, HITS, eigenvector, cycles — check `status` flags
+
+**For large graphs (>500 nodes):** Some metrics may be approximated or skipped. Always check `status`.
+
+#### jq Quick Reference
+
+bv --robot-triage | jq '.quick_ref'                        # At-a-glance summary
+bv --robot-triage | jq '.recommendations[0]'               # Top recommendation
+bv --robot-plan | jq '.plan.summary.highest_impact'        # Best unblock target
+bv --robot-insights | jq '.status'                         # Check metric readiness
+bv --robot-insights | jq '.Cycles'                         # Circular deps (must fix!)
+bv --robot-label-health | jq '.results.labels[] | select(.health_level == "critical")'
+
+**Performance:** Phase 1 instant, Phase 2 async (500ms timeout). Prefer `--robot-plan` over `--robot-insights` when speed matters. Results cached by data hash.
+
+Use bv instead of parsing beads.jsonl—it computes PageRank, critical paths, cycles, and parallel tracks deterministically.
+
+---
+
+### cass — Cross-Agent Search
+
+`cass` indexes prior agent conversations (Claude Code, Codex, Cursor, Gemini, ChatGPT, etc.) so we can reuse solved problems.
+
+Rules:
+
+- Never run bare `cass` (TUI). Always use `--robot` or `--json`.
+
+Examples:
+
+```bash
+cass health
+cass search "authentication error" --robot --limit 5
+cass view /path/to/session.jsonl -n 42 --json
+cass expand /path/to/session.jsonl -n 42 -C 3 --json
+cass capabilities --json
+cass robot-docs guide
+```
+
+Tips:
+
+- Use `--fields minimal` for lean output.
+- Filter by agent with `--agent`.
+- Use `--days N` to limit to recent history.
+
+stdout is data-only, stderr is diagnostics; exit code 0 means success.
+
+Treat cass as a way to avoid re-solving problems other agents already handled.
+
+---
 
 ## Memory System: cass-memory
 
@@ -253,3 +463,52 @@ This returns:
 | `--no-history` | Skip historical snippets for faster response |
 
 stdout = data only, stderr = diagnostics. Exit 0 = success.
+
+
+---
+
+## UBS Quick Reference for AI Agents
+
+UBS stands for "Ultimate Bug Scanner": **The AI Coding Agent's Secret Weapon: Flagging Likely Bugs for Fixing Early On**
+
+**Golden Rule:** `ubs <changed-files>` before every commit. Exit 0 = safe. Exit >0 = fix & re-run.
+
+**Commands:**
+```bash
+ubs file.ts file2.py                    # Specific files (< 1s) — USE THIS
+ubs $(git diff --name-only --cached)    # Staged files — before commit
+ubs --only=js,python src/               # Language filter (3-5x faster)
+ubs --ci --fail-on-warning .            # CI mode — before PR
+ubs --help                              # Full command reference
+ubs sessions --entries 1                # Tail the latest install session log
+ubs .                                   # Whole project (ignores things like .venv and node_modules automatically)
+```
+
+**Output Format:**
+```
+⚠️  Category (N errors)
+    file.ts:42:5 – Issue description
+    💡 Suggested fix
+Exit code: 1
+```
+Parse: `file:line:col` → location | 💡 → how to fix | Exit 0/1 → pass/fail
+
+**Fix Workflow:**
+1. Read finding → category + fix suggestion
+2. Navigate `file:line:col` → view context
+3. Verify real issue (not false positive)
+4. Fix root cause (not symptom)
+5. Re-run `ubs <file>` → exit 0
+6. Commit
+
+**Speed Critical:** Scope to changed files. `ubs src/file.ts` (< 1s) vs `ubs .` (30s). Never full scan for small edits.
+
+**Bug Severity:**
+- **Critical** (always fix): Null safety, XSS/injection, async/await, memory leaks
+- **Important** (production): Type narrowing, division-by-zero, resource leaks
+- **Contextual** (judgment): TODO/FIXME, console logs
+
+**Anti-Patterns:**
+- ❌ Ignore findings → ✅ Investigate each
+- ❌ Full scan per edit → ✅ Scope to file
+- ❌ Fix symptom (`if (x) { x.y }`) → ✅ Root cause (`x?.y`)

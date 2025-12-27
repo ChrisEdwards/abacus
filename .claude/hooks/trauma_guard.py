@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""
+Dynamic Trauma Guard for Project Hot Stove.
+Reads from ~/.cass-memory/traumas.jsonl and .cass/traumas.jsonl to enforce safety.
+"""
+import json
+import sys
+import re
+import os
+from pathlib import Path
+
+GLOBAL_TRAUMA_FILE = Path.home() / ".cass-memory" / "traumas.jsonl"
+
+def find_repo_root():
+    """Find the root of the current git repository."""
+    curr = Path.cwd()
+    while curr != curr.parent:
+        if (curr / ".git").exists():
+            return curr
+        curr = curr.parent
+    return None
+
+def load_traumas():
+    """Load active traumas from global and project storage."""
+    traumas = []
+    
+    # Load Global
+    if GLOBAL_TRAUMA_FILE.exists():
+        try:
+            with open(GLOBAL_TRAUMA_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        try:
+                            t = json.loads(line)
+                            if isinstance(t, dict) and t.get("status") == "active":
+                                traumas.append(t)
+                        except:
+                            pass
+        except Exception:
+            pass # Fail open on read error (don't block work if DB is corrupt)
+
+    # Load Project
+    repo_root = find_repo_root()
+    if repo_root:
+        repo_file = repo_root / ".cass" / "traumas.jsonl"
+        if repo_file.exists():
+            try:
+                with open(repo_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            try:
+                                t = json.loads(line)
+                                if isinstance(t, dict) and t.get("status") == "active":
+                                    traumas.append(t)
+                            except:
+                                pass
+            except Exception:
+                pass
+
+    return traumas
+
+def check_command(command, traumas):
+    """Check command against trauma patterns."""
+    for trauma in traumas:
+        if not isinstance(trauma, dict):
+            continue
+
+        pattern = trauma.get("pattern")
+        if not isinstance(pattern, str) or not pattern:
+            continue
+            
+        try:
+            # Case-insensitive match
+            if re.search(pattern, command, re.IGNORECASE):
+                return trauma
+        except re.error:
+            continue
+    return None
+
+def main():
+    # Read input from Claude/Generic Hook
+    try:
+        input_data = json.load(sys.stdin)
+    except json.JSONDecodeError:
+        # Not a JSON hook input, ignore
+        sys.exit(0)
+
+    if not isinstance(input_data, dict):
+        # Fail open if the hook input isn't the expected object shape
+        sys.exit(0)
+
+    # Extract command
+    # Claude Code format: {"tool_name": "Bash", "tool_input": {"command": "..."}}
+    tool_name = input_data.get("tool_name")
+    tool_input = input_data.get("tool_input") or {}
+    if not isinstance(tool_input, dict):
+        sys.exit(0)
+    command = tool_input.get("command")
+
+    # Only check Bash commands
+    if tool_name != "Bash" or not isinstance(command, str) or not command:
+        sys.exit(0)
+
+    traumas = load_traumas()
+    match = check_command(command, traumas)
+
+    if match:
+        trigger = match.get("trigger_event")
+        if not isinstance(trigger, dict):
+            trigger = {}
+        msg = trigger.get("human_message") or "You previously caused a catastrophe with this command."
+        ref = trigger.get("session_path") or "unknown"
+        pattern = match.get("pattern") or "<unknown>"
+        trauma_id = match.get("id") or "<unknown>"
+
+        use_emoji = os.environ.get("CASS_MEMORY_NO_EMOJI") is None
+        banner = (
+            "\u{1f525} HOT STOVE: VISCERAL SAFETY INTERVENTION \u{1f525}"
+            if use_emoji
+            else "[HOT STOVE] VISCERAL SAFETY INTERVENTION"
+        )
+        
+        # Deny the command
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": (
+                    f"{banner}\n\n"
+                    f"BLOCKED: This pattern matches a registered TRAUMA.\n"
+                    f"Pattern: {pattern}\n"
+                    f"Reason: {msg}\n"
+                    f"Reference: {ref}\n\n"
+                    f"If you MUST run this, heal it first with: cm trauma heal {trauma_id}"
+                )
+            }
+        }
+        print(json.dumps(output))
+        sys.exit(0)
+
+    # Allow
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()
