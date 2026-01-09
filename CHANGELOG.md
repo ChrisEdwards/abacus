@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Description truncation**: Edit bead popup no longer truncates descriptions to 2000 characters; limit increased to 50,000 (ab-0dts)
+
+### Changed
+- **Dependencies**: Bump modernc.org/sqlite from 1.41.0 to 1.42.2
+
 ## [0.7.0] - 2025-12-26
 
 ### Added
