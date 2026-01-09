@@ -170,7 +170,7 @@ func NewCreateOverlay(opts CreateOverlayOptions) *CreateOverlay {
 	desc.Placeholder = ""
 	desc.SetWidth(44)
 	desc.SetHeight(5)
-	desc.CharLimit = 2000 // Reasonable limit for descriptions
+	desc.CharLimit = 50000 // Large limit for detailed descriptions
 	desc.ShowLineNumbers = false
 	// Enter inserts newlines (default textarea behavior)
 
