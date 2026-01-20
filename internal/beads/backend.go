@@ -25,6 +25,10 @@ const (
 // MinBrVersion defines the minimum supported br CLI version.
 const MinBrVersion = "0.1.7"
 
+// MaxSupportedBdVersion defines the maximum officially supported bd CLI version.
+// Versions above this trigger a one-time warning (abacus development focuses on br).
+const MaxSupportedBdVersion = "0.38.0"
+
 // ErrNoBackendAvailable indicates neither bd nor br was found on PATH.
 var ErrNoBackendAvailable = errors.New("neither bd nor br found in PATH")
 
@@ -239,4 +243,57 @@ func commandExists(name string) bool {
 // Used to determine if we can prompt the user for backend selection.
 func isInteractiveTTY() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
+// CheckBdVersionWarning shows a one-time warning if bd version > MaxSupportedBdVersion.
+// The warning is non-blocking and only shown once per user (stored in ~/.abacus/config.yaml).
+// Call this after DetectBackend returns "bd" successfully.
+func CheckBdVersionWarning(ctx context.Context) {
+	// Only applies to bd backend
+	// Check if warning already shown
+	if config.GetBool(config.KeyBdUnsupportedVersionWarnShown) {
+		return
+	}
+
+	// Get bd version
+	info, err := CheckVersion(ctx, VersionCheckOptions{
+		Bin:        BackendBd,
+		MinVersion: MinBeadsVersion,
+	})
+	if err != nil {
+		// Version check failed - don't show warning (probably already shown error elsewhere)
+		return
+	}
+
+	// Compare with max supported version
+	installedSemver, _, err := parseSemver(info.Installed)
+	if err != nil {
+		return
+	}
+	maxSemver, _, err := parseSemver(MaxSupportedBdVersion)
+	if err != nil {
+		return
+	}
+
+	// If installed version <= max supported, no warning needed
+	if installedSemver.compare(maxSemver) <= 0 {
+		return
+	}
+
+	// Show one-time warning
+	fmt.Printf("\n")
+	fmt.Printf("Note: abacus officially supports beads (bd) up to version %s.\n", MaxSupportedBdVersion)
+	fmt.Printf("You have version %s installed. Newer versions may work but are\n", info.Installed)
+	fmt.Printf("not officially supported.\n")
+	fmt.Printf("\n")
+	fmt.Printf("Future development is focused on beads_rust (br):\n")
+	fmt.Printf("https://github.com/Dicklesworthstone/beads_rust\n")
+	fmt.Printf("\n")
+	fmt.Printf("This message will not be shown again.\n")
+	fmt.Printf("\n")
+
+	// Save flag to prevent showing again
+	if err := config.SaveBdUnsupportedVersionWarned(); err != nil {
+		log.Printf("warning: could not save bd version warning flag: %v", err)
+	}
 }
