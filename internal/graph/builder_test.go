@@ -967,6 +967,124 @@ func TestBuilderHandlesMixedRelatedTypes(t *testing.T) {
 	}
 }
 
+// TestBuilderUnknownDependencyTypeNonBlocking verifies forward compatibility:
+// Unknown dependency types are treated as non-blocking (informational).
+// This ensures that when beads_rust adds new dependency types, abacus
+// won't incorrectly mark issues as blocked.
+func TestBuilderUnknownDependencyTypeNonBlocking(t *testing.T) {
+	issues := []beads.FullIssue{
+		{
+			ID:        "ab-dependent",
+			Title:     "Issue with unknown dep type",
+			Status:    "open",
+			CreatedAt: "2024-01-01T00:00:00Z",
+			UpdatedAt: "2024-01-01T00:00:00Z",
+			Dependencies: []beads.Dependency{
+				{Type: "future-unknown-type", TargetID: "ab-target"},
+			},
+		},
+		{
+			ID:        "ab-target",
+			Title:     "Target issue",
+			Status:    "open",
+			CreatedAt: "2024-01-02T00:00:00Z",
+			UpdatedAt: "2024-01-02T00:00:00Z",
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	var dependent *Node
+	for _, r := range roots {
+		if r.Issue.ID == "ab-dependent" {
+			dependent = r
+			break
+		}
+	}
+	if dependent == nil {
+		t.Fatalf("dependent node not found")
+	}
+
+	// Unknown dependency types should NOT block the issue
+	if dependent.IsBlocked {
+		t.Errorf("expected issue with unknown dep type to NOT be blocked")
+	}
+
+	// Should not be in BlockedBy list
+	if len(dependent.BlockedBy) != 0 {
+		t.Errorf("expected no BlockedBy entries for unknown dep type, got %d", len(dependent.BlockedBy))
+	}
+
+	// Should not affect parent-child relationships
+	if len(dependent.Parents) != 0 {
+		t.Errorf("expected no parents from unknown dep type")
+	}
+}
+
+// TestBuilderBrSpecificBlockingTypes verifies that br-specific blocking types
+// (conditional-blocks, waits-for) are correctly treated as blocking.
+func TestBuilderBrSpecificBlockingTypes(t *testing.T) {
+	tests := []struct {
+		name    string
+		depType string
+	}{
+		{"conditional-blocks", "conditional-blocks"},
+		{"waits-for", "waits-for"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			issues := []beads.FullIssue{
+				{
+					ID:        "ab-blocked",
+					Title:     "Blocked issue",
+					Status:    "open",
+					CreatedAt: "2024-01-01T00:00:00Z",
+					UpdatedAt: "2024-01-01T00:00:00Z",
+					Dependencies: []beads.Dependency{
+						{Type: tc.depType, TargetID: "ab-blocker"},
+					},
+				},
+				{
+					ID:        "ab-blocker",
+					Title:     "Blocker issue",
+					Status:    "open", // Not closed, so should block
+					CreatedAt: "2024-01-02T00:00:00Z",
+					UpdatedAt: "2024-01-02T00:00:00Z",
+				},
+			}
+
+			roots, err := NewBuilder().Build(issues)
+			if err != nil {
+				t.Fatalf("Build returned error: %v", err)
+			}
+
+			var blocked *Node
+			for _, r := range roots {
+				if r.Issue.ID == "ab-blocked" {
+					blocked = r
+					break
+				}
+			}
+			if blocked == nil {
+				t.Fatalf("blocked node not found")
+			}
+
+			// br-specific blocking types should block the issue
+			if !blocked.IsBlocked {
+				t.Errorf("expected issue with %s dep type to be blocked", tc.depType)
+			}
+
+			if len(blocked.BlockedBy) != 1 {
+				t.Errorf("expected 1 BlockedBy entry, got %d", len(blocked.BlockedBy))
+			}
+		})
+	}
+}
+
 func TestNodeSelfSortKeyBlockedDeferred(t *testing.T) {
 	tests := []struct {
 		name             string
