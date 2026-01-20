@@ -217,6 +217,87 @@ func TestSubmitEditWithUnassignedAssignee(t *testing.T) {
 	}
 }
 
+// TestEffectiveIssueTypePreservesUnknownTypes verifies forward compatibility:
+// When editing an issue with an unknown type (e.g., "docs" from br), the original
+// type is preserved unless the user explicitly changes it to a known type.
+func TestEffectiveIssueTypePreservesUnknownTypes(t *testing.T) {
+	t.Run("PreservesUnknownTypeWhenNotChanged", func(t *testing.T) {
+		// "docs" is a br-specific type that abacus doesn't know about
+		bead := &beads.FullIssue{ID: "ab-42", Title: "Documentation", IssueType: "docs"}
+		m := NewEditOverlay(bead, CreateOverlayOptions{})
+		m.titleInput.SetValue("Documentation")
+
+		// User doesn't change the type (keeps default index 0)
+		// effectiveIssueType() should preserve the original "docs"
+		_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected command on submit")
+		}
+		msg := cmd()
+		updateMsg, ok := msg.(BeadUpdatedMsg)
+		if !ok {
+			t.Fatalf("expected BeadUpdatedMsg, got %T", msg)
+		}
+		if updateMsg.IssueType != "docs" {
+			t.Errorf("expected unknown type 'docs' to be preserved, got %q", updateMsg.IssueType)
+		}
+	})
+
+	t.Run("AllowsChangingUnknownTypeToKnownType", func(t *testing.T) {
+		// User edits an issue with unknown type and changes it to a known type
+		bead := &beads.FullIssue{ID: "ab-42", Title: "Documentation", IssueType: "docs"}
+		m := NewEditOverlay(bead, CreateOverlayOptions{})
+		m.titleInput.SetValue("Documentation")
+		m.typeIndex = 1 // Change to "feature"
+
+		_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected command on submit")
+		}
+		msg := cmd()
+		updateMsg := msg.(BeadUpdatedMsg)
+		if updateMsg.IssueType != "feature" {
+			t.Errorf("expected type to change to 'feature', got %q", updateMsg.IssueType)
+		}
+	})
+
+	t.Run("KnownTypeUsesSelectedType", func(t *testing.T) {
+		// Normal case: editing an issue with a known type
+		bead := &beads.FullIssue{ID: "ab-42", Title: "Bug Fix", IssueType: "bug"}
+		m := NewEditOverlay(bead, CreateOverlayOptions{})
+		m.titleInput.SetValue("Bug Fix")
+		// typeIndex should already be set to 2 (bug) by NewEditOverlay
+
+		_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected command on submit")
+		}
+		msg := cmd()
+		updateMsg := msg.(BeadUpdatedMsg)
+		if updateMsg.IssueType != "bug" {
+			t.Errorf("expected type 'bug', got %q", updateMsg.IssueType)
+		}
+	})
+
+	t.Run("TaskTypeWorksNormally", func(t *testing.T) {
+		// Edge case: "task" has index 0 like unknown types default to
+		// Make sure task is handled correctly
+		bead := &beads.FullIssue{ID: "ab-42", Title: "Task", IssueType: "task"}
+		m := NewEditOverlay(bead, CreateOverlayOptions{})
+		m.titleInput.SetValue("Task")
+
+		_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected command on submit")
+		}
+		msg := cmd()
+		updateMsg := msg.(BeadUpdatedMsg)
+		if updateMsg.IssueType != "task" {
+			t.Errorf("expected type 'task', got %q", updateMsg.IssueType)
+		}
+	})
+}
+
 func TestTypeIndexFromString(t *testing.T) {
 	tests := []struct {
 		input string
