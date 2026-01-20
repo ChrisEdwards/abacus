@@ -1,395 +1,103 @@
+// Package beads provides client implementations for beads issue tracking.
+//
+// DEPRECATED: This file provides backward-compatible wrappers for the bd backend.
+// New code should use NewBdCLIClient and NewBdSQLiteClient directly, or use
+// the backend detection in backend.go to get the appropriate client.
 package beads
 
-import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
-	"os/exec"
-	"strings"
+import "context"
 
-	appErrors "abacus/internal/errors"
-)
+// CLIOption is an alias for BdCLIOption for backward compatibility.
+// Deprecated: Use BdCLIOption directly.
+type CLIOption = BdCLIOption
 
-const maxErrorSnippetLen = 200
+// WithBinaryPath is an alias for WithBdBinaryPath for backward compatibility.
+// Deprecated: Use WithBdBinaryPath directly.
+var WithBinaryPath = WithBdBinaryPath
 
-type cliClient struct {
-	bin    string
-	dbArgs []string
-}
+// WithDatabasePath is an alias for WithBdDatabasePath for backward compatibility.
+// Deprecated: Use WithBdDatabasePath directly.
+var WithDatabasePath = WithBdDatabasePath
 
-// CLIOption configures the CLI client implementation.
-type CLIOption func(*cliClient)
-
-// WithBinaryPath overrides the command used to invoke the Beads CLI.
-func WithBinaryPath(path string) CLIOption {
-	return func(c *cliClient) {
-		if strings.TrimSpace(path) != "" {
-			c.bin = path
-		}
-	}
-}
-
-// WithDatabasePath sets the Beads database path for all CLI invocations.
-func WithDatabasePath(path string) CLIOption {
-	return func(c *cliClient) {
-		if trimmed := strings.TrimSpace(path); trimmed != "" {
-			c.dbArgs = []string{"--db", trimmed}
-		}
-	}
-}
-
-// NewCLIClient constructs a Beads CLI-backed client implementation.
-// Note: Read methods (List, Show, Export, Comments) return errors as they are
-// not implemented. Use NewSQLiteClient for read operations via SQLite.
+// NewCLIClient constructs a Beads CLI-backed Writer implementation.
+// Deprecated: Use NewBdCLIClient directly for bd, or NewBrCLIClient for br.
+// Note: Returns Client for backward compatibility, but only Writer methods work.
 func NewCLIClient(opts ...CLIOption) Client {
-	client := &cliClient{bin: "bd"}
-	for _, opt := range opts {
-		opt(client)
-	}
-	return client
+	writer := NewBdCLIClient(opts...)
+	return &cliClientWrapper{writer: writer}
+}
+
+// cliClientWrapper wraps a Writer to implement Client interface for backward compat.
+// Read methods return errors as they're not implemented.
+type cliClientWrapper struct {
+	writer Writer
 }
 
 // List is not implemented for CLI client - use SQLite client for reads.
-func (c *cliClient) List(_ context.Context) ([]LiteIssue, error) {
-	return nil, fmt.Errorf("List not implemented: CLI client only supports write operations; use SQLite client for reads")
+func (c *cliClientWrapper) List(_ context.Context) ([]LiteIssue, error) {
+	return nil, ErrReadNotImplemented
 }
 
 // Show is not implemented for CLI client - use SQLite client for reads.
-func (c *cliClient) Show(_ context.Context, _ []string) ([]FullIssue, error) {
-	return nil, fmt.Errorf("Show not implemented: CLI client only supports write operations; use SQLite client for reads")
+func (c *cliClientWrapper) Show(_ context.Context, _ []string) ([]FullIssue, error) {
+	return nil, ErrReadNotImplemented
+}
+
+// Export is not implemented for CLI client - use SQLite client for reads.
+func (c *cliClientWrapper) Export(_ context.Context) ([]FullIssue, error) {
+	return nil, ErrReadNotImplemented
 }
 
 // Comments is not implemented for CLI client - use SQLite client for reads.
-func (c *cliClient) Comments(_ context.Context, _ string) ([]Comment, error) {
-	return nil, fmt.Errorf("Comments not implemented: CLI client only supports write operations; use SQLite client for reads")
+func (c *cliClientWrapper) Comments(_ context.Context, _ string) ([]Comment, error) {
+	return nil, ErrReadNotImplemented
 }
 
-func (c *cliClient) UpdateStatus(ctx context.Context, issueID, newStatus string) error {
-	if strings.TrimSpace(issueID) == "" {
-		return fmt.Errorf("issue id is required for status update")
-	}
-	if strings.TrimSpace(newStatus) == "" {
-		return fmt.Errorf("new status is required for status update")
-	}
-	_, err := c.run(ctx, "update", issueID, "--status="+newStatus)
-	if err != nil {
-		return fmt.Errorf("run bd update: %w", err)
-	}
-	return nil
+// Writer method delegations
+func (c *cliClientWrapper) UpdateStatus(ctx context.Context, issueID, newStatus string) error {
+	return c.writer.UpdateStatus(ctx, issueID, newStatus)
 }
 
-func (c *cliClient) Close(ctx context.Context, issueID string) error {
-	if strings.TrimSpace(issueID) == "" {
-		return fmt.Errorf("issue id is required for close")
-	}
-	_, err := c.run(ctx, "close", issueID)
-	if err != nil {
-		return fmt.Errorf("run bd close: %w", err)
-	}
-	return nil
+func (c *cliClientWrapper) Close(ctx context.Context, issueID string) error {
+	return c.writer.Close(ctx, issueID)
 }
 
-func (c *cliClient) Reopen(ctx context.Context, issueID string) error {
-	if strings.TrimSpace(issueID) == "" {
-		return fmt.Errorf("issue id is required for reopen")
-	}
-	_, err := c.run(ctx, "reopen", issueID)
-	if err != nil {
-		return fmt.Errorf("run bd reopen: %w", err)
-	}
-	return nil
+func (c *cliClientWrapper) Reopen(ctx context.Context, issueID string) error {
+	return c.writer.Reopen(ctx, issueID)
 }
 
-func (c *cliClient) AddLabel(ctx context.Context, issueID, label string) error {
-	if strings.TrimSpace(issueID) == "" {
-		return fmt.Errorf("issue id is required for add label")
-	}
-	if strings.TrimSpace(label) == "" {
-		return fmt.Errorf("label is required for add label")
-	}
-	_, err := c.run(ctx, "label", "add", issueID, label)
-	if err != nil {
-		return fmt.Errorf("run bd label add: %w", err)
-	}
-	return nil
+func (c *cliClientWrapper) AddLabel(ctx context.Context, issueID, label string) error {
+	return c.writer.AddLabel(ctx, issueID, label)
 }
 
-func (c *cliClient) RemoveLabel(ctx context.Context, issueID, label string) error {
-	if strings.TrimSpace(issueID) == "" {
-		return fmt.Errorf("issue id is required for remove label")
-	}
-	if strings.TrimSpace(label) == "" {
-		return fmt.Errorf("label is required for remove label")
-	}
-	_, err := c.run(ctx, "label", "remove", issueID, label)
-	if err != nil {
-		return fmt.Errorf("run bd label remove: %w", err)
-	}
-	return nil
+func (c *cliClientWrapper) RemoveLabel(ctx context.Context, issueID, label string) error {
+	return c.writer.RemoveLabel(ctx, issueID, label)
 }
 
-func (c *cliClient) Create(ctx context.Context, title, issueType string, priority int, labels []string, assignee string) (string, error) {
-	if strings.TrimSpace(title) == "" {
-		return "", fmt.Errorf("title is required for create")
-	}
-	if strings.TrimSpace(issueType) == "" {
-		issueType = "task"
-	}
-
-	args := []string{
-		"create",
-		"--title", title,
-		"--type", issueType,
-		"--priority", fmt.Sprintf("%d", priority),
-	}
-
-	// Add labels if provided
-	if len(labels) > 0 {
-		args = append(args, "--labels", strings.Join(labels, ","))
-	}
-
-	// Add assignee if provided
-	if strings.TrimSpace(assignee) != "" {
-		args = append(args, "--assignee", assignee)
-	}
-
-	out, err := c.run(ctx, args...)
-	if err != nil {
-		return "", fmt.Errorf("run bd create: %w", err)
-	}
-	// Parse the new bead ID from output (e.g., "Created ab-xyz")
-	output := strings.TrimSpace(string(out))
-	// Look for pattern like "Created ab-xxx" or just "ab-xxx"
-	parts := strings.Fields(output)
-	for _, part := range parts {
-		if strings.HasPrefix(part, "ab-") || strings.Contains(part, "-") {
-			// Clean up any trailing punctuation
-			id := strings.TrimRight(part, ".,;:!")
-			if len(id) > 0 {
-				return id, nil
-			}
-		}
-	}
-	// If we can't parse an ID, return the raw output (caller can handle)
-	if len(parts) > 0 {
-		return parts[len(parts)-1], nil
-	}
-	return "", fmt.Errorf("could not parse bead ID from output: %s", output)
+func (c *cliClientWrapper) Create(ctx context.Context, title, issueType string, priority int, labels []string, assignee string) (string, error) {
+	return c.writer.Create(ctx, title, issueType, priority, labels, assignee)
 }
 
-func (c *cliClient) CreateFull(ctx context.Context, title, issueType string, priority int, labels []string, assignee, description, parentID string) (FullIssue, error) {
-	if strings.TrimSpace(title) == "" {
-		return FullIssue{}, fmt.Errorf("title is required for create")
-	}
-	if strings.TrimSpace(issueType) == "" {
-		issueType = "task"
-	}
-
-	args := []string{
-		"create",
-		"--title", title,
-		"--type", issueType,
-		"--priority", fmt.Sprintf("%d", priority),
-		"--json",
-	}
-
-	// Add labels if provided
-	if len(labels) > 0 {
-		args = append(args, "--labels", strings.Join(labels, ","))
-	}
-
-	// Add assignee if provided
-	if strings.TrimSpace(assignee) != "" {
-		args = append(args, "--assignee", assignee)
-	}
-
-	// Add description if provided
-	if strings.TrimSpace(description) != "" {
-		args = append(args, "--description", description)
-	}
-
-	// Note: We don't pass --parent to bd create because that generates dotted IDs
-	// (e.g., ab-kr7.1). Instead, we create the bead first with a random ID,
-	// then add the parent-child dependency separately.
-
-	out, err := c.run(ctx, args...)
-	if err != nil {
-		return FullIssue{}, fmt.Errorf("run bd create: %w", err)
-	}
-
-	// Extract JSON from output (bd may print warnings before the JSON)
-	jsonBytes := extractJSON(out)
-	if jsonBytes == nil {
-		snippet := string(out)
-		if len(snippet) > maxErrorSnippetLen {
-			snippet = snippet[:maxErrorSnippetLen] + "..."
-		}
-		return FullIssue{}, fmt.Errorf("no JSON found in bd create output: %s", strings.TrimSpace(snippet))
-	}
-
-	// Parse JSON response
-	var issue FullIssue
-	if err := json.Unmarshal(jsonBytes, &issue); err != nil {
-		snippet := string(out)
-		if len(snippet) > maxErrorSnippetLen {
-			snippet = snippet[:maxErrorSnippetLen] + "..."
-		}
-		return FullIssue{}, fmt.Errorf("decode bd create output: %w (output: %s)", err, strings.TrimSpace(snippet))
-	}
-
-	// Add parent-child dependency if parent was specified
-	// This creates the relationship without using dotted IDs
-	if strings.TrimSpace(parentID) != "" {
-		if err := c.AddDependency(ctx, issue.ID, parentID, "parent-child"); err != nil {
-			return FullIssue{}, fmt.Errorf("add parent-child dependency: %w", err)
-		}
-	}
-
-	return issue, nil
+func (c *cliClientWrapper) CreateFull(ctx context.Context, title, issueType string, priority int, labels []string, assignee, description, parentID string) (FullIssue, error) {
+	return c.writer.CreateFull(ctx, title, issueType, priority, labels, assignee, description, parentID)
 }
 
-func (c *cliClient) UpdateFull(ctx context.Context, issueID, title, issueType string, priority int, labels []string, assignee, description string) error {
-	if strings.TrimSpace(issueID) == "" {
-		return fmt.Errorf("issue id is required for update")
-	}
-	if strings.TrimSpace(title) == "" {
-		return fmt.Errorf("title is required for update")
-	}
-	// issueType is currently not configurable via `bd update`; keep parameter for future compatibility.
-
-	args := []string{
-		"update",
-		issueID,
-		"--title", title,
-		"--description", description,
-		"--priority", fmt.Sprintf("%d", priority),
-	}
-
-	if strings.TrimSpace(assignee) != "" {
-		args = append(args, "--assignee", assignee)
-	}
-
-	if len(labels) > 0 {
-		for _, l := range labels {
-			args = append(args, "--set-labels", l)
-		}
-	} else {
-		// Explicitly clear labels when none are provided
-		args = append(args, "--set-labels", "")
-	}
-
-	if _, err := c.run(ctx, args...); err != nil {
-		return fmt.Errorf("run bd update: %w", err)
-	}
-	return nil
+func (c *cliClientWrapper) UpdateFull(ctx context.Context, issueID, title, issueType string, priority int, labels []string, assignee, description string) error {
+	return c.writer.UpdateFull(ctx, issueID, title, issueType, priority, labels, assignee, description)
 }
 
-func (c *cliClient) AddDependency(ctx context.Context, fromID, toID, depType string) error {
-	if strings.TrimSpace(fromID) == "" {
-		return fmt.Errorf("from ID is required for add dependency")
-	}
-	if strings.TrimSpace(toID) == "" {
-		return fmt.Errorf("to ID is required for add dependency")
-	}
-	if strings.TrimSpace(depType) == "" {
-		depType = "blocks"
-	}
-	_, err := c.run(ctx, "dep", "add", fromID, toID, "--type", depType)
-	if err != nil {
-		return fmt.Errorf("run bd dep add: %w", err)
-	}
-	return nil
+func (c *cliClientWrapper) AddDependency(ctx context.Context, fromID, toID, depType string) error {
+	return c.writer.AddDependency(ctx, fromID, toID, depType)
 }
 
-func (c *cliClient) RemoveDependency(ctx context.Context, fromID, toID, depType string) error {
-	if strings.TrimSpace(fromID) == "" {
-		return fmt.Errorf("from ID is required for remove dependency")
-	}
-	if strings.TrimSpace(toID) == "" {
-		return fmt.Errorf("to ID is required for remove dependency")
-	}
-	args := []string{"dep", "remove", fromID, toID}
-	if _, err := c.run(ctx, args...); err != nil {
-		return fmt.Errorf("run bd dep remove: %w", err)
-	}
-	return nil
+func (c *cliClientWrapper) RemoveDependency(ctx context.Context, fromID, toID, depType string) error {
+	return c.writer.RemoveDependency(ctx, fromID, toID, depType)
 }
 
-func (c *cliClient) Delete(ctx context.Context, issueID string, cascade bool) error {
-	if strings.TrimSpace(issueID) == "" {
-		return fmt.Errorf("issue id is required for delete")
-	}
-	args := []string{"delete", issueID, "--force"}
-	if cascade {
-		args = append(args, "--cascade")
-	}
-	_, err := c.run(ctx, args...)
-	if err != nil {
-		return fmt.Errorf("run bd delete: %w", err)
-	}
-	return nil
+func (c *cliClientWrapper) Delete(ctx context.Context, issueID string, cascade bool) error {
+	return c.writer.Delete(ctx, issueID, cascade)
 }
 
-func (c *cliClient) AddComment(ctx context.Context, issueID, text string) error {
-	if strings.TrimSpace(issueID) == "" {
-		return fmt.Errorf("issue id is required for add comment")
-	}
-	if strings.TrimSpace(text) == "" {
-		return fmt.Errorf("comment text is required")
-	}
-	_, err := c.run(ctx, "comments", "add", issueID, text)
-	if err != nil {
-		return fmt.Errorf("run bd comments add: %w", err)
-	}
-	return nil
-}
-
-func (c *cliClient) run(ctx context.Context, args ...string) ([]byte, error) {
-	finalArgs := make([]string, 0, len(c.dbArgs)+len(args))
-	finalArgs = append(finalArgs, c.dbArgs...)
-	finalArgs = append(finalArgs, args...)
-	//nolint:gosec // G204: CLI wrapper intentionally shells out to bd command
-	cmd := exec.CommandContext(ctx, c.bin, finalArgs...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, formatCommandError(c.bin, finalArgs, err, out)
-	}
-	return out, nil
-}
-
-func formatCommandError(bin string, args []string, cmdErr error, out []byte) error {
-	snippet := strings.TrimSpace(string(out))
-	if len(snippet) > maxErrorSnippetLen {
-		snippet = snippet[:maxErrorSnippetLen] + "..."
-	}
-	command := append([]string{bin}, args...)
-	msg := fmt.Sprintf("%s failed", strings.Join(command, " "))
-	err := classifyCLIError(command, appErrors.New(appErrors.CodeCLIFailed, msg, cmdErr), snippet)
-	return err
-}
-
-// extractJSON finds and returns the first JSON object in the output.
-// bd commands may print warnings or other text before the actual JSON response.
-func extractJSON(out []byte) []byte {
-	// Find the first '{' which starts the JSON object
-	start := bytes.IndexByte(out, '{')
-	if start == -1 {
-		return nil
-	}
-	// Find the matching closing brace by counting braces
-	depth := 0
-	for i := start; i < len(out); i++ {
-		switch out[i] {
-		case '{':
-			depth++
-		case '}':
-			depth--
-			if depth == 0 {
-				return out[start : i+1]
-			}
-		}
-	}
-	// No matching closing brace found, return from start to end
-	return out[start:]
+func (c *cliClientWrapper) AddComment(ctx context.Context, issueID, text string) error {
+	return c.writer.AddComment(ctx, issueID, text)
 }
