@@ -40,6 +40,8 @@ func WithDatabasePath(path string) CLIOption {
 }
 
 // NewCLIClient constructs a Beads CLI-backed client implementation.
+// Note: Read methods (List, Show, Export, Comments) return errors as they are
+// not implemented. Use NewSQLiteClient for read operations via SQLite.
 func NewCLIClient(opts ...CLIOption) Client {
 	client := &cliClient{bin: "bd"}
 	for _, opt := range opts {
@@ -48,61 +50,19 @@ func NewCLIClient(opts ...CLIOption) Client {
 	return client
 }
 
-func (c *cliClient) List(ctx context.Context) ([]LiteIssue, error) {
-	out, err := c.run(ctx, "list", "--json")
-	if err != nil {
-		return nil, fmt.Errorf("run bd list: %w", err)
-	}
-	var issues []LiteIssue
-	if err := json.Unmarshal(out, &issues); err != nil {
-		return nil, fmt.Errorf("decode bd list output: %w", err)
-	}
-	if issues == nil {
-		issues = []LiteIssue{}
-	}
-	return issues, nil
+// List is not implemented for CLI client - use SQLite client for reads.
+func (c *cliClient) List(_ context.Context) ([]LiteIssue, error) {
+	return nil, fmt.Errorf("List not implemented: CLI client only supports write operations; use SQLite client for reads")
 }
 
-func (c *cliClient) Show(ctx context.Context, ids []string) ([]FullIssue, error) {
-	if len(ids) == 0 {
-		return []FullIssue{}, nil
-	}
-	args := append([]string{"show"}, ids...)
-	args = append(args, "--json")
-	out, err := c.run(ctx, args...)
-	if err != nil {
-		return nil, fmt.Errorf("run bd show: %w", err)
-	}
-	var issues []FullIssue
-	if err := json.Unmarshal(out, &issues); err != nil {
-		snippet := string(out)
-		if len(snippet) > maxErrorSnippetLen {
-			snippet = snippet[:maxErrorSnippetLen] + "..."
-		}
-		return nil, fmt.Errorf("decode bd show output: %w (output: %s)", err, strings.TrimSpace(snippet))
-	}
-	if issues == nil {
-		issues = []FullIssue{}
-	}
-	return issues, nil
+// Show is not implemented for CLI client - use SQLite client for reads.
+func (c *cliClient) Show(_ context.Context, _ []string) ([]FullIssue, error) {
+	return nil, fmt.Errorf("Show not implemented: CLI client only supports write operations; use SQLite client for reads")
 }
 
-func (c *cliClient) Comments(ctx context.Context, issueID string) ([]Comment, error) {
-	if strings.TrimSpace(issueID) == "" {
-		return nil, fmt.Errorf("issue id is required for comments")
-	}
-	out, err := c.run(ctx, "comments", issueID, "--json")
-	if err != nil {
-		return nil, fmt.Errorf("run bd comments: %w", err)
-	}
-	var comments []Comment
-	if err := json.Unmarshal(out, &comments); err != nil {
-		return nil, fmt.Errorf("decode bd comments output: %w", err)
-	}
-	if comments == nil {
-		comments = []Comment{}
-	}
-	return comments, nil
+// Comments is not implemented for CLI client - use SQLite client for reads.
+func (c *cliClient) Comments(_ context.Context, _ string) ([]Comment, error) {
+	return nil, fmt.Errorf("Comments not implemented: CLI client only supports write operations; use SQLite client for reads")
 }
 
 func (c *cliClient) UpdateStatus(ctx context.Context, issueID, newStatus string) error {

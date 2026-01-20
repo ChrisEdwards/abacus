@@ -14,11 +14,11 @@ import (
 
 // sqliteClient reads issues/comments directly from the SQLite database in
 // read-only WAL mode to avoid bd export churn. Mutating operations delegate to
-// the CLI client to keep behavior consistent with the daemon.
+// the CLI writer to keep behavior consistent with the daemon.
 type sqliteClient struct {
 	dbPath string
 	dsn    string
-	cli    Client
+	writer Writer // Only write operations needed; Reader implemented directly via SQLite
 
 	// Schema detection (lazy, cached)
 	schemaOnce       sync.Once
@@ -38,7 +38,7 @@ func NewSQLiteClient(dbPath string, opts ...CLIOption) Client {
 	return &sqliteClient{
 		dbPath: trimmed,
 		dsn:    dsn,
-		cli:    NewCLIClient(opts...),
+		writer: NewCLIClient(opts...),
 	}
 }
 
@@ -385,51 +385,51 @@ func (c *sqliteClient) Comments(ctx context.Context, issueID string) ([]Comment,
 	return comments, rows.Err()
 }
 
-// Mutating operations delegate to the CLI (keeps daemon-aware behavior).
+// Mutating operations delegate to the Writer (CLI commands).
 func (c *sqliteClient) UpdateStatus(ctx context.Context, issueID, newStatus string) error {
-	return c.cli.UpdateStatus(ctx, issueID, newStatus)
+	return c.writer.UpdateStatus(ctx, issueID, newStatus)
 }
 
 func (c *sqliteClient) Close(ctx context.Context, issueID string) error {
-	return c.cli.Close(ctx, issueID)
+	return c.writer.Close(ctx, issueID)
 }
 
 func (c *sqliteClient) Reopen(ctx context.Context, issueID string) error {
-	return c.cli.Reopen(ctx, issueID)
+	return c.writer.Reopen(ctx, issueID)
 }
 
 func (c *sqliteClient) AddLabel(ctx context.Context, issueID, label string) error {
-	return c.cli.AddLabel(ctx, issueID, label)
+	return c.writer.AddLabel(ctx, issueID, label)
 }
 
 func (c *sqliteClient) RemoveLabel(ctx context.Context, issueID, label string) error {
-	return c.cli.RemoveLabel(ctx, issueID, label)
+	return c.writer.RemoveLabel(ctx, issueID, label)
 }
 
 func (c *sqliteClient) UpdateFull(ctx context.Context, issueID, title, issueType string, priority int, labels []string, assignee, description string) error {
-	return c.cli.UpdateFull(ctx, issueID, title, issueType, priority, labels, assignee, description)
+	return c.writer.UpdateFull(ctx, issueID, title, issueType, priority, labels, assignee, description)
 }
 
 func (c *sqliteClient) Create(ctx context.Context, title, issueType string, priority int, labels []string, assignee string) (string, error) {
-	return c.cli.Create(ctx, title, issueType, priority, labels, assignee)
+	return c.writer.Create(ctx, title, issueType, priority, labels, assignee)
 }
 
 func (c *sqliteClient) CreateFull(ctx context.Context, title, issueType string, priority int, labels []string, assignee, description, parentID string) (FullIssue, error) {
-	return c.cli.CreateFull(ctx, title, issueType, priority, labels, assignee, description, parentID)
+	return c.writer.CreateFull(ctx, title, issueType, priority, labels, assignee, description, parentID)
 }
 
 func (c *sqliteClient) AddDependency(ctx context.Context, fromID, toID, depType string) error {
-	return c.cli.AddDependency(ctx, fromID, toID, depType)
+	return c.writer.AddDependency(ctx, fromID, toID, depType)
 }
 
 func (c *sqliteClient) RemoveDependency(ctx context.Context, fromID, toID, depType string) error {
-	return c.cli.RemoveDependency(ctx, fromID, toID, depType)
+	return c.writer.RemoveDependency(ctx, fromID, toID, depType)
 }
 
 func (c *sqliteClient) Delete(ctx context.Context, issueID string, cascade bool) error {
-	return c.cli.Delete(ctx, issueID, cascade)
+	return c.writer.Delete(ctx, issueID, cascade)
 }
 
 func (c *sqliteClient) AddComment(ctx context.Context, issueID, text string) error {
-	return c.cli.AddComment(ctx, issueID, text)
+	return c.writer.AddComment(ctx, issueID, text)
 }

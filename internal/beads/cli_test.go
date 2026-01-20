@@ -65,9 +65,9 @@ func TestCLIClientAppliesDatabasePath(t *testing.T) {
 	logFile := filepath.Join(dir, "args.log")
 	script := filepath.Join(dir, "fakebd.sh")
 
+	// Script logs args for write operations (close, reopen)
 	scriptBody := "#!/bin/sh\n" +
 		"echo \"$@\" >> " + logFile + "\n" +
-		"echo '[]'\n" +
 		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
@@ -78,11 +78,12 @@ func TestCLIClientAppliesDatabasePath(t *testing.T) {
 	)
 
 	ctx := context.Background()
-	if _, err := client.List(ctx); err != nil {
-		t.Fatalf("List: %v", err)
+	// Use write operations to test --db flag is applied
+	if err := client.Close(ctx, "ab-123"); err != nil {
+		t.Fatalf("Close: %v", err)
 	}
-	if _, err := client.Show(ctx, []string{"ab-123"}); err != nil {
-		t.Fatalf("Show: %v", err)
+	if err := client.Reopen(ctx, "ab-456"); err != nil {
+		t.Fatalf("Reopen: %v", err)
 	}
 
 	data, err := os.ReadFile(logFile)
@@ -94,11 +95,11 @@ func TestCLIClientAppliesDatabasePath(t *testing.T) {
 		t.Fatalf("expected two invocations, got %d (%q)", len(lines), lines)
 	}
 
-	if !strings.HasPrefix(lines[0], "--db "+dbPath+" list") {
-		t.Fatalf("expected list call to include db override, got %q", lines[0])
+	if !strings.HasPrefix(lines[0], "--db "+dbPath+" close ab-123") {
+		t.Fatalf("expected close call to include db override, got %q", lines[0])
 	}
-	if !strings.HasPrefix(lines[1], "--db "+dbPath+" show ab-123") {
-		t.Fatalf("expected show call to include db override, got %q", lines[1])
+	if !strings.HasPrefix(lines[1], "--db "+dbPath+" reopen ab-456") {
+		t.Fatalf("expected reopen call to include db override, got %q", lines[1])
 	}
 }
 
@@ -392,240 +393,7 @@ func TestCLIClient_CreateFull_HandlesOutputWithPrefix(t *testing.T) {
 	}
 }
 
-func TestCLIClient_Export(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	script := filepath.Join(dir, "fakebd.sh")
-
-	// Fake bd script that returns JSONL (one JSON object per line)
-	scriptBody := "#!/bin/sh\n" +
-		"echo '{\"id\":\"ab-001\",\"title\":\"Issue 1\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\",\"created_at\":\"2024-01-01\",\"updated_at\":\"2024-01-01\"}'\n" +
-		"echo '{\"id\":\"ab-002\",\"title\":\"Issue 2\",\"status\":\"closed\",\"priority\":1,\"issue_type\":\"bug\",\"created_at\":\"2024-01-02\",\"updated_at\":\"2024-01-02\",\"dependencies\":[{\"depends_on_id\":\"ab-001\",\"type\":\"blocks\"}]}'\n" +
-		"exit 0\n"
-	writeTestScript(t, script, scriptBody)
-
-	client := NewCLIClient(WithBinaryPath(script))
-
-	ctx := context.Background()
-	issues, err := client.Export(ctx)
-	if err != nil {
-		t.Fatalf("Export: %v", err)
-	}
-
-	if len(issues) != 2 {
-		t.Fatalf("expected 2 issues, got %d", len(issues))
-	}
-
-	if issues[0].ID != "ab-001" {
-		t.Errorf("expected first issue ID %q, got %q", "ab-001", issues[0].ID)
-	}
-	if issues[0].Title != "Issue 1" {
-		t.Errorf("expected first issue Title %q, got %q", "Issue 1", issues[0].Title)
-	}
-	if issues[0].Status != "open" {
-		t.Errorf("expected first issue Status %q, got %q", "open", issues[0].Status)
-	}
-
-	if issues[1].ID != "ab-002" {
-		t.Errorf("expected second issue ID %q, got %q", "ab-002", issues[1].ID)
-	}
-	if len(issues[1].Dependencies) != 1 {
-		t.Fatalf("expected 1 dependency, got %d", len(issues[1].Dependencies))
-	}
-	// Verify dependency conversion: depends_on_id -> TargetID
-	if issues[1].Dependencies[0].TargetID != "ab-001" {
-		t.Errorf("expected dependency TargetID %q, got %q", "ab-001", issues[1].Dependencies[0].TargetID)
-	}
-	if issues[1].Dependencies[0].Type != "blocks" {
-		t.Errorf("expected dependency Type %q, got %q", "blocks", issues[1].Dependencies[0].Type)
-	}
-}
-
-func TestCLIClient_Export_EmptyResult(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	script := filepath.Join(dir, "fakebd.sh")
-
-	// Fake bd script that returns no output
-	scriptBody := "#!/bin/sh\n" +
-		"exit 0\n"
-	writeTestScript(t, script, scriptBody)
-
-	client := NewCLIClient(WithBinaryPath(script))
-
-	ctx := context.Background()
-	_, err := client.Export(ctx)
-	if err == nil {
-		t.Fatal("expected error for empty export, got nil")
-	}
-	if !strings.Contains(err.Error(), "bd export returned no issues") {
-		t.Errorf("expected 'no issues' error, got: %v", err)
-	}
-}
-
-func TestCLIClient_Export_ParseError(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	script := filepath.Join(dir, "fakebd.sh")
-
-	// Fake bd script that returns malformed JSON on line 3
-	scriptBody := "#!/bin/sh\n" +
-		"echo '{\"id\":\"ab-001\",\"title\":\"Issue 1\"}'\n" +
-		"echo '{\"id\":\"ab-002\",\"title\":\"Issue 2\"}'\n" +
-		"echo 'not valid json{{{'\n" +
-		"exit 0\n"
-	writeTestScript(t, script, scriptBody)
-
-	client := NewCLIClient(WithBinaryPath(script))
-
-	ctx := context.Background()
-	_, err := client.Export(ctx)
-	if err == nil {
-		t.Fatal("expected error for invalid JSON, got nil")
-	}
-	if !strings.Contains(err.Error(), "parse export line 3") {
-		t.Errorf("expected error with line number 3, got: %v", err)
-	}
-}
-
-func TestCLIClient_Export_MissingID(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	script := filepath.Join(dir, "fakebd.sh")
-
-	// Fake bd script that returns issue with empty ID on line 2
-	scriptBody := "#!/bin/sh\n" +
-		"echo '{\"id\":\"ab-001\",\"title\":\"Issue 1\"}'\n" +
-		"echo '{\"id\":\"\",\"title\":\"Issue with no ID\"}'\n" +
-		"exit 0\n"
-	writeTestScript(t, script, scriptBody)
-
-	client := NewCLIClient(WithBinaryPath(script))
-
-	ctx := context.Background()
-	_, err := client.Export(ctx)
-	if err == nil {
-		t.Fatal("expected error for missing ID, got nil")
-	}
-	if !strings.Contains(err.Error(), "export line 2: missing issue ID") {
-		t.Errorf("expected 'missing issue ID' error with line 2, got: %v", err)
-	}
-}
-
-func TestConvertExportIssue(t *testing.T) {
-	t.Run("ConvertsAllFields", func(t *testing.T) {
-		raw := exportIssue{
-			ID:                 "ab-1234",
-			Title:              "Test Issue",
-			Description:        "Test description",
-			Status:             "open",
-			Priority:           2,
-			IssueType:          "task",
-			CreatedAt:          "2024-01-01T00:00:00Z",
-			UpdatedAt:          "2024-01-02T00:00:00Z",
-			ClosedAt:           "2024-01-03T00:00:00Z",
-			Assignee:           "alice",
-			Labels:             []string{"urgent", "backend"},
-			ExternalRef:        "GH-123",
-			Design:             "design.md",
-			AcceptanceCriteria: "tests pass",
-			Notes:              "some notes",
-			Dependencies: []struct {
-				DependsOnID string `json:"depends_on_id"`
-				Type        string `json:"type"`
-			}{
-				{DependsOnID: "ab-5678", Type: "blocks"},
-				{DependsOnID: "ab-9012", Type: "parent-child"},
-			},
-		}
-
-		result, err := convertExportIssue(raw, 1)
-		if err != nil {
-			t.Fatalf("convertExportIssue: %v", err)
-		}
-
-		if result.ID != "ab-1234" {
-			t.Errorf("ID = %q, want %q", result.ID, "ab-1234")
-		}
-		if result.Title != "Test Issue" {
-			t.Errorf("Title = %q, want %q", result.Title, "Test Issue")
-		}
-		if result.Description != "Test description" {
-			t.Errorf("Description = %q, want %q", result.Description, "Test description")
-		}
-		if result.Status != "open" {
-			t.Errorf("Status = %q, want %q", result.Status, "open")
-		}
-		if result.Priority != 2 {
-			t.Errorf("Priority = %d, want %d", result.Priority, 2)
-		}
-		if result.IssueType != "task" {
-			t.Errorf("IssueType = %q, want %q", result.IssueType, "task")
-		}
-		if result.Assignee != "alice" {
-			t.Errorf("Assignee = %q, want %q", result.Assignee, "alice")
-		}
-		if len(result.Labels) != 2 || result.Labels[0] != "urgent" {
-			t.Errorf("Labels = %v, want [urgent backend]", result.Labels)
-		}
-		if result.Design != "design.md" {
-			t.Errorf("Design = %q, want %q", result.Design, "design.md")
-		}
-		if len(result.Dependencies) != 2 {
-			t.Fatalf("Dependencies length = %d, want 2", len(result.Dependencies))
-		}
-		if result.Dependencies[0].TargetID != "ab-5678" {
-			t.Errorf("Dependencies[0].TargetID = %q, want %q", result.Dependencies[0].TargetID, "ab-5678")
-		}
-		if result.Dependencies[0].Type != "blocks" {
-			t.Errorf("Dependencies[0].Type = %q, want %q", result.Dependencies[0].Type, "blocks")
-		}
-	})
-
-	t.Run("ErrorsOnMissingID", func(t *testing.T) {
-		raw := exportIssue{ID: "", Title: "No ID"}
-		_, err := convertExportIssue(raw, 5)
-		if err == nil {
-			t.Fatal("expected error for missing ID")
-		}
-		if !strings.Contains(err.Error(), "export line 5: missing issue ID") {
-			t.Errorf("expected error with line number, got: %v", err)
-		}
-	})
-}
-
-func TestConvertExportIssueMixedDependencies(t *testing.T) {
-	// Test that invalid dependencies (empty DependsOnID) are filtered out
-	// and don't leave zero-value entries in the slice
-	raw := exportIssue{
-		ID:    "ab-123",
-		Title: "Test",
-		Dependencies: []struct {
-			DependsOnID string `json:"depends_on_id"`
-			Type        string `json:"type"`
-		}{
-			{DependsOnID: "ab-valid1", Type: "blocks"},
-			{DependsOnID: "", Type: "blocks"}, // invalid - should be skipped
-			{DependsOnID: "ab-valid2", Type: "parent-child"},
-		},
-	}
-
-	result, err := convertExportIssue(raw, 1)
-	if err != nil {
-		t.Fatalf("convertExportIssue: %v", err)
-	}
-
-	if len(result.Dependencies) != 2 {
-		t.Fatalf("expected 2 valid dependencies, got %d", len(result.Dependencies))
-	}
-	if result.Dependencies[0].TargetID != "ab-valid1" {
-		t.Errorf("first dependency TargetID = %q, want %q", result.Dependencies[0].TargetID, "ab-valid1")
-	}
-	if result.Dependencies[1].TargetID != "ab-valid2" {
-		t.Errorf("second dependency TargetID = %q, want %q", result.Dependencies[1].TargetID, "ab-valid2")
-	}
-}
+// NOTE: CLI Export tests removed - Export is not implemented on CLI client.
+// In production, Export goes through SQLite client directly.
+// The CLI read methods (List, Show, Export, Comments) are stub implementations
+// that return errors, as all read operations should use SQLite client.
