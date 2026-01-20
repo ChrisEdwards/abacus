@@ -2,12 +2,20 @@ package beads
 
 import "context"
 
-// Client defines the operations required to interact with the Beads CLI.
-type Client interface {
+// Reader handles all read operations.
+// In production, only SQLite clients implement this interface.
+// CLI clients do NOT implement Reader since read operations go through SQLite.
+type Reader interface {
 	List(ctx context.Context) ([]LiteIssue, error)
 	Show(ctx context.Context, ids []string) ([]FullIssue, error)
 	Export(ctx context.Context) ([]FullIssue, error)
 	Comments(ctx context.Context, issueID string) ([]Comment, error)
+}
+
+// Writer handles all mutation operations.
+// CLI clients implement Writer only (bdCLIClient, brCLIClient).
+// SQLite clients embed a Writer for delegation to CLI.
+type Writer interface {
 	UpdateStatus(ctx context.Context, issueID, newStatus string) error
 	Close(ctx context.Context, issueID string) error
 	Reopen(ctx context.Context, issueID string) error
@@ -20,4 +28,12 @@ type Client interface {
 	RemoveDependency(ctx context.Context, fromID, toID, depType string) error
 	Delete(ctx context.Context, issueID string, cascade bool) error
 	AddComment(ctx context.Context, issueID, text string) error
+}
+
+// Client combines Reader and Writer for full functionality.
+// SQLite clients implement this by providing Reader methods directly
+// and embedding a Writer (CLI client) for mutations.
+type Client interface {
+	Reader
+	Writer
 }
