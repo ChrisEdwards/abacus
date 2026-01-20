@@ -293,7 +293,7 @@ func NewApp(cfg Config) (*App, error) {
 
 	client := cfg.Client
 	if client == nil {
-		client = beads.NewSQLiteClient(dbPath)
+		client = beads.NewBdSQLiteClient(dbPath)
 	}
 
 	roots, err := loadData(context.Background(), client, reporter)

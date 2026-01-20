@@ -72,9 +72,9 @@ func TestCLIClientAppliesDatabasePath(t *testing.T) {
 	writeTestScript(t, script, scriptBody)
 
 	dbPath := "/tmp/custom.db"
-	client := NewCLIClient(
-		WithBinaryPath(script),
-		WithDatabasePath(dbPath),
+	client := NewBdCLIClient(
+		WithBdBinaryPath(script),
+		WithBdDatabasePath(dbPath),
 	)
 
 	ctx := context.Background()
@@ -116,7 +116,7 @@ func TestCLIClient_CreateFull_ReturnsFullIssue(t *testing.T) {
 		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
-	client := NewCLIClient(WithBinaryPath(script))
+	client := NewBdCLIClient(WithBdBinaryPath(script))
 
 	ctx := context.Background()
 	issue, err := client.CreateFull(ctx, "Test Issue", "task", 2, []string{"test"}, "alice", "", "")
@@ -156,7 +156,7 @@ func TestCLIClient_CreateFull_HandlesInvalidJSON(t *testing.T) {
 		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
-	client := NewCLIClient(WithBinaryPath(script))
+	client := NewBdCLIClient(WithBdBinaryPath(script))
 
 	ctx := context.Background()
 	_, err := client.CreateFull(ctx, "Test Issue", "task", 2, nil, "", "", "")
@@ -187,7 +187,7 @@ func TestCLIClient_CreateFull_PassesJSONFlag(t *testing.T) {
 		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
-	client := NewCLIClient(WithBinaryPath(script))
+	client := NewBdCLIClient(WithBdBinaryPath(script))
 
 	ctx := context.Background()
 	_, err := client.CreateFull(ctx, "Test Title", "feature", 3, nil, "", "", "")
@@ -234,7 +234,7 @@ exit 0
 `
 	writeTestScript(t, script, scriptBody)
 
-	client := NewCLIClient(WithBinaryPath(script))
+	client := NewBdCLIClient(WithBdBinaryPath(script))
 
 	ctx := context.Background()
 	issue, err := client.CreateFull(ctx, "Child Task", "task", 2, nil, "", "", "ab-parent")
@@ -288,7 +288,7 @@ func TestCLIClient_CreateFull_OptionalParameters(t *testing.T) {
 		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
-	client := NewCLIClient(WithBinaryPath(script))
+	client := NewBdCLIClient(WithBdBinaryPath(script))
 
 	ctx := context.Background()
 	issue, err := client.CreateFull(ctx, "Bug Fix", "bug", 1, []string{"urgent", "backend"}, "bob", "", "")
@@ -374,7 +374,7 @@ func TestCLIClient_CreateFull_HandlesOutputWithPrefix(t *testing.T) {
 		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
-	client := NewCLIClient(WithBinaryPath(script))
+	client := NewBdCLIClient(WithBdBinaryPath(script))
 
 	ctx := context.Background()
 	issue, err := client.CreateFull(ctx, "Test Title", "task", 2, nil, "", "", "")

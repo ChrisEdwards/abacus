@@ -11,10 +11,6 @@ import (
 var (
 	// ErrNotFound indicates the CLI could not find the requested issue.
 	ErrNotFound = errors.New("beads: issue not found")
-
-	// ErrReadNotImplemented indicates read operations are not supported.
-	// CLI clients only support write operations; use SQLite clients for reads.
-	ErrReadNotImplemented = errors.New("beads: read operations not implemented for CLI client; use SQLite client")
 )
 
 // CLIError wraps errors coming from invoking the bd CLI.

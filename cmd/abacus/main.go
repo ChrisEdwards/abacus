@@ -110,7 +110,7 @@ func main() {
 		}
 		return NewStartupDisplay(os.Stderr)
 	}, ui.OutputIssuesJSON, func(path string) beads.Client {
-		return beads.NewSQLiteClient(path)
+		return beads.NewBdSQLiteClient(path)
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -241,7 +241,7 @@ func runWithRuntime(
 	if runtime.jsonOutput {
 		if clientFactory == nil {
 			clientFactory = func(path string) beads.Client {
-				return beads.NewSQLiteClient(path)
+				return beads.NewBdSQLiteClient(path)
 			}
 		}
 		client := clientFactory(runtime.dbPath)
