@@ -244,3 +244,82 @@ func TestRenderHintsWidth(t *testing.T) {
 		t.Error("expected width to increase with more hints")
 	}
 }
+
+func TestRenderBackendIndicator(t *testing.T) {
+	t.Run("BdBackend", func(t *testing.T) {
+		m := &App{backend: "bd"}
+		indicator := m.renderBackendIndicator()
+		if !strings.Contains(indicator, "bd") {
+			t.Errorf("expected indicator to contain 'bd', got: %q", indicator)
+		}
+		if !strings.Contains(indicator, "[") || !strings.Contains(indicator, "]") {
+			t.Errorf("expected indicator to have brackets, got: %q", indicator)
+		}
+	})
+
+	t.Run("BrBackend", func(t *testing.T) {
+		m := &App{backend: "br"}
+		indicator := m.renderBackendIndicator()
+		if !strings.Contains(indicator, "br") {
+			t.Errorf("expected indicator to contain 'br', got: %q", indicator)
+		}
+		if !strings.Contains(indicator, "[") || !strings.Contains(indicator, "]") {
+			t.Errorf("expected indicator to have brackets, got: %q", indicator)
+		}
+	})
+
+	t.Run("EmptyBackend", func(t *testing.T) {
+		m := &App{backend: ""}
+		indicator := m.renderBackendIndicator()
+		if indicator != "" {
+			t.Errorf("expected empty indicator for empty backend, got: %q", indicator)
+		}
+	})
+}
+
+func TestRenderFooterWithBackend(t *testing.T) {
+	t.Run("FooterShowsBackendIndicator", func(t *testing.T) {
+		m := &App{
+			width:    160,
+			repoName: "abacus",
+			focus:    FocusTree,
+			backend:  "br",
+		}
+		footer := m.renderFooter()
+		if !strings.Contains(footer, "br") {
+			t.Errorf("expected footer to contain backend indicator 'br', got: %q", footer)
+		}
+	})
+
+	t.Run("FooterWithoutBackend", func(t *testing.T) {
+		m := &App{
+			width:    160,
+			repoName: "abacus",
+			focus:    FocusTree,
+			backend:  "",
+		}
+		footer := m.renderFooter()
+		// Should still render footer without backend indicator
+		if !strings.Contains(footer, "Navigate") {
+			t.Errorf("expected footer to contain hints, got: %q", footer)
+		}
+	})
+
+	t.Run("FooterWithBackendAndError", func(t *testing.T) {
+		m := &App{
+			width:     160,
+			repoName:  "abacus",
+			focus:     FocusTree,
+			backend:   "bd",
+			lastError: "some error",
+		}
+		footer := m.renderFooter()
+		// Should show both backend indicator and error
+		if !strings.Contains(footer, "bd") {
+			t.Errorf("expected footer to contain backend indicator 'bd', got: %q", footer)
+		}
+		if !strings.Contains(footer, "Error") {
+			t.Errorf("expected footer to contain error indicator, got: %q", footer)
+		}
+	})
+}

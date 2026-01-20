@@ -87,7 +87,18 @@ func (m *App) renderFooter() string {
 	}
 
 	// Calculate available width for hints
-	rightContent := m.renderRefreshStatus()
+	// Right side shows: backend indicator + status (error/refresh/update)
+	backendIndicator := m.renderBackendIndicator()
+	statusContent := m.renderRefreshStatus()
+	var rightContent string
+	if backendIndicator != "" && statusContent != " " && statusContent != "" {
+		// Both present: "  [bd]  status"
+		rightContent = backendIndicator + baseStyle().Render("  ") + statusContent
+	} else if backendIndicator != "" {
+		rightContent = backendIndicator
+	} else {
+		rightContent = statusContent
+	}
 	rightWidth := lipgloss.Width(rightContent)
 	availableWidth := m.width - rightWidth - 4 // padding
 
@@ -113,6 +124,18 @@ func (m *App) renderFooter() string {
 
 	spacer := baseStyle().Render(strings.Repeat(" ", spacing))
 	return baseStyle().Width(m.width).Render(left + spacer + rightContent)
+}
+
+// renderBackendIndicator returns a styled indicator for the active backend (bd or br).
+// Always shown when backend is set, providing transparency about which tool is active.
+func (m *App) renderBackendIndicator() string {
+	if m.backend == "" {
+		return ""
+	}
+	// Format: [bd] or [br] - subtle but always visible
+	return styleFooterMuted().Render("[") +
+		styleKeyPill().Render(m.backend) +
+		styleFooterMuted().Render("]")
 }
 
 // renderRefreshStatus returns the current refresh status for the footer.

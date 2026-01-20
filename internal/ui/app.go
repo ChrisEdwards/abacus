@@ -81,6 +81,7 @@ type Config struct {
 	Client          beads.Client
 	Version         string // Version string to display in header
 	UpdateChan      <-chan *update.UpdateInfo
+	Backend         string // Backend type: "bd" or "br"
 }
 
 // errorSource tracks where the last error originated so refresh success can
@@ -134,6 +135,7 @@ type App struct {
 	spinner          spinner.Model
 	outputFormat     string
 	version          string
+	backend          string // Backend type: "bd" or "br"
 
 	client beads.Client
 
@@ -329,6 +331,7 @@ func NewApp(cfg Config) (*App, error) {
 		autoRefresh:     autoRefresh,
 		outputFormat:    cfg.OutputFormat,
 		version:         cfg.Version,
+		backend:         cfg.Backend,
 		client:          client,
 		dbPath:          dbPath,
 		lastDBModTime:   dbModTime,
