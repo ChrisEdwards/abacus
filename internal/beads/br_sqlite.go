@@ -28,12 +28,11 @@ type brSQLiteClient struct {
 }
 
 // NewBrSQLiteClient constructs a client that reads via SQLite and writes via br CLI.
-// A valid dbPath is required; use NewBrCLIClient for CLI-only operations.
+// If dbPath is empty, it falls back to a pure CLI client.
 func NewBrSQLiteClient(dbPath string, opts ...BrCLIOption) Client {
 	trimmed := strings.TrimSpace(dbPath)
 	if trimmed == "" {
-		// brCLIClient only implements Writer, not Client, so we can't fall back.
-		panic("NewBrSQLiteClient requires a non-empty dbPath; use NewBrCLIClient for CLI-only operations")
+		return NewBrCLIClient(opts...)
 	}
 	dsn := buildBrSQLiteDSN(trimmed)
 	// Ensure writes go to the same DB when the CLI is used for mutations.
