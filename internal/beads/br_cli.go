@@ -19,8 +19,9 @@ import (
 // Read methods are stubs (use brSQLiteClient for reads in production).
 // Write methods delegate to the br CLI binary.
 type brCLIClient struct {
-	bin    string
-	dbArgs []string
+	bin     string
+	dbArgs  []string
+	workDir string // working directory for br commands (br finds workspace by walking up from cwd)
 }
 
 // BrCLIOption configures the br CLI client implementation.
@@ -40,6 +41,17 @@ func WithBrDatabasePath(path string) BrCLIOption {
 	return func(c *brCLIClient) {
 		if trimmed := strings.TrimSpace(path); trimmed != "" {
 			c.dbArgs = []string{"--db", trimmed}
+		}
+	}
+}
+
+// WithBrWorkDir sets the working directory for br CLI invocations.
+// br finds its workspace by walking up from cwd looking for .beads/,
+// so this must be set to a directory containing or under .beads/.
+func WithBrWorkDir(dir string) BrCLIOption {
+	return func(c *brCLIClient) {
+		if trimmed := strings.TrimSpace(dir); trimmed != "" {
+			c.workDir = trimmed
 		}
 	}
 }
@@ -352,6 +364,9 @@ func (c *brCLIClient) run(ctx context.Context, args ...string) ([]byte, error) {
 	finalArgs = append(finalArgs, args...)
 	//nolint:gosec // G204: CLI wrapper intentionally shells out to br command
 	cmd := exec.CommandContext(ctx, c.bin, finalArgs...)
+	if c.workDir != "" {
+		cmd.Dir = c.workDir
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, formatBrCommandError(c.bin, finalArgs, err, out)

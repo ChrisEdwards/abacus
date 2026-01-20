@@ -688,25 +688,43 @@ func skipIfNoBr(t *testing.T) string {
 	return path
 }
 
+// brTestEnv holds the test environment for br integration tests.
+type brTestEnv struct {
+	DBPath  string
+	WorkDir string
+	cleanup func()
+}
+
 // setupBrTestDB creates a temp directory with an initialized br database.
-// Returns the db path and a cleanup function.
-func setupBrTestDB(t *testing.T) (string, func()) {
+// Returns the test environment with dbPath, workDir, and a cleanup function.
+func setupBrTestDB(t *testing.T) brTestEnv {
 	t.Helper()
 
 	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "test.db")
+	// br init ignores --db flag and always creates .beads/beads.db in cwd
+	beadsDir := filepath.Join(dir, ".beads")
+	dbPath := filepath.Join(beadsDir, "beads.db")
 
 	// Initialize br database with a test prefix.
 	// We run init from the temp dir to avoid finding the repo's existing db.
-	cmd := exec.Command("br", "--db", dbPath, "init", "--prefix", "test")
-	cmd.Dir = dir // Run from temp dir to avoid auto-discovering repo's .beads/
+	cmd := exec.Command("br", "init", "--prefix", "test")
+	cmd.Dir = dir // Run from temp dir to create .beads/ there
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("br init failed: %v\nOutput: %s", err, out)
 	}
 
-	return dbPath, func() {
-		// TempDir cleanup is automatic
+	// Verify the db was created
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		t.Fatalf("br init did not create expected database at %s", dbPath)
+	}
+
+	return brTestEnv{
+		DBPath:  dbPath,
+		WorkDir: dir, // br needs to run from a dir containing .beads/
+		cleanup: func() {
+			// TempDir cleanup is automatic
+		},
 	}
 }
 
@@ -716,10 +734,10 @@ func TestBrCLIClient_Integration_CreateAndClose(t *testing.T) {
 	}
 	skipIfNoBr(t)
 
-	dbPath, cleanup := setupBrTestDB(t)
-	defer cleanup()
+	env := setupBrTestDB(t)
+	defer env.cleanup()
 
-	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	client := NewBrCLIClient(WithBrDatabasePath(env.DBPath), WithBrWorkDir(env.WorkDir))
 	ctx := context.Background()
 
 	// Create an issue
@@ -749,10 +767,10 @@ func TestBrCLIClient_Integration_CreateFull(t *testing.T) {
 	}
 	skipIfNoBr(t)
 
-	dbPath, cleanup := setupBrTestDB(t)
-	defer cleanup()
+	env := setupBrTestDB(t)
+	defer env.cleanup()
 
-	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	client := NewBrCLIClient(WithBrDatabasePath(env.DBPath), WithBrWorkDir(env.WorkDir))
 	ctx := context.Background()
 
 	// Create with full options
@@ -782,10 +800,10 @@ func TestBrCLIClient_Integration_Labels(t *testing.T) {
 	}
 	skipIfNoBr(t)
 
-	dbPath, cleanup := setupBrTestDB(t)
-	defer cleanup()
+	env := setupBrTestDB(t)
+	defer env.cleanup()
 
-	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	client := NewBrCLIClient(WithBrDatabasePath(env.DBPath), WithBrWorkDir(env.WorkDir))
 	ctx := context.Background()
 
 	// Create an issue first
@@ -811,10 +829,10 @@ func TestBrCLIClient_Integration_Dependencies(t *testing.T) {
 	}
 	skipIfNoBr(t)
 
-	dbPath, cleanup := setupBrTestDB(t)
-	defer cleanup()
+	env := setupBrTestDB(t)
+	defer env.cleanup()
 
-	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	client := NewBrCLIClient(WithBrDatabasePath(env.DBPath), WithBrWorkDir(env.WorkDir))
 	ctx := context.Background()
 
 	// Create two issues
@@ -845,10 +863,10 @@ func TestBrCLIClient_Integration_Comments(t *testing.T) {
 	}
 	skipIfNoBr(t)
 
-	dbPath, cleanup := setupBrTestDB(t)
-	defer cleanup()
+	env := setupBrTestDB(t)
+	defer env.cleanup()
 
-	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	client := NewBrCLIClient(WithBrDatabasePath(env.DBPath), WithBrWorkDir(env.WorkDir))
 	ctx := context.Background()
 
 	// Create an issue
@@ -869,10 +887,10 @@ func TestBrCLIClient_Integration_UpdateStatus(t *testing.T) {
 	}
 	skipIfNoBr(t)
 
-	dbPath, cleanup := setupBrTestDB(t)
-	defer cleanup()
+	env := setupBrTestDB(t)
+	defer env.cleanup()
 
-	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	client := NewBrCLIClient(WithBrDatabasePath(env.DBPath), WithBrWorkDir(env.WorkDir))
 	ctx := context.Background()
 
 	// Create an issue
@@ -893,10 +911,10 @@ func TestBrCLIClient_Integration_Delete(t *testing.T) {
 	}
 	skipIfNoBr(t)
 
-	dbPath, cleanup := setupBrTestDB(t)
-	defer cleanup()
+	env := setupBrTestDB(t)
+	defer env.cleanup()
 
-	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	client := NewBrCLIClient(WithBrDatabasePath(env.DBPath), WithBrWorkDir(env.WorkDir))
 	ctx := context.Background()
 
 	// Create an issue
@@ -917,10 +935,10 @@ func TestBrCLIClient_Integration_ParentChild(t *testing.T) {
 	}
 	skipIfNoBr(t)
 
-	dbPath, cleanup := setupBrTestDB(t)
-	defer cleanup()
+	env := setupBrTestDB(t)
+	defer env.cleanup()
 
-	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	client := NewBrCLIClient(WithBrDatabasePath(env.DBPath), WithBrWorkDir(env.WorkDir))
 	ctx := context.Background()
 
 	// Create parent issue
