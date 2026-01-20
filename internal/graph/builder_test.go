@@ -649,12 +649,13 @@ func TestBuilderDiscoveredFromRelationships(t *testing.T) {
 func TestBuilderDuplicateOfResolution(t *testing.T) {
 	issues := []beads.FullIssue{
 		{
-			ID:          "ab-dup",
-			Title:       "Duplicate Issue",
-			Status:      "closed",
-			CreatedAt:   "2024-01-02T00:00:00Z",
-			UpdatedAt:   "2024-01-02T00:00:00Z",
-			DuplicateOf: "ab-canonical",
+			ID:        "ab-dup",
+			Title:     "Duplicate Issue",
+			Status:    "closed",
+			CreatedAt: "2024-01-02T00:00:00Z",
+			UpdatedAt: "2024-01-02T00:00:00Z",
+			// DuplicateOf is now indicated via "duplicates" dependency type
+			Dependencies: []beads.Dependency{{TargetID: "ab-canonical", Type: "duplicates"}},
 		},
 		{
 			ID:        "ab-canonical",
@@ -698,12 +699,11 @@ func TestBuilderDuplicateOfResolution(t *testing.T) {
 func TestBuilderSupersededByResolution(t *testing.T) {
 	issues := []beads.FullIssue{
 		{
-			ID:           "ab-old",
-			Title:        "Old Issue",
-			Status:       "closed",
-			CreatedAt:    "2024-01-01T00:00:00Z",
-			UpdatedAt:    "2024-01-01T00:00:00Z",
-			SupersededBy: "ab-new",
+			ID:        "ab-old",
+			Title:     "Old Issue",
+			Status:    "closed",
+			CreatedAt: "2024-01-01T00:00:00Z",
+			UpdatedAt: "2024-01-01T00:00:00Z",
 		},
 		{
 			ID:        "ab-new",
@@ -711,6 +711,9 @@ func TestBuilderSupersededByResolution(t *testing.T) {
 			Status:    "open",
 			CreatedAt: "2024-01-02T00:00:00Z",
 			UpdatedAt: "2024-01-02T00:00:00Z",
+			// SupersededBy is now indicated via "supersedes" dependency type
+			// ab-new supersedes ab-old (the NEW one has the dependency pointing to OLD)
+			Dependencies: []beads.Dependency{{TargetID: "ab-old", Type: "supersedes"}},
 		},
 	}
 
@@ -745,17 +748,30 @@ func TestBuilderSupersededByResolution(t *testing.T) {
 }
 
 func TestBuilderGraphLinksWithMissingTarget(t *testing.T) {
-	// When duplicate_of or superseded_by reference an issue not in the current view,
+	// When "duplicates" or "supersedes" dependency targets are not in the current view,
 	// the pointers should remain nil (graceful degradation)
 	issues := []beads.FullIssue{
 		{
-			ID:           "ab-orphan",
-			Title:        "Orphan Issue",
-			Status:       "closed",
-			CreatedAt:    "2024-01-01T00:00:00Z",
-			UpdatedAt:    "2024-01-01T00:00:00Z",
-			DuplicateOf:  "ab-missing-canonical",
-			SupersededBy: "ab-missing-replacement",
+			ID:        "ab-orphan",
+			Title:     "Orphan Issue",
+			Status:    "closed",
+			CreatedAt: "2024-01-01T00:00:00Z",
+			UpdatedAt: "2024-01-01T00:00:00Z",
+			// Dependencies pointing to issues not in the issue list
+			Dependencies: []beads.Dependency{
+				{TargetID: "ab-missing-canonical", Type: "duplicates"},
+			},
+		},
+		{
+			ID:        "ab-superseder",
+			Title:     "Superseder Issue",
+			Status:    "open",
+			CreatedAt: "2024-01-02T00:00:00Z",
+			UpdatedAt: "2024-01-02T00:00:00Z",
+			// Supersedes a missing target
+			Dependencies: []beads.Dependency{
+				{TargetID: "ab-missing-obsolete", Type: "supersedes"},
+			},
 		},
 	}
 
@@ -785,17 +801,15 @@ func TestBuilderGraphLinksWithMissingTarget(t *testing.T) {
 }
 
 func TestBuilderGraphLinksBackwardCompatibility(t *testing.T) {
-	// Issues from beads v0.0.30 won't have duplicate_of/superseded_by fields
-	// (they'll be empty strings). Builder should handle gracefully.
+	// Issues without duplicate/supersede dependencies should have nil pointers
 	issues := []beads.FullIssue{
 		{
-			ID:           "ab-legacy",
-			Title:        "Legacy Issue",
+			ID:           "ab-normal",
+			Title:        "Normal Issue",
 			Status:       "open",
 			CreatedAt:    "2024-01-01T00:00:00Z",
 			UpdatedAt:    "2024-01-01T00:00:00Z",
-			DuplicateOf:  "", // Empty from old beads versions
-			SupersededBy: "", // Empty from old beads versions
+			Dependencies: []beads.Dependency{}, // No duplicates/supersedes
 		},
 	}
 
@@ -804,23 +818,23 @@ func TestBuilderGraphLinksBackwardCompatibility(t *testing.T) {
 		t.Fatalf("Build returned error: %v", err)
 	}
 
-	var legacy *Node
+	var normal *Node
 	for _, r := range roots {
-		if r.Issue.ID == "ab-legacy" {
-			legacy = r
+		if r.Issue.ID == "ab-normal" {
+			normal = r
 			break
 		}
 	}
-	if legacy == nil {
-		t.Fatalf("legacy node not found")
+	if normal == nil {
+		t.Fatalf("normal node not found")
 	}
 
-	// Pointers should be nil when fields are empty
-	if legacy.DuplicateOf != nil {
-		t.Fatalf("expected DuplicateOf to be nil for empty field")
+	// Pointers should be nil when no duplicates/supersedes dependencies
+	if normal.DuplicateOf != nil {
+		t.Fatalf("expected DuplicateOf to be nil when no duplicates dependency")
 	}
-	if legacy.SupersededBy != nil {
-		t.Fatalf("expected SupersededBy to be nil for empty field")
+	if normal.SupersededBy != nil {
+		t.Fatalf("expected SupersededBy to be nil when not superseded")
 	}
 }
 

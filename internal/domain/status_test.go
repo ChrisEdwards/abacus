@@ -37,9 +37,36 @@ func TestParseStatus(t *testing.T) {
 		}
 	}
 
-	for _, raw := range []string{"", "tombstone", "weird"} {
+	// Only blank and tombstone should return errors
+	for _, raw := range []string{"", "tombstone"} {
 		if _, err := ParseStatus(raw); err == nil {
 			t.Fatalf("expected ParseStatus(%q) to return error", raw)
+		}
+	}
+
+	// Unknown statuses should be accepted (forward compatibility)
+	// Use IsKnown() to distinguish known from unknown
+	unknownStatus, err := ParseStatus("pinned")
+	if err != nil {
+		t.Fatalf("ParseStatus(\"pinned\") should accept unknown status, got error: %v", err)
+	}
+	if unknownStatus != Status("pinned") {
+		t.Fatalf("ParseStatus(\"pinned\") = %q, want \"pinned\"", unknownStatus)
+	}
+}
+
+func TestStatusIsKnown(t *testing.T) {
+	known := []Status{StatusOpen, StatusInProgress, StatusBlocked, StatusDeferred, StatusClosed}
+	for _, status := range known {
+		if !status.IsKnown() {
+			t.Errorf("expected %q.IsKnown() to be true", status)
+		}
+	}
+
+	unknown := []Status{StatusUnknown, Status("pinned"), Status("weird"), StatusTombstone}
+	for _, status := range unknown {
+		if status.IsKnown() {
+			t.Errorf("expected %q.IsKnown() to be false", status)
 		}
 	}
 }

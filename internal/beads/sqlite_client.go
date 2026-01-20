@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	_ "modernc.org/sqlite" // Pure Go SQLite driver, WAL-friendly
 )
@@ -19,10 +18,6 @@ type sqliteClient struct {
 	dbPath string
 	dsn    string
 	writer Writer // Only write operations needed; Reader implemented directly via SQLite
-
-	// Schema detection (lazy, cached)
-	schemaOnce       sync.Once
-	hasGraphLinkCols bool // true if duplicate_of, superseded_by columns exist
 }
 
 // NewSQLiteClient constructs a client that reads via SQLite and writes via the CLI.
@@ -71,43 +66,6 @@ func (c *sqliteClient) openDB(ctx context.Context) (*sql.DB, error) {
 		return nil, fmt.Errorf("ping sqlite db: %w", err)
 	}
 	return db, nil
-}
-
-// detectSchema checks if the database has the new graph link columns
-// (duplicate_of, superseded_by) added in beads v0.0.31+.
-// Both columns must exist for hasGraphLinkCols to be set true.
-func (c *sqliteClient) detectSchema(ctx context.Context, db *sql.DB) {
-	c.schemaOnce.Do(func() {
-		rows, err := db.QueryContext(ctx, `PRAGMA table_info(issues)`)
-		if err != nil {
-			return // Assume no new columns on error
-		}
-		defer func() {
-			_ = rows.Close()
-		}()
-
-		hasDuplicateOf := false
-		hasSupersededBy := false
-
-		for rows.Next() {
-			var cid int
-			var name, colType string
-			var notNull, pk int
-			var dfltValue sql.NullString
-			if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
-				continue
-			}
-			if name == "duplicate_of" {
-				hasDuplicateOf = true
-			}
-			if name == "superseded_by" {
-				hasSupersededBy = true
-			}
-		}
-
-		// Only enable graph link columns if BOTH exist to avoid "no such column" errors
-		c.hasGraphLinkCols = hasDuplicateOf && hasSupersededBy
-	})
 }
 
 func (c *sqliteClient) List(ctx context.Context) ([]LiteIssue, error) {
@@ -173,10 +131,7 @@ func (c *sqliteClient) Export(ctx context.Context) ([]FullIssue, error) {
 		_ = db.Close()
 	}()
 
-	// Detect schema to check for new graph link columns (beads v0.0.31+)
-	c.detectSchema(ctx, db)
-
-	issueMap, ordered, err := loadIssues(ctx, db, c.hasGraphLinkCols)
+	issueMap, ordered, err := loadIssues(ctx, db)
 	if err != nil {
 		return nil, err
 	}
@@ -198,16 +153,11 @@ func (c *sqliteClient) Export(ctx context.Context) ([]FullIssue, error) {
 	return out, nil
 }
 
-func loadIssues(ctx context.Context, db *sql.DB, hasGraphLinkCols bool) (map[string]*FullIssue, []*FullIssue, error) {
-	// Build query conditionally based on schema detection
-	baseCols := `id, title, description, design, acceptance_criteria, notes,
+func loadIssues(ctx context.Context, db *sql.DB) (map[string]*FullIssue, []*FullIssue, error) {
+	const query = `SELECT id, title, description, design, acceptance_criteria, notes,
 		       status, priority, issue_type, COALESCE(assignee, ''),
-		       created_at, updated_at, COALESCE(closed_at, ''), COALESCE(external_ref, '')`
-	if hasGraphLinkCols {
-		baseCols += `, COALESCE(duplicate_of, ''), COALESCE(superseded_by, '')`
-	}
-	//nolint:gosec // G201: baseCols is hardcoded column names, not user input
-	query := fmt.Sprintf(`SELECT %s FROM issues WHERE status != 'tombstone' AND (deleted_at IS NULL) ORDER BY created_at, id`, baseCols)
+		       created_at, updated_at, COALESCE(closed_at, ''), COALESCE(external_ref, '')
+		FROM issues WHERE status != 'tombstone' AND (deleted_at IS NULL) ORDER BY created_at, id`
 
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
@@ -221,44 +171,22 @@ func loadIssues(ctx context.Context, db *sql.DB, hasGraphLinkCols bool) (map[str
 	var ordered []*FullIssue
 	for rows.Next() {
 		var iss FullIssue
-		var scanErr error
-		if hasGraphLinkCols {
-			scanErr = rows.Scan(
-				&iss.ID,
-				&iss.Title,
-				&iss.Description,
-				&iss.Design,
-				&iss.AcceptanceCriteria,
-				&iss.Notes,
-				&iss.Status,
-				&iss.Priority,
-				&iss.IssueType,
-				&iss.Assignee,
-				&iss.CreatedAt,
-				&iss.UpdatedAt,
-				&iss.ClosedAt,
-				&iss.ExternalRef,
-				&iss.DuplicateOf,
-				&iss.SupersededBy,
-			)
-		} else {
-			scanErr = rows.Scan(
-				&iss.ID,
-				&iss.Title,
-				&iss.Description,
-				&iss.Design,
-				&iss.AcceptanceCriteria,
-				&iss.Notes,
-				&iss.Status,
-				&iss.Priority,
-				&iss.IssueType,
-				&iss.Assignee,
-				&iss.CreatedAt,
-				&iss.UpdatedAt,
-				&iss.ClosedAt,
-				&iss.ExternalRef,
-			)
-		}
+		scanErr := rows.Scan(
+			&iss.ID,
+			&iss.Title,
+			&iss.Description,
+			&iss.Design,
+			&iss.AcceptanceCriteria,
+			&iss.Notes,
+			&iss.Status,
+			&iss.Priority,
+			&iss.IssueType,
+			&iss.Assignee,
+			&iss.CreatedAt,
+			&iss.UpdatedAt,
+			&iss.ClosedAt,
+			&iss.ExternalRef,
+		)
 		if scanErr != nil {
 			return nil, nil, fmt.Errorf("scan issue: %w", scanErr)
 		}

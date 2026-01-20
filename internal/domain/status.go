@@ -54,16 +54,26 @@ var allowedTransitions = map[Status]map[Status]struct{}{
 	},
 }
 
-// ParseStatus normalises and validates an incoming status string.
+// ParseStatus normalises an incoming status string.
+// It accepts any non-empty status, including unknown values from newer backends.
+// Tombstone is rejected as it is an internal-only status.
+// Use IsKnown() to check if the status is one we recognize.
 func ParseStatus(raw string) (Status, error) {
 	status := Status(strings.ToLower(strings.TrimSpace(raw)))
 	if status == StatusUnknown {
 		return StatusUnknown, invalidStatusError("blank")
 	}
-	if _, ok := validStatuses[status]; !ok {
+	if status == StatusTombstone {
 		return StatusUnknown, invalidStatusError(raw)
 	}
 	return status, nil
+}
+
+// IsKnown returns true if the status is one of the known status values.
+// Unknown statuses (e.g., "pinned" from br) are accepted but return false.
+func (s Status) IsKnown() bool {
+	_, ok := validStatuses[s]
+	return ok
 }
 
 // Validate ensures the status is part of the supported workflow.

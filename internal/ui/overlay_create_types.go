@@ -81,7 +81,7 @@ func (m *CreateOverlay) submitEdit() tea.Cmd {
 			ID:          m.editingBead.ID,
 			Title:       strings.TrimSpace(m.titleInput.Value()),
 			Description: strings.TrimSpace(m.descriptionInput.Value()),
-			IssueType:   typeOptions[m.typeIndex],
+			IssueType:   m.effectiveIssueType(),
 			Priority:    m.priorityIndex,
 			ParentID:    m.ParentID(),
 			OriginalParentID: func() string {
@@ -94,6 +94,23 @@ func (m *CreateOverlay) submitEdit() tea.Cmd {
 			Assignee: m.getAssigneeValue(),
 		}
 	}
+}
+
+// effectiveIssueType returns the issue type to use when submitting.
+// If editing an issue with an unknown type (e.g., "docs" from br) and the user
+// hasn't changed it to a known type, preserve the original unknown type.
+func (m *CreateOverlay) effectiveIssueType() string {
+	// Not editing, or original type is known - use selected type
+	if !m.isEditMode() || typeIndexFromString(m.originalIssueType) != 0 || m.originalIssueType == "task" {
+		return typeOptions[m.typeIndex]
+	}
+	// Original type was unknown (defaulted to index 0)
+	// If user kept the default selection, preserve original unknown type
+	if m.typeIndex == 0 {
+		return m.originalIssueType
+	}
+	// User changed to a different known type
+	return typeOptions[m.typeIndex]
 }
 
 // Title returns the current title value.

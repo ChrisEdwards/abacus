@@ -93,8 +93,9 @@ type CreateOverlay struct {
 	// Zone 3: Properties (2-column grid)
 	typeIndex           int
 	priorityIndex       int
-	typeManuallySet     bool // Disables auto-inference when true
-	typeInferenceActive bool // True during flash animation (150ms)
+	typeManuallySet     bool   // Disables auto-inference when true
+	typeInferenceActive bool   // True during flash animation (150ms)
+	originalIssueType   string // Preserves unknown types during edit (forward compat)
 
 	// Zone 4: Labels (multi-select chips)
 	labelsCombo   ChipComboBox
@@ -252,6 +253,7 @@ func NewEditOverlay(bead *beads.FullIssue, opts CreateOverlayOptions) *CreateOve
 	m.titleInput.SetValue(bead.Title)
 	m.descriptionInput.SetValue(bead.Description)
 	m.typeIndex = typeIndexFromString(bead.IssueType)
+	m.originalIssueType = bead.IssueType // Preserve unknown types for forward compat
 	m.priorityIndex = bead.Priority
 	m.typeManuallySet = true
 

@@ -35,7 +35,8 @@ func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
 				if parent, ok := nodeMap[dep.TargetID]; ok {
 					node.Parents = append(node.Parents, parent)
 				}
-			case "blocks":
+			case "blocks", "conditional-blocks", "waits-for":
+				// All blocking dependency types (blocks is standard, others are br-specific)
 				if blocker, ok := nodeMap[dep.TargetID]; ok {
 					node.BlockedBy = append(node.BlockedBy, blocker)
 					if blocker.Issue.Status != "closed" {
@@ -62,6 +63,20 @@ func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
 				if source, ok := nodeMap[dep.TargetID]; ok {
 					node.DiscoveredFrom = append(node.DiscoveredFrom, source)
 				}
+			case "duplicates":
+				// This issue is a duplicate of the target (canonical) issue
+				if canonical, ok := nodeMap[dep.TargetID]; ok {
+					node.DuplicateOf = canonical
+				}
+			case "supersedes":
+				// This issue supersedes (replaces) the target issue
+				// The TARGET gets SupersededBy pointing to THIS node
+				if obsolete, ok := nodeMap[dep.TargetID]; ok {
+					obsolete.SupersededBy = node
+				}
+			default:
+				// Unknown dependency types are treated as non-blocking (informational)
+				// This ensures forward compatibility with new dependency types from br
 			}
 		}
 		for _, dep := range node.Issue.Dependents {
@@ -74,19 +89,8 @@ func (Builder) Build(issues []beads.FullIssue) ([]*Node, error) {
 		}
 	}
 
-	// Resolve graph link fields (duplicate_of, superseded_by)
-	for _, node := range nodeMap {
-		if node.Issue.DuplicateOf != "" {
-			if canonical, ok := nodeMap[node.Issue.DuplicateOf]; ok {
-				node.DuplicateOf = canonical
-			}
-		}
-		if node.Issue.SupersededBy != "" {
-			if replacement, ok := nodeMap[node.Issue.SupersededBy]; ok {
-				node.SupersededBy = replacement
-			}
-		}
-	}
+	// NOTE: DuplicateOf and SupersededBy are now resolved from dependency types
+	// (duplicates, supersedes) in the dependency loop above, not from issue-level fields.
 
 	for _, node := range nodeMap {
 		if len(node.Parents) <= 1 {

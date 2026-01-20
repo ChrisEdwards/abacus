@@ -652,10 +652,9 @@ func TestDetailViewShowsDuplicateOf(t *testing.T) {
 	}
 	node := &graph.Node{
 		Issue: beads.FullIssue{
-			ID:          "ab-dup",
-			Title:       "Duplicate Report",
-			Status:      "closed",
-			DuplicateOf: "ab-canonical",
+			ID:     "ab-dup",
+			Title:  "Duplicate Report",
+			Status: "closed",
 		},
 		DuplicateOf:    canonical,
 		CommentsLoaded: true,
@@ -686,10 +685,9 @@ func TestDetailViewShowsSupersededBy(t *testing.T) {
 	}
 	node := &graph.Node{
 		Issue: beads.FullIssue{
-			ID:           "ab-old",
-			Title:        "Old Design Doc",
-			Status:       "closed",
-			SupersededBy: "ab-new",
+			ID:     "ab-old",
+			Title:  "Old Design Doc",
+			Status: "closed",
 		},
 		SupersededBy:   replacement,
 		CommentsLoaded: true,
