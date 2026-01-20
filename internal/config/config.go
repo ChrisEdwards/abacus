@@ -31,6 +31,10 @@ const (
 	KeyTreeShowColumns        = "tree.showColumns"
 	KeyTreeColumnsLastUpdated = "tree.columns.lastUpdated"
 	KeyTreeColumnsComments    = "tree.columns.comments"
+
+	// Backend selection keys
+	KeyBeadsBackend                  = "beads.backend"                       // "bd" or "br", empty means auto-detect
+	KeyBdUnsupportedVersionWarnShown = "beads.bd_unsupported_version_warned" // true if user has seen the bd > 0.38.0 warning
 )
 
 const (
@@ -286,6 +290,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeyTreeShowColumns, true)
 	v.SetDefault(KeyTreeColumnsLastUpdated, true)
 	v.SetDefault(KeyTreeColumnsComments, true)
+	v.SetDefault(KeyBeadsBackend, "")                     // Empty means auto-detect
+	v.SetDefault(KeyBdUnsupportedVersionWarnShown, false) // One-time warning not yet shown
 }
 
 func getViper() (*viper.Viper, error) {
@@ -433,4 +439,130 @@ func findWritableConfigPath() (string, error) {
 		return userConfigPathOverride, nil
 	}
 	return defaultUserConfigPath()
+}
+
+// SaveBackend persists the backend name to the project config file.
+// Unlike SaveTheme(), this ALWAYS saves to project config (.abacus/config.yaml)
+// because backend selection is inherently per-project.
+// Returns error if no .beads directory is found (not a beads project).
+func SaveBackend(backend string) error {
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	// Find .beads/ directory to locate project root
+	beadsDir := findBeadsDir(wd)
+	if beadsDir == "" {
+		return fmt.Errorf("no .beads directory found - not a beads project")
+	}
+	projectRoot := filepath.Dir(beadsDir)
+	targetPath := filepath.Join(projectRoot, ".abacus", "config.yaml")
+
+	// Create a fresh viper instance for this file only
+	v := viper.New()
+	v.SetConfigType("yaml")
+	v.SetConfigFile(targetPath)
+
+	// Read existing config (if any) to preserve other settings
+	_ = v.ReadInConfig() // ignore error if file doesn't exist
+
+	// Set the backend value
+	v.Set(KeyBeadsBackend, backend)
+
+	// Create .abacus/ directory if needed
+	dir := filepath.Dir(targetPath)
+	//nolint:gosec // G301: Config directory needs standard permissions
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
+
+	// Write config
+	if err := v.WriteConfigAs(targetPath); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+
+	return nil
+}
+
+// SaveBdUnsupportedVersionWarned persists the warning flag to user config.
+// This is stored in user config (~/.abacus/config.yaml) since it's a one-time
+// user notification, not a per-project setting.
+func SaveBdUnsupportedVersionWarned() error {
+	targetPath, err := defaultUserConfigPath()
+	if err != nil {
+		return fmt.Errorf("get user config path: %w", err)
+	}
+
+	// Create a fresh viper instance for this file only
+	v := viper.New()
+	v.SetConfigType("yaml")
+	v.SetConfigFile(targetPath)
+
+	// Read existing config (if any) to preserve other settings
+	_ = v.ReadInConfig() // ignore error if file doesn't exist
+
+	// Set the warning flag
+	v.Set(KeyBdUnsupportedVersionWarnShown, true)
+
+	// Create ~/.abacus/ directory if needed
+	dir := filepath.Dir(targetPath)
+	//nolint:gosec // G301: User config directory needs standard permissions
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
+
+	// Write config
+	if err := v.WriteConfigAs(targetPath); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+
+	return nil
+}
+
+// GetProjectString reads a string value from project config ONLY.
+// Unlike GetString(), this does not merge with user config or env vars.
+// Returns empty string if no project config exists or key not found.
+func GetProjectString(key string) string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+
+	projectPath, err := findProjectConfig(wd)
+	if err != nil || projectPath == "" {
+		return ""
+	}
+
+	// Create a fresh viper instance to read only project config
+	v := viper.New()
+	v.SetConfigType("yaml")
+	v.SetConfigFile(projectPath)
+
+	if err := v.ReadInConfig(); err != nil {
+		return ""
+	}
+
+	return v.GetString(key)
+}
+
+// findBeadsDir walks up from startDir looking for a .beads directory.
+// Returns the full path to the .beads directory if found, empty string otherwise.
+func findBeadsDir(startDir string) string {
+	if strings.TrimSpace(startDir) == "" {
+		return ""
+	}
+	dir := startDir
+	for {
+		candidate := filepath.Join(dir, ".beads")
+		info, err := os.Stat(candidate)
+		if err == nil && info.IsDir() {
+			return candidate
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }
