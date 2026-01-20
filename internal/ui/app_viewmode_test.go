@@ -299,6 +299,97 @@ func TestTickAlwaysReschedules(t *testing.T) {
 	}
 }
 
+// TestViewModeUnknownStatusIncluded verifies forward compatibility:
+// Issues with unknown statuses (e.g., "reviewing", "pinned" from br) should
+// still be visible in appropriate view modes, not silently filtered out.
+func TestViewModeUnknownStatusIncluded(t *testing.T) {
+	// Unknown status from br that abacus doesn't recognize
+	unknownNode := &graph.Node{
+		Issue:     beads.FullIssue{ID: "ab-unknown", Title: "Unknown Status Issue", Status: "reviewing"},
+		IsBlocked: false,
+	}
+	openNode := &graph.Node{
+		Issue:     beads.FullIssue{ID: "ab-open", Title: "Open Issue", Status: "open"},
+		IsBlocked: false,
+	}
+	closedNode := &graph.Node{
+		Issue: beads.FullIssue{ID: "ab-closed", Title: "Closed Issue", Status: "closed"},
+	}
+
+	t.Run("ViewModeAll_ShowsUnknownStatus", func(t *testing.T) {
+		app := &App{
+			roots:    []*graph.Node{unknownNode, openNode, closedNode},
+			viewMode: ViewModeAll,
+			keys:     DefaultKeyMap(),
+		}
+		app.recalcVisibleRows()
+
+		// All 3 should be visible
+		if len(app.visibleRows) != 3 {
+			t.Errorf("ViewModeAll: expected 3 visible rows, got %d", len(app.visibleRows))
+		}
+
+		// Verify the unknown status node is included
+		hasUnknown := false
+		for _, row := range app.visibleRows {
+			if row.Node.Issue.ID == "ab-unknown" {
+				hasUnknown = true
+				break
+			}
+		}
+		if !hasUnknown {
+			t.Error("ViewModeAll: should include issues with unknown statuses")
+		}
+	})
+
+	t.Run("ViewModeActive_ShowsUnknownStatus", func(t *testing.T) {
+		// Unknown statuses should be considered "active" since they're not
+		// explicitly closed, blocked, or deferred
+		app := &App{
+			roots:    []*graph.Node{unknownNode, openNode, closedNode},
+			viewMode: ViewModeActive,
+			keys:     DefaultKeyMap(),
+		}
+		app.recalcVisibleRows()
+
+		// Should show unknown and open, hide closed (2 visible)
+		if len(app.visibleRows) != 2 {
+			t.Errorf("ViewModeActive: expected 2 visible rows, got %d", len(app.visibleRows))
+		}
+
+		// Verify the unknown status node is included
+		hasUnknown := false
+		for _, row := range app.visibleRows {
+			if row.Node.Issue.ID == "ab-unknown" {
+				hasUnknown = true
+				break
+			}
+		}
+		if !hasUnknown {
+			t.Error("ViewModeActive: should include issues with unknown statuses")
+		}
+	})
+
+	t.Run("ViewModeReady_ExcludesUnknownStatus", func(t *testing.T) {
+		// Unknown statuses are NOT "open", so they don't qualify as "ready"
+		// This is expected behavior - Ready is a specific state (open + not blocked)
+		app := &App{
+			roots:    []*graph.Node{unknownNode, openNode, closedNode},
+			viewMode: ViewModeReady,
+			keys:     DefaultKeyMap(),
+		}
+		app.recalcVisibleRows()
+
+		// Should only show open (which is ready), exclude unknown and closed
+		if len(app.visibleRows) != 1 {
+			t.Errorf("ViewModeReady: expected 1 visible row, got %d", len(app.visibleRows))
+		}
+		if len(app.visibleRows) > 0 && app.visibleRows[0].Node.Issue.ID != "ab-open" {
+			t.Errorf("ViewModeReady: expected ab-open, got %s", app.visibleRows[0].Node.Issue.ID)
+		}
+	})
+}
+
 func TestNewAppUsesConfiguredRefreshInterval(t *testing.T) {
 	cleanup := config.ResetForTesting(t)
 	defer cleanup()

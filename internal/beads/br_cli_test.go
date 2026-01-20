@@ -3,6 +3,7 @@ package beads
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -670,5 +671,271 @@ func TestBrCLIClient_ValidationErrors(t *testing.T) {
 				t.Errorf("expected validation error, got nil")
 			}
 		})
+	}
+}
+
+// =============================================================================
+// Integration Tests - require real br binary
+// =============================================================================
+
+// skipIfNoBr skips the test if the br binary is not available.
+func skipIfNoBr(t *testing.T) string {
+	t.Helper()
+	path, err := exec.LookPath("br")
+	if err != nil {
+		t.Skip("br binary not found, skipping integration test")
+	}
+	return path
+}
+
+// setupBrTestDB creates a temp directory with an initialized br database.
+// Returns the db path and a cleanup function.
+func setupBrTestDB(t *testing.T) (string, func()) {
+	t.Helper()
+
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "test.db")
+
+	// Initialize br database with a test prefix.
+	// We run init from the temp dir to avoid finding the repo's existing db.
+	cmd := exec.Command("br", "--db", dbPath, "init", "--prefix", "test")
+	cmd.Dir = dir // Run from temp dir to avoid auto-discovering repo's .beads/
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("br init failed: %v\nOutput: %s", err, out)
+	}
+
+	return dbPath, func() {
+		// TempDir cleanup is automatic
+	}
+}
+
+func TestBrCLIClient_Integration_CreateAndClose(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	skipIfNoBr(t)
+
+	dbPath, cleanup := setupBrTestDB(t)
+	defer cleanup()
+
+	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	ctx := context.Background()
+
+	// Create an issue
+	id, err := client.Create(ctx, "Integration Test Issue", "task", 2, []string{"test-label"}, "")
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	if id == "" {
+		t.Fatal("Create returned empty ID")
+	}
+	// Note: ID prefix depends on br's init prefix setting; we just verify an ID was returned
+
+	// Close the issue
+	if err := client.Close(ctx, id); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+
+	// Reopen the issue
+	if err := client.Reopen(ctx, id); err != nil {
+		t.Fatalf("Reopen failed: %v", err)
+	}
+}
+
+func TestBrCLIClient_Integration_CreateFull(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	skipIfNoBr(t)
+
+	dbPath, cleanup := setupBrTestDB(t)
+	defer cleanup()
+
+	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	ctx := context.Background()
+
+	// Create with full options
+	issue, err := client.CreateFull(ctx, "Full Integration Issue", "feature", 1,
+		[]string{"urgent", "backend"}, "alice", "This is a test description", "")
+	if err != nil {
+		t.Fatalf("CreateFull failed: %v", err)
+	}
+
+	if issue.ID == "" {
+		t.Fatal("CreateFull returned empty ID")
+	}
+	if issue.Title != "Full Integration Issue" {
+		t.Errorf("expected title 'Full Integration Issue', got: %s", issue.Title)
+	}
+	if issue.IssueType != "feature" {
+		t.Errorf("expected type 'feature', got: %s", issue.IssueType)
+	}
+	if issue.Priority != 1 {
+		t.Errorf("expected priority 1, got: %d", issue.Priority)
+	}
+}
+
+func TestBrCLIClient_Integration_Labels(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	skipIfNoBr(t)
+
+	dbPath, cleanup := setupBrTestDB(t)
+	defer cleanup()
+
+	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	ctx := context.Background()
+
+	// Create an issue first
+	id, err := client.Create(ctx, "Label Test Issue", "task", 2, nil, "")
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	// Add a label
+	if err := client.AddLabel(ctx, id, "new-label"); err != nil {
+		t.Fatalf("AddLabel failed: %v", err)
+	}
+
+	// Remove the label
+	if err := client.RemoveLabel(ctx, id, "new-label"); err != nil {
+		t.Fatalf("RemoveLabel failed: %v", err)
+	}
+}
+
+func TestBrCLIClient_Integration_Dependencies(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	skipIfNoBr(t)
+
+	dbPath, cleanup := setupBrTestDB(t)
+	defer cleanup()
+
+	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	ctx := context.Background()
+
+	// Create two issues
+	id1, err := client.Create(ctx, "Dependency Test Issue 1", "task", 2, nil, "")
+	if err != nil {
+		t.Fatalf("Create issue 1 failed: %v", err)
+	}
+
+	id2, err := client.Create(ctx, "Dependency Test Issue 2", "task", 2, nil, "")
+	if err != nil {
+		t.Fatalf("Create issue 2 failed: %v", err)
+	}
+
+	// Add dependency: id1 blocks id2
+	if err := client.AddDependency(ctx, id2, id1, "blocks"); err != nil {
+		t.Fatalf("AddDependency failed: %v", err)
+	}
+
+	// Remove the dependency
+	if err := client.RemoveDependency(ctx, id2, id1, ""); err != nil {
+		t.Fatalf("RemoveDependency failed: %v", err)
+	}
+}
+
+func TestBrCLIClient_Integration_Comments(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	skipIfNoBr(t)
+
+	dbPath, cleanup := setupBrTestDB(t)
+	defer cleanup()
+
+	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	ctx := context.Background()
+
+	// Create an issue
+	id, err := client.Create(ctx, "Comment Test Issue", "task", 2, nil, "")
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	// Add a comment
+	if err := client.AddComment(ctx, id, "This is an integration test comment"); err != nil {
+		t.Fatalf("AddComment failed: %v", err)
+	}
+}
+
+func TestBrCLIClient_Integration_UpdateStatus(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	skipIfNoBr(t)
+
+	dbPath, cleanup := setupBrTestDB(t)
+	defer cleanup()
+
+	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	ctx := context.Background()
+
+	// Create an issue
+	id, err := client.Create(ctx, "Status Update Test", "task", 2, nil, "")
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	// Update status to in_progress
+	if err := client.UpdateStatus(ctx, id, "in_progress"); err != nil {
+		t.Fatalf("UpdateStatus failed: %v", err)
+	}
+}
+
+func TestBrCLIClient_Integration_Delete(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	skipIfNoBr(t)
+
+	dbPath, cleanup := setupBrTestDB(t)
+	defer cleanup()
+
+	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	ctx := context.Background()
+
+	// Create an issue
+	id, err := client.Create(ctx, "Delete Test Issue", "task", 2, nil, "")
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	// Delete the issue
+	if err := client.Delete(ctx, id, false); err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+}
+
+func TestBrCLIClient_Integration_ParentChild(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	skipIfNoBr(t)
+
+	dbPath, cleanup := setupBrTestDB(t)
+	defer cleanup()
+
+	client := NewBrCLIClient(WithBrDatabasePath(dbPath))
+	ctx := context.Background()
+
+	// Create parent issue
+	parent, err := client.CreateFull(ctx, "Parent Issue", "epic", 1, nil, "", "Parent description", "")
+	if err != nil {
+		t.Fatalf("Create parent failed: %v", err)
+	}
+
+	// Create child with parent reference
+	child, err := client.CreateFull(ctx, "Child Issue", "task", 2, nil, "", "Child description", parent.ID)
+	if err != nil {
+		t.Fatalf("Create child with parent failed: %v", err)
+	}
+
+	if child.ID == "" {
+		t.Fatal("Child issue has empty ID")
 	}
 }
