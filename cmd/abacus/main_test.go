@@ -122,3 +122,65 @@ type noopProgram struct{}
 func (noopProgram) Run() (tea.Model, error) {
 	return nil, nil
 }
+
+func TestComputeRuntimeOptions_BackendFlag(t *testing.T) {
+	tests := []struct {
+		name       string
+		backendVal string
+		visited    bool
+		want       string
+	}{
+		{
+			name:       "no flag set - empty backend",
+			backendVal: "",
+			visited:    false,
+			want:       "",
+		},
+		{
+			name:       "bd flag explicitly set",
+			backendVal: "bd",
+			visited:    true,
+			want:       "bd",
+		},
+		{
+			name:       "br flag explicitly set",
+			backendVal: "br",
+			visited:    true,
+			want:       "br",
+		},
+		{
+			name:       "flag with whitespace trimmed",
+			backendVal: "  br  ",
+			visited:    true,
+			want:       "br",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			visited := map[string]struct{}{}
+			if tt.visited {
+				visited["backend"] = struct{}{}
+			}
+
+			flags := runtimeFlags{
+				autoRefreshSeconds: ptrInt(30),
+				dbPath:             ptrString("/tmp/test.db"),
+				outputFormat:       ptrString("rich"),
+				skipVersionCheck:   ptrBool(false),
+				skipUpdateCheck:    ptrBool(false),
+				jsonOutput:         ptrBool(false),
+				backend:            ptrString(tt.backendVal),
+			}
+
+			got := computeRuntimeOptions(flags, visited)
+			if got.backend != tt.want {
+				t.Errorf("backend = %q, want %q", got.backend, tt.want)
+			}
+		})
+	}
+}
+
+func ptrInt(v int) *int          { return &v }
+func ptrString(v string) *string { return &v }
+func ptrBool(v bool) *bool       { return &v }

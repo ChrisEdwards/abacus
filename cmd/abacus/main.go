@@ -49,6 +49,7 @@ func main() {
 	skipUpdateCheckFlag := flag.Bool("skip-update-check", skipUpdateCheckDefault, "Skip checking for updates at startup (or set AB_SKIP_UPDATE_CHECK=true)")
 	jsonOutputFlag := flag.Bool("json-output", config.GetBool(config.KeyOutputJSON), "Print all issues as JSON and exit")
 	debugFlag := flag.Bool("debug", config.GetBool(config.KeyDebug), "Enable debug logging to ~/.abacus/debug.log")
+	backendFlag := flag.String("backend", "", "Force backend (bd or br) - overrides auto-detection, one-time only")
 	flag.Parse()
 
 	if *versionFlag {
@@ -74,6 +75,7 @@ func main() {
 		skipVersionCheck:   skipVersionCheckFlag,
 		skipUpdateCheck:    skipUpdateCheckFlag,
 		jsonOutput:         jsonOutputFlag,
+		backend:            backendFlag,
 	}, visited)
 
 	skipVersionCheck := runtime.skipVersionCheck
@@ -156,6 +158,7 @@ type runtimeFlags struct {
 	skipVersionCheck   *bool
 	skipUpdateCheck    *bool
 	jsonOutput         *bool
+	backend            *string
 }
 
 type runtimeOptions struct {
@@ -166,6 +169,7 @@ type runtimeOptions struct {
 	skipVersionCheck bool
 	skipUpdateCheck  bool
 	jsonOutput       bool
+	backend          string
 }
 
 func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runtimeOptions {
@@ -201,6 +205,13 @@ func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runt
 		jsonOutput = *flags.jsonOutput
 	}
 
+	// Backend flag is a one-time override - only use if explicitly set
+	// Empty string means auto-detect (will happen in ab-pccw.3.14)
+	backend := ""
+	if flagWasExplicitlySet("backend", visited) {
+		backend = strings.TrimSpace(*flags.backend)
+	}
+
 	return runtimeOptions{
 		refreshInterval:  refreshInterval,
 		autoRefresh:      autoRefresh,
@@ -209,6 +220,7 @@ func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runt
 		skipVersionCheck: skipVersionCheck,
 		skipUpdateCheck:  skipUpdateCheck,
 		jsonOutput:       jsonOutput,
+		backend:          backend,
 	}
 }
 
