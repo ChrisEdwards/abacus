@@ -35,6 +35,31 @@ var ErrNoBackendAvailable = errors.New("neither bd nor br found in PATH")
 // ErrBackendAmbiguous indicates both backends exist but no preference is set in non-TTY mode.
 var ErrBackendAmbiguous = errors.New("both bd and br found in PATH; use --backend flag or set beads.backend in .abacus/config.yaml")
 
+// Test hooks - these function variables allow tests to mock dependencies.
+// In production, they point to the real implementations.
+var (
+	// commandExistsFunc is used to check if a binary exists on PATH.
+	commandExistsFunc = commandExists
+
+	// isInteractiveTTYFunc is used to check if stdin is a TTY.
+	isInteractiveTTYFunc = isInteractiveTTY
+
+	// checkBackendVersionFunc is used to validate backend versions.
+	checkBackendVersionFunc = checkBackendVersion
+
+	// configGetProjectStringFunc is used to read project config values.
+	configGetProjectStringFunc = config.GetProjectString
+
+	// configSaveBackendFunc is used to save backend preference to project config.
+	configSaveBackendFunc = config.SaveBackend
+
+	// promptUserForBackendFunc is used for interactive backend selection.
+	promptUserForBackendFunc = promptUserForBackend
+
+	// promptSwitchBackendFunc is used for interactive switch confirmation.
+	promptSwitchBackendFunc = promptSwitchBackend
+)
+
 // DetectBackend determines which backend (bd or br) to use.
 // cliFlag is the value of --backend flag (empty if not provided).
 // Returns the backend name ("bd" or "br") or an error if detection fails.
@@ -44,10 +69,10 @@ func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
 		if cliFlag != BackendBd && cliFlag != BackendBr {
 			return "", fmt.Errorf("invalid --backend value: %q (must be 'bd' or 'br')", cliFlag)
 		}
-		if !commandExists(cliFlag) {
+		if !commandExistsFunc(cliFlag) {
 			return "", fmt.Errorf("--backend %s specified but %s not found in PATH", cliFlag, cliFlag)
 		}
-		if err := checkBackendVersion(ctx, cliFlag); err != nil {
+		if err := checkBackendVersionFunc(ctx, cliFlag); err != nil {
 			return "", fmt.Errorf("--backend %s version check failed: %w", cliFlag, err)
 		}
 		// Don't save - CLI flag is a one-time override
@@ -55,12 +80,12 @@ func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
 	}
 
 	// 1. Check stored preference (project config ONLY - no env var support)
-	storedPref := config.GetProjectString(config.KeyBeadsBackend)
+	storedPref := configGetProjectStringFunc(config.KeyBeadsBackend)
 	if storedPref != "" {
 		// Verify the stored preference is still valid (binary exists)
-		if commandExists(storedPref) {
+		if commandExistsFunc(storedPref) {
 			// Version check for stored preference (already saved, just validate)
-			if err := checkBackendVersion(ctx, storedPref); err != nil {
+			if err := checkBackendVersionFunc(ctx, storedPref); err != nil {
 				return "", fmt.Errorf("stored backend '%s' version check failed: %w", storedPref, err)
 			}
 			return storedPref, nil
@@ -70,8 +95,8 @@ func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
 	}
 
 	// 2. Check binary availability (PATH only, no probing)
-	brExists := commandExists(BackendBr)
-	bdExists := commandExists(BackendBd)
+	brExists := commandExistsFunc(BackendBr)
+	bdExists := commandExistsFunc(BackendBd)
 
 	var choice string
 	switch {
@@ -83,10 +108,10 @@ func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
 		choice = BackendBd
 	case brExists && bdExists:
 		// Both exist - need user input
-		if !isInteractiveTTY() {
+		if !isInteractiveTTYFunc() {
 			return "", ErrBackendAmbiguous
 		}
-		choice = promptUserForBackend()
+		choice = promptUserForBackendFunc()
 	}
 
 	// 3. Version check BEFORE saving - allows user to switch if version fails
@@ -99,7 +124,7 @@ func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
 	// Note: SaveBackend may fail if no .beads/ directory exists, but main.go
 	// validates .beads/ presence before calling DetectBackend(), so this is
 	// defense-in-depth. Log warning but continue since detection succeeded.
-	if err := config.SaveBackend(choice); err != nil {
+	if err := configSaveBackendFunc(choice); err != nil {
 		log.Printf("warning: could not save backend preference: %v", err)
 	}
 
@@ -128,25 +153,25 @@ func handleStalePreference(ctx context.Context, storedPref string) (string, erro
 	if storedPref == BackendBd {
 		other = BackendBr
 	}
-	otherExists := commandExists(other)
+	otherExists := commandExistsFunc(other)
 
 	if !otherExists {
 		return "", fmt.Errorf("this project is configured for '%s' but neither bd nor br found in PATH", storedPref)
 	}
 
 	// In non-TTY mode, we can't prompt - return error
-	if !isInteractiveTTY() {
+	if !isInteractiveTTYFunc() {
 		return "", fmt.Errorf("this project is configured for '%s' but %s is not found in PATH; use --backend %s to override", storedPref, storedPref, other)
 	}
 
 	// Prompt user: their configured backend is missing, offer to switch
 	fmt.Printf("This project is configured for '%s' but %s is not found in PATH.\n", storedPref, storedPref)
-	if confirmed := promptSwitchBackend(other); confirmed {
+	if confirmed := promptSwitchBackendFunc(other); confirmed {
 		// Version check BEFORE saving
-		if err := checkBackendVersion(ctx, other); err != nil {
+		if err := checkBackendVersionFunc(ctx, other); err != nil {
 			return "", fmt.Errorf("cannot switch to %s: %w", other, err)
 		}
-		if err := config.SaveBackend(other); err != nil {
+		if err := configSaveBackendFunc(other); err != nil {
 			log.Printf("warning: could not save backend preference: %v", err)
 		}
 		return other, nil
@@ -159,7 +184,7 @@ func handleStalePreference(ctx context.Context, storedPref string) (string, erro
 // validateWithFallback validates the chosen backend's version and offers
 // to switch to the alternative if validation fails.
 func validateWithFallback(ctx context.Context, choice string, brExists, bdExists bool) (string, error) {
-	if err := checkBackendVersion(ctx, choice); err == nil {
+	if err := checkBackendVersionFunc(ctx, choice); err == nil {
 		return choice, nil // Version check passed
 	}
 
@@ -175,15 +200,15 @@ func validateWithFallback(ctx context.Context, choice string, brExists, bdExists
 	}
 
 	// In non-TTY mode, we can't prompt - return error
-	if !isInteractiveTTY() {
+	if !isInteractiveTTYFunc() {
 		return "", fmt.Errorf("%s version is too old; use --backend %s to try alternative", choice, other)
 	}
 
 	// Offer to switch to the other backend
 	fmt.Printf("%s version is too old. Would you like to use %s instead?\n", choice, other)
-	if confirmed := promptSwitchBackend(other); confirmed {
+	if confirmed := promptSwitchBackendFunc(other); confirmed {
 		// Check the alternative's version too
-		if err := checkBackendVersion(ctx, other); err != nil {
+		if err := checkBackendVersionFunc(ctx, other); err != nil {
 			return "", fmt.Errorf("both backends have version issues: %s and %s", choice, other)
 		}
 		return other, nil

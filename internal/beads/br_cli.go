@@ -15,8 +15,9 @@ import (
 	appErrors "abacus/internal/errors"
 )
 
-// brCLIClient implements Writer for the beads_rust (br) CLI.
-// It only handles mutation operations; read operations go through brSQLiteClient.
+// brCLIClient implements Client for the beads_rust (br) CLI.
+// Read methods are stubs (use brSQLiteClient for reads in production).
+// Write methods delegate to the br CLI binary.
 type brCLIClient struct {
 	bin    string
 	dbArgs []string
@@ -43,13 +44,35 @@ func WithBrDatabasePath(path string) BrCLIOption {
 	}
 }
 
-// NewBrCLIClient constructs a beads_rust CLI-backed Writer implementation.
-func NewBrCLIClient(opts ...BrCLIOption) Writer {
+// NewBrCLIClient constructs a beads_rust CLI-backed Client implementation.
+// Note: Read methods (List, Show, Export, Comments) return errors as they are
+// not implemented. Use NewBrSQLiteClient for read operations via SQLite.
+func NewBrCLIClient(opts ...BrCLIOption) Client {
 	client := &brCLIClient{bin: "br"}
 	for _, opt := range opts {
 		opt(client)
 	}
 	return client
+}
+
+// List is not implemented for br CLI client - use SQLite client for reads.
+func (c *brCLIClient) List(_ context.Context) ([]LiteIssue, error) {
+	return nil, fmt.Errorf("List not implemented: br CLI client only supports write operations; use SQLite client for reads")
+}
+
+// Show is not implemented for br CLI client - use SQLite client for reads.
+func (c *brCLIClient) Show(_ context.Context, _ []string) ([]FullIssue, error) {
+	return nil, fmt.Errorf("Show not implemented: br CLI client only supports write operations; use SQLite client for reads")
+}
+
+// Export is not implemented for br CLI client - use SQLite client for reads.
+func (c *brCLIClient) Export(_ context.Context) ([]FullIssue, error) {
+	return nil, fmt.Errorf("Export not implemented: br CLI client only supports write operations; use SQLite client for reads")
+}
+
+// Comments is not implemented for br CLI client - use SQLite client for reads.
+func (c *brCLIClient) Comments(_ context.Context, _ string) ([]Comment, error) {
+	return nil, fmt.Errorf("Comments not implemented: br CLI client only supports write operations; use SQLite client for reads")
 }
 
 func (c *brCLIClient) UpdateStatus(ctx context.Context, issueID, newStatus string) error {
