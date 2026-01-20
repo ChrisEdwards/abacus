@@ -87,21 +87,40 @@ func main() {
 		startup.Stage(ui.StartupStageInit, "Starting up...")
 	}
 
-	// Version check with visual feedback
+	// Backend detection (includes version check internally)
+	// This determines which backend (bd or br) to use for this project.
+	// DetectBackend validates versions, so we skip the old version check if detection succeeds.
+	var detectedBackend string
 	if !skipVersionCheck {
 		if startup != nil {
-			startup.Stage(ui.StartupStageVersionCheck, "Checking beads CLI...")
+			startup.Stage(ui.StartupStageVersionCheck, "Detecting backend...")
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
-		info, err := beads.CheckVersion(ctx, beads.VersionCheckOptions{})
+		var err error
+		detectedBackend, err = beads.DetectBackend(ctx, runtime.backend)
 		cancel()
-		if handleVersionCheckResult(os.Stderr, info, err) {
+		if err != nil {
 			if startup != nil {
 				startup.Stop()
 			}
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+
+		// Show bd version warning if using bd (one-time warning for versions > MaxSupportedBdVersion)
+		if detectedBackend == beads.BackendBd {
+			ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
+			beads.CheckBdVersionWarning(ctx)
+			cancel()
+		}
+	} else {
+		// Version check disabled - use backend from flag or default to bd
+		detectedBackend = runtime.backend
+		if detectedBackend == "" {
+			detectedBackend = beads.BackendBd
+		}
 	}
+	runtime.backend = detectedBackend
 
 	// Pass the existing startup display to runWithRuntime
 	if err := runWithRuntime(runtime, ui.NewApp, func(app *ui.App) programRunner {
@@ -112,7 +131,12 @@ func main() {
 		}
 		return NewStartupDisplay(os.Stderr)
 	}, ui.OutputIssuesJSON, func(path string) beads.Client {
-		return beads.NewBdSQLiteClient(path)
+		client, err := beads.NewClientForBackend(runtime.backend, path)
+		if err != nil {
+			// Fallback to bd if factory fails (shouldn't happen after detection)
+			return beads.NewBdSQLiteClient(path)
+		}
+		return client
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -293,6 +317,7 @@ func runWithRuntime(
 		OutputFormat:    runtime.outputFormat,
 		Version:         Version,
 		UpdateChan:      updateChan,
+		Backend:         runtime.backend,
 	}
 	if spinner != nil {
 		cfg.StartupReporter = spinner

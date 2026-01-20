@@ -184,3 +184,56 @@ func TestComputeRuntimeOptions_BackendFlag(t *testing.T) {
 func ptrInt(v int) *int          { return &v }
 func ptrString(v string) *string { return &v }
 func ptrBool(v bool) *bool       { return &v }
+
+func TestRunWithRuntimePassesBackendToConfig(t *testing.T) {
+	tests := []struct {
+		name            string
+		runtimeBackend  string
+		expectedBackend string
+	}{
+		{
+			name:            "bd backend",
+			runtimeBackend:  "bd",
+			expectedBackend: "bd",
+		},
+		{
+			name:            "br backend",
+			runtimeBackend:  "br",
+			expectedBackend: "br",
+		},
+		{
+			name:            "empty backend preserved",
+			runtimeBackend:  "",
+			expectedBackend: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spinner := &mockSpinner{}
+			runtime := runtimeOptions{
+				refreshInterval: time.Second,
+				backend:         tt.runtimeBackend,
+			}
+
+			var capturedBackend string
+			builder := func(cfg ui.Config) (*ui.App, error) {
+				capturedBackend = cfg.Backend
+				return &ui.App{}, nil
+			}
+
+			prog := noopProgram{}
+			err := runWithRuntime(runtime, builder, func(app *ui.App) programRunner {
+				return prog
+			}, func() startupAnimator {
+				return spinner
+			}, nil, nil)
+			if err != nil {
+				t.Fatalf("runWithRuntime returned error: %v", err)
+			}
+			if capturedBackend != tt.expectedBackend {
+				t.Errorf("backend = %q, want %q", capturedBackend, tt.expectedBackend)
+			}
+		})
+	}
+}

@@ -9,8 +9,10 @@ import (
 	"abacus/internal/beads"
 )
 
+//nolint:unused // Kept for potential future use in version messaging
 const beadsRepoURL = "https://github.com/steveyegge/beads"
 
+//nolint:unused // Kept for potential future use in version messaging
 func handleVersionCheckResult(w io.Writer, info beads.VersionInfo, err error) bool {
 	if err == nil {
 		return false
@@ -38,6 +40,7 @@ func handleVersionCheckResult(w io.Writer, info beads.VersionInfo, err error) bo
 	return false
 }
 
+//nolint:unused // Kept for potential future use in version messaging
 func formatBeadsNotInstalledMessage(bin string) string {
 	if strings.TrimSpace(bin) == "" {
 		bin = "bd"
@@ -60,6 +63,7 @@ After installation, ensure the %[2]s command is in your PATH:
 `, beadsRepoURL, bin)
 }
 
+//nolint:unused // Kept for potential future use in version messaging
 func formatBeadsVersionTooOldMessage(info beads.VersionInfo) string {
 	installed := info.Installed
 	if strings.TrimSpace(installed) == "" {
@@ -88,6 +92,7 @@ Verify upgrade:
 `, installed, required, beadsRepoURL, bin)
 }
 
+//nolint:unused // Kept for potential future use in version messaging
 func formatBeadsVersionWarning(info beads.VersionInfo, err error) string {
 	bin := info.Bin
 	if strings.TrimSpace(bin) == "" {
