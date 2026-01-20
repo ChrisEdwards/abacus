@@ -270,6 +270,23 @@ func isInteractiveTTY() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
 }
 
+// NewClientForBackend creates the appropriate Client based on backend string.
+// backend must be "bd" or "br". dbPath is the path to the SQLite database.
+// Returns an error for unknown backends or empty dbPath.
+func NewClientForBackend(backend, dbPath string) (Client, error) {
+	if dbPath == "" {
+		return nil, fmt.Errorf("dbPath is required")
+	}
+	switch backend {
+	case BackendBd:
+		return NewBdSQLiteClient(dbPath), nil
+	case BackendBr:
+		return NewBrSQLiteClient(dbPath), nil
+	default:
+		return nil, fmt.Errorf("unknown backend: %q (must be %q or %q)", backend, BackendBd, BackendBr)
+	}
+}
+
 // CheckBdVersionWarning shows a one-time warning if bd version > MaxSupportedBdVersion.
 // The warning is non-blocking and only shown once per user (stored in ~/.abacus/config.yaml).
 // Call this after DetectBackend returns "bd" successfully.

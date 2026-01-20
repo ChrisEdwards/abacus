@@ -725,3 +725,66 @@ func containsHelper(s, substr string) bool {
 	}
 	return false
 }
+
+// TestNewClientForBackend_Bd tests creating a bd backend client.
+func TestNewClientForBackend_Bd(t *testing.T) {
+	client, err := NewClientForBackend(BackendBd, "/tmp/test.db")
+	if err != nil {
+		t.Fatalf("NewClientForBackend(%q, path) error = %v, want nil", BackendBd, err)
+	}
+	if client == nil {
+		t.Fatal("NewClientForBackend returned nil client")
+	}
+	// Verify it's the correct type (bdSQLiteClient)
+	if _, ok := client.(*bdSQLiteClient); !ok {
+		t.Errorf("expected *bdSQLiteClient, got %T", client)
+	}
+}
+
+// TestNewClientForBackend_Br tests creating a br backend client.
+func TestNewClientForBackend_Br(t *testing.T) {
+	client, err := NewClientForBackend(BackendBr, "/tmp/test.db")
+	if err != nil {
+		t.Fatalf("NewClientForBackend(%q, path) error = %v, want nil", BackendBr, err)
+	}
+	if client == nil {
+		t.Fatal("NewClientForBackend returned nil client")
+	}
+	// Verify it's the correct type (brSQLiteClient)
+	if _, ok := client.(*brSQLiteClient); !ok {
+		t.Errorf("expected *brSQLiteClient, got %T", client)
+	}
+}
+
+// TestNewClientForBackend_UnknownBackend tests error handling for unknown backend.
+func TestNewClientForBackend_UnknownBackend(t *testing.T) {
+	_, err := NewClientForBackend("unknown", "/tmp/test.db")
+	if err == nil {
+		t.Error("NewClientForBackend(unknown, path) should return error")
+	}
+	if !contains(err.Error(), "unknown backend") {
+		t.Errorf("error should mention 'unknown backend', got: %v", err)
+	}
+}
+
+// TestNewClientForBackend_EmptyDbPath tests error handling for empty db path.
+func TestNewClientForBackend_EmptyDbPath(t *testing.T) {
+	_, err := NewClientForBackend(BackendBd, "")
+	if err == nil {
+		t.Error("NewClientForBackend with empty dbPath should return error")
+	}
+	if !contains(err.Error(), "dbPath is required") {
+		t.Errorf("error should mention 'dbPath is required', got: %v", err)
+	}
+}
+
+// TestNewClientForBackend_EmptyBackend tests error handling for empty backend.
+func TestNewClientForBackend_EmptyBackend(t *testing.T) {
+	_, err := NewClientForBackend("", "/tmp/test.db")
+	if err == nil {
+		t.Error("NewClientForBackend with empty backend should return error")
+	}
+	if !contains(err.Error(), "unknown backend") {
+		t.Errorf("error should mention 'unknown backend', got: %v", err)
+	}
+}
