@@ -14,7 +14,6 @@ import (
 	"context"
 	"database/sql"
 	"os/exec"
-	"strings"
 	"testing"
 	"time"
 
