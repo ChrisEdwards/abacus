@@ -165,8 +165,9 @@ func TestCLIClient_CreateFull_HandlesInvalidJSON(t *testing.T) {
 	}
 
 	// Error should contain snippet of bad output
-	if !strings.Contains(err.Error(), "decode bd create output") {
-		t.Errorf("expected error to mention decode failure, got: %v", err)
+	// extractJSON now rejects invalid JSON (returns nil), so error is "no JSON found"
+	if !strings.Contains(err.Error(), "no JSON found") {
+		t.Errorf("expected error to mention no JSON found, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "not valid json") {
 		t.Errorf("expected error to include output snippet, got: %v", err)

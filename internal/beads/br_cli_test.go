@@ -177,9 +177,9 @@ func TestBrCLIClient_CreateFull_HandlesInvalidJSON(t *testing.T) {
 		t.Fatal("expected error for invalid JSON, got nil")
 	}
 
-	// Error should indicate decode failure (extractJSON finds partial JSON starting with '{')
-	if !strings.Contains(err.Error(), "decode br create output") {
-		t.Errorf("expected error to mention decode failure, got: %v", err)
+	// Error should indicate no JSON found (extractJSON now rejects invalid JSON)
+	if !strings.Contains(err.Error(), "no JSON found") {
+		t.Errorf("expected error to mention no JSON found, got: %v", err)
 	}
 }
 

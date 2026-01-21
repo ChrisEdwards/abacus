@@ -367,28 +367,58 @@ func formatCommandError(bin string, args []string, cmdErr error, out []byte) err
 	return err
 }
 
-// extractJSON finds and returns the first JSON object in the output.
+// extractJSON finds and returns the first valid JSON object in the output.
 // bd/br commands may print warnings or other text before the actual JSON response.
 // This function is shared between bdCLIClient and brCLIClient.
+//
+// The scanner is string-aware: braces inside JSON string values are not counted.
+// It handles escape sequences like \" and \\ correctly.
 func extractJSON(out []byte) []byte {
-	// Find the first '{' which starts the JSON object
-	start := bytes.IndexByte(out, '{')
-	if start == -1 {
-		return nil
-	}
-	// Find the matching closing brace by counting braces
-	depth := 0
-	for i := start; i < len(out); i++ {
-		switch out[i] {
-		case '{':
-			depth++
-		case '}':
-			depth--
-			if depth == 0 {
-				return out[start : i+1]
+	// Try each '{' as a potential JSON start
+	for start := 0; start < len(out); start++ {
+		idx := bytes.IndexByte(out[start:], '{')
+		if idx == -1 {
+			return nil
+		}
+		start += idx
+
+		// Scan for matching closing brace, tracking string state
+		depth := 0
+		inString := false
+	scanLoop:
+		for i := start; i < len(out); i++ {
+			b := out[i]
+
+			if inString {
+				if b == '\\' && i+1 < len(out) {
+					// Skip escaped character
+					i++
+					continue
+				}
+				if b == '"' {
+					inString = false
+				}
+				continue
+			}
+
+			// Not in string
+			switch b {
+			case '"':
+				inString = true
+			case '{':
+				depth++
+			case '}':
+				depth--
+				if depth == 0 {
+					candidate := out[start : i+1]
+					if json.Valid(candidate) {
+						return candidate
+					}
+					// Invalid JSON, try next '{'
+					break scanLoop
+				}
 			}
 		}
 	}
-	// No matching closing brace found, return from start to end
-	return out[start:]
+	return nil
 }
