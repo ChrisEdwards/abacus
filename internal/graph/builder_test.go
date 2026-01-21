@@ -1242,3 +1242,76 @@ func TestSortNodesMixedStatusWithClosedReverseChronological(t *testing.T) {
 		}
 	}
 }
+
+func TestClosedParentsWithChildrenSortByParentClosedAt(t *testing.T) {
+	// Bug: closed parents with closed children were being sorted by oldest child's ClosedAt
+	// instead of the parent's ClosedAt. This caused recently closed parents to appear
+	// after older parents if their children were closed earlier.
+	issues := []beads.FullIssue{
+		// Parent closed recently (Jan 20), but has old closed children
+		{
+			ID:        "ab-parent-new",
+			Title:     "Recently Closed Parent",
+			Status:    "closed",
+			CreatedAt: "2024-01-01T00:00:00Z",
+			ClosedAt:  "2024-01-20T00:00:00Z",
+			Dependents: []beads.Dependent{
+				{ID: "ab-child-old", Type: "parent-child"},
+			},
+		},
+		{
+			ID:        "ab-child-old",
+			Title:     "Old Closed Child",
+			Status:    "closed",
+			CreatedAt: "2024-01-02T00:00:00Z",
+			ClosedAt:  "2024-01-05T00:00:00Z", // Closed much earlier than parent
+			Dependencies: []beads.Dependency{
+				{Type: "parent-child", TargetID: "ab-parent-new"},
+			},
+		},
+		// Parent closed earlier (Jan 15), with more recently closed children
+		{
+			ID:        "ab-parent-old",
+			Title:     "Old Closed Parent",
+			Status:    "closed",
+			CreatedAt: "2024-01-01T00:00:00Z",
+			ClosedAt:  "2024-01-15T00:00:00Z",
+			Dependents: []beads.Dependent{
+				{ID: "ab-child-new", Type: "parent-child"},
+			},
+		},
+		{
+			ID:        "ab-child-new",
+			Title:     "New Closed Child",
+			Status:    "closed",
+			CreatedAt: "2024-01-02T00:00:00Z",
+			ClosedAt:  "2024-01-14T00:00:00Z", // Closed around same time as parent
+			Dependencies: []beads.Dependency{
+				{Type: "parent-child", TargetID: "ab-parent-old"},
+			},
+		},
+	}
+
+	roots, err := NewBuilder().Build(issues)
+	if err != nil {
+		t.Fatalf("Build returned error: %v", err)
+	}
+
+	// Should have 2 root nodes (the parents)
+	if len(roots) != 2 {
+		t.Fatalf("expected 2 roots, got %d", len(roots))
+	}
+
+	// In reverse chronological order by parent's ClosedAt:
+	// ab-parent-new (closed Jan 20) should come BEFORE ab-parent-old (closed Jan 15)
+	wantOrder := []string{"ab-parent-new", "ab-parent-old"}
+	for i, want := range wantOrder {
+		if roots[i].Issue.ID != want {
+			got := make([]string, len(roots))
+			for j, r := range roots {
+				got[j] = r.Issue.ID
+			}
+			t.Fatalf("closed parent order mismatch: got %v, want %v", got, wantOrder)
+		}
+	}
+}

@@ -256,6 +256,13 @@ func computeSortMetrics(node *Node) (int, time.Time) {
 	priority, ts := NodeSelfSortKey(node)
 	for _, child := range node.Children {
 		childPriority, childTime := computeSortMetrics(child)
+		// For closed items, don't cascade timestamps from closed children.
+		// Closed parents should sort by their own ClosedAt, not by when their
+		// oldest/newest child was closed. But DO bubble up non-closed children
+		// to surface data inconsistencies (closed parent with open children).
+		if priority == sortPriorityClosed && childPriority == sortPriorityClosed {
+			continue
+		}
 		if childPriority < priority || (childPriority == priority && childTime.Before(ts)) {
 			priority = childPriority
 			ts = childTime

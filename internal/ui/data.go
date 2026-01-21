@@ -171,6 +171,8 @@ func loadData(ctx context.Context, client beads.Client, reporter StartupReporter
 	if err != nil {
 		return nil, err
 	}
+	// Roots are already sorted by graph.Builder using SortPriority/SortTimestamp.
+	// Apply additional ranking to bubble up HasInProgress and HasReady roots.
 	sort.SliceStable(roots, func(i, j int) bool {
 		a, b := roots[i], roots[j]
 		rankA, rankB := 2, 2
@@ -184,10 +186,7 @@ func loadData(ctx context.Context, client beads.Client, reporter StartupReporter
 		} else if b.HasReady {
 			rankB = 1
 		}
-		if rankA != rankB {
-			return rankA < rankB
-		}
-		return a.Issue.CreatedAt < b.Issue.CreatedAt
+		return rankA < rankB
 	})
 	// Comments are loaded in background after TUI starts (ab-fkyz, ab-o0fm)
 	return roots, nil
