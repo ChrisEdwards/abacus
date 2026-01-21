@@ -305,7 +305,6 @@ auto-refresh-seconds: 3
 beads:
   backend: br  # or bd (auto-detected if not set)
 output:
-  json: false
   format: rich
 database:
   path: .beads/beads.db
