@@ -204,14 +204,12 @@ func TestConfigPrecedence(t *testing.T) {
 	projectCfg := filepath.Join(projectDir, ".abacus", "config.yaml")
 	writeFile(t, projectCfg, `
 output:
-  json: false
   format: project
 database:
   path: /project/beads.db
 auto-refresh-seconds: 5
 `)
 
-	t.Setenv("AB_OUTPUT_JSON", "true")
 	t.Setenv("AB_DATABASE_PATH", "/env/beads.db")
 	t.Setenv("AB_AUTO_REFRESH_SECONDS", "7")
 
@@ -227,9 +225,6 @@ auto-refresh-seconds: 5
 	}
 	if got := GetInt(KeyAutoRefreshSeconds); got != 7 {
 		t.Fatalf("expected env override for %s=7, got %d", KeyAutoRefreshSeconds, got)
-	}
-	if got := GetBool(KeyOutputJSON); !got {
-		t.Fatalf("expected env override to set %s true", KeyOutputJSON)
 	}
 
 	overrides := map[string]any{

@@ -2,10 +2,8 @@ package ui
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"sync"
 
@@ -193,20 +191,6 @@ func loadData(ctx context.Context, client beads.Client, reporter StartupReporter
 	})
 	// Comments are loaded in background after TUI starts (ab-fkyz, ab-o0fm)
 	return roots, nil
-}
-
-// OutputIssuesJSON writes all issues to stdout as formatted JSON.
-func OutputIssuesJSON(ctx context.Context, client beads.Client) error {
-	issues, err := client.Export(ctx)
-	if err != nil {
-		return err
-	}
-	if issues == nil {
-		issues = []beads.FullIssue{}
-	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(issues)
 }
 
 func buildIssueDigest(nodes []*graph.Node) map[string]string {

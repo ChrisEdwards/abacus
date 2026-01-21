@@ -47,7 +47,6 @@ func main() {
 	outputFormatFlag := flag.String("output-format", outputFormatDefault, "Detail panel markdown style (rich, light, plain)")
 	skipVersionCheckFlag := flag.Bool("skip-version-check", skipVersionCheckDefault, "Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)")
 	skipUpdateCheckFlag := flag.Bool("skip-update-check", skipUpdateCheckDefault, "Skip checking for updates at startup (or set AB_SKIP_UPDATE_CHECK=true)")
-	jsonOutputFlag := flag.Bool("json-output", config.GetBool(config.KeyOutputJSON), "Print all issues as JSON and exit")
 	debugFlag := flag.Bool("debug", config.GetBool(config.KeyDebug), "Enable debug logging to ~/.abacus/debug.log")
 	backendFlag := flag.String("backend", "", "Force backend (bd or br) - overrides auto-detection, one-time only")
 	flag.Parse()
@@ -74,18 +73,14 @@ func main() {
 		outputFormat:       outputFormatFlag,
 		skipVersionCheck:   skipVersionCheckFlag,
 		skipUpdateCheck:    skipUpdateCheckFlag,
-		jsonOutput:         jsonOutputFlag,
 		backend:            backendFlag,
 	}, visited)
 
 	skipVersionCheck := runtime.skipVersionCheck
 
 	// Start the startup display immediately - don't let users stare at nothing
-	var startup *StartupDisplay
-	if !runtime.jsonOutput {
-		startup = NewStartupDisplay(os.Stderr)
-		startup.Stage(ui.StartupStageInit, "Starting up...")
-	}
+	startup := NewStartupDisplay(os.Stderr)
+	startup.Stage(ui.StartupStageInit, "Starting up...")
 
 	// Backend detection (includes version check internally)
 	// This determines which backend (bd or br) to use for this project.
@@ -132,17 +127,7 @@ func main() {
 	if err := runWithRuntime(runtime, ui.NewApp, func(app *ui.App) programRunner {
 		return tea.NewProgram(app, tea.WithAltScreen())
 	}, func() startupAnimator {
-		if startup != nil {
-			return startup
-		}
-		return NewStartupDisplay(os.Stderr)
-	}, ui.OutputIssuesJSON, func(path string) beads.Client {
-		client, err := beads.NewClientForBackend(runtime.backend, path)
-		if err != nil {
-			// Fallback to bd if factory fails (shouldn't happen after detection)
-			return beads.NewBdSQLiteClient(path)
-		}
-		return client
+		return startup
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -187,7 +172,6 @@ type runtimeFlags struct {
 	outputFormat       *string
 	skipVersionCheck   *bool
 	skipUpdateCheck    *bool
-	jsonOutput         *bool
 	backend            *string
 }
 
@@ -198,7 +182,6 @@ type runtimeOptions struct {
 	outputFormat     string
 	skipVersionCheck bool
 	skipUpdateCheck  bool
-	jsonOutput       bool
 	backend          string
 }
 
@@ -230,11 +213,6 @@ func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runt
 		skipUpdateCheck = *flags.skipUpdateCheck
 	}
 
-	jsonOutput := config.GetBool(config.KeyOutputJSON)
-	if flagWasExplicitlySet("json-output", visited) {
-		jsonOutput = *flags.jsonOutput
-	}
-
 	// Backend flag is a one-time override - only use if explicitly set
 	// Empty string means auto-detect (will happen in ab-pccw.3.14)
 	backend := ""
@@ -249,7 +227,6 @@ func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runt
 		outputFormat:     outputFormat,
 		skipVersionCheck: skipVersionCheck,
 		skipUpdateCheck:  skipUpdateCheck,
-		jsonOutput:       jsonOutput,
 		backend:          backend,
 	}
 }
@@ -277,22 +254,7 @@ func runWithRuntime(
 	builder func(ui.Config) (*ui.App, error),
 	factory programFactory,
 	spinnerFactory func() startupAnimator,
-	jsonPrinter func(context.Context, beads.Client) error,
-	clientFactory func(string) beads.Client,
 ) error {
-	if runtime.jsonOutput {
-		if clientFactory == nil {
-			clientFactory = func(path string) beads.Client {
-				return beads.NewBdSQLiteClient(path)
-			}
-		}
-		client := clientFactory(runtime.dbPath)
-		if jsonPrinter == nil {
-			jsonPrinter = ui.OutputIssuesJSON
-		}
-		return jsonPrinter(context.Background(), client)
-	}
-
 	var spinner startupAnimator
 	if spinnerFactory != nil {
 		spinner = spinnerFactory()

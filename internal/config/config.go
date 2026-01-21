@@ -25,7 +25,6 @@ const (
 
 	KeyDatabasePath           = "database.path"
 	KeyOutputFormat           = "output.format"
-	KeyOutputJSON             = "output.json"
 	KeyTheme                  = "theme"
 	KeyTreeShowPriority       = "tree.showPriority"
 	KeyTreeShowColumns        = "tree.showColumns"
@@ -283,7 +282,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeySkipUpdateCheck, false)
 	v.SetDefault(KeyDebug, false)
 	v.SetDefault(KeyOutputFormat, "rich")
-	v.SetDefault(KeyOutputJSON, false)
 	v.SetDefault(KeyAutoRefreshSeconds, DefaultAutoRefreshSeconds)
 	v.SetDefault(KeyTheme, "tokyonight")
 	v.SetDefault(KeyTreeShowPriority, true)
