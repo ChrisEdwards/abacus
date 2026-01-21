@@ -311,8 +311,6 @@ database:
 skip-version-check: false
 ```
 
-Set `output.json: true`, `AB_OUTPUT_JSON=true`, or pass `--json-output` to print all issues as JSON (useful for scripting) and skip the TUI entirely. In JSON mode, startup animations are disabled so output stays machine-friendly.
-
 ## How It Works
 
 Abacus interfaces with the Beads backend (bd or br) to:
