@@ -121,6 +121,48 @@ make build                         # Build first after code changes
 ```
 Always verify UI changes look correct before marking work complete.
 
+### Testing with br Backend
+
+The abacus repository itself uses `bd` (beads Go CLI), but abacus supports both `bd` and `br` (beads_rust) backends. To test br functionality, you must use a separate directory:
+
+```bash
+# 1. Create a test directory outside the abacus repo
+mkdir /tmp/abacus-br-test && cd /tmp/abacus-br-test
+
+# 2. Initialize a br workspace
+br init
+
+# 3. Create test beads
+br create "Test bead 1" --type task --priority 2
+br create "Test bead 2" --type epic --priority 1
+
+# 4. Configure for br backend
+mkdir -p .abacus
+cat > .abacus/config.yaml << 'EOF'
+beads:
+  backend: br
+EOF
+
+# 5. Run abacus from that directory
+/path/to/abacus/bin/abacus
+```
+
+The TUI will show `[br]` in the status bar when using the br backend.
+
+**Why a separate directory?**
+- The abacus repo has `.beads/` configured for bd
+- br and bd have different database schemas
+- Testing br in the abacus repo would corrupt the beads database
+- A separate `/tmp` directory keeps tests isolated
+
+**Verified br operations (via TUI):**
+- Create overlay (n) - creates beads via `br create`
+- Edit overlay (e) - updates beads via `br update`
+- Status change (s) - changes status via `br update --status`
+- Delete (Del) - deletes beads via `br delete`
+- Labels (L) - adds/removes labels via `br label add/remove`
+- Comments (m) - adds comments via `br comments add`
+
 ## Available Tools
 
 ### ripgrep (rg)
@@ -134,43 +176,46 @@ Fast code search tool available via command line. Common patterns:
 ### ast-grep (sg)
 Structural code search using AST patterns. Use when text search is fragile (formatting varies, need semantic matches).
 ```bash
-sg -p 'func $NAME($$$) { $$$BODY }' -l swift    # Find functions
-sg -p '$VAR.transform($$$)' -l swift            # Find method calls
+sg -p 'func $NAME($$$) { $$$BODY }' -l go       # Find functions
+sg -p '$VAR.Error()' -l go                      # Find method calls
 ```
+
+### Go LSP (gopls)
+Available via the LSP tool for code intelligence: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`, `workspaceSymbol`, `goToImplementation`, `incomingCalls`, `outgoingCalls`.
 
 ---
 
-## MCP Agent Mail — Multi-Agent Coordination
+## MCP Agent Mail: coordination for multi-agent workflows
 
-Agent Mail is available as an MCP server for coordinating work across agents.
+What it is
+- A mail-like layer that lets coding agents coordinate asynchronously via MCP tools and resources.
+- Provides identities, inbox/outbox, searchable threads, and advisory file reservations, with human-auditable artifacts in Git.
 
-What Agent Mail gives:
-- Identities, inbox/outbox, searchable threads.
-- Advisory file reservations (leases) to avoid agents clobbering each other.
-- Persistent artifacts in git (human-auditable).
+Why it's useful
+- Prevents agents from stepping on each other with explicit file reservations (leases) for files/globs.
+- Keeps communication out of your token budget by storing messages in a per-project archive.
+- Offers quick reads (`resource://inbox/...`, `resource://thread/...`) and macros that bundle common flows.
 
-Core patterns:
+How to use effectively
+1) Same repository
+   - Register an identity: call `ensure_project`, then `register_agent` using this repo's absolute path as `project_key`.
+   - Reserve files before you edit: `file_reservation_paths(project_key, agent_name, ["src/**"], ttl_seconds=3600, exclusive=true)` to signal intent and avoid conflict.
+   - Communicate with threads: use `send_message(..., thread_id="FEAT-123")`; check inbox with `fetch_inbox` and acknowledge with `acknowledge_message`.
+   - Read fast: `resource://inbox/{Agent}?project=<abs-path>&limit=20` or `resource://thread/{id}?project=<abs-path>&include_bodies=true`.
+   - Tip: set `AGENT_NAME` in your environment so the pre-commit guard can block commits that conflict with others' active exclusive file reservations.
 
-1. **Same repo**
-   - Register identity:
-     - `ensure_project` then `register_agent` with the repo's absolute path as `project_key`.
-   - Reserve files before editing:
-     - `file_reservation_paths(project_key, agent_name, ["src/**"], ttl_seconds=3600, exclusive=true)`.
-   - Communicate:
-     - `send_message(..., thread_id="FEAT-123")`.
-     - `fetch_inbox`, then `acknowledge_message`.
-   - Fast reads:
-     - `resource://inbox/{Agent}?project=<abs-path>&limit=20`.
-     - `resource://thread/{id}?project=<abs-path>&include_bodies=true`.
+2) Across different repos in one project (e.g., Next.js frontend + FastAPI backend)
+   - Option A (single project bus): register both sides under the same `project_key` (shared key/path). Keep reservation patterns specific (e.g., `frontend/**` vs `backend/**`).
+   - Option B (separate projects): each repo has its own `project_key`; use `macro_contact_handshake` or `request_contact`/`respond_contact` to link agents, then message directly. Keep a shared `thread_id` (e.g., ticket key) across repos for clean summaries/audits.
 
-2. **Macros vs granular:**
-   - Prefer macros when speed is more important than fine-grained control:
-     - `macro_start_session`, `macro_prepare_thread`, `macro_file_reservation_cycle`, `macro_contact_handshake`.
-   - Use granular tools when you need explicit behavior.
+Macros vs granular tools
+- Prefer macros when you want speed or are on a smaller model: `macro_start_session`, `macro_prepare_thread`, `macro_file_reservation_cycle`, `macro_contact_handshake`.
+- Use granular tools when you need control: `register_agent`, `file_reservation_paths`, `send_message`, `fetch_inbox`, `acknowledge_message`.
 
-Common pitfalls:
-- "from_agent not registered" → call `register_agent` with correct `project_key`.
-- `FILE_RESERVATION_CONFLICT` → adjust patterns, wait for expiry, or use non-exclusive reservation.
+Common pitfalls
+- "from_agent not registered": always `register_agent` in the correct `project_key` first.
+- "FILE_RESERVATION_CONFLICT": adjust patterns, wait for expiry, or use a non-exclusive reservation when appropriate.
+- Auth errors: if JWT+JWKS is enabled, include a bearer token with a `kid` that matches server JWKS; static bearer is used only when JWT is disabled.
 
 ---
 
@@ -207,6 +252,10 @@ Common pitfalls:
 We use beads for issue tracking and work planning. If you need more information, execute `bd quickstart`
 
 **IMPORTANT**: Beads (`bd` CLI) is a third-party tool we do not maintain. Do not propose changes to the beads codebase. The beads source may be in a sibling folder for reference, but we cannot modify it.
+
+**Related Codebases (read-only reference):**
+- **beads (Go)**: `../beads` - Original Go implementation (`bd` CLI)
+- **beads_rust**: `../beads_rust` - Rust port (`br` CLI)
 
 ### Dependencies
 ```bash
@@ -263,11 +312,11 @@ If you need to create or modify beads to test some functionality, do it in a bea
 
 ---
 
-## Using bv as an AI sidecar
+### Using bv as an AI sidecar
 
 bv is a graph-aware triage engine for Beads projects (.beads/beads.jsonl). Instead of parsing JSONL or hallucinating graph traversal, use robot flags for deterministic, dependency-aware outputs with precomputed metrics (PageRank, betweenness, critical path, cycles, HITS, eigenvector, k-core).
 
-**Scope boundary:** bv handles *what to work on* (triage, priority, planning). For agent-to-agent coordination (messaging, work claiming, file reservations), use MCP Agent Mail, which should be available to you as an an MCP server (if it's not, then flag to the user; they might need to start Agent Mail using the `am` alias or by running `cd "<directory_where_they_installed_agent_mail>/mcp_agent_mail" && bash scripts/run_server_with_token.sh)' if the alias isn't available or isn't working.
+**Scope boundary:** bv handles *what to work on* (triage, priority, planning). For agent-to-agent coordination (messaging, work claiming, file reservations), use [MCP Agent Mail](https://github.com/Dicklesworthstone/mcp_agent_mail).
 
 **⚠️ CRITICAL: Use ONLY `--robot-*` flags. Bare `bv` launches an interactive TUI that blocks your session.**
 
@@ -284,7 +333,7 @@ bv is a graph-aware triage engine for Beads projects (.beads/beads.jsonl). Inste
 bv --robot-triage        # THE MEGA-COMMAND: start here
 bv --robot-next          # Minimal: just the single top pick + claim command
 
-#### Other bv Commands
+#### Other Commands
 
 **Planning:**
 | Command | Returns |

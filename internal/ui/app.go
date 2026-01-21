@@ -295,7 +295,11 @@ func NewApp(cfg Config) (*App, error) {
 
 	client := cfg.Client
 	if client == nil {
-		client = beads.NewBdSQLiteClient(dbPath)
+		var err error
+		client, err = beads.NewClientForBackend(cfg.Backend, dbPath)
+		if err != nil {
+			return nil, fmt.Errorf("create client for backend %q: %w", cfg.Backend, err)
+		}
 	}
 
 	roots, err := loadData(context.Background(), client, reporter)
