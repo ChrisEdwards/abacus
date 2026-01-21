@@ -268,6 +268,38 @@ func TestDetectBackend_CLIFlagInvalid(t *testing.T) {
 	}
 }
 
+// TestDetectBackend_StoredPreferenceInvalid tests invalid stored preference value.
+// This covers the case where someone manually edits .abacus/config.yaml with an
+// invalid backend value like "backend: foo".
+func TestDetectBackend_StoredPreferenceInvalid(t *testing.T) {
+	restore := saveAndRestoreHooks(t)
+	defer restore()
+
+	// Mock: both binaries exist (irrelevant - validation should fail first)
+	commandExistsFunc = func(_ string) bool {
+		return true
+	}
+	// Mock: stored preference is invalid
+	configGetProjectStringFunc = func(key string) string {
+		if key == config.KeyBeadsBackend {
+			return "foo" // Invalid backend
+		}
+		return ""
+	}
+
+	ctx := context.Background()
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
+	if err == nil {
+		t.Error("DetectBackend() should error on invalid stored preference")
+	}
+	if !strings.Contains(err.Error(), "invalid beads.backend value in config") {
+		t.Errorf("error message should mention invalid config value, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "foo") {
+		t.Errorf("error message should include the invalid value 'foo', got: %v", err)
+	}
+}
+
 // TestDetectBackend_CLIFlagBinaryNotFound tests --backend with missing binary.
 func TestDetectBackend_CLIFlagBinaryNotFound(t *testing.T) {
 	restore := saveAndRestoreHooks(t)

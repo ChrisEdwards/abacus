@@ -100,6 +100,10 @@ func DetectBackend(ctx context.Context, opts DetectBackendOptions) (string, erro
 	// 1. Check stored preference (project config ONLY - no env var support)
 	storedPref := configGetProjectStringFunc(config.KeyBeadsBackend)
 	if storedPref != "" {
+		// Validate stored preference is a known backend (matches CLI flag validation)
+		if storedPref != BackendBd && storedPref != BackendBr {
+			return "", fmt.Errorf("invalid beads.backend value in config: %q (must be %q or %q)", storedPref, BackendBd, BackendBr)
+		}
 		// Verify the stored preference is still valid (binary exists)
 		if commandExistsFunc(storedPref) {
 			// Version check for stored preference with fallback to alternative
