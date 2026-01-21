@@ -368,9 +368,7 @@ func formatBrCommandError(bin string, args []string, cmdErr error, out []byte) e
 	return err
 }
 
-// classifyBrCLIError classifies br CLI errors (reuses bd classification logic for now).
+// classifyBrCLIError classifies br CLI errors.
 func classifyBrCLIError(command []string, err error, snippet string) error {
-	// For now, reuse the same error classification as bd
-	// Can be specialized for br-specific errors later
-	return classifyCLIError(command, err, snippet)
+	return classifyCLIError("br", command, err, snippet)
 }

@@ -363,7 +363,7 @@ func formatCommandError(bin string, args []string, cmdErr error, out []byte) err
 	}
 	command := append([]string{bin}, args...)
 	msg := fmt.Sprintf("%s failed", strings.Join(command, " "))
-	err := classifyCLIError(command, appErrors.New(appErrors.CodeCLIFailed, msg, cmdErr), snippet)
+	err := classifyCLIError("bd", command, appErrors.New(appErrors.CodeCLIFailed, msg, cmdErr), snippet)
 	return err
 }
 
