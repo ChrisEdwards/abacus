@@ -16,34 +16,6 @@ import (
 	"github.com/muesli/reflow/wordwrap"
 )
 
-func TestFindBeadsDBPrefersEnv(t *testing.T) {
-	t.Setenv("BEADS_DB", "")
-	tmp := t.TempDir()
-	dbFile := filepath.Join(tmp, "custom.db")
-	if err := os.WriteFile(dbFile, []byte("test"), 0o644); err != nil {
-		t.Fatalf("write db file: %v", err)
-	}
-	t.Setenv("BEADS_DB", dbFile)
-
-	cleanup := changeWorkingDir(t, tmp)
-	defer cleanup()
-
-	path, modTime, err := FindBeadsDB()
-	if err != nil {
-		t.Fatalf("FindBeadsDB: %v", err)
-	}
-	if normalizePath(t, path) != normalizePath(t, dbFile) {
-		t.Fatalf("expected path %s, got %s", dbFile, path)
-	}
-	info, err := os.Stat(dbFile)
-	if err != nil {
-		t.Fatalf("stat db file: %v", err)
-	}
-	if !modTime.Equal(info.ModTime()) {
-		t.Fatalf("expected mod time %v, got %v", info.ModTime(), modTime)
-	}
-}
-
 func TestFindBeadsDBWalksUpDirectories(t *testing.T) {
 	t.Setenv("BEADS_DB", "")
 	root := t.TempDir()
@@ -159,11 +131,9 @@ func TestNewAppWithMockClientLoadsIssues(t *testing.T) {
 		}, nil
 	}
 
-	dbFile := createTempDBFile(t)
 	app, err := NewApp(Config{
 		RefreshInterval: time.Second,
 		AutoRefresh:     false,
-		DBPathOverride:  dbFile,
 		Client:          mock,
 	})
 	if err != nil {
@@ -207,10 +177,8 @@ func TestNewAppCapturesClientError(t *testing.T) {
 	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
 		return nil, errors.New("boom")
 	}
-	dbFile := createTempDBFile(t)
 	_, err := NewApp(Config{
 		RefreshInterval: time.Second,
-		DBPathOverride:  dbFile,
 		Client:          mock,
 	})
 	if err == nil {
@@ -223,10 +191,8 @@ func TestNewAppSucceedsWithEmptyDatabase(t *testing.T) {
 	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
 		return []beads.FullIssue{}, nil
 	}
-	dbFile := createTempDBFile(t)
 	app, err := NewApp(Config{
-		DBPathOverride: dbFile,
-		Client:         mock,
+		Client: mock,
 	})
 	if err != nil {
 		t.Fatalf("expected no error for empty database, got %v", err)

@@ -277,7 +277,6 @@ func findProjectConfig(startDir string) (string, error) {
 }
 
 func setDefaults(v *viper.Viper) {
-	v.SetDefault(KeyDatabasePath, "")
 	v.SetDefault(KeySkipVersionCheck, false)
 	v.SetDefault(KeySkipUpdateCheck, false)
 	v.SetDefault(KeyDebug, false)

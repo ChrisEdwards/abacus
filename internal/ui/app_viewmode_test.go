@@ -417,10 +417,8 @@ func TestNewAppUsesConfiguredRefreshInterval(t *testing.T) {
 	}
 
 	// Create App with RefreshInterval=0 to trigger fallback
-	dbFile := createTempDBFile(t)
 	cfg := Config{
 		RefreshInterval: 0, // Should fall back to config value
-		DBPathOverride:  dbFile,
 		Client:          mock,
 	}
 

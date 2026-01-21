@@ -131,7 +131,6 @@ func TestComputeRuntimeOptions_BackendFlag(t *testing.T) {
 
 			flags := runtimeFlags{
 				autoRefreshSeconds: ptrInt(30),
-				dbPath:             ptrString("/tmp/test.db"),
 				outputFormat:       ptrString("rich"),
 				skipVersionCheck:   ptrBool(false),
 				skipUpdateCheck:    ptrBool(false),

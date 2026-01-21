@@ -134,7 +134,6 @@ func mustNewTestApp(t *testing.T, client beads.Client) *App {
 	app, err := NewApp(Config{
 		RefreshInterval: time.Second,
 		AutoRefresh:     false,
-		DBPathOverride:  createTempDBFile(t),
 		Client:          client,
 	})
 	if err != nil {

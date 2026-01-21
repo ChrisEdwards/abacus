@@ -35,9 +35,6 @@ func TestDefaults(t *testing.T) {
 	if got := GetInt(KeyAutoRefreshSeconds); got != DefaultAutoRefreshSeconds {
 		t.Fatalf("expected default %s to be %ds, got %d", KeyAutoRefreshSeconds, DefaultAutoRefreshSeconds, got)
 	}
-	if got := GetString(KeyDatabasePath); got != "" {
-		t.Fatalf("expected default %s to be empty, got %q", KeyDatabasePath, got)
-	}
 	if got := GetString(KeyOutputFormat); got != "rich" {
 		t.Fatalf("expected default %s to be rich, got %q", KeyOutputFormat, got)
 	}
@@ -67,8 +64,6 @@ func TestConfigFile(t *testing.T) {
 auto-refresh-seconds: 10
 output:
   format: project
-database:
-  path: /project/beads.db
 `)
 
 	userCfg := filepath.Join(tmp, "user.yaml")
@@ -76,8 +71,6 @@ database:
 auto-refresh-seconds: 1
 output:
   format: user
-database:
-  path: /user/beads.db
 `)
 
 	if err := Initialize(
@@ -89,9 +82,6 @@ database:
 
 	if got := GetString(KeyOutputFormat); got != "project" {
 		t.Fatalf("expected project config to win for %s, got %q", KeyOutputFormat, got)
-	}
-	if got := GetString(KeyDatabasePath); got != "/project/beads.db" {
-		t.Fatalf("expected project database path, got %q", got)
 	}
 	if got := GetInt(KeyAutoRefreshSeconds); got != 10 {
 		t.Fatalf("expected project auto-refresh seconds of 10, got %d", got)
@@ -205,12 +195,9 @@ func TestConfigPrecedence(t *testing.T) {
 	writeFile(t, projectCfg, `
 output:
   format: project
-database:
-  path: /project/beads.db
 auto-refresh-seconds: 5
 `)
 
-	t.Setenv("AB_DATABASE_PATH", "/env/beads.db")
 	t.Setenv("AB_AUTO_REFRESH_SECONDS", "7")
 
 	if err := Initialize(
@@ -220,9 +207,6 @@ auto-refresh-seconds: 5
 		t.Fatalf("Initialize returned error: %v", err)
 	}
 
-	if got := GetString(KeyDatabasePath); got != "/env/beads.db" {
-		t.Fatalf("expected env override for %s, got %q", KeyDatabasePath, got)
-	}
 	if got := GetInt(KeyAutoRefreshSeconds); got != 7 {
 		t.Fatalf("expected env override for %s=7, got %d", KeyAutoRefreshSeconds, got)
 	}
@@ -416,8 +400,6 @@ func TestSaveThemePreservesOtherSettings(t *testing.T) {
 	writeFile(t, projectCfg, `
 output:
   format: plain
-database:
-  path: /custom/beads.db
 auto-refresh-seconds: 15
 `)
 
@@ -447,9 +429,6 @@ auto-refresh-seconds: 15
 	}
 	if !contains(content, "format: plain") {
 		t.Fatalf("expected output.format to be preserved, got:\n%s", content)
-	}
-	if !contains(content, "/custom/beads.db") {
-		t.Fatalf("expected database.path to be preserved, got:\n%s", content)
 	}
 }
 

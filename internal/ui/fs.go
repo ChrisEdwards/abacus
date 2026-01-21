@@ -10,26 +10,10 @@ import (
 
 // FindBeadsDB locates the beads database file.
 // It checks in order:
-// 1. BEADS_DB environment variable
-// 2. .beads/beads.db walking up from the current directory
-// 3. ~/.beads/default.db as a fallback
+// 1. .beads/beads.db walking up from the current directory
+// 2. ~/.beads/default.db as a fallback
 // Returns the path, modification time, and any error.
 func FindBeadsDB() (string, time.Time, error) {
-	if envPath := os.Getenv("BEADS_DB"); envPath != "" {
-		info, err := os.Stat(envPath)
-		if err != nil {
-			return "", time.Time{}, fmt.Errorf("BEADS_DB points to %s: %w", envPath, err)
-		}
-		if info.IsDir() {
-			return "", time.Time{}, fmt.Errorf("BEADS_DB must point to a file, got directory: %s", envPath)
-		}
-		modTime := info.ModTime()
-		if latest, err := latestModTimeForDB(envPath); err == nil {
-			modTime = latest
-		}
-		return envPath, modTime, nil
-	}
-
 	wd, err := os.Getwd()
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("get working directory: %w", err)

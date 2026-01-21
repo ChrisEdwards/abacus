@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"abacus/internal/beads"
@@ -75,7 +74,6 @@ func (v ViewMode) Prev() ViewMode {
 type Config struct {
 	RefreshInterval time.Duration
 	AutoRefresh     bool
-	DBPathOverride  string
 	OutputFormat    string
 	StartupReporter StartupReporter
 	Client          beads.Client
@@ -261,28 +259,7 @@ func NewApp(cfg Config) (*App, error) {
 		reporter.Stage(StartupStageFindingDatabase, "Finding Beads database...")
 	}
 
-	var (
-		dbPath    string
-		dbModTime time.Time
-		dbErr     error
-	)
-	if trimmed := strings.TrimSpace(cfg.DBPathOverride); trimmed != "" {
-		info, err := os.Stat(trimmed)
-		if err != nil {
-			dbErr = fmt.Errorf("db override: %w", err)
-		} else if info.IsDir() {
-			dbErr = fmt.Errorf("db override must point to a file: %s", trimmed)
-		} else {
-			dbPath = trimmed
-			dbModTime = info.ModTime()
-			if latest, err := latestModTimeForDB(dbPath); err == nil {
-				dbModTime = latest
-			}
-		}
-	}
-	if dbPath == "" && dbErr == nil {
-		dbPath, dbModTime, dbErr = FindBeadsDB()
-	}
+	dbPath, dbModTime, dbErr := FindBeadsDB()
 	if reporter != nil && dbPath != "" && dbErr == nil {
 		reporter.Stage(StartupStageFindingDatabase, fmt.Sprintf("Using database at %s", dbPath))
 	}

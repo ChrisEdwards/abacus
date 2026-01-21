@@ -34,14 +34,12 @@ func main() {
 	if autoRefreshSecondsDefault < 0 {
 		autoRefreshSecondsDefault = 0
 	}
-	dbPathDefault := config.GetString(config.KeyDatabasePath)
 	outputFormatDefault := config.GetString(config.KeyOutputFormat)
 	skipVersionCheckDefault := config.GetBool(config.KeySkipVersionCheck)
 	skipUpdateCheckDefault := config.GetBool(config.KeySkipUpdateCheck)
 
 	versionFlag := flag.Bool("version", false, "Print version information and exit")
 	autoRefreshSecondsFlag := flag.Int("auto-refresh-seconds", autoRefreshSecondsDefault, "Auto-refresh interval in seconds (0 disables auto refresh)")
-	dbPathFlag := flag.String("db-path", dbPathDefault, "Path to the Beads database file")
 	outputFormatFlag := flag.String("output-format", outputFormatDefault, "Detail panel markdown style (rich, light, plain)")
 	skipVersionCheckFlag := flag.Bool("skip-version-check", skipVersionCheckDefault, "Skip Beads CLI version validation (or set AB_SKIP_VERSION_CHECK=true)")
 	skipUpdateCheckFlag := flag.Bool("skip-update-check", skipUpdateCheckDefault, "Skip checking for updates at startup (or set AB_SKIP_UPDATE_CHECK=true)")
@@ -67,7 +65,6 @@ func main() {
 
 	runtime := computeRuntimeOptions(runtimeFlags{
 		autoRefreshSeconds: autoRefreshSecondsFlag,
-		dbPath:             dbPathFlag,
 		outputFormat:       outputFormatFlag,
 		skipVersionCheck:   skipVersionCheckFlag,
 		skipUpdateCheck:    skipUpdateCheckFlag,
@@ -83,24 +80,11 @@ func main() {
 	// DB discovery MUST happen before backend detection (ab-4p2b)
 	// Otherwise users outside a beads project see confusing backend prompts
 	// before being told there's no database.
-	if runtime.dbPath == "" {
-		startup.Stage(ui.StartupStageFindingDatabase, "Looking for beads database...")
-		if _, _, err := ui.FindBeadsDB(); err != nil {
-			startup.Stop()
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		// User specified --db-path, verify it exists
-		if info, err := os.Stat(runtime.dbPath); err != nil {
-			startup.Stop()
-			fmt.Fprintf(os.Stderr, "Error: database not found at %s\n", runtime.dbPath)
-			os.Exit(1)
-		} else if info.IsDir() {
-			startup.Stop()
-			fmt.Fprintf(os.Stderr, "Error: --db-path must be a file, got directory: %s\n", runtime.dbPath)
-			os.Exit(1)
-		}
+	startup.Stage(ui.StartupStageFindingDatabase, "Looking for beads database...")
+	if _, _, err := ui.FindBeadsDB(); err != nil {
+		startup.Stop()
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Backend detection (includes version check internally unless skipped)
@@ -178,7 +162,6 @@ func runProgram(cfg ui.Config, builder func(ui.Config) (*ui.App, error), factory
 
 type runtimeFlags struct {
 	autoRefreshSeconds *int
-	dbPath             *string
 	outputFormat       *string
 	skipVersionCheck   *bool
 	skipUpdateCheck    *bool
@@ -188,7 +171,6 @@ type runtimeFlags struct {
 type runtimeOptions struct {
 	refreshInterval  time.Duration
 	autoRefresh      bool
-	dbPath           string
 	outputFormat     string
 	skipVersionCheck bool
 	skipUpdateCheck  bool
@@ -202,11 +184,6 @@ func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runt
 	}
 	refreshInterval := time.Duration(seconds) * time.Second
 	autoRefresh := seconds > 0
-
-	dbPath := strings.TrimSpace(config.GetString(config.KeyDatabasePath))
-	if flagWasExplicitlySet("db-path", visited) {
-		dbPath = strings.TrimSpace(*flags.dbPath)
-	}
 
 	outputFormat := strings.TrimSpace(config.GetString(config.KeyOutputFormat))
 	if flagWasExplicitlySet("output-format", visited) {
@@ -233,7 +210,6 @@ func computeRuntimeOptions(flags runtimeFlags, visited map[string]struct{}) runt
 	return runtimeOptions{
 		refreshInterval:  refreshInterval,
 		autoRefresh:      autoRefresh,
-		dbPath:           dbPath,
 		outputFormat:     outputFormat,
 		skipVersionCheck: skipVersionCheck,
 		skipUpdateCheck:  skipUpdateCheck,
@@ -291,7 +267,6 @@ func runWithRuntime(
 	cfg := ui.Config{
 		RefreshInterval: runtime.refreshInterval,
 		AutoRefresh:     runtime.autoRefresh,
-		DBPathOverride:  runtime.dbPath,
 		OutputFormat:    runtime.outputFormat,
 		Version:         Version,
 		UpdateChan:      updateChan,
