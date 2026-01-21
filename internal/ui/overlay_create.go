@@ -255,7 +255,10 @@ func NewEditOverlay(bead *beads.FullIssue, opts CreateOverlayOptions) *CreateOve
 	m.typeIndex = typeIndexFromString(bead.IssueType)
 	m.originalIssueType = bead.IssueType // Preserve unknown types for forward compat
 	m.priorityIndex = bead.Priority
-	m.typeManuallySet = true
+	// Don't set typeManuallySet here - it should only be true when user explicitly
+	// interacts with the type picker. This allows effectiveIssueType() to distinguish
+	// between "user didn't touch type" and "user selected task". Auto-inference is
+	// disabled via edit mode check in the handler.
 
 	// Pre-select parent and track original for Esc revert
 	if beadParent := opts.DefaultParentID; beadParent != "" && !opts.IsRootMode {

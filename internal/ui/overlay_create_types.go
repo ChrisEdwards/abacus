@@ -100,17 +100,17 @@ func (m *CreateOverlay) submitEdit() tea.Cmd {
 // If editing an issue with an unknown type (e.g., "docs" from br) and the user
 // hasn't changed it to a known type, preserve the original unknown type.
 func (m *CreateOverlay) effectiveIssueType() string {
-	// Not editing, or original type is known - use selected type
-	if !m.isEditMode() || typeIndexFromString(m.originalIssueType) != 0 || m.originalIssueType == "task" {
+	// Not editing, or original type is known/empty - use selected type
+	if !m.isEditMode() || typeIndexFromString(m.originalIssueType) != 0 || m.originalIssueType == "task" || m.originalIssueType == "" {
 		return typeOptions[m.typeIndex]
 	}
 	// Original type was unknown (defaulted to index 0)
-	// If user kept the default selection, preserve original unknown type
-	if m.typeIndex == 0 {
-		return m.originalIssueType
+	// If user explicitly changed the type (via keys/hotkeys), use their selection
+	// Otherwise preserve the original unknown type
+	if m.typeManuallySet {
+		return typeOptions[m.typeIndex]
 	}
-	// User changed to a different known type
-	return typeOptions[m.typeIndex]
+	return m.originalIssueType
 }
 
 // Title returns the current title value.

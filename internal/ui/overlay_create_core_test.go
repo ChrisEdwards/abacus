@@ -248,6 +248,8 @@ func TestEffectiveIssueTypePreservesUnknownTypes(t *testing.T) {
 		bead := &beads.FullIssue{ID: "ab-42", Title: "Documentation", IssueType: "docs"}
 		m := NewEditOverlay(bead, CreateOverlayOptions{})
 		m.titleInput.SetValue("Documentation")
+		// Simulate user explicitly selecting feature (e.g., via arrow keys or hotkey)
+		m.typeManuallySet = true
 		m.typeIndex = 1 // Change to "feature"
 
 		_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -294,6 +296,27 @@ func TestEffectiveIssueTypePreservesUnknownTypes(t *testing.T) {
 		updateMsg := msg.(BeadUpdatedMsg)
 		if updateMsg.IssueType != "task" {
 			t.Errorf("expected type 'task', got %q", updateMsg.IssueType)
+		}
+	})
+
+	t.Run("AllowsChangingUnknownTypeToTask", func(t *testing.T) {
+		// Edge case: user explicitly selects "task" (index 0) for an unknown type
+		// This should use "task", not preserve the original unknown type
+		bead := &beads.FullIssue{ID: "ab-42", Title: "Documentation", IssueType: "docs"}
+		m := NewEditOverlay(bead, CreateOverlayOptions{})
+		m.titleInput.SetValue("Documentation")
+		// Simulate user explicitly selecting task (e.g., toggling through types)
+		m.typeManuallySet = true
+		m.typeIndex = 0 // task
+
+		_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil {
+			t.Fatal("expected command on submit")
+		}
+		msg := cmd()
+		updateMsg := msg.(BeadUpdatedMsg)
+		if updateMsg.IssueType != "task" {
+			t.Errorf("expected type to change to 'task', got %q", updateMsg.IssueType)
 		}
 	})
 }

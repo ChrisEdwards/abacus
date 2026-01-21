@@ -188,7 +188,7 @@ func (m *CreateOverlay) handleZoneInput(msg tea.KeyMsg) (*CreateOverlay, tea.Cmd
 		m.updateTitleHeight()
 
 		newTitle := m.titleInput.Value()
-		if newTitle != oldTitle && !m.typeManuallySet {
+		if newTitle != oldTitle && !m.typeManuallySet && !m.isEditMode() {
 			if inferredIdx := inferTypeFromTitle(newTitle); inferredIdx != -1 {
 				if inferredIdx != m.typeIndex {
 					m.typeIndex = inferredIdx
