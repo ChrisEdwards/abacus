@@ -359,6 +359,46 @@ func TestExtractJSON(t *testing.T) {
 			t.Errorf("expected nil for no JSON, got: %s", result)
 		}
 	})
+
+	t.Run("HandlesEscapedQuotesInStrings", func(t *testing.T) {
+		input := []byte(`{"msg":"say \"hello\" world"}`)
+		result := extractJSON(input)
+		if string(result) != `{"msg":"say \"hello\" world"}` {
+			t.Errorf("expected JSON with escaped quotes, got: %s", result)
+		}
+	})
+
+	t.Run("HandlesBracesInsideStrings", func(t *testing.T) {
+		input := []byte(`{"msg":"use { and } carefully","id":"ab-123"}`)
+		result := extractJSON(input)
+		if string(result) != `{"msg":"use { and } carefully","id":"ab-123"}` {
+			t.Errorf("expected JSON with braces in string, got: %s", result)
+		}
+	})
+
+	t.Run("HandlesBracesInWarningBeforeJSON", func(t *testing.T) {
+		input := []byte("Warning: {config} file missing\n" + `{"id":"ab-123","status":"open"}`)
+		result := extractJSON(input)
+		if string(result) != `{"id":"ab-123","status":"open"}` {
+			t.Errorf("expected JSON after warning with braces, got: %s", result)
+		}
+	})
+
+	t.Run("HandlesNestedBracesInStrings", func(t *testing.T) {
+		input := []byte(`{"data":{"nested":"{\"inner\":\"value\"}"}}`)
+		result := extractJSON(input)
+		if string(result) != `{"data":{"nested":"{\"inner\":\"value\"}"}}` {
+			t.Errorf("expected nested JSON string, got: %s", result)
+		}
+	})
+
+	t.Run("HandlesBackslashEscapeSequences", func(t *testing.T) {
+		input := []byte(`{"path":"C:\\Users\\test\\file.txt"}`)
+		result := extractJSON(input)
+		if string(result) != `{"path":"C:\\Users\\test\\file.txt"}` {
+			t.Errorf("expected JSON with backslash escapes, got: %s", result)
+		}
+	})
 }
 
 func TestCLIClient_CreateFull_HandlesOutputWithPrefix(t *testing.T) {
