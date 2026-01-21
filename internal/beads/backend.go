@@ -9,12 +9,17 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"golang.org/x/term"
 
 	"abacus/internal/config"
 )
+
+// versionCheckTimeout is the timeout for each backend version check subprocess.
+// This is an implementation detail - user prompts are not subject to this timeout.
+const versionCheckTimeout = 5 * time.Second
 
 // Backend constants
 const (
@@ -45,6 +50,7 @@ var (
 	isInteractiveTTYFunc = isInteractiveTTY
 
 	// checkBackendVersionFunc is used to validate backend versions.
+	// Each call creates its own timeout - user prompts don't consume version check time.
 	checkBackendVersionFunc = checkBackendVersion
 
 	// configGetProjectStringFunc is used to read project config values.
@@ -75,11 +81,14 @@ type DetectBackendOptions struct {
 // DetectBackend determines which backend (bd or br) to use.
 // Returns the backend name ("bd" or "br") or an error if detection fails.
 //
+// Version checks create their own timeouts internally - user prompts do not
+// consume version check time, so users can take as long as needed to respond.
+//
 // Priority order (regardless of SkipVersionCheck):
 //  1. CLI flag (--backend)
 //  2. Stored preference (.abacus/config.yaml beads.backend)
 //  3. Auto-detection (which backend exists on PATH)
-func DetectBackend(ctx context.Context, opts DetectBackendOptions) (string, error) {
+func DetectBackend(opts DetectBackendOptions) (string, error) {
 	// 0. CLI flag override (highest priority, one-time, no save)
 	if opts.CLIFlag != "" {
 		if opts.CLIFlag != BackendBd && opts.CLIFlag != BackendBr {
@@ -89,7 +98,7 @@ func DetectBackend(ctx context.Context, opts DetectBackendOptions) (string, erro
 			return "", fmt.Errorf("--backend %s specified but %s not found in PATH", opts.CLIFlag, opts.CLIFlag)
 		}
 		if !opts.SkipVersionCheck {
-			if err := checkBackendVersionFunc(ctx, opts.CLIFlag); err != nil {
+			if err := checkBackendVersionFunc(opts.CLIFlag); err != nil {
 				return "", fmt.Errorf("--backend %s version check failed: %w", opts.CLIFlag, err)
 			}
 		}
@@ -108,7 +117,7 @@ func DetectBackend(ctx context.Context, opts DetectBackendOptions) (string, erro
 		if commandExistsFunc(storedPref) {
 			// Version check for stored preference with fallback to alternative
 			if !opts.SkipVersionCheck {
-				if err := checkBackendVersionFunc(ctx, storedPref); err != nil {
+				if err := checkBackendVersionFunc(storedPref); err != nil {
 					// Version failed - check if alternative exists and offer fallback
 					other := BackendBd
 					if storedPref == BackendBd {
@@ -117,7 +126,7 @@ func DetectBackend(ctx context.Context, opts DetectBackendOptions) (string, erro
 					otherExists := commandExistsFunc(other)
 
 					validated, fallbackErr := validateWithFallback(
-						ctx, storedPref,
+						storedPref,
 						other == BackendBr && otherExists, // brExists
 						other == BackendBd && otherExists, // bdExists
 						opts.BeforePrompt,
@@ -137,7 +146,7 @@ func DetectBackend(ctx context.Context, opts DetectBackendOptions) (string, erro
 			return storedPref, nil
 		}
 		// 1b. Stale preference - prompt user before clearing
-		return handleStalePreference(ctx, storedPref, opts.BeforePrompt, opts.SkipVersionCheck)
+		return handleStalePreference(storedPref, opts.BeforePrompt, opts.SkipVersionCheck)
 	}
 
 	// 2. Check binary availability (PATH only, no probing)
@@ -169,16 +178,16 @@ func DetectBackend(ctx context.Context, opts DetectBackendOptions) (string, erro
 	// 3. Version check BEFORE saving - allows user to switch if version fails
 	if !opts.SkipVersionCheck {
 		var err error
-		choice, err = validateWithFallback(ctx, choice, brExists, bdExists, opts.BeforePrompt)
+		choice, err = validateWithFallback(choice, brExists, bdExists, opts.BeforePrompt)
 		if err != nil {
 			return "", err
 		}
 	}
 
 	// 4. Save validated choice
-	// Note: SaveBackend may fail if no .beads/ directory exists, but main.go
-	// validates .beads/ presence before calling DetectBackend(), so this is
-	// defense-in-depth. Log warning but continue since detection succeeded.
+	// Note: SaveBackend may fail if the .abacus/ directory doesn't exist.
+	// main.go performs DB discovery before calling DetectBackend() (ab-4p2b),
+	// so this is defense-in-depth. Log warning but continue since detection succeeded.
 	if err := configSaveBackendFunc(choice); err != nil {
 		log.Printf("warning: could not save backend preference: %v", err)
 	} else if userPrompted {
@@ -189,11 +198,15 @@ func DetectBackend(ctx context.Context, opts DetectBackendOptions) (string, erro
 }
 
 // checkBackendVersion validates the backend meets minimum version requirements.
-func checkBackendVersion(ctx context.Context, backend string) error {
+// Creates its own timeout context internally - callers don't need to manage timeouts.
+func checkBackendVersion(backend string) error {
 	minVersion := MinBeadsVersion // default for bd
 	if backend == BackendBr {
 		minVersion = MinBrVersion
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
+	defer cancel()
 
 	_, err := CheckVersion(ctx, VersionCheckOptions{
 		Bin:        backend,
@@ -204,7 +217,7 @@ func checkBackendVersion(ctx context.Context, backend string) error {
 
 // handleStalePreference handles the case where stored preference points to
 // a binary that's no longer on PATH.
-func handleStalePreference(ctx context.Context, storedPref string, beforePrompt func(), skipVersionCheck bool) (string, error) {
+func handleStalePreference(storedPref string, beforePrompt func(), skipVersionCheck bool) (string, error) {
 	// Determine which binary (if any) is available as alternative
 	other := BackendBd
 	if storedPref == BackendBd {
@@ -231,7 +244,7 @@ func handleStalePreference(ctx context.Context, storedPref string, beforePrompt 
 	if confirmed := promptSwitchBackendFunc(other); confirmed {
 		// Version check BEFORE saving (unless skipped)
 		if !skipVersionCheck {
-			if err := checkBackendVersionFunc(ctx, other); err != nil {
+			if err := checkBackendVersionFunc(other); err != nil {
 				return "", fmt.Errorf("cannot switch to %s: %w", other, err)
 			}
 		}
@@ -247,8 +260,9 @@ func handleStalePreference(ctx context.Context, storedPref string, beforePrompt 
 
 // validateWithFallback validates the chosen backend's version and offers
 // to switch to the alternative if validation fails.
-func validateWithFallback(ctx context.Context, choice string, brExists, bdExists bool, beforePrompt func()) (string, error) {
-	if err := checkBackendVersionFunc(ctx, choice); err == nil {
+// Each version check creates its own timeout - user prompt time doesn't affect version checks.
+func validateWithFallback(choice string, brExists, bdExists bool, beforePrompt func()) (string, error) {
+	if err := checkBackendVersionFunc(choice); err == nil {
 		return choice, nil // Version check passed
 	}
 
@@ -276,8 +290,8 @@ func validateWithFallback(ctx context.Context, choice string, brExists, bdExists
 	// Offer to switch to the other backend
 	fmt.Printf("%s version is too old. Would you like to use %s instead?\n", choice, other)
 	if confirmed := promptSwitchBackendFunc(other); confirmed {
-		// Check the alternative's version too
-		if err := checkBackendVersionFunc(ctx, other); err != nil {
+		// Check the alternative's version too (fresh timeout, not affected by prompt duration)
+		if err := checkBackendVersionFunc(other); err != nil {
 			return "", fmt.Errorf("both backends have version issues: %s and %s", choice, other)
 		}
 		return other, nil
@@ -358,14 +372,17 @@ func NewClientForBackend(backend, dbPath string) (Client, error) {
 // CheckBdVersionWarning shows a one-time warning if bd version > MaxSupportedBdVersion.
 // The warning is non-blocking and only shown once per user (stored in ~/.abacus/config.yaml).
 // Call this after DetectBackend returns "bd" successfully.
-func CheckBdVersionWarning(ctx context.Context) {
+func CheckBdVersionWarning() {
 	// Only applies to bd backend
 	// Check if warning already shown
 	if config.GetBool(config.KeyBdUnsupportedVersionWarnShown) {
 		return
 	}
 
-	// Get bd version
+	// Get bd version (create own timeout - this is a non-critical check)
+	ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
+	defer cancel()
+
 	info, err := CheckVersion(ctx, VersionCheckOptions{
 		Bin:        BackendBd,
 		MinVersion: MinBeadsVersion,

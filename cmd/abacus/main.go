@@ -19,8 +19,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const versionCheckTimeout = 10 * time.Second
-
 func main() {
 	if err := config.Initialize(); err != nil {
 		fmt.Printf("Error initializing config: %v\n", err)
@@ -108,18 +106,18 @@ func main() {
 	// Backend detection (includes version check internally unless skipped)
 	// This determines which backend (bd or br) to use for this project.
 	// Priority: CLI flag > stored preference > auto-detection
+	// Note: Version checks create their own timeouts internally - user prompts
+	// are not subject to timeouts, so users can take as long as needed to respond.
 	var beforePrompt func()
 	if startup != nil {
 		startup.Stage(ui.StartupStageVersionCheck, "Detecting backend...")
 		beforePrompt = func() { startup.Stop() }
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
-	detectedBackend, err := beads.DetectBackend(ctx, beads.DetectBackendOptions{
+	detectedBackend, err := beads.DetectBackend(beads.DetectBackendOptions{
 		CLIFlag:          runtime.backend,
 		BeforePrompt:     beforePrompt,
 		SkipVersionCheck: skipVersionCheck,
 	})
-	cancel()
 	if err != nil {
 		if startup != nil {
 			startup.Stop()
@@ -131,9 +129,7 @@ func main() {
 	// Show bd version warning if using bd (one-time warning for versions > MaxSupportedBdVersion)
 	// Only show if we didn't skip version check (user wants speed, not warnings)
 	if !skipVersionCheck && detectedBackend == beads.BackendBd {
-		ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
-		beads.CheckBdVersionWarning(ctx)
-		cancel()
+		beads.CheckBdVersionWarning()
 	}
 	runtime.backend = detectedBackend
 
