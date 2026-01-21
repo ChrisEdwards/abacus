@@ -28,9 +28,9 @@ func TestFindBeadsDBPrefersEnv(t *testing.T) {
 	cleanup := changeWorkingDir(t, tmp)
 	defer cleanup()
 
-	path, modTime, err := findBeadsDB()
+	path, modTime, err := FindBeadsDB()
 	if err != nil {
-		t.Fatalf("findBeadsDB: %v", err)
+		t.Fatalf("FindBeadsDB: %v", err)
 	}
 	if normalizePath(t, path) != normalizePath(t, dbFile) {
 		t.Fatalf("expected path %s, got %s", dbFile, path)
@@ -62,9 +62,9 @@ func TestFindBeadsDBWalksUpDirectories(t *testing.T) {
 	cleanup := changeWorkingDir(t, nested)
 	defer cleanup()
 
-	path, _, err := findBeadsDB()
+	path, _, err := FindBeadsDB()
 	if err != nil {
-		t.Fatalf("findBeadsDB: %v", err)
+		t.Fatalf("FindBeadsDB: %v", err)
 	}
 	if normalizePath(t, path) != normalizePath(t, dbFile) {
 		t.Fatalf("expected %s, got %s", dbFile, path)
@@ -88,9 +88,9 @@ func TestFindBeadsDBFallsBackToDefault(t *testing.T) {
 		t.Fatalf("write db: %v", err)
 	}
 
-	path, _, err := findBeadsDB()
+	path, _, err := FindBeadsDB()
 	if err != nil {
-		t.Fatalf("findBeadsDB: %v", err)
+		t.Fatalf("FindBeadsDB: %v", err)
 	}
 	if normalizePath(t, path) != normalizePath(t, defaultDB) {
 		t.Fatalf("expected fallback %s, got %s", defaultDB, path)
@@ -637,7 +637,7 @@ func TestFindBeadsDBReturnsHelpfulErrorWhenNoDatabaseFound(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	_, _, err := findBeadsDB()
+	_, _, err := FindBeadsDB()
 	if err == nil {
 		t.Fatal("expected error when no database found")
 	}

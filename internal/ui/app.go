@@ -281,7 +281,7 @@ func NewApp(cfg Config) (*App, error) {
 		}
 	}
 	if dbPath == "" && dbErr == nil {
-		dbPath, dbModTime, dbErr = findBeadsDB()
+		dbPath, dbModTime, dbErr = FindBeadsDB()
 	}
 	if reporter != nil && dbPath != "" && dbErr == nil {
 		reporter.Stage(StartupStageFindingDatabase, fmt.Sprintf("Using database at %s", dbPath))

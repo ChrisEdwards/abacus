@@ -8,7 +8,13 @@ import (
 	"time"
 )
 
-func findBeadsDB() (string, time.Time, error) {
+// FindBeadsDB locates the beads database file.
+// It checks in order:
+// 1. BEADS_DB environment variable
+// 2. .beads/beads.db walking up from the current directory
+// 3. ~/.beads/default.db as a fallback
+// Returns the path, modification time, and any error.
+func FindBeadsDB() (string, time.Time, error) {
 	if envPath := os.Getenv("BEADS_DB"); envPath != "" {
 		info, err := os.Stat(envPath)
 		if err != nil {

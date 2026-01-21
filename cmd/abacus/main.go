@@ -82,6 +82,29 @@ func main() {
 	startup := NewStartupDisplay(os.Stderr)
 	startup.Stage(ui.StartupStageInit, "Starting up...")
 
+	// DB discovery MUST happen before backend detection (ab-4p2b)
+	// Otherwise users outside a beads project see confusing backend prompts
+	// before being told there's no database.
+	if runtime.dbPath == "" {
+		startup.Stage(ui.StartupStageFindingDatabase, "Looking for beads database...")
+		if _, _, err := ui.FindBeadsDB(); err != nil {
+			startup.Stop()
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		// User specified --db-path, verify it exists
+		if info, err := os.Stat(runtime.dbPath); err != nil {
+			startup.Stop()
+			fmt.Fprintf(os.Stderr, "Error: database not found at %s\n", runtime.dbPath)
+			os.Exit(1)
+		} else if info.IsDir() {
+			startup.Stop()
+			fmt.Fprintf(os.Stderr, "Error: --db-path must be a file, got directory: %s\n", runtime.dbPath)
+			os.Exit(1)
+		}
+	}
+
 	// Backend detection (includes version check internally)
 	// This determines which backend (bd or br) to use for this project.
 	// DetectBackend validates versions, so we skip the old version check if detection succeeds.

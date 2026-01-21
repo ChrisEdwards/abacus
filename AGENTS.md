@@ -189,6 +189,9 @@ sg -p '$VAR.Error()' -l go                      # Find method calls
 ### Go LSP (gopls)
 Available via the LSP tool for code intelligence: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`, `workspaceSymbol`, `goToImplementation`, `incomingCalls`, `outgoingCalls`.
 
+### Bash etiquette
+- Do not prefix bash commands with comments. 
+
 ---
 
 ## MCP Agent Mail: coordination for multi-agent workflows
