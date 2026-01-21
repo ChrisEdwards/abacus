@@ -675,6 +675,43 @@ func TestBrCLIClient_UpdateFull_CommaSeparatedLabels(t *testing.T) {
 	}
 }
 
+// TestBrCLIClient_UpdateFull_ClearAssignee verifies that an empty assignee is
+// passed to the CLI to allow clearing it. Previously, empty assignee was omitted
+// entirely, which meant selecting "Unassigned" in the UI had no effect.
+func TestBrCLIClient_UpdateFull_ClearAssignee(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "args.log")
+	script := filepath.Join(dir, "fakebr.sh")
+
+	scriptBody := "#!/bin/sh\n" +
+		"echo \"$@\" >> " + logFile + "\n" +
+		"exit 0\n"
+	writeTestScript(t, script, scriptBody)
+
+	client := NewBrCLIClient(WithBrBinaryPath(script))
+
+	ctx := context.Background()
+	// Pass empty assignee - this should still include --assignee flag to clear it
+	err := client.UpdateFull(ctx, "ab-test", "Title", "task", 2, nil, "", "desc")
+	if err != nil {
+		t.Fatalf("UpdateFull: %v", err)
+	}
+
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("read args log: %v", err)
+	}
+
+	args := string(data)
+
+	// Verify --assignee is present even when empty (to clear the assignee)
+	if !strings.Contains(args, "--assignee") {
+		t.Errorf("expected --assignee flag even with empty value to clear assignee, got: %q", args)
+	}
+}
+
 // Test validation errors
 func TestBrCLIClient_ValidationErrors(t *testing.T) {
 	t.Parallel()

@@ -262,10 +262,7 @@ func (c *bdCLIClient) UpdateFull(ctx context.Context, issueID, title, issueType 
 		"--title", title,
 		"--description", description,
 		"--priority", fmt.Sprintf("%d", priority),
-	}
-
-	if strings.TrimSpace(assignee) != "" {
-		args = append(args, "--assignee", assignee)
+		"--assignee", assignee, // Always pass to allow clearing (empty string clears)
 	}
 
 	if len(labels) > 0 {
