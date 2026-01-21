@@ -61,14 +61,20 @@ We optimize for a clean architecture now, not backwards compatibility.
 Use these make targets for all checks and tests:
 
 ```bash
-make check       # Run linting and static analysis (quiet output)
-make test        # Run all tests (quiet output)
-make check-test  # Run both checks and tests
+make check            # Run linting and static analysis (quiet output)
+make test             # Run unit tests only (fast, excludes integration tests)
+make test-integration # Run integration tests only (requires bd/br binaries)
+make test-all         # Run all tests (unit + integration)
+make check-test       # Run checks and unit tests
 
 # Verbose output when debugging failures
 make check VERBOSE=1
 make test VERBOSE=1
+make test-integration VERBOSE=1
 ```
+
+Integration tests are separated using Go build tags (`//go:build integration`).
+They require the `bd` and/or `br` binaries to be installed.
 
 ## Quick Reference: bd Commands
 

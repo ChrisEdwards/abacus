@@ -74,7 +74,7 @@ jobs:
           echo '  backend: ${{ matrix.backend }}' >> .abacus/config.yaml
 
       - name: Run integration tests
-        run: go test -v ./internal/beads/ -run 'Integration|Conformance' -timeout 300s
+        run: make test-integration VERBOSE=1
 
   lint:
     name: Lint

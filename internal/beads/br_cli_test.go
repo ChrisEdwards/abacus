@@ -60,9 +60,9 @@ func TestBrCLIClient_Create_ReturnsID(t *testing.T) {
 	dir := t.TempDir()
 	script := filepath.Join(dir, "fakebr.sh")
 
-	// Fake br script that returns "Created ab-test123"
+	// Fake br script that returns JSON output (--json flag is now used)
 	scriptBody := "#!/bin/sh\n" +
-		"echo 'Created ab-test123'\n" +
+		"echo '{\"id\":\"ab-test123\"}'\n" +
 		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 
@@ -86,10 +86,10 @@ func TestBrCLIClient_Create_UsesPositionalTitle(t *testing.T) {
 	logFile := filepath.Join(dir, "args.log")
 	script := filepath.Join(dir, "fakebr.sh")
 
-	// Script logs args and returns ID
+	// Script logs args and returns JSON (code uses --json flag)
 	scriptBody := "#!/bin/sh\n" +
 		"echo \"$@\" >> " + logFile + "\n" +
-		"echo 'Created ab-xyz'\n" +
+		"echo '{\"id\":\"ab-xyz\"}'\n" +
 		"exit 0\n"
 	writeTestScript(t, script, scriptBody)
 

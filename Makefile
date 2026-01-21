@@ -11,7 +11,7 @@ BUILDTIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 # Linker flags for version injection
 LDFLAGS := -X main.Version=$(VERSION) -X main.Build=$(BUILD) -X main.BuildTime=$(BUILDTIME)
 
-.PHONY: help build test test-verbose bench install lint clean check check-verbose check-test
+.PHONY: help build test test-verbose test-integration test-all bench install lint clean check check-verbose check-test
 
 help: ## Display available make targets
 	@awk 'BEGIN {FS=":.*##"; printf "\nUsage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_\-]+:.*##/ {printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -44,7 +44,7 @@ check-verbose: ## Run checks with verbose output
 
 ## Test targets
 
-test: ## Run all unit tests (quiet output)
+test: ## Run unit tests only (quiet output, excludes integration tests)
 	@if [ -n "$$VERBOSE" ]; then \
 		$(GO) test -v ./...; \
 	else \
@@ -56,8 +56,24 @@ test-quiet:
 	@. ./hack/run_silent.sh && print_header "abacus" "Unit tests"
 	@. ./hack/run_silent.sh && run_silent_with_test_count "Unit tests passed" "$(GO) test -json ./..." "go"
 
-test-verbose: ## Run tests with verbose output
+test-verbose: ## Run unit tests with verbose output
 	@VERBOSE=1 $(MAKE) test
+
+test-integration: ## Run integration tests only (requires bd/br binaries)
+	@if [ -n "$$VERBOSE" ]; then \
+		$(GO) test -tags=integration -v ./...; \
+	else \
+		$(MAKE) test-integration-quiet; \
+	fi
+
+test-integration-quiet:
+	@. ./hack/run_silent.sh && print_main_header "Running Integration Tests"
+	@. ./hack/run_silent.sh && print_header "abacus" "Integration tests"
+	@. ./hack/run_silent.sh && run_silent_with_test_count "Integration tests passed" "$(GO) test -tags=integration -json ./..." "go"
+
+test-all: ## Run all tests (unit + integration)
+	@$(MAKE) test
+	@$(MAKE) test-integration
 
 ## Combined targets
 

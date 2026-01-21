@@ -1,10 +1,12 @@
+//go:build integration
+
 // Package beads provides conformance tests for bd and br output compatibility.
 //
 // These tests verify that bd and br produce equivalent JSON output for the
 // fields that abacus uses, ensuring compatibility between backends.
 //
-// Run with: go test -v ./internal/beads/ -run Conformance
-// Skip in CI with: go test -short ./internal/beads/
+// Run with: go test -tags=integration -v ./internal/beads/
+// Unit tests only: go test ./... (excludes this file)
 package beads
 
 import (

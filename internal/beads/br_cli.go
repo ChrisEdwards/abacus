@@ -161,12 +161,13 @@ func (c *brCLIClient) Create(ctx context.Context, title, issueType string, prior
 		issueType = "task"
 	}
 
-	// Use positional title (works for both bd and br)
+	// Use positional title with JSON output for reliable parsing
 	args := []string{
 		"create",
 		title, // Positional title
 		"--type", issueType,
 		"--priority", fmt.Sprintf("%d", priority),
+		"--json",
 	}
 
 	if len(labels) > 0 {
@@ -182,21 +183,22 @@ func (c *brCLIClient) Create(ctx context.Context, title, issueType string, prior
 		return "", fmt.Errorf("run br create: %w", err)
 	}
 
-	// Parse the new bead ID from output (e.g., "Created ab-xyz")
-	output := strings.TrimSpace(string(out))
-	parts := strings.Fields(output)
-	for _, part := range parts {
-		if strings.HasPrefix(part, "ab-") || strings.Contains(part, "-") {
-			id := strings.TrimRight(part, ".,;:!")
-			if len(id) > 0 {
-				return id, nil
-			}
-		}
+	// Parse ID from JSON output (br may print warnings before the JSON)
+	jsonBytes := extractJSON(out)
+	if jsonBytes == nil {
+		return "", fmt.Errorf("no JSON found in br create output: %s", strings.TrimSpace(string(out)))
 	}
-	if len(parts) > 0 {
-		return parts[len(parts)-1], nil
+
+	var result struct {
+		ID string `json:"id"`
 	}
-	return "", fmt.Errorf("could not parse bead ID from output: %s", output)
+	if err := json.Unmarshal(jsonBytes, &result); err != nil {
+		return "", fmt.Errorf("decode br create output: %w", err)
+	}
+	if result.ID == "" {
+		return "", fmt.Errorf("empty ID in br create output")
+	}
+	return result.ID, nil
 }
 
 // CreateFull creates a new issue with all fields and returns the full issue object.
