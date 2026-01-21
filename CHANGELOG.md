@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **beads_rust (br) backend support**: Abacus now supports both `bd` (Go) and `br` (Rust) beads backends with automatic detection and user selection prompt (ab-pccw)
+- **Backend CLI flag**: Use `--backend bd` or `--backend br` to override detection without prompts
+- **Backend indicator**: Status bar shows `[bd]` or `[br]` to indicate active backend
+- **Backend selection prompt**: First-run prompts users to choose preferred backend when both are available, saved to config
+- **Integration test separation**: Tests now use Go build tags to separate unit and integration tests (ab-64oh)
+- **Conformance tests**: Verify bd/br output compatibility for consistent TUI behavior
+
+### Changed
+- **Client architecture**: Internal refactor splits Client interface into Reader + Writer for cleaner multi-backend support (ab-ynml, ab-nwke, ab-9srf)
+- **bd backend frozen**: bd client frozen at v0.38.0 compatibility; br backend recommended for new features
+
+### Fixed
+- **Assignee clearing**: Pass `--assignee` to CLI even when empty to allow clearing assignments (ab-e11f)
+- **Edit overlay**: Allow converting unknown issue type to 'task' from edit overlay
+
+### Removed
+- **--json-output flag**: Removed deprecated flag (ab-obak)
+
 ## [0.7.1] - 2026-01-09
 
 ### Fixed
