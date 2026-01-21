@@ -632,6 +632,49 @@ func TestBrCLIClient_UpdateFull(t *testing.T) {
 	}
 }
 
+// TestBrCLIClient_UpdateFull_CommaSeparatedLabels verifies that multiple labels
+// are passed as a single comma-separated --set-labels flag, NOT multiple flags.
+// br only accepts one --set-labels flag (unlike bd which accepts multiple).
+// See: https://github.com/Dicklesworthstone/beads_rust/issues/17
+func TestBrCLIClient_UpdateFull_CommaSeparatedLabels(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "args.log")
+	script := filepath.Join(dir, "fakebr.sh")
+
+	scriptBody := "#!/bin/sh\n" +
+		"echo \"$@\" >> " + logFile + "\n" +
+		"exit 0\n"
+	writeTestScript(t, script, scriptBody)
+
+	client := NewBrCLIClient(WithBrBinaryPath(script))
+
+	ctx := context.Background()
+	err := client.UpdateFull(ctx, "ab-test", "Title", "task", 2, []string{"backend", "urgent", "api"}, "", "desc")
+	if err != nil {
+		t.Fatalf("UpdateFull: %v", err)
+	}
+
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("read args log: %v", err)
+	}
+
+	args := string(data)
+
+	// Verify labels are comma-separated in a single flag
+	if !strings.Contains(args, "--set-labels backend,urgent,api") {
+		t.Errorf("expected comma-separated labels '--set-labels backend,urgent,api', got: %q", args)
+	}
+
+	// Verify we DON'T have multiple --set-labels flags (the old broken behavior)
+	count := strings.Count(args, "--set-labels")
+	if count != 1 {
+		t.Errorf("expected exactly 1 --set-labels flag, got %d in: %q", count, args)
+	}
+}
+
 // Test validation errors
 func TestBrCLIClient_ValidationErrors(t *testing.T) {
 	t.Parallel()

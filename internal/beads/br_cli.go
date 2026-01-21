@@ -284,10 +284,11 @@ func (c *brCLIClient) UpdateFull(ctx context.Context, issueID, title, issueType 
 		args = append(args, "--assignee", assignee)
 	}
 
+	// br only accepts a single --set-labels flag with comma-separated values
+	// (unlike bd which accepts multiple flags). See upstream issue:
+	// https://github.com/Dicklesworthstone/beads_rust/issues/17
 	if len(labels) > 0 {
-		for _, l := range labels {
-			args = append(args, "--set-labels", l)
-		}
+		args = append(args, "--set-labels", strings.Join(labels, ","))
 	} else {
 		args = append(args, "--set-labels", "")
 	}
