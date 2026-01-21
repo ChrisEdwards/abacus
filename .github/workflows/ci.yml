@@ -53,13 +53,15 @@ jobs:
       - name: Install bd
         if: matrix.backend == 'bd'
         run: |
-          go install github.com/perrys25/beads/cmd/bd@v0.38.0
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          curl -sSfL https://github.com/steveyegge/beads/releases/download/v0.38.0/beads_0.38.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin
+          chmod +x /usr/local/bin/bd
 
       - name: Install br
         if: matrix.backend == 'br'
         run: |
-          curl -sSfL https://github.com/ChrisEdwards/beads_rust/releases/latest/download/br-linux-x86_64.tar.gz | tar xz -C /usr/local/bin
+          # Get latest version tag and download
+          VERSION=$(curl -s https://api.github.com/repos/Dicklesworthstone/beads_rust/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+          curl -sSfL "https://github.com/Dicklesworthstone/beads_rust/releases/download/${VERSION}/br-${VERSION}-linux_amd64.tar.gz" | tar xz -C /usr/local/bin
           chmod +x /usr/local/bin/br
 
       - name: Verify backend binary
