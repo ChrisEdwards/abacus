@@ -48,3 +48,6 @@ specs/
 .mcp.json
 .tldr/
 .tldrignore
+
+# Local plans (not shared)
+docs/plans/
