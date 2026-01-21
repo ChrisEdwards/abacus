@@ -305,6 +305,11 @@ func sortNodes(nodes []*Node) {
 			return a.SortPriority < b.SortPriority
 		}
 		if !a.SortTimestamp.Equal(b.SortTimestamp) {
+			// Closed items: reverse chronological (most recent first)
+			// All other statuses: chronological (oldest first)
+			if a.SortPriority == sortPriorityClosed {
+				return a.SortTimestamp.After(b.SortTimestamp)
+			}
 			return a.SortTimestamp.Before(b.SortTimestamp)
 		}
 		return a.Issue.ID < b.Issue.ID
