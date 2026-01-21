@@ -42,3 +42,9 @@ specs/
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# Local config and tool caches
+.abacus/
+.mcp.json
+.tldr/
+.tldrignore
