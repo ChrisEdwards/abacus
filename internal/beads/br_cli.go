@@ -391,8 +391,3 @@ func classifyBrCLIError(command []string, err error, snippet string) error {
 	// Can be specialized for br-specific errors later
 	return classifyCLIError(command, err, snippet)
 }
-
-// extractJSON finds and returns the first JSON object in the output.
-// This is shared with bdCLIClient in cli.go - defined there.
-// br commands may print warnings or other text before the actual JSON response.
-var _ = extractJSON // Reference to ensure extractJSON from cli.go is used
