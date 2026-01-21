@@ -149,6 +149,15 @@ func sortBlockers(nodes []*graph.Node) []*graph.Node {
 			return jClosed // closed items come last
 		}
 
+		// Within closed items: reverse chronological (most recent first)
+		if iClosed && jClosed {
+			closedI := parseClosedAt(result[i])
+			closedJ := parseClosedAt(result[j])
+			if !closedI.IsZero() && !closedJ.IsZero() && !closedI.Equal(closedJ) {
+				return closedI.After(closedJ)
+			}
+		}
+
 		// Items with fewer open blockers come first (can be worked on sooner)
 		openBlockersI := countOpenBlockers(result[i])
 		openBlockersJ := countOpenBlockers(result[j])
