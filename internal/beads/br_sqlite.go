@@ -38,11 +38,34 @@ func NewBrSQLiteClient(dbPath string, opts ...BrCLIOption) Client {
 	dsn := buildBrSQLiteDSN(trimmed)
 	// Ensure writes go to the same DB when the CLI is used for mutations.
 	opts = append(opts, WithBrDatabasePath(trimmed))
+	// Derive workDir from dbPath so br can discover the workspace.
+	// br requires a .beads/ directory in the cwd ancestry; without this,
+	// running abacus from outside the workspace would fail with NOT_INITIALIZED.
+	if workDir := deriveWorkDirFromDBPath(trimmed); workDir != "" {
+		opts = append(opts, WithBrWorkDir(workDir))
+	}
 	return &brSQLiteClient{
 		dbPath: trimmed,
 		dsn:    dsn,
 		writer: NewBrCLIClient(opts...),
 	}
+}
+
+// deriveWorkDirFromDBPath extracts the workspace root from a database path.
+// For a path like "/path/to/project/.beads/beads.db", returns "/path/to/project".
+// Returns empty string if .beads is not found in the path.
+func deriveWorkDirFromDBPath(dbPath string) string {
+	// Walk up the path looking for a .beads directory component
+	dir := filepath.Dir(dbPath)
+	for dir != "" && dir != "/" && dir != "." {
+		base := filepath.Base(dir)
+		if base == ".beads" {
+			// Found .beads, return its parent as the workspace root
+			return filepath.Dir(dir)
+		}
+		dir = filepath.Dir(dir)
+	}
+	return ""
 }
 
 // buildBrSQLiteDSN creates a read-only WAL DSN for the given path.

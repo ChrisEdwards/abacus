@@ -657,3 +657,53 @@ func TestBrSQLiteClient_InvalidDB(t *testing.T) {
 		t.Error("expected error for invalid db path")
 	}
 }
+
+func TestDeriveWorkDirFromDBPath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		dbPath   string
+		expected string
+	}{
+		{
+			name:     "standard path with .beads",
+			dbPath:   "/path/to/project/.beads/beads.db",
+			expected: "/path/to/project",
+		},
+		{
+			name:     "nested db file in .beads",
+			dbPath:   "/path/to/project/.beads/subdir/beads.db",
+			expected: "/path/to/project",
+		},
+		{
+			name:     "no .beads in path",
+			dbPath:   "/path/to/some/beads.db",
+			expected: "",
+		},
+		{
+			name:     "root level .beads",
+			dbPath:   "/.beads/beads.db",
+			expected: "/",
+		},
+		{
+			name:     "relative path with .beads",
+			dbPath:   "project/.beads/beads.db",
+			expected: "project",
+		},
+		{
+			name:     "just .beads/file",
+			dbPath:   ".beads/beads.db",
+			expected: ".",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := deriveWorkDirFromDBPath(tt.dbPath)
+			if result != tt.expected {
+				t.Errorf("deriveWorkDirFromDBPath(%q) = %q, want %q", tt.dbPath, result, tt.expected)
+			}
+		})
+	}
+}
