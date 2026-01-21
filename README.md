@@ -66,7 +66,9 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 
 ### Prerequisites
 
-- [Beads CLI](https://github.com/steveyegge/beads) v0.24.0 or later installed and initialized in your project (`bd --version`)
+- **Beads backend**: Either [Beads CLI (bd)](https://github.com/perrys25/beads) or [beads_rust (br)](https://github.com/ChrisEdwards/beads_rust) installed
+  - Abacus auto-detects which backend is available
+  - Both backends are supported indefinitely
 - Go 1.25.3 or later (only required for `go install` or building from source)
 
 ### Installation
@@ -121,6 +123,7 @@ The application will automatically load all issues from your `.beads/` database.
 abacus [options]
 
 Options:
+  --backend string            Backend to use: bd or br (default: auto-detect)
   --db-path string            Path to the Beads database file
   --auto-refresh-seconds int  Auto-refresh interval in seconds (0 disables; default: 3)
   --output-format string      Detail panel style: rich, light, plain (default: "rich")
@@ -129,6 +132,31 @@ Options:
 ```
 
 Key workflows are summarized below—run `abacus --help` anytime for the full flag list.
+
+### Backend Selection
+
+Abacus supports both **beads (bd)** and **beads_rust (br)** backends.
+
+**Auto-detection:** On startup, abacus checks which binaries are available:
+- Only `br` on PATH → uses br automatically
+- Only `bd` on PATH → uses bd automatically
+- Both available → prompts you to choose (selection saved to `.abacus/config.yaml`)
+- Neither available → shows error with installation instructions
+
+**Manual override:**
+```bash
+# Use --backend flag (overrides config, not saved)
+abacus --backend br
+abacus --backend bd
+
+# Or configure in .abacus/config.yaml
+beads:
+  backend: br  # or bd
+```
+
+**Status bar indicator:** The current backend is always shown in the status bar as `[bd]` or `[br]`.
+
+**CI/Non-interactive environments:** Use `--backend` flag or pre-configure `.abacus/config.yaml` since the selection prompt requires an interactive terminal.
 
 ### Detail Panel Relationship Sections
 
@@ -226,6 +254,8 @@ Abacus can be configured via:
 **Example configuration:**
 ```yaml
 auto-refresh-seconds: 3
+beads:
+  backend: br  # or bd (auto-detected if not set)
 output:
   json: false
   format: rich
@@ -238,13 +268,14 @@ Set `output.json: true`, `AB_OUTPUT_JSON=true`, or pass `--json-output` to print
 
 ## How It Works
 
-Abacus interfaces with the Beads CLI to:
+Abacus interfaces with the Beads backend (bd or br) to:
 
-1. Load all issues from your project with `bd list --json`
-2. Fetch full details for each issue with `bd show`
-3. Build a dependency graph based on parent-child and blocking relationships
-4. Render an interactive TUI using [Bubble Tea](https://github.com/charmbracelet/bubbletea)
-5. Display a short-lived, witty spinner summarizing progress while the data loads
+1. Detect available backend and load preference
+2. Load all issues from your project via SQLite (fast read path)
+3. Perform mutations via CLI commands (create, update, delete, etc.)
+4. Build a dependency graph based on parent-child and blocking relationships
+5. Render an interactive TUI using [Bubble Tea](https://github.com/charmbracelet/bubbletea)
+6. Display a short-lived, witty spinner summarizing progress while the data loads
 
 The graph automatically identifies root nodes (issues with no parents or deepest parents in the hierarchy) and organizes the tree to minimize visual depth while accurately representing all relationships.
 
@@ -323,7 +354,7 @@ For information about creating releases, see **[RELEASING.md](RELEASING.md)**.
 - `internal/ui/`: Bubble Tea models, tree/detail rendering, search, auto-refresh
 - `internal/config/`: Viper-backed configuration (env, files, overrides)
 - `internal/graph/`: Dependency graph construction and sorting
-- `internal/beads/`: Thin wrapper over `bd list/show`
+- `internal/beads/`: Backend abstraction (bd/br detection, SQLite reads, CLI writes)
 
 ## License
 
@@ -332,4 +363,4 @@ This project is licensed under the [MIT License](./LICENSE).
 ## Acknowledgments
 
 Built with excellent TUI libraries from [Charm](https://github.com/charmbracelet).
-Designed for use with [Beads](https://github.com/beadscli/beads).
+Designed for use with [Beads (bd)](https://github.com/perrys25/beads) and [beads_rust (br)](https://github.com/ChrisEdwards/beads_rust).
