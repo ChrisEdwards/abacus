@@ -206,10 +206,6 @@ func TestBackend_E2E_CRUD(t *testing.T) {
 }
 
 // TestBackend_E2E_Dependencies tests dependency operations for both backends.
-// Note: bd backend may fail due to a known issue in bdCLIClient.Create parsing
-// when bd outputs warning messages containing "--description". The bd client is
-// frozen (bd_cli.go) and cannot be fixed. The br backend tests validate the
-// integration test logic is correct.
 func TestBackend_E2E_Dependencies(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -222,12 +218,6 @@ func TestBackend_E2E_Dependencies(t *testing.T) {
 		t.Run(backend, func(t *testing.T) {
 			t.Parallel()
 			skipIfNoBackend(t, backend)
-
-			// Skip bd due to known parsing issue in frozen bdCLIClient.Create
-			// when bd outputs warning messages. See bd_cli.go:156-164.
-			if backend == "bd" {
-				t.Skip("skipping bd backend: known parsing issue with --description warnings in frozen bd client")
-			}
 
 			env := setupBackendTestDB(t, backend)
 			defer env.cleanup()
@@ -529,8 +519,6 @@ func extractCreatedID(output string) string {
 // =============================================================================
 
 // TestMixedOperations_WriteCliReadSqlite tests writing via CLI and reading via SQLite.
-// Note: bd backend may fail due to a known issue in bdCLIClient.Create parsing
-// when bd outputs warning messages. See TestBackend_E2E_Dependencies for details.
 func TestMixedOperations_WriteCliReadSqlite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -543,11 +531,6 @@ func TestMixedOperations_WriteCliReadSqlite(t *testing.T) {
 		t.Run(backend, func(t *testing.T) {
 			t.Parallel()
 			skipIfNoBackend(t, backend)
-
-			// Skip bd due to known parsing issue in frozen bdCLIClient.Create
-			if backend == "bd" {
-				t.Skip("skipping bd backend: known parsing issue with --description warnings in frozen bd client")
-			}
 
 			env := setupBackendTestDB(t, backend)
 			defer env.cleanup()

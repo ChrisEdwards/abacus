@@ -149,22 +149,29 @@ func (c *bdCLIClient) Create(ctx context.Context, title, issueType string, prior
 	if err != nil {
 		return "", fmt.Errorf("run bd create: %w", err)
 	}
-	// Parse the new bead ID from output (e.g., "Created ab-xyz")
-	output := strings.TrimSpace(string(out))
-	// Look for pattern like "Created ab-xxx" or just "ab-xxx"
-	parts := strings.Fields(output)
-	for _, part := range parts {
-		if strings.HasPrefix(part, "ab-") || strings.Contains(part, "-") {
-			// Clean up any trailing punctuation
-			id := strings.TrimRight(part, ".,;:!")
-			if len(id) > 0 {
-				return id, nil
+	// Parse the new bead ID from output
+	// bd outputs: "✓ Created issue: ab-xyz" or "✓ Created issue: test-xyz"
+	output := string(out)
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		// Look for "Created issue: <id>" pattern
+		if idx := strings.Index(line, "Created issue:"); idx != -1 {
+			idPart := strings.TrimSpace(line[idx+len("Created issue:"):])
+			// Take just the ID (first word, no trailing punctuation)
+			if spaceIdx := strings.IndexAny(idPart, " \t"); spaceIdx != -1 {
+				idPart = idPart[:spaceIdx]
 			}
+			return strings.TrimRight(idPart, ".,;:!"), nil
 		}
 	}
-	// If we can't parse an ID, return the raw output (caller can handle)
-	if len(parts) > 0 {
-		return parts[len(parts)-1], nil
+	// Fallback: look for issue ID pattern (ab-xxx or test-xxx prefix)
+	for _, line := range strings.Split(output, "\n") {
+		for _, part := range strings.Fields(line) {
+			// Only match actual issue ID prefixes, not flags like --description
+			if strings.HasPrefix(part, "ab-") || strings.HasPrefix(part, "test-") {
+				return strings.TrimRight(part, ".,;:!"), nil
+			}
+		}
 	}
 	return "", fmt.Errorf("could not parse bead ID from output: %s", output)
 }
