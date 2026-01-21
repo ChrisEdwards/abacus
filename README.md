@@ -1,6 +1,6 @@
 # Abacus
 
-A powerful terminal UI for visualizing and navigating Steve Yegge's awesome [Beads](https://github.com/steveyegge/beads) issue tracking project.
+A powerful terminal UI for visualizing and navigating [Beads](https://github.com/steveyegge/beads) issue tracking databases.
 
 [![Latest Release](https://img.shields.io/github/v/release/ChrisEdwards/abacus)](https://github.com/ChrisEdwards/abacus/releases)
 [![Go Version](https://img.shields.io/badge/go-1.25.3%2B-blue.svg)](https://golang.org/dl/)
@@ -9,6 +9,47 @@ A powerful terminal UI for visualizing and navigating Steve Yegge's awesome [Bea
 ## Overview
 
 Abacus transforms your Beads issue database into an interactive, hierarchical tree view right in your terminal. It provides an intuitive interface for exploring complex dependency graphs, viewing issue details, and understanding project structure at a glance.
+
+## Beads Backends: BD vs BR
+
+Abacus supports two Beads backends:
+
+| Backend | Binary | Repository | Status |
+|---------|--------|------------|--------|
+| **beads** (Go) | `bd` | [steveyegge/beads](https://github.com/steveyegge/beads) | Frozen at v0.38.0 |
+| **beads_rust** | `br` | [Dicklesworthstone/beads_rust](https://github.com/Dicklesworthstone/beads_rust) | Active development |
+
+### Why Two Backends?
+
+**beads (bd)** is Steve Yegge's original Go-based issue tracker. As Steve continues evolving beads toward [GasTown](https://github.com/steveyegge/gastown) and beyond — with Dolt integration, daemon-based RPC, and advanced features — the architecture has naturally diverged from the simpler SQLite + JSONL model that many tools were built around.
+
+**beads_rust (br)** was created by Jeffrey Emanuel as a Rust port that freezes the "classic beads" architecture. In his words:
+
+> *"Rather than ask Steve to maintain a legacy mode for my niche use case, I created this Rust port that freezes the 'classic beads' architecture I depend on... This isn't a criticism of beads; Steve's taking it in exciting directions. It's simply that my tooling needs a stable snapshot of the architecture I built around, and maintaining my own fork is the right solution for that."*
+
+**Steve Yegge has given his full endorsement of the beads_rust project.**
+
+Key differences:
+
+| Aspect | br (Rust) | bd (Go) |
+|--------|-----------|---------|
+| Git operations | **Never** (explicit only) | Auto-commit, hooks |
+| Background daemon | **No** | Yes |
+| Storage | SQLite + JSONL | Dolt/SQLite |
+| Binary size | ~5-8 MB | ~30+ MB |
+| Philosophy | Minimal, non-invasive | Feature-rich |
+
+### Which Backend Should I Use?
+
+- **New projects**: We recommend **br** ([beads_rust](https://github.com/Dicklesworthstone/beads_rust)) for its simplicity and active development
+- **Existing bd projects**: Continue using **bd** — Abacus fully supports it at v0.38.0
+- **Mixed usage**: Different repositories can use different backends — Abacus auto-detects per project
+
+### Support Policy
+
+- **BD support is frozen at version 0.38.0** — We will continue supporting BD indefinitely at this version, but will not add support for newer BD versions or features
+- **BR is the path forward** — New features and improvements will be developed for the BR backend
+- **100% JSONL compatible** — Both backends use the same `.beads/issues.jsonl` format, so your data is portable
 
 ## Preview
 
@@ -66,9 +107,10 @@ Abacus transforms your Beads issue database into an interactive, hierarchical tr
 
 ### Prerequisites
 
-- **Beads backend**: Either [Beads CLI (bd)](https://github.com/perrys25/beads) or [beads_rust (br)](https://github.com/ChrisEdwards/beads_rust) installed
-  - Abacus auto-detects which backend is available
-  - Both backends are supported indefinitely
+- **Beads backend**: At least one of the following must be installed and on your PATH:
+  - [**beads_rust (br)**](https://github.com/Dicklesworthstone/beads_rust) — Recommended for new projects
+  - [**beads (bd)**](https://github.com/steveyegge/beads) — Supported at v0.38.0 for existing projects
+  - Abacus auto-detects which backend is available and prompts if both are present
 - Go 1.25.3 or later (only required for `go install` or building from source)
 
 ### Installation
@@ -135,7 +177,7 @@ Key workflows are summarized below—run `abacus --help` anytime for the full fl
 
 ### Backend Selection
 
-Abacus supports both **beads (bd)** and **beads_rust (br)** backends.
+Abacus supports both **beads (bd)** and **beads_rust (br)** backends. See [Beads Backends: BD vs BR](#beads-backends-bd-vs-br) for details on choosing between them.
 
 **Auto-detection:** On startup, abacus checks which binaries are available:
 - Only `br` on PATH → uses br automatically
@@ -157,6 +199,12 @@ beads:
 **Status bar indicator:** The current backend is always shown in the status bar as `[bd]` or `[br]`.
 
 **CI/Non-interactive environments:** Use `--backend` flag or pre-configure `.abacus/config.yaml` since the selection prompt requires an interactive terminal.
+
+**Version requirements:**
+- **br**: v0.1.7 or later
+- **bd**: v0.30.0 to v0.38.0 (versions > 0.38.0 may work but are not officially supported)
+
+**Note on BD version support:** If you're using BD version > 0.38.0, Abacus will display a one-time informational notice. The software may still work, but we cannot guarantee compatibility with newer BD features or breaking changes. For the best experience, we recommend migrating to BR for new projects.
 
 ### Detail Panel Relationship Sections
 
@@ -363,4 +411,7 @@ This project is licensed under the [MIT License](./LICENSE).
 ## Acknowledgments
 
 Built with excellent TUI libraries from [Charm](https://github.com/charmbracelet).
-Designed for use with [Beads (bd)](https://github.com/perrys25/beads) and [beads_rust (br)](https://github.com/ChrisEdwards/beads_rust).
+
+Designed for use with:
+- [**beads_rust (br)**](https://github.com/Dicklesworthstone/beads_rust) — Recommended backend, actively developed
+- [**beads (bd)**](https://github.com/steveyegge/beads) — Original Go implementation by Steve Yegge
