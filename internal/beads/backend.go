@@ -58,6 +58,11 @@ var (
 
 	// promptSwitchBackendFunc is used for interactive switch confirmation.
 	promptSwitchBackendFunc = promptSwitchBackend
+
+	// BeforePromptHook is called before any interactive prompt during backend detection.
+	// This allows callers (like main.go) to stop animations before user input is requested.
+	// Set to nil to disable (default).
+	BeforePromptHook func()
 )
 
 // DetectBackend determines which backend (bd or br) to use.
@@ -111,6 +116,10 @@ func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
 		// Both exist - need user input
 		if !isInteractiveTTYFunc() {
 			return "", ErrBackendAmbiguous
+		}
+		// Stop any animations before prompting
+		if BeforePromptHook != nil {
+			BeforePromptHook()
 		}
 		choice = promptUserForBackendFunc()
 		userPrompted = true
@@ -168,6 +177,11 @@ func handleStalePreference(ctx context.Context, storedPref string) (string, erro
 		return "", fmt.Errorf("this project is configured for '%s' but %s is not found in PATH; use --backend %s to override", storedPref, storedPref, other)
 	}
 
+	// Stop any animations before prompting
+	if BeforePromptHook != nil {
+		BeforePromptHook()
+	}
+
 	// Prompt user: their configured backend is missing, offer to switch
 	fmt.Printf("This project is configured for '%s' but %s is not found in PATH.\n", storedPref, storedPref)
 	if confirmed := promptSwitchBackendFunc(other); confirmed {
@@ -206,6 +220,11 @@ func validateWithFallback(ctx context.Context, choice string, brExists, bdExists
 	// In non-TTY mode, we can't prompt - return error
 	if !isInteractiveTTYFunc() {
 		return "", fmt.Errorf("%s version is too old; use --backend %s to try alternative", choice, other)
+	}
+
+	// Stop any animations before prompting
+	if BeforePromptHook != nil {
+		BeforePromptHook()
 	}
 
 	// Offer to switch to the other backend

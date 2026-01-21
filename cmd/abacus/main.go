@@ -94,11 +94,17 @@ func main() {
 	if !skipVersionCheck {
 		if startup != nil {
 			startup.Stage(ui.StartupStageVersionCheck, "Detecting backend...")
+			// Set hook to stop spinner before any user prompts
+			beads.BeforePromptHook = func() {
+				startup.Stop()
+			}
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
 		var err error
 		detectedBackend, err = beads.DetectBackend(ctx, runtime.backend)
 		cancel()
+		// Clear the hook after detection
+		beads.BeforePromptHook = nil
 		if err != nil {
 			if startup != nil {
 				startup.Stop()
