@@ -40,6 +40,7 @@ type FullIssue struct {
 	CreatedAt          string       `json:"created_at"`
 	UpdatedAt          string       `json:"updated_at"`
 	ClosedAt           string       `json:"closed_at"`
+	CloseReason        string       `json:"close_reason"`
 	ExternalRef        string       `json:"external_ref"`
 	Assignee           string       `json:"assignee"`
 	Labels             []string     `json:"labels"`
