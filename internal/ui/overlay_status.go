@@ -44,16 +44,15 @@ func NewStatusOverlay(issueID, issueTitle, currentStatus string) *StatusOverlay 
 		{value: "closed", label: "Closed"},
 	}
 
-	// Mark invalid transitions as disabled
-	// Special case: allow closed → open (reopen)
-	for i := range options {
-		target := domain.Status(options[i].value)
-		if current.CanTransitionTo(target) != nil && current != target {
-			// Allow reopening: closed → open only (matches domain.allowedTransitions)
-			if currentStatus == "closed" && options[i].value == "open" {
-				continue
+	// Mark invalid transitions as disabled.
+	// Exception: unknown statuses can transition to any known status so users
+	// aren't trapped (e.g., "pinned" from br backend or future statuses).
+	if current.IsKnown() {
+		for i := range options {
+			target := domain.Status(options[i].value)
+			if current.CanTransitionTo(target) != nil && current != target {
+				options[i].disabled = true
 			}
-			options[i].disabled = true
 		}
 	}
 

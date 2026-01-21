@@ -316,3 +316,42 @@ func TestStatusOverlayView(t *testing.T) {
 		}
 	})
 }
+
+func TestStatusOverlayUnknownStatus(t *testing.T) {
+	t.Run("UnknownStatusEnablesAllTransitions", func(t *testing.T) {
+		// Unknown statuses (e.g., "pinned" from br backend) should allow
+		// transitioning to any known status so users aren't trapped.
+		overlay := NewStatusOverlay("test-123", "Test", "pinned")
+
+		for i, opt := range overlay.options {
+			if opt.disabled {
+				t.Errorf("expected option %d (%s) to NOT be disabled from unknown status 'pinned'", i, opt.value)
+			}
+		}
+	})
+
+	t.Run("UnknownStatusSelectedIndexDefaults", func(t *testing.T) {
+		// Unknown status won't match any option, so selected defaults to 0
+		overlay := NewStatusOverlay("test-123", "Test", "pinned")
+		if overlay.selected != 0 {
+			t.Errorf("expected selected index 0 for unknown status, got %d", overlay.selected)
+		}
+	})
+
+	t.Run("UnknownStatusHotkeysWork", func(t *testing.T) {
+		// Hotkeys should work from unknown status since nothing is disabled
+		overlay := NewStatusOverlay("test-123", "Test", "future_status")
+		_, cmd := overlay.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+		if cmd == nil {
+			t.Fatal("expected command from 'c' hotkey with unknown status")
+		}
+		msg := cmd()
+		statusMsg, ok := msg.(StatusChangedMsg)
+		if !ok {
+			t.Fatalf("expected StatusChangedMsg, got %T", msg)
+		}
+		if statusMsg.NewStatus != "closed" {
+			t.Errorf("expected NewStatus 'closed', got %s", statusMsg.NewStatus)
+		}
+	})
+}
