@@ -32,6 +32,50 @@ jobs:
       - name: Run tests
         run: make test
 
+  integration-test:
+    name: Integration Test
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [bd, br]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          check-latest: true
+
+      - name: Install bd
+        if: matrix.backend == 'bd'
+        run: |
+          go install github.com/perrys25/beads/cmd/bd@v0.38.0
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Install br
+        if: matrix.backend == 'br'
+        run: |
+          curl -sSfL https://github.com/ChrisEdwards/beads_rust/releases/latest/download/br-linux-x86_64.tar.gz | tar xz -C /usr/local/bin
+          chmod +x /usr/local/bin/br
+
+      - name: Verify backend binary
+        run: |
+          which ${{ matrix.backend }}
+          ${{ matrix.backend }} --version || ${{ matrix.backend }} version || true
+
+      - name: Configure backend for tests
+        run: |
+          mkdir -p .abacus
+          echo 'beads:' > .abacus/config.yaml
+          echo '  backend: ${{ matrix.backend }}' >> .abacus/config.yaml
+
+      - name: Run integration tests
+        run: go test -v ./internal/beads/ -run 'Integration|Conformance' -timeout 300s
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
