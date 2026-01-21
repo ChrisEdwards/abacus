@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-01-21
+
 ### Added
 - **beads_rust (br) backend support**: Abacus now supports both `bd` (Go) and `br` (Rust) beads backends with automatic detection and user selection prompt (ab-pccw)
 - **Backend CLI flag**: Use `--backend bd` or `--backend br` to override detection without prompts
