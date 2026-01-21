@@ -105,41 +105,35 @@ func main() {
 		}
 	}
 
-	// Backend detection (includes version check internally)
+	// Backend detection (includes version check internally unless skipped)
 	// This determines which backend (bd or br) to use for this project.
-	// DetectBackend validates versions, so we skip the old version check if detection succeeds.
-	var detectedBackend string
-	if !skipVersionCheck {
-		// Build callback to stop spinner before any user prompts
-		var beforePrompt func()
+	// Priority: CLI flag > stored preference > auto-detection
+	var beforePrompt func()
+	if startup != nil {
+		startup.Stage(ui.StartupStageVersionCheck, "Detecting backend...")
+		beforePrompt = func() { startup.Stop() }
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
+	detectedBackend, err := beads.DetectBackend(ctx, beads.DetectBackendOptions{
+		CLIFlag:          runtime.backend,
+		BeforePrompt:     beforePrompt,
+		SkipVersionCheck: skipVersionCheck,
+	})
+	cancel()
+	if err != nil {
 		if startup != nil {
-			startup.Stage(ui.StartupStageVersionCheck, "Detecting backend...")
-			beforePrompt = func() { startup.Stop() }
+			startup.Stop()
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
-		var err error
-		detectedBackend, err = beads.DetectBackend(ctx, runtime.backend, beforePrompt)
-		cancel()
-		if err != nil {
-			if startup != nil {
-				startup.Stop()
-			}
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 
-		// Show bd version warning if using bd (one-time warning for versions > MaxSupportedBdVersion)
-		if detectedBackend == beads.BackendBd {
-			ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
-			beads.CheckBdVersionWarning(ctx)
-			cancel()
-		}
-	} else {
-		// Version check disabled - use backend from flag or default to bd
-		detectedBackend = runtime.backend
-		if detectedBackend == "" {
-			detectedBackend = beads.BackendBd
-		}
+	// Show bd version warning if using bd (one-time warning for versions > MaxSupportedBdVersion)
+	// Only show if we didn't skip version check (user wants speed, not warnings)
+	if !skipVersionCheck && detectedBackend == beads.BackendBd {
+		ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
+		beads.CheckBdVersionWarning(ctx)
+		cancel()
 	}
 	runtime.backend = detectedBackend
 

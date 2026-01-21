@@ -60,25 +60,41 @@ var (
 	promptSwitchBackendFunc = promptSwitchBackend
 )
 
+// DetectBackendOptions configures DetectBackend behavior.
+type DetectBackendOptions struct {
+	// CLIFlag is the value of --backend flag (empty if not provided).
+	CLIFlag string
+	// BeforePrompt is called before any interactive prompt (e.g., to stop animations).
+	// Pass nil if no pre-prompt callback is needed.
+	BeforePrompt func()
+	// SkipVersionCheck skips version validation but still performs detection.
+	// Use this when the user wants faster startup and accepts version risk.
+	SkipVersionCheck bool
+}
+
 // DetectBackend determines which backend (bd or br) to use.
-// cliFlag is the value of --backend flag (empty if not provided).
-// beforePrompt is called before any interactive prompt (e.g., to stop animations).
-// Pass nil if no pre-prompt callback is needed.
 // Returns the backend name ("bd" or "br") or an error if detection fails.
-func DetectBackend(ctx context.Context, cliFlag string, beforePrompt func()) (string, error) {
+//
+// Priority order (regardless of SkipVersionCheck):
+//  1. CLI flag (--backend)
+//  2. Stored preference (.abacus/config.yaml beads.backend)
+//  3. Auto-detection (which backend exists on PATH)
+func DetectBackend(ctx context.Context, opts DetectBackendOptions) (string, error) {
 	// 0. CLI flag override (highest priority, one-time, no save)
-	if cliFlag != "" {
-		if cliFlag != BackendBd && cliFlag != BackendBr {
-			return "", fmt.Errorf("invalid --backend value: %q (must be 'bd' or 'br')", cliFlag)
+	if opts.CLIFlag != "" {
+		if opts.CLIFlag != BackendBd && opts.CLIFlag != BackendBr {
+			return "", fmt.Errorf("invalid --backend value: %q (must be 'bd' or 'br')", opts.CLIFlag)
 		}
-		if !commandExistsFunc(cliFlag) {
-			return "", fmt.Errorf("--backend %s specified but %s not found in PATH", cliFlag, cliFlag)
+		if !commandExistsFunc(opts.CLIFlag) {
+			return "", fmt.Errorf("--backend %s specified but %s not found in PATH", opts.CLIFlag, opts.CLIFlag)
 		}
-		if err := checkBackendVersionFunc(ctx, cliFlag); err != nil {
-			return "", fmt.Errorf("--backend %s version check failed: %w", cliFlag, err)
+		if !opts.SkipVersionCheck {
+			if err := checkBackendVersionFunc(ctx, opts.CLIFlag); err != nil {
+				return "", fmt.Errorf("--backend %s version check failed: %w", opts.CLIFlag, err)
+			}
 		}
 		// Don't save - CLI flag is a one-time override
-		return cliFlag, nil
+		return opts.CLIFlag, nil
 	}
 
 	// 1. Check stored preference (project config ONLY - no env var support)
@@ -87,13 +103,15 @@ func DetectBackend(ctx context.Context, cliFlag string, beforePrompt func()) (st
 		// Verify the stored preference is still valid (binary exists)
 		if commandExistsFunc(storedPref) {
 			// Version check for stored preference (already saved, just validate)
-			if err := checkBackendVersionFunc(ctx, storedPref); err != nil {
-				return "", fmt.Errorf("stored backend '%s' version check failed: %w", storedPref, err)
+			if !opts.SkipVersionCheck {
+				if err := checkBackendVersionFunc(ctx, storedPref); err != nil {
+					return "", fmt.Errorf("stored backend '%s' version check failed: %w", storedPref, err)
+				}
 			}
 			return storedPref, nil
 		}
 		// 1b. Stale preference - prompt user before clearing
-		return handleStalePreference(ctx, storedPref, beforePrompt)
+		return handleStalePreference(ctx, storedPref, opts.BeforePrompt, opts.SkipVersionCheck)
 	}
 
 	// 2. Check binary availability (PATH only, no probing)
@@ -115,17 +133,20 @@ func DetectBackend(ctx context.Context, cliFlag string, beforePrompt func()) (st
 			return "", ErrBackendAmbiguous
 		}
 		// Stop any animations before prompting
-		if beforePrompt != nil {
-			beforePrompt()
+		if opts.BeforePrompt != nil {
+			opts.BeforePrompt()
 		}
 		choice = promptUserForBackendFunc()
 		userPrompted = true
 	}
 
 	// 3. Version check BEFORE saving - allows user to switch if version fails
-	choice, err := validateWithFallback(ctx, choice, brExists, bdExists, beforePrompt)
-	if err != nil {
-		return "", err
+	if !opts.SkipVersionCheck {
+		var err error
+		choice, err = validateWithFallback(ctx, choice, brExists, bdExists, opts.BeforePrompt)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// 4. Save validated choice
@@ -157,7 +178,7 @@ func checkBackendVersion(ctx context.Context, backend string) error {
 
 // handleStalePreference handles the case where stored preference points to
 // a binary that's no longer on PATH.
-func handleStalePreference(ctx context.Context, storedPref string, beforePrompt func()) (string, error) {
+func handleStalePreference(ctx context.Context, storedPref string, beforePrompt func(), skipVersionCheck bool) (string, error) {
 	// Determine which binary (if any) is available as alternative
 	other := BackendBd
 	if storedPref == BackendBd {
@@ -182,9 +203,11 @@ func handleStalePreference(ctx context.Context, storedPref string, beforePrompt 
 	// Prompt user: their configured backend is missing, offer to switch
 	fmt.Printf("This project is configured for '%s' but %s is not found in PATH.\n", storedPref, storedPref)
 	if confirmed := promptSwitchBackendFunc(other); confirmed {
-		// Version check BEFORE saving
-		if err := checkBackendVersionFunc(ctx, other); err != nil {
-			return "", fmt.Errorf("cannot switch to %s: %w", other, err)
+		// Version check BEFORE saving (unless skipped)
+		if !skipVersionCheck {
+			if err := checkBackendVersionFunc(ctx, other); err != nil {
+				return "", fmt.Errorf("cannot switch to %s: %w", other, err)
+			}
 		}
 		if err := configSaveBackendFunc(other); err != nil {
 			log.Printf("warning: could not save backend preference: %v", err)

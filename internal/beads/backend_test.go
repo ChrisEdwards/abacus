@@ -119,7 +119,7 @@ func TestDetectBackend_OnlyBr(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	got, err := DetectBackend(ctx, "", nil)
+	got, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err != nil {
 		t.Fatalf("DetectBackend() error = %v, want nil", err)
 	}
@@ -151,7 +151,7 @@ func TestDetectBackend_OnlyBd(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	got, err := DetectBackend(ctx, "", nil)
+	got, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err != nil {
 		t.Fatalf("DetectBackend() error = %v, want nil", err)
 	}
@@ -175,7 +175,7 @@ func TestDetectBackend_NeitherAvailable(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if !errors.Is(err, ErrNoBackendAvailable) {
 		t.Errorf("DetectBackend() error = %v, want %v", err, ErrNoBackendAvailable)
 	}
@@ -203,7 +203,7 @@ func TestDetectBackend_StoredPreference(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	got, err := DetectBackend(ctx, "", nil)
+	got, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err != nil {
 		t.Fatalf("DetectBackend() error = %v, want nil", err)
 	}
@@ -241,7 +241,7 @@ func TestDetectBackend_CLIFlagOverride(t *testing.T) {
 
 	ctx := context.Background()
 	// Pass --backend br flag, which should override stored "bd"
-	got, err := DetectBackend(ctx, "br", nil)
+	got, err := DetectBackend(ctx, DetectBackendOptions{CLIFlag: "br"})
 	if err != nil {
 		t.Fatalf("DetectBackend() error = %v, want nil", err)
 	}
@@ -259,7 +259,7 @@ func TestDetectBackend_CLIFlagInvalid(t *testing.T) {
 	defer restore()
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "invalid", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{CLIFlag: "invalid"})
 	if err == nil {
 		t.Error("DetectBackend() should error on invalid --backend value")
 	}
@@ -279,7 +279,7 @@ func TestDetectBackend_CLIFlagBinaryNotFound(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "br", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{CLIFlag: "br"})
 	if err == nil {
 		t.Error("DetectBackend() should error when --backend binary not found")
 	}
@@ -307,7 +307,7 @@ func TestDetectBackend_BothBinaries_NonTTY(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if !errors.Is(err, ErrBackendAmbiguous) {
 		t.Errorf("DetectBackend() error = %v, want %v", err, ErrBackendAmbiguous)
 	}
@@ -346,7 +346,7 @@ func TestDetectBackend_BothBinaries_Interactive(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	got, err := DetectBackend(ctx, "", nil)
+	got, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err != nil {
 		t.Fatalf("DetectBackend() error = %v, want nil", err)
 	}
@@ -394,7 +394,7 @@ func TestDetectBackend_StalePreference_SwitchAccepted(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	got, err := DetectBackend(ctx, "", nil)
+	got, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err != nil {
 		t.Fatalf("DetectBackend() error = %v, want nil", err)
 	}
@@ -432,7 +432,7 @@ func TestDetectBackend_StalePreference_SwitchDeclined(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err == nil {
 		t.Error("DetectBackend() should error when user declines switch")
 	}
@@ -463,7 +463,7 @@ func TestDetectBackend_StalePreference_NonTTY(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err == nil {
 		t.Error("DetectBackend() should error in non-TTY mode with stale preference")
 	}
@@ -490,7 +490,7 @@ func TestDetectBackend_StalePreference_NeitherAvailable(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err == nil {
 		t.Error("DetectBackend() should error when neither binary available")
 	}
@@ -539,7 +539,7 @@ func TestDetectBackend_VersionFallback_SwitchAccepted(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	got, err := DetectBackend(ctx, "", nil)
+	got, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err != nil {
 		t.Fatalf("DetectBackend() error = %v, want nil", err)
 	}
@@ -585,7 +585,7 @@ func TestDetectBackend_VersionFallback_SwitchDeclined(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err == nil {
 		t.Error("DetectBackend() should error when user declines version fallback")
 	}
@@ -613,7 +613,7 @@ func TestDetectBackend_VersionFallback_NoAlternative(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err == nil {
 		t.Error("DetectBackend() should error when version fails with no alternative")
 	}
@@ -643,7 +643,7 @@ func TestDetectBackend_VersionFallback_NonTTY(t *testing.T) {
 	// But if we had a stored preference, it would get to version check
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if !errors.Is(err, ErrBackendAmbiguous) {
 		t.Errorf("DetectBackend() error = %v, want %v", err, ErrBackendAmbiguous)
 	}
@@ -672,7 +672,7 @@ func TestDetectBackend_SaveError(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	got, err := DetectBackend(ctx, "", nil)
+	got, err := DetectBackend(ctx, DetectBackendOptions{})
 	// Save errors are logged but don't fail detection
 	if err != nil {
 		t.Fatalf("DetectBackend() error = %v, want nil (save errors are non-fatal)", err)
@@ -704,7 +704,7 @@ func TestDetectBackend_StoredPreference_VersionFails(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err == nil {
 		t.Error("DetectBackend() should error when stored preference version check fails")
 	}
@@ -799,7 +799,7 @@ func TestDetectBackend_CLIFlagVersionCheckFails(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "br", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{CLIFlag: "br"})
 	if err == nil {
 		t.Error("DetectBackend() should error when CLI flag version check fails")
 	}
@@ -849,7 +849,7 @@ func TestDetectBackend_VersionFallback_BdToBr(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	got, err := DetectBackend(ctx, "", nil)
+	got, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err != nil {
 		t.Fatalf("DetectBackend() error = %v, want nil", err)
 	}
@@ -893,7 +893,7 @@ func TestDetectBackend_VersionFallback_BothFail(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err == nil {
 		t.Error("DetectBackend() should error when both backends have version issues")
 	}
@@ -926,7 +926,7 @@ func TestDetectBackend_VersionFallback_NonTTY_OnlyOneBinary(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err == nil {
 		t.Error("DetectBackend() should error when version fails with no alternative in non-TTY")
 	}
@@ -965,7 +965,7 @@ func TestDetectBackend_VersionFallback_NonTTY_BothBinaries(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err == nil {
 		t.Error("DetectBackend() should error when stored preference version fails")
 	}
@@ -1006,11 +1006,145 @@ func TestDetectBackend_StalePreference_VersionCheckFailsOnAlternative(t *testing
 	}
 
 	ctx := context.Background()
-	_, err := DetectBackend(ctx, "", nil)
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err == nil {
 		t.Error("DetectBackend() should error when alternative version check fails")
 	}
 	if !strings.Contains(err.Error(), "cannot switch to bd") {
 		t.Errorf("error message should mention cannot switch, got: %v", err)
+	}
+}
+
+// =============================================================================
+// SkipVersionCheck Tests (ab-72oo)
+// =============================================================================
+
+// TestDetectBackend_SkipVersionCheck_RespectsStoredPreference tests that
+// SkipVersionCheck=true still respects the stored backend preference.
+func TestDetectBackend_SkipVersionCheck_RespectsStoredPreference(t *testing.T) {
+	restore := saveAndRestoreHooks(t)
+	defer restore()
+
+	// Mock: both binaries exist
+	commandExistsFunc = func(_ string) bool {
+		return true
+	}
+	// Mock: stored preference is "br"
+	configGetProjectStringFunc = func(key string) string {
+		if key == config.KeyBeadsBackend {
+			return "br"
+		}
+		return ""
+	}
+	// Mock: version check would fail (but should be skipped)
+	versionCheckCalled := false
+	checkBackendVersionFunc = func(_ context.Context, _ string) error {
+		versionCheckCalled = true
+		return errors.New("version too old - should not be called")
+	}
+
+	ctx := context.Background()
+	got, err := DetectBackend(ctx, DetectBackendOptions{SkipVersionCheck: true})
+	if err != nil {
+		t.Fatalf("DetectBackend() error = %v, want nil", err)
+	}
+	if got != BackendBr {
+		t.Errorf("DetectBackend() = %q, want %q (stored preference)", got, BackendBr)
+	}
+	if versionCheckCalled {
+		t.Error("version check should not be called when SkipVersionCheck=true")
+	}
+}
+
+// TestDetectBackend_SkipVersionCheck_CLIFlagStillWorks tests that
+// CLI flag override works even when SkipVersionCheck=true.
+func TestDetectBackend_SkipVersionCheck_CLIFlagStillWorks(t *testing.T) {
+	restore := saveAndRestoreHooks(t)
+	defer restore()
+
+	// Mock: both binaries exist
+	commandExistsFunc = func(_ string) bool {
+		return true
+	}
+	// Mock: stored preference is "bd"
+	configGetProjectStringFunc = func(key string) string {
+		if key == config.KeyBeadsBackend {
+			return "bd"
+		}
+		return ""
+	}
+	// Mock: version check would fail (but should be skipped)
+	checkBackendVersionFunc = func(_ context.Context, _ string) error {
+		return errors.New("version too old - should not be called")
+	}
+
+	ctx := context.Background()
+	// CLI flag "br" should override stored "bd"
+	got, err := DetectBackend(ctx, DetectBackendOptions{
+		CLIFlag:          "br",
+		SkipVersionCheck: true,
+	})
+	if err != nil {
+		t.Fatalf("DetectBackend() error = %v, want nil", err)
+	}
+	if got != BackendBr {
+		t.Errorf("DetectBackend() = %q, want %q (CLI flag override)", got, BackendBr)
+	}
+}
+
+// TestDetectBackend_SkipVersionCheck_AutoDetection tests that auto-detection
+// works when SkipVersionCheck=true and no preference is stored.
+func TestDetectBackend_SkipVersionCheck_AutoDetection(t *testing.T) {
+	restore := saveAndRestoreHooks(t)
+	defer restore()
+
+	// Mock: only br exists
+	commandExistsFunc = func(name string) bool {
+		return name == "br"
+	}
+	// Mock: no stored preference
+	configGetProjectStringFunc = func(_ string) string {
+		return ""
+	}
+	// Mock: version check would fail (but should be skipped)
+	checkBackendVersionFunc = func(_ context.Context, _ string) error {
+		return errors.New("version too old - should not be called")
+	}
+	// Mock: save succeeds
+	configSaveBackendFunc = func(_ string) error {
+		return nil
+	}
+
+	ctx := context.Background()
+	got, err := DetectBackend(ctx, DetectBackendOptions{SkipVersionCheck: true})
+	if err != nil {
+		t.Fatalf("DetectBackend() error = %v, want nil", err)
+	}
+	if got != BackendBr {
+		t.Errorf("DetectBackend() = %q, want %q (auto-detected)", got, BackendBr)
+	}
+}
+
+// TestDetectBackend_SkipVersionCheck_StillChecksBinaryExists tests that
+// SkipVersionCheck still validates the binary exists on PATH.
+func TestDetectBackend_SkipVersionCheck_StillChecksBinaryExists(t *testing.T) {
+	restore := saveAndRestoreHooks(t)
+	defer restore()
+
+	// Mock: br does not exist
+	commandExistsFunc = func(name string) bool {
+		return name != "br"
+	}
+
+	ctx := context.Background()
+	_, err := DetectBackend(ctx, DetectBackendOptions{
+		CLIFlag:          "br",
+		SkipVersionCheck: true,
+	})
+	if err == nil {
+		t.Error("DetectBackend() should error when CLI flag binary not found, even with SkipVersionCheck")
+	}
+	if !strings.Contains(err.Error(), "not found in PATH") {
+		t.Errorf("error message should mention PATH, got: %v", err)
 	}
 }
