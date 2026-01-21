@@ -743,3 +743,71 @@ func TestDetailViewHidesEmptyGraphLinks(t *testing.T) {
 		t.Fatalf("did not expect 'Superseded By' section when SupersededBy is nil:\n%s", content)
 	}
 }
+
+func TestDetailViewShowsCloseReason(t *testing.T) {
+	now := time.Now().Format(time.RFC3339)
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:          "ab-closed",
+			Title:       "Completed Feature",
+			Status:      "closed",
+			IssueType:   "task",
+			Priority:    2,
+			Description: "Some description here.",
+			CloseReason: "Work completed in commit abc123. All tests passing.",
+			CreatedAt:   now,
+			UpdatedAt:   now,
+			ClosedAt:    now,
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []graph.TreeRow{{Node: node}},
+		viewport:     viewport.New(90, 40),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	// Close Reason section should be present
+	if !strings.Contains(content, "Close Reason:") {
+		t.Fatalf("expected 'Close Reason' section for closed bead with reason:\n%s", content)
+	}
+	// The reason text should be visible
+	if !strings.Contains(content, "Work completed in commit abc123") {
+		t.Fatalf("expected close reason text in detail view:\n%s", content)
+	}
+}
+
+func TestDetailViewHidesEmptyCloseReason(t *testing.T) {
+	now := time.Now().Format(time.RFC3339)
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:          "ab-closed2",
+			Title:       "Closed Without Reason",
+			Status:      "closed",
+			IssueType:   "task",
+			Priority:    2,
+			Description: "Some description.",
+			CloseReason: "", // Empty - should not show section
+			CreatedAt:   now,
+			UpdatedAt:   now,
+			ClosedAt:    now,
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  []graph.TreeRow{{Node: node}},
+		viewport:     viewport.New(90, 40),
+		outputFormat: "plain",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	// Close Reason section should NOT be present when empty
+	if strings.Contains(content, "Close Reason:") {
+		t.Fatalf("did not expect 'Close Reason' section when CloseReason is empty:\n%s", content)
+	}
+}
