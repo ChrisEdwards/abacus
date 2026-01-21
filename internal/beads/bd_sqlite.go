@@ -164,7 +164,8 @@ func (c *bdSQLiteClient) Export(ctx context.Context) ([]FullIssue, error) {
 func loadBdIssues(ctx context.Context, db *sql.DB) (map[string]*FullIssue, []*FullIssue, error) {
 	const query = `SELECT id, title, description, design, acceptance_criteria, notes,
 		       status, priority, issue_type, COALESCE(assignee, ''),
-		       created_at, updated_at, COALESCE(closed_at, ''), COALESCE(external_ref, '')
+		       created_at, updated_at, COALESCE(closed_at, ''), COALESCE(external_ref, ''),
+		       COALESCE(close_reason, '')
 		FROM issues WHERE status != 'tombstone' AND (deleted_at IS NULL) ORDER BY created_at, id`
 
 	rows, err := db.QueryContext(ctx, query)
@@ -194,6 +195,7 @@ func loadBdIssues(ctx context.Context, db *sql.DB) (map[string]*FullIssue, []*Fu
 			&iss.UpdatedAt,
 			&iss.ClosedAt,
 			&iss.ExternalRef,
+			&iss.CloseReason,
 		)
 		if scanErr != nil {
 			return nil, nil, fmt.Errorf("scan issue: %w", scanErr)

@@ -42,7 +42,8 @@ func testBrDB(t *testing.T) string {
 			updated_at TEXT NOT NULL,
 			closed_at TEXT,
 			external_ref TEXT,
-			deleted_at TEXT
+			deleted_at TEXT,
+			close_reason TEXT DEFAULT ''
 		);
 
 		CREATE TABLE labels (
