@@ -204,9 +204,11 @@ func (m *App) updateViewportContent() {
 	relBlock := joinDetailSections(relSections...)
 
 	renderMarkdown := buildMarkdownRenderer(m.outputFormat, vpWidth-2)
-	descSections := []string{
-		renderContentSection("Description:", renderMarkdown(iss.Description)),
+	descSections := make([]string, 0, 5)
+	if strings.TrimSpace(iss.CloseReason) != "" {
+		descSections = append(descSections, renderContentSection("Close Reason:", renderMarkdown(iss.CloseReason)))
 	}
+	descSections = append(descSections, renderContentSection("Description:", renderMarkdown(iss.Description)))
 	if strings.TrimSpace(iss.Design) != "" {
 		descSections = append(descSections, renderContentSection("Design:", renderMarkdown(iss.Design)))
 	}
