@@ -262,6 +262,10 @@ func (c *brCLIClient) UpdateFull(ctx context.Context, issueID, title, issueType 
 		"--assignee", assignee, // Always pass to allow clearing (empty string clears)
 	}
 
+	if strings.TrimSpace(issueType) != "" {
+		args = append(args, "--type", issueType)
+	}
+
 	// br only accepts a single --set-labels flag with comma-separated values
 	// (unlike bd which accepts multiple flags). See upstream issue:
 	// https://github.com/Dicklesworthstone/beads_rust/issues/17

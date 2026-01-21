@@ -254,7 +254,6 @@ func (c *bdCLIClient) UpdateFull(ctx context.Context, issueID, title, issueType 
 	if strings.TrimSpace(title) == "" {
 		return fmt.Errorf("title is required for update")
 	}
-	// issueType is currently not configurable via `bd update`; keep parameter for future compatibility.
 
 	args := []string{
 		"update",
@@ -263,6 +262,10 @@ func (c *bdCLIClient) UpdateFull(ctx context.Context, issueID, title, issueType 
 		"--description", description,
 		"--priority", fmt.Sprintf("%d", priority),
 		"--assignee", assignee, // Always pass to allow clearing (empty string clears)
+	}
+
+	if strings.TrimSpace(issueType) != "" {
+		args = append(args, "--type", issueType)
 	}
 
 	if len(labels) > 0 {
