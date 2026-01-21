@@ -1188,3 +1188,57 @@ func TestSortNodesClosedItemsReverseChronological(t *testing.T) {
 		}
 	}
 }
+
+func TestSortNodesMixedStatusWithClosedReverseChronological(t *testing.T) {
+	// Verify that:
+	// 1. Open items still come before closed items
+	// 2. Open items are sorted oldest-first (ascending)
+	// 3. Closed items are sorted newest-first (descending)
+	openOld := &Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-open-old",
+			Status:    "open",
+			CreatedAt: "2024-01-01T00:00:00Z",
+		},
+	}
+	openNew := &Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-open-new",
+			Status:    "open",
+			CreatedAt: "2024-02-01T00:00:00Z",
+		},
+	}
+	closedOld := &Node{
+		Issue: beads.FullIssue{
+			ID:       "ab-closed-old",
+			Status:   "closed",
+			ClosedAt: "2024-01-15T00:00:00Z",
+		},
+	}
+	closedNew := &Node{
+		Issue: beads.FullIssue{
+			ID:       "ab-closed-new",
+			Status:   "closed",
+			ClosedAt: "2024-02-15T00:00:00Z",
+		},
+	}
+
+	parent := &Node{
+		Issue:    beads.FullIssue{ID: "ab-parent", Status: "open", CreatedAt: "2024-01-01T00:00:00Z"},
+		Children: []*Node{closedOld, openNew, closedNew, openOld},
+	}
+
+	computeSortMetrics(parent)
+
+	// Expected: open items first (oldest first), then closed items (newest first)
+	wantOrder := []string{"ab-open-old", "ab-open-new", "ab-closed-new", "ab-closed-old"}
+	for i, want := range wantOrder {
+		if parent.Children[i].Issue.ID != want {
+			got := make([]string, len(parent.Children))
+			for j, c := range parent.Children {
+				got[j] = c.Issue.ID
+			}
+			t.Fatalf("mixed status order mismatch: got %v, want %v", got, wantOrder)
+		}
+	}
+}
