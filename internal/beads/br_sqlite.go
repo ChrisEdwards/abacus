@@ -63,7 +63,12 @@ func deriveWorkDirFromDBPath(dbPath string) string {
 			// Found .beads, return its parent as the workspace root
 			return filepath.Dir(dir)
 		}
-		dir = filepath.Dir(dir)
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached filesystem root (e.g., "/" on Unix, "C:\" on Windows)
+			break
+		}
+		dir = parent
 	}
 	return ""
 }

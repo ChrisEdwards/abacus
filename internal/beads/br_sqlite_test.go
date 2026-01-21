@@ -677,6 +677,10 @@ func TestDeriveWorkDirFromDBPath(t *testing.T) {
 			expected: "/path/to/project",
 		},
 		{
+			// This case previously caused infinite loops on Windows because
+			// filepath.Dir("C:\") returns "C:\" (unchanged), and the loop only
+			// checked for "/" and "." as terminators. Fixed by detecting when
+			// filepath.Dir returns the same value (filesystem root reached).
 			name:     "no .beads in path",
 			dbPath:   "/path/to/some/beads.db",
 			expected: "",
