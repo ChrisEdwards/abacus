@@ -1144,3 +1144,47 @@ func TestSortOrderBlockedDeferredClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestSortNodesClosedItemsReverseChronological(t *testing.T) {
+	// Closed items should appear in reverse chronological order (most recently closed first)
+	closedOld := &Node{
+		Issue: beads.FullIssue{
+			ID:       "ab-old",
+			Status:   "closed",
+			ClosedAt: "2024-01-01T00:00:00Z",
+		},
+	}
+	closedMid := &Node{
+		Issue: beads.FullIssue{
+			ID:       "ab-mid",
+			Status:   "closed",
+			ClosedAt: "2024-02-01T00:00:00Z",
+		},
+	}
+	closedNew := &Node{
+		Issue: beads.FullIssue{
+			ID:       "ab-new",
+			Status:   "closed",
+			ClosedAt: "2024-03-01T00:00:00Z",
+		},
+	}
+
+	parent := &Node{
+		Issue:    beads.FullIssue{ID: "ab-parent", Status: "open", CreatedAt: "2024-01-01T00:00:00Z"},
+		Children: []*Node{closedOld, closedNew, closedMid},
+	}
+
+	computeSortMetrics(parent)
+
+	// Expected: most recently closed first (reverse chronological)
+	wantOrder := []string{"ab-new", "ab-mid", "ab-old"}
+	for i, want := range wantOrder {
+		if parent.Children[i].Issue.ID != want {
+			got := make([]string, len(parent.Children))
+			for j, c := range parent.Children {
+				got[j] = c.Issue.ID
+			}
+			t.Fatalf("closed items order mismatch: got %v, want %v", got, wantOrder)
+		}
+	}
+}
