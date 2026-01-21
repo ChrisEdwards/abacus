@@ -191,6 +191,40 @@ func TestSortBlockers(t *testing.T) {
 	})
 }
 
+func TestSortBlockersClosedReverseChronological(t *testing.T) {
+	t.Run("closedBlockersNewestFirst", func(t *testing.T) {
+		// Use IDs where alphabetical order differs from chronological order
+		// ab-aaa is alphabetically first but closed earlier
+		// ab-zzz is alphabetically last but closed more recently
+		closedOld := &graph.Node{
+			Issue: beads.FullIssue{
+				ID:       "ab-aaa",
+				Status:   "closed",
+				ClosedAt: "2024-01-01T00:00:00Z",
+			},
+		}
+		closedNew := &graph.Node{
+			Issue: beads.FullIssue{
+				ID:       "ab-zzz",
+				Status:   "closed",
+				ClosedAt: "2024-02-01T00:00:00Z",
+			},
+		}
+
+		input := []*graph.Node{closedOld, closedNew}
+		result := sortBlockers(input)
+
+		// Expected: most recently closed first (among closed items)
+		// ab-zzz (newer) should come before ab-aaa (older)
+		expected := []string{"ab-zzz", "ab-aaa"}
+		for i, id := range expected {
+			if result[i].Issue.ID != id {
+				t.Fatalf("position %d: expected %s, got %s", i, id, result[i].Issue.ID)
+			}
+		}
+	})
+}
+
 func TestSortSubtasksClosedReverseChronological(t *testing.T) {
 	t.Run("closedItemsNewestFirst", func(t *testing.T) {
 		closedOld := &graph.Node{
