@@ -682,12 +682,13 @@ func TestDetectBackend_SaveError(t *testing.T) {
 	}
 }
 
-// TestDetectBackend_StoredPreference_VersionFails tests stored preference with version failure.
-func TestDetectBackend_StoredPreference_VersionFails(t *testing.T) {
+// TestDetectBackend_StoredPreference_VersionFails_NoAlternative tests stored preference
+// with version failure and no alternative backend available.
+func TestDetectBackend_StoredPreference_VersionFails_NoAlternative(t *testing.T) {
 	restore := saveAndRestoreHooks(t)
 	defer restore()
 
-	// Mock: br exists
+	// Mock: only br exists (no alternative)
 	commandExistsFunc = func(name string) bool {
 		return name == "br"
 	}
@@ -706,10 +707,144 @@ func TestDetectBackend_StoredPreference_VersionFails(t *testing.T) {
 	ctx := context.Background()
 	_, err := DetectBackend(ctx, DetectBackendOptions{})
 	if err == nil {
-		t.Error("DetectBackend() should error when stored preference version check fails")
+		t.Error("DetectBackend() should error when stored preference version fails with no alternative")
 	}
-	if !strings.Contains(err.Error(), "version check failed") {
-		t.Errorf("error message should mention version check failed, got: %v", err)
+	if !strings.Contains(err.Error(), "no alternative backend available") {
+		t.Errorf("error message should mention no alternative, got: %v", err)
+	}
+}
+
+// TestDetectBackend_StoredPreference_VersionFails_FallbackAccepted tests stored preference
+// with version failure where user accepts fallback to alternative backend.
+func TestDetectBackend_StoredPreference_VersionFails_FallbackAccepted(t *testing.T) {
+	restore := saveAndRestoreHooks(t)
+	defer restore()
+
+	// Mock: both binaries exist
+	commandExistsFunc = func(_ string) bool {
+		return true
+	}
+	// Mock: stored preference is "br"
+	configGetProjectStringFunc = func(key string) string {
+		if key == config.KeyBeadsBackend {
+			return "br"
+		}
+		return ""
+	}
+	// Mock: is a TTY
+	isInteractiveTTYFunc = func() bool {
+		return true
+	}
+	// Mock: br version check fails, bd passes
+	checkBackendVersionFunc = func(_ context.Context, backend string) error {
+		if backend == "br" {
+			return errors.New("version too old")
+		}
+		return nil
+	}
+	// Mock: user accepts switch to bd
+	promptSwitchBackendFunc = func(_ string) bool {
+		return true
+	}
+	// Mock: save succeeds
+	var savedBackend string
+	configSaveBackendFunc = func(backend string) error {
+		savedBackend = backend
+		return nil
+	}
+
+	ctx := context.Background()
+	got, err := DetectBackend(ctx, DetectBackendOptions{})
+	if err != nil {
+		t.Fatalf("DetectBackend() error = %v, want nil", err)
+	}
+	if got != BackendBd {
+		t.Errorf("DetectBackend() = %q, want %q (after fallback)", got, BackendBd)
+	}
+	if savedBackend != BackendBd {
+		t.Errorf("saved backend = %q, want %q", savedBackend, BackendBd)
+	}
+}
+
+// TestDetectBackend_StoredPreference_VersionFails_FallbackDeclined tests stored preference
+// with version failure where user declines fallback.
+func TestDetectBackend_StoredPreference_VersionFails_FallbackDeclined(t *testing.T) {
+	restore := saveAndRestoreHooks(t)
+	defer restore()
+
+	// Mock: both binaries exist
+	commandExistsFunc = func(_ string) bool {
+		return true
+	}
+	// Mock: stored preference is "br"
+	configGetProjectStringFunc = func(key string) string {
+		if key == config.KeyBeadsBackend {
+			return "br"
+		}
+		return ""
+	}
+	// Mock: is a TTY
+	isInteractiveTTYFunc = func() bool {
+		return true
+	}
+	// Mock: br version check fails
+	checkBackendVersionFunc = func(_ context.Context, backend string) error {
+		if backend == "br" {
+			return errors.New("version too old")
+		}
+		return nil
+	}
+	// Mock: user declines switch
+	promptSwitchBackendFunc = func(_ string) bool {
+		return false
+	}
+
+	ctx := context.Background()
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
+	if err == nil {
+		t.Error("DetectBackend() should error when user declines fallback")
+	}
+	if !strings.Contains(err.Error(), "user declined switch") {
+		t.Errorf("error message should mention user declined, got: %v", err)
+	}
+}
+
+// TestDetectBackend_StoredPreference_VersionFails_NonTTY tests stored preference
+// with version failure in non-TTY mode (can't prompt for fallback).
+func TestDetectBackend_StoredPreference_VersionFails_NonTTY(t *testing.T) {
+	restore := saveAndRestoreHooks(t)
+	defer restore()
+
+	// Mock: both binaries exist
+	commandExistsFunc = func(_ string) bool {
+		return true
+	}
+	// Mock: stored preference is "br"
+	configGetProjectStringFunc = func(key string) string {
+		if key == config.KeyBeadsBackend {
+			return "br"
+		}
+		return ""
+	}
+	// Mock: not a TTY
+	isInteractiveTTYFunc = func() bool {
+		return false
+	}
+	// Mock: br version check fails
+	checkBackendVersionFunc = func(_ context.Context, backend string) error {
+		if backend == "br" {
+			return errors.New("version too old")
+		}
+		return nil
+	}
+
+	ctx := context.Background()
+	_, err := DetectBackend(ctx, DetectBackendOptions{})
+	if err == nil {
+		t.Error("DetectBackend() should error in non-TTY mode when version fails")
+	}
+	if !strings.Contains(err.Error(), "use --backend") {
+		t.Errorf("error message should mention --backend override, got: %v", err)
 	}
 }
 
@@ -937,6 +1072,7 @@ func TestDetectBackend_VersionFallback_NonTTY_OnlyOneBinary(t *testing.T) {
 
 // TestDetectBackend_VersionFallback_NonTTY_BothBinaries tests version failure
 // in non-TTY mode when both binaries exist (can't prompt for fallback).
+// With fallback behavior, this should suggest using --backend flag.
 func TestDetectBackend_VersionFallback_NonTTY_BothBinaries(t *testing.T) {
 	restore := saveAndRestoreHooks(t)
 	defer restore()
@@ -969,8 +1105,9 @@ func TestDetectBackend_VersionFallback_NonTTY_BothBinaries(t *testing.T) {
 	if err == nil {
 		t.Error("DetectBackend() should error when stored preference version fails")
 	}
-	if !strings.Contains(err.Error(), "version check failed") {
-		t.Errorf("error message should mention version check failed, got: %v", err)
+	// With fallback behavior, error should suggest using --backend flag
+	if !strings.Contains(err.Error(), "use --backend") {
+		t.Errorf("error message should mention --backend override, got: %v", err)
 	}
 }
 

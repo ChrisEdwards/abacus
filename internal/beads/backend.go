@@ -102,10 +102,32 @@ func DetectBackend(ctx context.Context, opts DetectBackendOptions) (string, erro
 	if storedPref != "" {
 		// Verify the stored preference is still valid (binary exists)
 		if commandExistsFunc(storedPref) {
-			// Version check for stored preference (already saved, just validate)
+			// Version check for stored preference with fallback to alternative
 			if !opts.SkipVersionCheck {
 				if err := checkBackendVersionFunc(ctx, storedPref); err != nil {
-					return "", fmt.Errorf("stored backend '%s' version check failed: %w", storedPref, err)
+					// Version failed - check if alternative exists and offer fallback
+					other := BackendBd
+					if storedPref == BackendBd {
+						other = BackendBr
+					}
+					otherExists := commandExistsFunc(other)
+
+					validated, fallbackErr := validateWithFallback(
+						ctx, storedPref,
+						other == BackendBr && otherExists, // brExists
+						other == BackendBd && otherExists, // bdExists
+						opts.BeforePrompt,
+					)
+					if fallbackErr != nil {
+						return "", fallbackErr
+					}
+					// User switched - save the new preference
+					if validated != storedPref {
+						if saveErr := configSaveBackendFunc(validated); saveErr != nil {
+							log.Printf("warning: could not save backend preference: %v", saveErr)
+						}
+					}
+					return validated, nil
 				}
 			}
 			return storedPref, nil
