@@ -400,6 +400,38 @@ func TestExtractJSON(t *testing.T) {
 			t.Errorf("expected JSON with backslash escapes, got: %s", result)
 		}
 	})
+
+	t.Run("HandlesEmptyStringValues", func(t *testing.T) {
+		input := []byte(`{"empty":"","id":"ab-123"}`)
+		result := extractJSON(input)
+		if string(result) != `{"empty":"","id":"ab-123"}` {
+			t.Errorf("expected JSON with empty string, got: %s", result)
+		}
+	})
+
+	t.Run("HandlesUnicodeEscapes", func(t *testing.T) {
+		input := []byte(`{"emoji":"\u263A","id":"ab-123"}`)
+		result := extractJSON(input)
+		if string(result) != `{"emoji":"\u263A","id":"ab-123"}` {
+			t.Errorf("expected JSON with unicode escape, got: %s", result)
+		}
+	})
+
+	t.Run("SkipsInvalidJSONToFindValid", func(t *testing.T) {
+		input := []byte("{invalid json here}{\"id\":\"ab-123\"}")
+		result := extractJSON(input)
+		if string(result) != `{"id":"ab-123"}` {
+			t.Errorf("expected to skip invalid and find valid JSON, got: %s", result)
+		}
+	})
+
+	t.Run("HandlesArraysInValues", func(t *testing.T) {
+		input := []byte(`{"tags":["one","two"],"id":"ab-123"}`)
+		result := extractJSON(input)
+		if string(result) != `{"tags":["one","two"],"id":"ab-123"}` {
+			t.Errorf("expected JSON with array, got: %s", result)
+		}
+	})
 }
 
 func TestCLIClient_CreateFull_HandlesOutputWithPrefix(t *testing.T) {
