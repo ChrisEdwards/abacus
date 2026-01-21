@@ -16,6 +16,7 @@ package ui
 
 import (
 	"sort"
+	"time"
 
 	"abacus/internal/graph"
 )
@@ -61,6 +62,18 @@ func countOpenBlockers(n *graph.Node) int {
 	return count
 }
 
+// parseClosedAt parses the ClosedAt timestamp, returning zero time if unparseable
+func parseClosedAt(n *graph.Node) time.Time {
+	if n.Issue.ClosedAt == "" {
+		return time.Time{}
+	}
+	t, err := time.Parse(time.RFC3339, n.Issue.ClosedAt)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
 // sortSubtasks orders children: in_progress → ready (unblocking others first) → blocked → closed
 func sortSubtasks(nodes []*graph.Node) []*graph.Node {
 	if len(nodes) <= 1 {
@@ -94,6 +107,15 @@ func sortSubtasks(nodes []*graph.Node) []*graph.Node {
 			openBlockersJ := countOpenBlockers(result[j])
 			if openBlockersI != openBlockersJ {
 				return openBlockersI < openBlockersJ // Fewer blockers = higher priority
+			}
+		}
+
+		// Secondary within closed: reverse chronological (most recent first)
+		if catI == statusClosed {
+			closedI := parseClosedAt(result[i])
+			closedJ := parseClosedAt(result[j])
+			if !closedI.IsZero() && !closedJ.IsZero() && !closedI.Equal(closedJ) {
+				return closedI.After(closedJ) // More recent = higher priority
 			}
 		}
 
