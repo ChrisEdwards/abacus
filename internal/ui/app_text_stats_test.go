@@ -281,6 +281,58 @@ func TestGetStats(t *testing.T) {
 			t.Fatalf("expected 3 ready (all open, not blocked), got %d", stats.Ready)
 		}
 	})
+
+	t.Run("unknownStatusNotCountedAsReady", func(t *testing.T) {
+		// Unknown statuses (like "pinned" from br backend) should not inflate Ready count.
+		// They are counted in Total but not in any bucket, matching view-mode behavior
+		// where IsReady() requires status == StatusOpen.
+		ready := &graph.Node{Issue: beads.FullIssue{ID: "ab-ready", Title: "Ready Task", Status: "open"}}
+		pinned := &graph.Node{Issue: beads.FullIssue{ID: "ab-pinned", Title: "Pinned Task", Status: "pinned"}}
+		unknown := &graph.Node{Issue: beads.FullIssue{ID: "ab-weird", Title: "Weird Status", Status: "weird_status"}}
+		inProgress := &graph.Node{Issue: beads.FullIssue{ID: "ab-wip", Title: "WIP Task", Status: "in_progress"}}
+
+		m := App{
+			roots: []*graph.Node{ready, pinned, unknown, inProgress},
+		}
+
+		stats := m.getStats()
+		// Total includes all 4 items
+		if stats.Total != 4 {
+			t.Fatalf("expected total 4, got %d", stats.Total)
+		}
+		// Only the explicitly "open" item should count as Ready
+		if stats.Ready != 1 {
+			t.Fatalf("expected 1 ready (unknown statuses excluded), got %d", stats.Ready)
+		}
+		if stats.InProgress != 1 {
+			t.Fatalf("expected 1 in-progress, got %d", stats.InProgress)
+		}
+		// pinned and weird_status are in Total but not in any bucket
+		// Total (4) = Ready (1) + InProgress (1) + unknown (2)
+	})
+
+	t.Run("unknownStatusBlockedCountedAsBlocked", func(t *testing.T) {
+		// Even with unknown status, if IsBlocked is true, count as Blocked
+		blockedUnknown := &graph.Node{
+			Issue:     beads.FullIssue{ID: "ab-blocked-pinned", Title: "Blocked Pinned", Status: "pinned"},
+			IsBlocked: true,
+		}
+
+		m := App{
+			roots: []*graph.Node{blockedUnknown},
+		}
+
+		stats := m.getStats()
+		if stats.Total != 1 {
+			t.Fatalf("expected total 1, got %d", stats.Total)
+		}
+		if stats.Blocked != 1 {
+			t.Fatalf("expected 1 blocked, got %d", stats.Blocked)
+		}
+		if stats.Ready != 0 {
+			t.Fatalf("expected 0 ready, got %d", stats.Ready)
+		}
+	})
 }
 
 func captureColumnConfig(t *testing.T) func() {

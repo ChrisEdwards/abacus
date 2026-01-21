@@ -56,13 +56,16 @@ func (m *App) getStats() Stats {
 			if matches {
 				s.Total++
 				if err != nil {
+					// Fallback for unknown statuses (e.g., "pinned" from br backend).
+					// Only count as Ready if explicitly "open" to match IsReady() semantics.
+					// Unknown statuses are counted in Total but not in any bucket.
 					if n.Issue.Status == "in_progress" {
 						s.InProgress++
 					} else if n.Issue.Status == "closed" {
 						s.Closed++
 					} else if n.IsBlocked {
 						s.Blocked++
-					} else {
+					} else if n.Issue.Status == "open" {
 						s.Ready++
 					}
 				} else {
