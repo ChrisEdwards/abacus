@@ -58,17 +58,14 @@ var (
 
 	// promptSwitchBackendFunc is used for interactive switch confirmation.
 	promptSwitchBackendFunc = promptSwitchBackend
-
-	// BeforePromptHook is called before any interactive prompt during backend detection.
-	// This allows callers (like main.go) to stop animations before user input is requested.
-	// Set to nil to disable (default).
-	BeforePromptHook func()
 )
 
 // DetectBackend determines which backend (bd or br) to use.
 // cliFlag is the value of --backend flag (empty if not provided).
+// beforePrompt is called before any interactive prompt (e.g., to stop animations).
+// Pass nil if no pre-prompt callback is needed.
 // Returns the backend name ("bd" or "br") or an error if detection fails.
-func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
+func DetectBackend(ctx context.Context, cliFlag string, beforePrompt func()) (string, error) {
 	// 0. CLI flag override (highest priority, one-time, no save)
 	if cliFlag != "" {
 		if cliFlag != BackendBd && cliFlag != BackendBr {
@@ -96,7 +93,7 @@ func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
 			return storedPref, nil
 		}
 		// 1b. Stale preference - prompt user before clearing
-		return handleStalePreference(ctx, storedPref)
+		return handleStalePreference(ctx, storedPref, beforePrompt)
 	}
 
 	// 2. Check binary availability (PATH only, no probing)
@@ -118,15 +115,15 @@ func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
 			return "", ErrBackendAmbiguous
 		}
 		// Stop any animations before prompting
-		if BeforePromptHook != nil {
-			BeforePromptHook()
+		if beforePrompt != nil {
+			beforePrompt()
 		}
 		choice = promptUserForBackendFunc()
 		userPrompted = true
 	}
 
 	// 3. Version check BEFORE saving - allows user to switch if version fails
-	choice, err := validateWithFallback(ctx, choice, brExists, bdExists)
+	choice, err := validateWithFallback(ctx, choice, brExists, bdExists, beforePrompt)
 	if err != nil {
 		return "", err
 	}
@@ -160,7 +157,7 @@ func checkBackendVersion(ctx context.Context, backend string) error {
 
 // handleStalePreference handles the case where stored preference points to
 // a binary that's no longer on PATH.
-func handleStalePreference(ctx context.Context, storedPref string) (string, error) {
+func handleStalePreference(ctx context.Context, storedPref string, beforePrompt func()) (string, error) {
 	// Determine which binary (if any) is available as alternative
 	other := BackendBd
 	if storedPref == BackendBd {
@@ -178,8 +175,8 @@ func handleStalePreference(ctx context.Context, storedPref string) (string, erro
 	}
 
 	// Stop any animations before prompting
-	if BeforePromptHook != nil {
-		BeforePromptHook()
+	if beforePrompt != nil {
+		beforePrompt()
 	}
 
 	// Prompt user: their configured backend is missing, offer to switch
@@ -201,7 +198,7 @@ func handleStalePreference(ctx context.Context, storedPref string) (string, erro
 
 // validateWithFallback validates the chosen backend's version and offers
 // to switch to the alternative if validation fails.
-func validateWithFallback(ctx context.Context, choice string, brExists, bdExists bool) (string, error) {
+func validateWithFallback(ctx context.Context, choice string, brExists, bdExists bool, beforePrompt func()) (string, error) {
 	if err := checkBackendVersionFunc(ctx, choice); err == nil {
 		return choice, nil // Version check passed
 	}
@@ -223,8 +220,8 @@ func validateWithFallback(ctx context.Context, choice string, brExists, bdExists
 	}
 
 	// Stop any animations before prompting
-	if BeforePromptHook != nil {
-		BeforePromptHook()
+	if beforePrompt != nil {
+		beforePrompt()
 	}
 
 	// Offer to switch to the other backend

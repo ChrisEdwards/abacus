@@ -110,19 +110,16 @@ func main() {
 	// DetectBackend validates versions, so we skip the old version check if detection succeeds.
 	var detectedBackend string
 	if !skipVersionCheck {
+		// Build callback to stop spinner before any user prompts
+		var beforePrompt func()
 		if startup != nil {
 			startup.Stage(ui.StartupStageVersionCheck, "Detecting backend...")
-			// Set hook to stop spinner before any user prompts
-			beads.BeforePromptHook = func() {
-				startup.Stop()
-			}
+			beforePrompt = func() { startup.Stop() }
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), versionCheckTimeout)
 		var err error
-		detectedBackend, err = beads.DetectBackend(ctx, runtime.backend)
+		detectedBackend, err = beads.DetectBackend(ctx, runtime.backend, beforePrompt)
 		cancel()
-		// Clear the hook after detection
-		beads.BeforePromptHook = nil
 		if err != nil {
 			if startup != nil {
 				startup.Stop()
