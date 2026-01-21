@@ -99,6 +99,7 @@ func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
 	bdExists := commandExistsFunc(BackendBd)
 
 	var choice string
+	var userPrompted bool
 	switch {
 	case !brExists && !bdExists:
 		return "", ErrNoBackendAvailable
@@ -112,6 +113,7 @@ func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
 			return "", ErrBackendAmbiguous
 		}
 		choice = promptUserForBackendFunc()
+		userPrompted = true
 	}
 
 	// 3. Version check BEFORE saving - allows user to switch if version fails
@@ -126,6 +128,8 @@ func DetectBackend(ctx context.Context, cliFlag string) (string, error) {
 	// defense-in-depth. Log warning but continue since detection succeeded.
 	if err := configSaveBackendFunc(choice); err != nil {
 		log.Printf("warning: could not save backend preference: %v", err)
+	} else if userPrompted {
+		fmt.Println("Saved to .abacus/config.yaml - edit beads.backend to change later.")
 	}
 
 	return choice, nil
@@ -235,7 +239,6 @@ func promptUserForBackend() string {
 		return BackendBr
 	}
 
-	fmt.Println("Saved to .abacus/config.yaml - edit beads.backend to change later.")
 	return choice
 }
 
