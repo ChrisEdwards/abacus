@@ -62,7 +62,7 @@ func (m *App) recalcVisibleRows() {
 	m.visibleRows = []graph.TreeRow{}
 	filterLower := strings.ToLower(m.filterText)
 	// Compute filter evaluation when EITHER text filter OR ViewMode is active
-	filterActive := filterLower != "" || m.viewMode != ViewModeAll
+	filterActive := m.isFilterActive()
 
 	if filterActive {
 		m.filterEval = m.computeFilterEval(filterLower)
