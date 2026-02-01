@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Epic expand/collapse in filtered views**: Expand/collapse toggle now works correctly when Active or Ready view mode is active. Previously, the triangle indicator would toggle visually but children wouldn't actually collapse because filter override state wasn't tracked for view mode filters.
+
 ## [0.8.0] - 2026-01-21
 
 ### Added
