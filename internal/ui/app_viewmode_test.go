@@ -156,6 +156,52 @@ func TestViewModePreservesTreeHierarchy(t *testing.T) {
 	}
 }
 
+func TestViewModeActiveAllowsManualCollapseOfMatchingParent(t *testing.T) {
+	openChild := &graph.Node{
+		Issue: beads.FullIssue{ID: "ab-child", Title: "Open Child", Status: "open"},
+	}
+	deferredParent := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-parent", Title: "Deferred Parent", Status: "deferred"},
+		Children: []*graph.Node{openChild},
+		Expanded: true,
+	}
+	openChild.Parent = deferredParent
+
+	app := &App{
+		roots:    []*graph.Node{deferredParent},
+		viewMode: ViewModeActive,
+		keys:     DefaultKeyMap(),
+	}
+
+	// Active mode keeps parent visible because child matches.
+	app.recalcVisibleRows()
+	if len(app.visibleRows) != 2 {
+		t.Fatalf("expected 2 visible rows before collapse, got %d", len(app.visibleRows))
+	}
+
+	parentRow := app.visibleRows[0]
+	if parentRow.Node.Issue.ID != "ab-parent" {
+		t.Fatalf("expected parent at row 0, got %s", parentRow.Node.Issue.ID)
+	}
+
+	// Manual collapse must override auto-expanded filter behavior.
+	app.collapseNodeForView(parentRow)
+	app.recalcVisibleRows()
+	if len(app.visibleRows) != 1 {
+		t.Fatalf("expected only parent visible after collapse, got %d rows", len(app.visibleRows))
+	}
+	if app.visibleRows[0].Node.Issue.ID != "ab-parent" {
+		t.Fatalf("expected parent to remain visible after collapse, got %s", app.visibleRows[0].Node.Issue.ID)
+	}
+
+	// Manual expand restores child visibility.
+	app.expandNodeForView(app.visibleRows[0])
+	app.recalcVisibleRows()
+	if len(app.visibleRows) != 2 {
+		t.Fatalf("expected parent and child visible after re-expand, got %d rows", len(app.visibleRows))
+	}
+}
+
 func TestViewModeReadyPreservesTreeHierarchy(t *testing.T) {
 	// Child is ready (open + not blocked), parent is closed
 	// ViewModeReady should show BOTH (parent shown because child matches)

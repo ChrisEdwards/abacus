@@ -41,7 +41,7 @@ func (m *App) isNodeExpandedInView(row graph.TreeRow) bool {
 		key := treeRowKey(parentID, node.Issue.ID)
 		if expanded, ok := m.expandedInstances[key]; ok {
 			// When filtering, also check filter overrides
-			if m.filterText != "" {
+			if m.hasActiveFilterContext() {
 				if m.filterCollapsed != nil && m.filterCollapsed[node.Issue.ID] {
 					return false
 				}
@@ -54,7 +54,7 @@ func (m *App) isNodeExpandedInView(row graph.TreeRow) bool {
 		// Fall back to Node.Expanded if no per-instance state set yet
 	}
 
-	if m.filterText == "" {
+	if !m.hasActiveFilterContext() {
 		return node.Expanded
 	}
 	hasMatchingChild := false
@@ -120,7 +120,7 @@ func (m *App) expandNodeForView(row graph.TreeRow) {
 		node.Expanded = true
 	}
 
-	if m.filterText == "" {
+	if !m.hasActiveFilterContext() {
 		return
 	}
 	id := node.Issue.ID
@@ -155,7 +155,7 @@ func (m *App) collapseNodeForView(row graph.TreeRow) {
 		node.Expanded = false
 	}
 
-	if m.filterText == "" {
+	if !m.hasActiveFilterContext() {
 		return
 	}
 	id := node.Issue.ID

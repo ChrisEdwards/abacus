@@ -7,6 +7,12 @@ import (
 	"abacus/internal/graph"
 )
 
+// hasActiveFilterContext reports whether tree rows are being filtered either by
+// text search or by non-default view mode.
+func (m *App) hasActiveFilterContext() bool {
+	return m.filterText != "" || m.viewMode != ViewModeAll
+}
+
 func nodeMatchesFilter(filterLower string, node *graph.Node) bool {
 	if filterLower == "" {
 		return true
