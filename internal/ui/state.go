@@ -58,6 +58,42 @@ func clampDimension(value, minValue, maxValue int) int {
 	return value
 }
 
+// treePaneHeight returns the effective height for the tree list content, accounting for split direction.
+func (m *App) treePaneHeight() int {
+	fullHeight := clampDimension(m.height-4, minListHeight, m.height-2)
+	if m.ShowDetails && m.splitVertical {
+		topHeight := fullHeight - m.viewport.Height - 2
+		if topHeight < minListHeight {
+			topHeight = minListHeight
+		}
+		return topHeight
+	}
+	return fullHeight
+}
+
+// recalcViewportSize updates viewport dimensions based on the current split direction.
+func (m *App) recalcViewportSize() {
+	if m.splitVertical {
+		// Vertical split: full width, height split between list and detail
+		rawViewportWidth := m.width - 4
+		m.viewport.Width = clampDimension(rawViewportWidth, minViewportWidth, m.width-2)
+
+		// Detail pane gets ~60% of available height (after header + footer)
+		availableHeight := m.height - 4
+		rawViewportHeight := int(float64(availableHeight) * 0.6)
+		m.viewport.Height = clampDimension(rawViewportHeight, minViewportHeight, availableHeight-minListHeight)
+	} else {
+		// Horizontal split (default): side by side
+		rawViewportWidth := int(float64(m.width)*0.45) - 2
+		maxViewportWidth := m.width - minTreeWidth - 4
+		m.viewport.Width = clampDimension(rawViewportWidth, minViewportWidth, maxViewportWidth)
+
+		rawViewportHeight := m.height - 5
+		maxViewportHeight := m.height - 2
+		m.viewport.Height = clampDimension(rawViewportHeight, minViewportHeight, maxViewportHeight)
+	}
+}
+
 func (m *App) recalcVisibleRows() {
 	m.visibleRows = []graph.TreeRow{}
 	filterLower := strings.ToLower(m.filterText)

@@ -134,16 +134,16 @@ func TestFooterNarrowTerminal(t *testing.T) {
 		t.Error("expected non-empty footer for narrow terminal")
 	}
 
-	// Should contain at least some key hints (search key "/" is commonly preserved)
-	if !strings.Contains(footer, "/") && !strings.Contains(footer, "Search") {
-		t.Errorf("expected footer to contain at least search key in narrow mode, got: %q", footer)
+	// Should contain at least some key hints (Detail key is commonly preserved)
+	if !strings.Contains(footer, "Detail") && !strings.Contains(footer, "⏎") {
+		t.Errorf("expected footer to contain at least detail key in narrow mode, got: %q", footer)
 	}
 }
 
 func TestFooterHintSlices(t *testing.T) {
 	t.Run("GlobalHintsCount", func(t *testing.T) {
-		if len(globalFooterHints) != 10 {
-			t.Errorf("expected 10 global hints, got %d", len(globalFooterHints))
+		if len(globalFooterHints) != 11 {
+			t.Errorf("expected 11 global hints, got %d", len(globalFooterHints))
 		}
 	})
 

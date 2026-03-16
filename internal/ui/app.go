@@ -102,6 +102,7 @@ type App struct {
 
 	viewport      viewport.Model
 	ShowDetails   bool
+	splitVertical bool // When true, detail pane is below the list instead of to the right
 	focus         FocusArea
 	ready         bool
 	detailIssueID string
