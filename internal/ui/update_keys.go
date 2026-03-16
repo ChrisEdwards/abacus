@@ -197,6 +197,8 @@ func (m *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.ToggleColumns):
 		return m.handleToggleColumnsKey()
+	case key.Matches(msg, m.keys.SplitLayout):
+		return m.handleSplitLayoutKey()
 	case key.Matches(msg, m.keys.Error):
 		if m.lastError != "" && !m.showErrorToast {
 			m.showErrorToast = true
@@ -407,6 +409,14 @@ func (m *App) handleNewBeadKey(isRoot bool) (tea.Model, tea.Cmd) {
 	m.createOverlay.SetSize(m.width, m.height)
 	m.activeOverlay = OverlayCreate
 	return m, m.createOverlay.Init()
+}
+
+// handleSplitLayoutKey toggles between horizontal and vertical split orientation.
+func (m *App) handleSplitLayoutKey() (tea.Model, tea.Cmd) {
+	m.splitVertical = !m.splitVertical
+	m.recalcViewportSize()
+	m.updateViewportContent()
+	return m, nil
 }
 
 // handleUpdateKey triggers the auto-update when conditions are met.

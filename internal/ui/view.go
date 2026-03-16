@@ -81,30 +81,45 @@ func (m *App) View() string {
 	var mainBody string
 	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
 	if m.ShowDetails {
-		leftStyle := stylePane()
-		rightStyle := stylePane()
+		treeStyle := stylePane()
+		detailStyle := stylePane()
 		if m.focus == FocusTree {
-			leftStyle = stylePaneFocused()
+			treeStyle = stylePaneFocused()
 		} else {
-			rightStyle = stylePaneFocused()
-		}
-
-		leftWidth := m.width - m.viewport.Width - 4
-		if leftWidth < 1 {
-			leftWidth = 1
-		}
-		rightWidth := m.viewport.Width
-		if rightWidth < 1 {
-			rightWidth = 1
+			detailStyle = stylePaneFocused()
 		}
 
 		// Re-render viewport content with current theme (dimmed or bright)
 		// This ensures detail pane properly dims when overlay is active
 		m.updateViewportContent()
 
-		left := leftStyle.Width(leftWidth).Height(listHeight).Render(treeViewStr)
-		right := rightStyle.Width(rightWidth).Height(listHeight).Render(m.viewport.View())
-		mainBody = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+		if m.splitVertical {
+			// Vertical split: list on top, detail below
+			paneWidth := m.width - 2
+			if paneWidth < 1 {
+				paneWidth = 1
+			}
+			topHeight := m.treePaneHeight()
+			bottomHeight := m.viewport.Height
+
+			top := treeStyle.Width(paneWidth).Height(topHeight).Render(treeViewStr)
+			bottom := detailStyle.Width(paneWidth).Height(bottomHeight).Render(m.viewport.View())
+			mainBody = lipgloss.JoinVertical(lipgloss.Left, top, bottom)
+		} else {
+			// Horizontal split (default): list on left, detail on right
+			leftWidth := m.width - m.viewport.Width - 4
+			if leftWidth < 1 {
+				leftWidth = 1
+			}
+			rightWidth := m.viewport.Width
+			if rightWidth < 1 {
+				rightWidth = 1
+			}
+
+			left := treeStyle.Width(leftWidth).Height(listHeight).Render(treeViewStr)
+			right := detailStyle.Width(rightWidth).Height(listHeight).Render(m.viewport.View())
+			mainBody = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+		}
 	} else {
 		singleWidth := m.width - 2
 		if singleWidth < 1 {

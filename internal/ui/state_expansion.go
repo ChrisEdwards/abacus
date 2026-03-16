@@ -26,6 +26,12 @@ func (m *App) isRowExpandedForTraversal(row graph.TreeRow) bool {
 	return node.Expanded
 }
 
+// isFilterActive returns true when any filter is active (text filter or view mode filter).
+// When a filter is active, expand/collapse state must be tracked separately.
+func (m *App) isFilterActive() bool {
+	return m.filterText != "" || m.viewMode != ViewModeAll
+}
+
 func (m *App) isNodeExpandedInView(row graph.TreeRow) bool {
 	node := row.Node
 	if len(node.Children) == 0 {
@@ -41,7 +47,7 @@ func (m *App) isNodeExpandedInView(row graph.TreeRow) bool {
 		key := treeRowKey(parentID, node.Issue.ID)
 		if expanded, ok := m.expandedInstances[key]; ok {
 			// When filtering, also check filter overrides
-			if m.filterText != "" {
+			if m.isFilterActive() {
 				if m.filterCollapsed != nil && m.filterCollapsed[node.Issue.ID] {
 					return false
 				}
@@ -54,7 +60,7 @@ func (m *App) isNodeExpandedInView(row graph.TreeRow) bool {
 		// Fall back to Node.Expanded if no per-instance state set yet
 	}
 
-	if m.filterText == "" {
+	if !m.isFilterActive() {
 		return node.Expanded
 	}
 	hasMatchingChild := false
@@ -120,7 +126,8 @@ func (m *App) expandNodeForView(row graph.TreeRow) {
 		node.Expanded = true
 	}
 
-	if m.filterText == "" {
+	// Track filter-specific state when any filter is active (text or view mode)
+	if !m.isFilterActive() {
 		return
 	}
 	id := node.Issue.ID
@@ -155,7 +162,8 @@ func (m *App) collapseNodeForView(row graph.TreeRow) {
 		node.Expanded = false
 	}
 
-	if m.filterText == "" {
+	// Track filter-specific state when any filter is active (text or view mode)
+	if !m.isFilterActive() {
 		return
 	}
 	id := node.Issue.ID
