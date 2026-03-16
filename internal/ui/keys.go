@@ -53,6 +53,9 @@ type KeyMap struct {
 	// Columns
 	ToggleColumns key.Binding
 
+	// Layout
+	SplitLayout key.Binding
+
 	// Update
 	Update key.Binding
 }
@@ -201,6 +204,12 @@ func DefaultKeyMap() KeyMap {
 		ToggleColumns: key.NewBinding(
 			key.WithKeys("C"),
 			key.WithHelp("C", "Toggle columns"),
+		),
+
+		// Layout
+		SplitLayout: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "Toggle split direction"),
 		),
 
 		// Update
