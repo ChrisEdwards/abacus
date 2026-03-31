@@ -492,6 +492,47 @@ func TestDetailCommentsLongTextWraps(t *testing.T) {
 	}
 }
 
+func TestDetailCommentsSQLiteTimestampWrapsWithoutAuthor(t *testing.T) {
+	vpWidth := 52
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:    "ab-shifted",
+			Title: "Shifted comment row",
+			Comments: []beads.Comment{
+				{
+					Text:      "Shifted comment body from malformed br rows should still wrap correctly in the detail pane.",
+					CreatedAt: "2026-03-31 21:17:51",
+				},
+			},
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  nodesToRows(node),
+		viewport:     viewport.New(vpWidth, 30),
+		outputFormat: "dark",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	wantTime := time.Date(2026, time.March, 31, 21, 17, 51, 0, time.UTC).Local().Format("Jan 02, 3:04 PM")
+	if !strings.Contains(content, wantTime) {
+		t.Fatalf("expected formatted comment timestamp %q in detail view:\n%s", wantTime, content)
+	}
+
+	commentsIdx := strings.Index(content, "Comments:")
+	if commentsIdx == -1 {
+		t.Fatalf("Comments section not found:\n%s", content)
+	}
+	afterComments := content[commentsIdx:]
+	for i, line := range strings.Split(afterComments, "\n") {
+		if len([]rune(line)) > vpWidth {
+			t.Errorf("comment section line %d exceeds vpWidth %d (runes=%d): %q", i, vpWidth, len([]rune(line)), line)
+		}
+	}
+}
+
 func TestDetailCommentsErrorMessageMatchesDocs(t *testing.T) {
 	node := &graph.Node{
 		Issue: beads.FullIssue{

@@ -151,6 +151,14 @@ func TestDetailHeaderRegression_ab176(t *testing.T) {
 	}
 }
 
+func TestFormatTime_ParsesSQLiteTimestamp(t *testing.T) {
+	got := formatTime("2026-03-31 21:17:51")
+	want := time.Date(2026, time.March, 31, 21, 17, 51, 0, time.UTC).Local().Format("Jan 02, 3:04 PM")
+	if got != want {
+		t.Fatalf("formatTime(sqlite timestamp) = %q, want %q", got, want)
+	}
+}
+
 func TestUpdateViewportContentSkipsWhenNoSelection(t *testing.T) {
 	app := &App{
 		ShowDetails: true,

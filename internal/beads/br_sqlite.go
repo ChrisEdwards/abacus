@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite" // Pure Go SQLite driver, WAL-friendly
 )
@@ -306,8 +307,8 @@ func brLoadComments(ctx context.Context, db *sql.DB, issues map[string]*FullIssu
 	}()
 
 	for rows.Next() {
-		var cmt Comment
-		if err := rows.Scan(&cmt.ID, &cmt.IssueID, &cmt.Author, &cmt.Text, &cmt.CreatedAt); err != nil {
+		cmt, err := scanBrComment(rows)
+		if err != nil {
 			return fmt.Errorf("scan comment: %w", err)
 		}
 		if iss, ok := issues[cmt.IssueID]; ok {
@@ -341,8 +342,8 @@ func (c *brSQLiteClient) Comments(ctx context.Context, issueID string) ([]Commen
 
 	var comments []Comment
 	for rows.Next() {
-		var cmt Comment
-		if err := rows.Scan(&cmt.ID, &cmt.IssueID, &cmt.Author, &cmt.Text, &cmt.CreatedAt); err != nil {
+		cmt, err := scanBrComment(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan comment: %w", err)
 		}
 		comments = append(comments, cmt)
@@ -351,6 +352,52 @@ func (c *brSQLiteClient) Comments(ctx context.Context, issueID string) ([]Commen
 		comments = []Comment{}
 	}
 	return comments, rows.Err()
+}
+
+func scanBrComment(rows *sql.Rows) (Comment, error) {
+	var cmt Comment
+	if err := rows.Scan(&cmt.ID, &cmt.IssueID, &cmt.Author, &cmt.Text, &cmt.CreatedAt); err != nil {
+		return Comment{}, err
+	}
+	return normalizeBrComment(cmt), nil
+}
+
+func normalizeBrComment(cmt Comment) Comment {
+	if strings.TrimSpace(cmt.CreatedAt) != "" {
+		return cmt
+	}
+
+	shiftedTimestamp := strings.TrimSpace(cmt.Text)
+	if !brLooksLikeTimestamp(shiftedTimestamp) {
+		return cmt
+	}
+
+	// Some real-world br databases contain malformed comment rows where the
+	// body was written into author, the timestamp into text, and created_at left
+	// NULL. Normalize those rows on read so the UI gets the expected shape.
+	cmt.CreatedAt = shiftedTimestamp
+	cmt.Text = strings.TrimSpace(cmt.Author)
+	cmt.Author = ""
+	return cmt
+}
+
+func brLooksLikeTimestamp(value string) bool {
+	if value == "" {
+		return false
+	}
+
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.999999999",
+		"2006-01-02 15:04:05",
+	}
+	for _, layout := range layouts {
+		if _, err := time.Parse(layout, value); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // Writer interface - delegate to brCLIClient

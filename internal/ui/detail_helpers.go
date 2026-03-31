@@ -293,9 +293,18 @@ func formatTime(isoStr string) string {
 	if isoStr == "" {
 		return "-"
 	}
-	t, err := time.Parse(time.RFC3339, isoStr)
-	if err != nil {
-		return isoStr
+
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.999999999",
+		"2006-01-02 15:04:05",
 	}
-	return t.Local().Format("Jan 02, 3:04 PM")
+	for _, layout := range layouts {
+		t, err := time.Parse(layout, isoStr)
+		if err == nil {
+			return t.Local().Format("Jan 02, 3:04 PM")
+		}
+	}
+	return isoStr
 }
