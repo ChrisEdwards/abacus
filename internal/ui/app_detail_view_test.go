@@ -450,6 +450,48 @@ func TestDetailCommentsRenderEntries(t *testing.T) {
 	}
 }
 
+func TestDetailCommentsLongTextWraps(t *testing.T) {
+	// vpWidth=88 matches a wide terminal (m.width=200 → int(200*0.45)-2=88).
+	// The text includes an em-dash which triggers multi-byte overflow.
+	vpWidth := 88
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:    "ab-wrap",
+			Title: "Wrapping test",
+			Comments: []beads.Comment{
+				{
+					Author:    "agent",
+					Text:      "Root cause: brLoadComments and Comments in internal/beads/br_sqlite.go scan the created_at column directly into a Go string (&cmt.CreatedAt). The br SQLite schema allows created_at to be NULL on comments rows, and Go's database/sql cannot convert SQL NULL to a plain string — hence the error 'converting NULL to string is unsupported'.",
+					CreatedAt: time.Date(2025, time.November, 20, 9, 15, 0, 0, time.UTC).Format(time.RFC3339),
+				},
+			},
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  nodesToRows(node),
+		viewport:     viewport.New(vpWidth, 30),
+		outputFormat: "dark",
+	}
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	// Find the Comments section and verify comment text is wrapped within vpWidth.
+	commentsIdx := strings.Index(content, "Comments:")
+	if commentsIdx == -1 {
+		t.Fatalf("Comments section not found:\n%s", content)
+	}
+	afterComments := content[commentsIdx:]
+	for i, line := range strings.Split(afterComments, "\n") {
+		// Use rune count (visual width) not byte length — multi-byte chars like em-dash
+		// are 3 bytes but 1 visible cell wide.
+		if len([]rune(line)) > vpWidth {
+			t.Errorf("comment section line %d exceeds vpWidth %d (runes=%d): %q", i, vpWidth, len([]rune(line)), line)
+		}
+	}
+}
+
 func TestDetailCommentsErrorMessageMatchesDocs(t *testing.T) {
 	node := &graph.Node{
 		Issue: beads.FullIssue{

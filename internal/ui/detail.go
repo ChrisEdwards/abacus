@@ -227,10 +227,12 @@ func (m *App) updateViewportContent() {
 		loadingBody := styleStatsDim().Render("Loading comments...")
 		descSections = append(descSections, renderContentSection("Comments:", loadingBody))
 	} else if len(iss.Comments) > 0 {
+		// Use vpWidth-4 so that after indentBlock adds 2 spaces, lines stay within vpWidth.
+		renderCommentMarkdown := buildMarkdownRenderer(m.outputFormat, vpWidth-4)
 		var commentBlocks []string
 		for _, c := range iss.Comments {
 			header := fmt.Sprintf("  %s  %s", c.Author, formatTime(c.CreatedAt))
-			body := styleCommentHeader().Render(header) + "\n" + indentBlock(renderMarkdown(c.Text), 2)
+			body := styleCommentHeader().Render(header) + "\n" + indentBlock(renderCommentMarkdown(c.Text), 2)
 			commentBlocks = append(commentBlocks, body)
 		}
 		descSections = append(descSections, renderContentSection("Comments:", strings.Join(commentBlocks, "\n\n")))
