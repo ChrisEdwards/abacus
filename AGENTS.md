@@ -2,6 +2,8 @@ READ ~/Users/chrisedwards~/projects/chris/agent-shared/AGENTS.md BEFORE ANYTHING
 
 # Agent Development Guidelines
 
+**Keep this file concise.** Every line here costs context on every session. Updates to AGENTS.md or CLAUDE.md must be as brief as possible — no verbose explanations, no redundant bullet lists.
+
 ## RULE 1 – ABSOLUTE (DO NOT EVER VIOLATE THIS)
 
 You may NOT delete any file or directory unless I explicitly give the exact command **in this session**.
@@ -105,7 +107,7 @@ If a file or function exceeds these limits, decompose it:
 - Use Go naming conventions: `_view.go`, `_handlers.go`, `_types.go`
 
 ## Testing Requirements
-Write tests for any changes made in this codebase. All code must build successfully, pass linting, and all tests must pass before marking a bead as closed.
+All code must be implemented with strict TDD (red-green-refactor): write a failing test first, then make it pass, then refactor. Never write production code without a failing test first. All code must build successfully, pass linting, and all tests must pass before marking a bead as closed.
 
 ### TUI Design Principles
 When building UI features, follow the design principles in [`docs/UI_PRINCIPLES.md`](docs/UI_PRINCIPLES.md). This includes:
