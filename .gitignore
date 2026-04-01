@@ -43,6 +43,10 @@ specs/
 # bv (beads viewer) local config and caches
 .bv/
 
+# br (beads_rust) runtime files
+.beads/.br_history/
+.beads/last-touched
+
 # Local config and tool caches
 .abacus/
 .mcp.json
