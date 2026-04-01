@@ -76,16 +76,15 @@ make test-integration VERBOSE=1
 Integration tests are separated using Go build tags (`//go:build integration`).
 They require the `bd` and/or `br` binaries to be installed.
 
-## Quick Reference: bd Commands
+## Quick Reference: br Commands
 
 ```bash
-# Adding comments - use subcommand syntax, NOT flags
-bd comments add <issue-id> "comment text"   # CORRECT
-bd comments <issue-id> --add "text"         # WRONG - --add is not a flag
+# Adding comments - use subcommand syntax
+br comments add <issue-id> "comment text"
 
 # Labels
-bd label add <issue-id> <label>
-bd label remove <issue-id> <label>
+br label add <issue-id> <label>
+br label remove <issue-id> <label>
 ```
 
 ## Go Code Size Limits
@@ -127,39 +126,16 @@ make build                         # Build first after code changes
 ```
 Always verify UI changes look correct before marking work complete.
 
-### Testing with br Backend
+### Testing the TUI
 
-The abacus repository itself uses `bd` (beads Go CLI), but abacus supports both `bd` and `br` (beads_rust) backends. To test br functionality, you must use a separate directory:
+The abacus repository uses `br` (beads_rust) as its backend. Run the TUI directly from this repo:
 
 ```bash
-# 1. Create a test directory outside the abacus repo
-mkdir /tmp/abacus-br-test && cd /tmp/abacus-br-test
-
-# 2. Initialize a br workspace
-br init
-
-# 3. Create test beads
-br create "Test bead 1" --type task --priority 2
-br create "Test bead 2" --type epic --priority 1
-
-# 4. Configure for br backend
-mkdir -p .abacus
-cat > .abacus/config.yaml << 'EOF'
-beads:
-  backend: br
-EOF
-
-# 5. Run abacus from that directory
-/path/to/abacus/bin/abacus
+make build
+./bin/abacus
 ```
 
-The TUI will show `[br]` in the status bar when using the br backend.
-
-**Why a separate directory?**
-- The abacus repo has `.beads/` configured for bd
-- br and bd have different database schemas
-- Testing br in the abacus repo would corrupt the beads database
-- A separate `/tmp` directory keeps tests isolated
+The TUI will show `[br]` in the status bar.
 
 **Verified br operations (via TUI):**
 - Create overlay (n) - creates beads via `br create`
@@ -240,7 +216,7 @@ Common pitfalls
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd sync
+   br sync
    git push
    git status  # MUST show "up to date with origin"
    ```
@@ -258,9 +234,9 @@ Common pitfalls
 
 ## Issue Tracking with Beads
 
-We use beads for issue tracking and work planning. If you need more information, execute `bd quickstart`
+We use beads for issue tracking and work planning. If you need more information, execute `br --help`
 
-**IMPORTANT**: Beads (`bd` CLI) is a third-party tool we do not maintain. Do not propose changes to the beads codebase. The beads source may be in a sibling folder for reference, but we cannot modify it.
+**IMPORTANT**: Beads (`br` CLI) is a third-party tool we do not maintain. Do not propose changes to the beads codebase. The beads source may be in a sibling folder for reference, but we cannot modify it.
 
 **Related Codebases (read-only reference):**
 - **beads (Go)**: `../beads` - Original Go implementation (`bd` CLI)
@@ -268,11 +244,11 @@ We use beads for issue tracking and work planning. If you need more information,
 
 ### Dependencies
 ```bash
-bd dep add <child> <parent> --type parent-child   # Make child a subtask of parent
-bd dep add <blocked> <blocker> --type blocks      # blocker blocks blocked
-bd dep remove <from> <to>                         # Remove dependency
+br dep add <child> <parent> --type parent-child   # Make child a subtask of parent
+br dep add <blocked> <blocker> --type blocks      # blocker blocks blocked
+br dep remove <from> <to>                         # Remove dependency
 ```
-**Note**: Use `bd dep add`, not `bd dep` directly. First arg depends on second arg.
+**Note**: Use `br dep add`, not `br dep` directly. First arg depends on second arg.
 
 ### Bead ID Format
 **IMPORTANT**: Always use standard bead IDs (e.g., `ab-xyz`, `ab-4aw`). Do NOT use dotted notation like `ab-4aw.1` or `ab-4aw.2` for bead names. Each bead should have its own unique ID from the beads system.
@@ -280,8 +256,8 @@ bd dep remove <from> <to>                         # Remove dependency
 ### Bead Workflow
 
 #### When Starting Work
-1. **Read the bead details**: Use `bd show <bead-id>` to view the full bead information
-2. **Read the comments**: Use `bd comments <bead-id>` to read all comments on the bead
+1. **Read the bead details**: Use `br show <bead-id>` to view the full bead information
+2. **Read the comments**: Use `br comments <bead-id>` to read all comments on the bead
    - Comments often contain important context, analysis, or clarifications
    - Prior discussions may provide insights into requirements or constraints
    - Reviewers may have added specific guidance or considerations
@@ -302,7 +278,7 @@ You must complete ALL of the following steps before marking a bead as closed:
 8. **Close Bead**: Only after sucessful push
 
 ### Auto-sync:
-- bd exports to `.beads/issues.jsonl` after changes (debounced).
+- br exports to `.beads/issues.jsonl` after changes (debounced).
 - It imports from JSONL when newer (e.g. after `git pull`).
 
 ### Never:
