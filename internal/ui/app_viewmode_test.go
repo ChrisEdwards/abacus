@@ -433,3 +433,57 @@ func TestNewAppUsesConfiguredRefreshInterval(t *testing.T) {
 		t.Errorf("NewApp should use configured refresh interval: expected %v, got %v", expected, app.refreshInterval)
 	}
 }
+
+// TestViewModeExpandCollapse verifies that expand/collapse works correctly
+// when a view mode filter is active (without text filter). This was a bug
+// where the triangle indicator would toggle but children wouldn't actually
+// collapse because filter override state wasn't tracked for view mode filters.
+func TestViewModeExpandCollapse(t *testing.T) {
+	openChild := &graph.Node{
+		Issue: beads.FullIssue{ID: "ab-child", Title: "Open Child", Status: "open"},
+	}
+	openParent := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-parent", Title: "Open Parent", Status: "open"},
+		Children: []*graph.Node{openChild},
+		Expanded: true,
+	}
+	openChild.Parent = openParent
+
+	app := &App{
+		roots:    []*graph.Node{openParent},
+		viewMode: ViewModeActive, // View mode filter active, no text filter
+		keys:     DefaultKeyMap(),
+	}
+
+	// Initial state: parent expanded, both visible
+	app.recalcVisibleRows()
+	if len(app.visibleRows) != 2 {
+		t.Fatalf("initial state: expected 2 visible rows, got %d", len(app.visibleRows))
+	}
+
+	// Collapse the parent
+	parentRow := app.visibleRows[0]
+	app.collapseNodeForView(parentRow)
+	app.recalcVisibleRows()
+
+	// After collapse: only parent should be visible
+	if len(app.visibleRows) != 1 {
+		t.Errorf("after collapse: expected 1 visible row, got %d", len(app.visibleRows))
+	}
+	if app.isNodeExpandedInView(app.visibleRows[0]) {
+		t.Error("after collapse: parent should report as collapsed")
+	}
+
+	// Expand the parent again
+	parentRow = app.visibleRows[0]
+	app.expandNodeForView(parentRow)
+	app.recalcVisibleRows()
+
+	// After expand: both should be visible again
+	if len(app.visibleRows) != 2 {
+		t.Errorf("after expand: expected 2 visible rows, got %d", len(app.visibleRows))
+	}
+	if !app.isNodeExpandedInView(app.visibleRows[0]) {
+		t.Error("after expand: parent should report as expanded")
+	}
+}
