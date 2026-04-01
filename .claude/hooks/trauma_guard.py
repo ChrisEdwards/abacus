@@ -115,7 +115,7 @@ def main():
 
         use_emoji = os.environ.get("CASS_MEMORY_NO_EMOJI") is None
         banner = (
-            "\u{1f525} HOT STOVE: VISCERAL SAFETY INTERVENTION \u{1f525}"
+            "\U0001f525 HOT STOVE: VISCERAL SAFETY INTERVENTION \U0001f525"
             if use_emoji
             else "[HOT STOVE] VISCERAL SAFETY INTERVENTION"
         )
