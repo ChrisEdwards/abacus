@@ -190,13 +190,15 @@ finalize_changelog() {
 
     log_info "Finalizing CHANGELOG.md..."
 
-    # Update CHANGELOG.md - Add new Unreleased section and version
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        sed -i '' "s|## \[Unreleased\]|## [Unreleased]\n\n## [$version] - $date|" "$REPO_ROOT/CHANGELOG.md"
-    else
-        # Linux
-        sed -i "s|## \[Unreleased\]|## [Unreleased]\n\n## [$version] - $date|" "$REPO_ROOT/CHANGELOG.md"
+    # Update CHANGELOG.md - Add new Unreleased section and version (skip if already present)
+    if ! grep -q "^## \[$version\]" "$REPO_ROOT/CHANGELOG.md"; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            # macOS
+            sed -i '' "s|## \[Unreleased\]|## [Unreleased]\n\n## [$version] - $date|" "$REPO_ROOT/CHANGELOG.md"
+        else
+            # Linux
+            sed -i "s|## \[Unreleased\]|## [Unreleased]\n\n## [$version] - $date|" "$REPO_ROOT/CHANGELOG.md"
+        fi
     fi
 
     # Update version comparison links
