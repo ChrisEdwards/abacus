@@ -68,8 +68,25 @@ type CommandRunner interface {
 type execCommandRunner struct{}
 
 func (execCommandRunner) Run(ctx context.Context, bin string, args ...string) ([]byte, error) {
+	if !isSupportedVersionCheckBinary(bin) {
+		return nil, fmt.Errorf("unsupported version check binary %q", bin)
+	}
+	//nolint:gosec // bin is restricted to a bd/br executable path already resolved via LookPath.
 	cmd := exec.CommandContext(ctx, bin, args...)
 	return cmd.CombinedOutput()
+}
+
+func isSupportedVersionCheckBinary(bin string) bool {
+	name := strings.TrimSpace(bin)
+	if idx := strings.LastIndexAny(name, `/\`); idx >= 0 {
+		name = name[idx+1:]
+	}
+	switch strings.ToLower(name) {
+	case "bd", "br", "bd.exe", "br.exe":
+		return true
+	default:
+		return false
+	}
 }
 
 // LookPathFunc resolves a binary reference to an executable path.

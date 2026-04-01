@@ -186,7 +186,7 @@ func (m model) View() string {
 	if m.chips.InNavigationMode() {
 		mode = "CHIP NAV"
 	}
-	s.WriteString(fmt.Sprintf("Mode: %s  Width: %d\n\n", modeStyle.Render(mode), m.width))
+	fmt.Fprintf(&s, "Mode: %s  Width: %d\n\n", modeStyle.Render(mode), m.width)
 
 	// Labels section
 	s.WriteString(labelStyle.Render("LABELS"))

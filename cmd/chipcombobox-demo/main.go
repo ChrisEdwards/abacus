@@ -162,8 +162,8 @@ func (m model) View() string {
 	} else if m.chipCombo.IsDropdownOpen() {
 		mode = "DROPDOWN"
 	}
-	s.WriteString(fmt.Sprintf("Mode: %s  Width: %d  Chips: %d\n\n",
-		modeStyle.Render(mode), m.width, m.chipCombo.ChipCount()))
+	fmt.Fprintf(&s, "Mode: %s  Width: %d  Chips: %d\n\n",
+		modeStyle.Render(mode), m.width, m.chipCombo.ChipCount())
 
 	// Labels section
 	s.WriteString(labelStyle.Render("LABELS"))

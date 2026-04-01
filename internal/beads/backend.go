@@ -21,6 +21,8 @@ import (
 // This is an implementation detail - user prompts are not subject to this timeout.
 const versionCheckTimeout = 5 * time.Second
 
+const maxInt = int(^uint(0) >> 1)
+
 // Backend constants
 const (
 	BackendBd = "bd" // beads Go CLI
@@ -349,7 +351,11 @@ func commandExists(name string) bool {
 // isInteractiveTTY checks if stdin is connected to an interactive terminal.
 // Used to determine if we can prompt the user for backend selection.
 func isInteractiveTTY() bool {
-	return term.IsTerminal(int(os.Stdin.Fd()))
+	fd := os.Stdin.Fd()
+	if fd > uintptr(maxInt) {
+		return false
+	}
+	return term.IsTerminal(int(fd))
 }
 
 // NewClientForBackend creates the appropriate Client based on backend string.

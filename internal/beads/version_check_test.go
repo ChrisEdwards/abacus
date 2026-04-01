@@ -146,3 +146,26 @@ func TestCheckVersionSuccess(t *testing.T) {
 		t.Fatalf("expected normalized required version, got %s", info.Required)
 	}
 }
+
+func TestSupportedVersionCheckBinary(t *testing.T) {
+	tests := []struct {
+		name string
+		bin  string
+		want bool
+	}{
+		{name: "bd name", bin: "bd", want: true},
+		{name: "br path", bin: "/usr/local/bin/br", want: true},
+		{name: "windows executable", bin: `C:\tools\bd.exe`, want: true},
+		{name: "unsupported name", bin: "git", want: false},
+		{name: "empty", bin: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isSupportedVersionCheckBinary(tt.bin)
+			if got != tt.want {
+				t.Fatalf("isSupportedVersionCheckBinary(%q) = %v, want %v", tt.bin, got, tt.want)
+			}
+		})
+	}
+}

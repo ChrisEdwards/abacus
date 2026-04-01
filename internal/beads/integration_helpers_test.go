@@ -81,48 +81,68 @@ func newClientForBackend(t *testing.T, env backendTestEnv) Client {
 }
 
 // extractCreatedID extracts the issue ID from create command output.
-// Expected formats:
+// Expected formats include:
 // - br: "Created test-xxx: Title"
+// - br: "✓ Created test-xxx: Title"
 // - bd: "Created issue: test-xxx"
+// - bd: "✓ Created issue: test-xxx"
 func extractCreatedID(output string) string {
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
-		line = strings.TrimSpace(line)
-
-		// br format: "Created test-xxx: Title" - extract just the ID
-		if strings.HasPrefix(line, "Created ") {
-			rest := strings.TrimPrefix(line, "Created ")
-			// ID ends at ": " or end of line
-			if colonIdx := strings.Index(rest, ": "); colonIdx != -1 {
-				return rest[:colonIdx]
-			}
-			// No colon, return first word
-			parts := strings.Fields(rest)
-			if len(parts) > 0 {
-				return parts[0]
-			}
-			return rest
-		}
-
-		// bd format: "Created issue: test-xxx"
-		if strings.Contains(line, "Created issue:") {
-			parts := strings.Split(line, "Created issue:")
-			if len(parts) >= 2 {
-				return strings.TrimSpace(parts[1])
-			}
-		}
-
-		// Fallback: just the ID on a line
-		if strings.HasPrefix(line, "test-") || strings.HasPrefix(line, "ab-") {
-			// Make sure it's just the ID, not part of a longer line
-			parts := strings.Fields(line)
-			if len(parts) > 0 && (strings.HasPrefix(parts[0], "test-") || strings.HasPrefix(parts[0], "ab-")) {
-				// Remove any trailing punctuation
-				id := parts[0]
-				id = strings.TrimSuffix(id, ":")
+		for _, field := range strings.Fields(line) {
+			id := strings.Trim(field, ":,.;[](){}")
+			if strings.HasPrefix(id, "test-") || strings.HasPrefix(id, "ab-") {
 				return id
 			}
 		}
 	}
 	return ""
+}
+
+func TestExtractCreatedID(t *testing.T) {
+	tests := []struct {
+		name   string
+		output string
+		want   string
+	}{
+		{
+			name:   "br plain output",
+			output: "Created test-abc: Show Test Issue\n",
+			want:   "test-abc",
+		},
+		{
+			name:   "br output with checkmark prefix",
+			output: "✓ Created test-wtd: Show Test Issue\n",
+			want:   "test-wtd",
+		},
+		{
+			name:   "bd plain output",
+			output: "Created issue: test-xyz\n",
+			want:   "test-xyz",
+		},
+		{
+			name:   "bd output with checkmark prefix",
+			output: "✓ Created issue: ab-123\n",
+			want:   "ab-123",
+		},
+		{
+			name:   "id on its own line",
+			output: "\n  ab-standalone \n",
+			want:   "ab-standalone",
+		},
+		{
+			name:   "no id present",
+			output: "nothing useful here\n",
+			want:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractCreatedID(tt.output)
+			if got != tt.want {
+				t.Fatalf("extractCreatedID(%q) = %q, want %q", tt.output, got, tt.want)
+			}
+		})
+	}
 }

@@ -264,7 +264,7 @@ func loadBdDependencies(ctx context.Context, db *sql.DB, issues map[string]*Full
 
 func loadBdComments(ctx context.Context, db *sql.DB, issues map[string]*FullIssue) error {
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, issue_id, author, text, created_at
+		SELECT id, issue_id, author, text, COALESCE(created_at, '')
 		FROM comments
 		ORDER BY created_at, id
 	`)
@@ -297,7 +297,7 @@ func (c *bdSQLiteClient) Comments(ctx context.Context, issueID string) ([]Commen
 	}()
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, issue_id, author, text, created_at
+		SELECT id, issue_id, author, text, COALESCE(created_at, '')
 		FROM comments
 		WHERE issue_id = ?
 		ORDER BY created_at, id
