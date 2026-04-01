@@ -89,19 +89,20 @@ func (m *App) computeFilterEval(filterLower string) map[string]filterEvaluation 
 	return evals
 }
 
-func (m *App) shouldExpandFilteredNode(node *graph.Node, hasMatchingChild bool) bool {
+func (m *App) shouldExpandFilteredRow(row graph.TreeRow, hasMatchingChild bool) bool {
+	node := row.Node
 	if len(node.Children) == 0 {
 		return false
 	}
-	id := node.Issue.ID
-	if m.filterCollapsed != nil && m.filterCollapsed[id] {
+	key := treeRowStateKey(row)
+	if m.filterCollapsed != nil && m.filterCollapsed[key] {
 		return false
 	}
-	if m.filterForcedExpanded != nil && m.filterForcedExpanded[id] {
+	if m.filterForcedExpanded != nil && m.filterForcedExpanded[key] {
 		return true
 	}
 	if hasMatchingChild {
 		return true
 	}
-	return node.Expanded
+	return m.isRowExpandedForTraversal(row)
 }

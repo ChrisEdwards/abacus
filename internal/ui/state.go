@@ -61,8 +61,7 @@ func clampDimension(value, minValue, maxValue int) int {
 func (m *App) recalcVisibleRows() {
 	m.visibleRows = []graph.TreeRow{}
 	filterLower := strings.ToLower(m.filterText)
-	// Compute filter evaluation when EITHER text filter OR ViewMode is active
-	filterActive := filterLower != "" || m.viewMode != ViewModeAll
+	filterActive := m.isFilterActive()
 
 	if filterActive {
 		m.filterEval = m.computeFilterEval(filterLower)
@@ -97,7 +96,7 @@ func (m *App) recalcVisibleRows() {
 				if !filterActive {
 					expanded = m.isRowExpandedForTraversal(row)
 				} else {
-					expanded = m.shouldExpandFilteredNode(node, hasMatchingChild)
+					expanded = m.shouldExpandFilteredRow(row, hasMatchingChild)
 				}
 				if expanded {
 					traverse(node.Children, node, depth+1)

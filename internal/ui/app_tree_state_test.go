@@ -762,7 +762,7 @@ func TestApplyRefreshPreservesCollapsedStatePerDocs(t *testing.T) {
 		roots:           []*graph.Node{rootOld},
 		visibleRows:     nodesToRows(rootOld),
 		filterText:      "root",
-		filterCollapsed: map[string]bool{rootOld.Issue.ID: true},
+		filterCollapsed: map[string]bool{treeRowStateKey(nodeToRow(rootOld)): true},
 		textInput:       textinput.New(),
 	}
 	m.textInput.SetValue("root")

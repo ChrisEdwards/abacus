@@ -433,3 +433,118 @@ func TestNewAppUsesConfiguredRefreshInterval(t *testing.T) {
 		t.Errorf("NewApp should use configured refresh interval: expected %v, got %v", expected, app.refreshInterval)
 	}
 }
+
+func TestViewModeCollapseAndExpand(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		viewMode ViewMode
+	}{
+		{name: "active", viewMode: ViewModeActive},
+		{name: "ready", viewMode: ViewModeReady},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			child := &graph.Node{
+				Issue: beads.FullIssue{ID: "ab-child", Title: "Open Child", Status: "open"},
+			}
+			parent := &graph.Node{
+				Issue:    beads.FullIssue{ID: "ab-parent", Title: "Open Parent", Status: "open"},
+				Children: []*graph.Node{child},
+				Expanded: true,
+			}
+			child.Parent = parent
+
+			app := &App{
+				roots:    []*graph.Node{parent},
+				viewMode: tt.viewMode,
+				keys:     DefaultKeyMap(),
+			}
+
+			app.recalcVisibleRows()
+			if got := len(app.visibleRows); got != 2 {
+				t.Fatalf("initial visible rows = %d, want 2", got)
+			}
+
+			app.cursor = 0
+			app.handleTreeCollapse()
+
+			if got := len(app.visibleRows); got != 1 {
+				t.Fatalf("visible rows after collapse = %d, want 1", got)
+			}
+			if app.isNodeExpandedInView(app.visibleRows[0]) {
+				t.Fatal("parent still reports expanded after collapse")
+			}
+
+			app.handleTreeExpand()
+
+			if got := len(app.visibleRows); got != 2 {
+				t.Fatalf("visible rows after re-expand = %d, want 2", got)
+			}
+			if !app.isNodeExpandedInView(app.visibleRows[0]) {
+				t.Fatal("parent reports collapsed after expand")
+			}
+		})
+	}
+}
+
+func TestViewModeCollapsePreservesMultiParentInstances(t *testing.T) {
+	t.Parallel()
+
+	subtask := &graph.Node{
+		Issue: beads.FullIssue{ID: "ab-subtask", Title: "Subtask", Status: "open"},
+	}
+	sharedTask := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-task", Title: "Shared Task", Status: "open"},
+		Children: []*graph.Node{subtask},
+		Expanded: true,
+	}
+	subtask.Parent = sharedTask
+	epic1 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic1", Title: "Epic 1", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	epic2 := &graph.Node{
+		Issue:    beads.FullIssue{ID: "ab-epic2", Title: "Epic 2", Status: "open"},
+		Children: []*graph.Node{sharedTask},
+		Expanded: true,
+	}
+	sharedTask.Parents = []*graph.Node{epic1, epic2}
+
+	app := &App{
+		roots:    []*graph.Node{epic1, epic2},
+		viewMode: ViewModeActive,
+		keys:     DefaultKeyMap(),
+	}
+
+	app.recalcVisibleRows()
+	if got := len(app.visibleRows); got != 6 {
+		t.Fatalf("initial visible rows = %d, want 6", got)
+	}
+
+	app.cursor = 1
+	if row := app.visibleRows[app.cursor]; row.Parent == nil || row.Parent.Issue.ID != "ab-epic1" {
+		t.Fatalf("cursor not positioned on shared task under epic1: %+v", row.Parent)
+	}
+
+	app.handleTreeCollapse()
+
+	if got := len(app.visibleRows); got != 5 {
+		t.Fatalf("visible rows after collapsing task under epic1 = %d, want 5", got)
+	}
+
+	subtaskCount := 0
+	for _, row := range app.visibleRows {
+		if row.Node.Issue.ID == "ab-subtask" {
+			subtaskCount++
+		}
+	}
+	if subtaskCount != 1 {
+		t.Fatalf("visible subtasks after collapse = %d, want 1", subtaskCount)
+	}
+}
