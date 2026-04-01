@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.9.0] - 2026-04-01
 
+## [0.9.0] - 2026-04-01
+
 ### Added
 - **Close reason display**: Bead detail pane now shows why a bead was closed (ab-ekls)
 
