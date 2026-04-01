@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-04-01
+
+### Added
+- **Close reason display**: Bead detail pane now shows why a bead was closed (ab-ekls)
+
+### Changed
+- **Closed items sorted newest-first**: Closed subtasks, blockers, and related items in the detail pane now appear in reverse chronological order
+- **Removed `--db-path` flag and `BEADS_DB` environment variable**: Configuration simplified; use config file for database path
+
+### Fixed
+- **br comment parsing**: Normalized malformed comment rows from the br backend
+- **Comments with no timestamp**: br comments with NULL `created_at` now load correctly; long comment text wraps properly
+- **extractJSON robustness**: Parser now handles JSON strings containing brace characters without misidentifying boundaries
+
 ## [0.8.0] - 2026-01-21
 
 ### Added
