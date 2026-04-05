@@ -30,6 +30,8 @@ func (m *App) isRowExpandedForTraversal(row graph.TreeRow) bool {
 	return node.Expanded
 }
 
+// isFilterActive returns true when any filter is active (text filter or view mode filter).
+// When a filter is active, expand/collapse state must be tracked separately.
 func (m *App) isFilterActive() bool {
 	return m.filterText != "" || m.viewMode != ViewModeAll
 }
@@ -118,6 +120,7 @@ func (m *App) expandNodeForView(row graph.TreeRow) {
 		node.Expanded = true
 	}
 
+	// Track filter-specific state when any filter is active (text or view mode)
 	if !m.isFilterActive() {
 		return
 	}
@@ -148,6 +151,7 @@ func (m *App) collapseNodeForView(row graph.TreeRow) {
 		node.Expanded = false
 	}
 
+	// Track filter-specific state when any filter is active (text or view mode)
 	if !m.isFilterActive() {
 		return
 	}

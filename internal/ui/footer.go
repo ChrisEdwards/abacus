@@ -20,6 +20,7 @@ type footerHint struct {
 var globalFooterHints = []footerHint{
 	{"⏎", "Detail"},
 	{"⇥", "Focus"},
+	{"p", "Split"},
 	{"/", "Search"},
 	{"v", "View"},
 	{"n", "New"},
