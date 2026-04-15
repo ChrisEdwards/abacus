@@ -57,7 +57,13 @@ func (m *App) updateViewportContent() {
 	col1 := []string{
 		makeRow("Status:", formatStatusDisplay(iss.Status, node.IsBlocked)),
 		makeRow("Type:", iss.IssueType),
-		makeRow("Created:", formatTime(iss.CreatedAt)),
+	}
+	if iss.Assignee != "" {
+		col1 = append(col1, makeRow("Assignee:", iss.Assignee))
+	}
+	col1 = append(col1, makeRow("Created:", formatTime(iss.CreatedAt)))
+	if iss.CreatedBy != "" {
+		col1 = append(col1, makeRow("Created By:", iss.CreatedBy))
 	}
 	if iss.UpdatedAt != iss.CreatedAt {
 		col1 = append(col1, makeRow("Updated:", formatTime(iss.UpdatedAt)))

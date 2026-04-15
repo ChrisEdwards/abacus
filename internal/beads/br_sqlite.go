@@ -202,6 +202,7 @@ func (c *brSQLiteClient) Export(ctx context.Context) ([]FullIssue, error) {
 func brLoadIssues(ctx context.Context, db *sql.DB) (map[string]*FullIssue, []*FullIssue, error) {
 	const query = `SELECT id, title, description, design, acceptance_criteria, notes,
 		       status, priority, issue_type, COALESCE(assignee, ''),
+		       COALESCE(created_by, ''),
 		       created_at, updated_at, COALESCE(closed_at, ''), COALESCE(external_ref, ''),
 		       COALESCE(close_reason, '')
 		FROM issues WHERE status != 'tombstone' AND (deleted_at IS NULL) ORDER BY created_at, id`
@@ -229,6 +230,7 @@ func brLoadIssues(ctx context.Context, db *sql.DB) (map[string]*FullIssue, []*Fu
 			&iss.Priority,
 			&iss.IssueType,
 			&iss.Assignee,
+			&iss.CreatedBy,
 			&iss.CreatedAt,
 			&iss.UpdatedAt,
 			&iss.ClosedAt,

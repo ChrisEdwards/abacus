@@ -28,6 +28,11 @@ var defaultTreeColumns = []treeColumn{
 		Render:    renderLastUpdatedColumn,
 	},
 	{
+		ConfigKey: config.KeyTreeColumnsAssignee,
+		Width:     10,
+		Render:    renderAssigneeColumn,
+	},
+	{
 		ConfigKey: config.KeyTreeColumnsComments,
 		Width:     5,
 		Render:    renderCommentsColumn,
@@ -165,4 +170,12 @@ func renderCommentsColumn(node *graph.Node) string {
 	default:
 		return fmt.Sprintf("💬%d", count)
 	}
+}
+
+func renderAssigneeColumn(node *graph.Node) string {
+	if node == nil || node.Issue.Assignee == "" {
+		return ""
+	}
+	const columnWidth = 10
+	return truncateWithEllipsis(node.Issue.Assignee, columnWidth)
 }
