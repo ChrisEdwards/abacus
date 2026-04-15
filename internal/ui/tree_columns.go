@@ -66,7 +66,10 @@ func (c columnState) renderWithProvider(mode columnRenderMode, valueProvider fun
 	var builder strings.Builder
 	builder.WriteString(sepStyle.Render(columnSeparator))
 
-	for _, col := range c.columns {
+	for i, col := range c.columns {
+		if i > 0 {
+			builder.WriteString(valueStyle.Render(" "))
+		}
 		cellValue := valueProvider(col)
 		cell := valueStyle.
 			Width(col.Width).
@@ -123,9 +126,13 @@ func prepareColumnState(totalWidth int) (columnState, int) {
 	// Columns are ordered left-to-right by priority (leftmost = highest priority)
 	// so we remove from the end (rightmost = lowest priority = hides first)
 	for len(enabledCols) > 0 {
+		// Width = separator + each column + 1-space gap between each column
 		width := columnSeparatorWidth
-		for _, col := range enabledCols {
+		for i, col := range enabledCols {
 			width += col.Width
+			if i > 0 {
+				width++ // space between adjacent columns
+			}
 		}
 
 		treeWidth := totalWidth - width

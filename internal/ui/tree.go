@@ -293,7 +293,7 @@ func truncateWithEllipsis(text string, maxWidth int) string {
 		return text
 	}
 
-	ellipsis := "..."
+	ellipsis := "…"
 	ellipsisWidth := lipgloss.Width(ellipsis)
 	if maxWidth <= ellipsisWidth {
 		return strings.Repeat(".", maxWidth)

@@ -33,11 +33,12 @@ func TestPrepareColumnState_ResponsiveHiding(t *testing.T) {
 	_ = config.Set(config.KeyTreeColumnsAssignee, true)
 	_ = config.Set(config.KeyTreeColumnsComments, true)
 
-	// Column widths: lastUpdated=8, assignee=10, comments=5, separator=3 (total=26)
+	// Column widths: lastUpdated=8, assignee=10, comments=5, separator=3
+	// Inter-column spaces: 1 gap per adjacent pair
 	// minTreeWidth=18
-	// All 3:  minTreeWidth(18) + separator(3) + lastUpdated(8) + assignee(10) + comments(5) = 44
-	// 2 cols: minTreeWidth(18) + separator(3) + lastUpdated(8) + assignee(10) = 39
-	// 1 col:  minTreeWidth(18) + separator(3) + lastUpdated(8) = 29
+	// All 3:  minTreeWidth(18) + sep(3) + lastUpdated(8) + 1 + assignee(10) + 1 + comments(5) = 46
+	// 2 cols: minTreeWidth(18) + sep(3) + lastUpdated(8) + 1 + assignee(10) = 40
+	// 1 col:  minTreeWidth(18) + sep(3) + lastUpdated(8) = 29
 
 	t.Run("wide_terminal_shows_all_columns", func(t *testing.T) {
 		// 100 chars should easily fit all 3 columns
@@ -72,8 +73,8 @@ func TestPrepareColumnState_ResponsiveHiding(t *testing.T) {
 	})
 
 	t.Run("medium_terminal_shows_two_columns", func(t *testing.T) {
-		// Width 40: fits lastUpdated+assignee (39 needed) but not comments
-		state, treeWidth := prepareColumnState(40)
+		// Width 41: fits lastUpdated+assignee (40 needed) but not comments
+		state, treeWidth := prepareColumnState(41)
 		if !state.enabled() {
 			t.Fatal("expected columns to be enabled")
 		}
@@ -163,8 +164,8 @@ func TestRenderAssigneeColumn(t *testing.T) {
 		{name: "empty assignee", assignee: "", expected: ""},
 		{name: "short name", assignee: "alice", expected: "alice"},
 		{name: "exactly 10 chars", assignee: "1234567890", expected: "1234567890"},
-		{name: "11 chars truncated", assignee: "12345678901", expected: "1234567..."},
-		{name: "long name truncated", assignee: "Christopher Edwards", expected: "Christo..."},
+		{name: "11 chars truncated", assignee: "12345678901", expected: "123456789…"},
+		{name: "long name truncated", assignee: "Christopher Edwards", expected: "Christoph…"},
 	}
 
 	for _, tt := range tests {

@@ -65,7 +65,7 @@ func TestTruncateWithEllipsis(t *testing.T) {
 	t.Run("truncatesAndAppendsEllipsis", func(t *testing.T) {
 		text := "this title should be truncated"
 		got := truncateWithEllipsis(text, 12)
-		if !strings.HasSuffix(got, "...") {
+		if !strings.HasSuffix(got, "…") {
 			t.Fatalf("expected ellipsis suffix, got %q", got)
 		}
 		if lipgloss.Width(got) > 12 {
@@ -74,8 +74,13 @@ func TestTruncateWithEllipsis(t *testing.T) {
 	})
 
 	t.Run("handlesVeryNarrowWidths", func(t *testing.T) {
-		if got := truncateWithEllipsis("wide", 2); got != ".." {
-			t.Fatalf("expected fallback to dots for narrow width, got %q", got)
+		// maxWidth=1: ellipsis itself (width 1) can't fit with any content, falls back to "."
+		if got := truncateWithEllipsis("wide", 1); got != "." {
+			t.Fatalf("expected fallback dot for width 1, got %q", got)
+		}
+		// maxWidth=2: can fit one char + "…"
+		if got := truncateWithEllipsis("wide", 2); got != "w…" {
+			t.Fatalf("expected single char + ellipsis for width 2, got %q", got)
 		}
 	})
 }
@@ -105,7 +110,7 @@ func TestBuildTreeLines_TruncatesWhenColumnsEnabled(t *testing.T) {
 	if len(lines) != 1 {
 		t.Fatalf("expected single line when columns enabled, got %d", len(lines))
 	}
-	if !strings.Contains(lines[0], "...") {
+	if !strings.Contains(lines[0], "…") {
 		t.Fatalf("expected ellipsis in truncated title, got %q", lines[0])
 	}
 	if !strings.Contains(lines[0], "│") {
@@ -339,10 +344,12 @@ func captureColumnConfig(t *testing.T) func() {
 	t.Helper()
 	prevShow := config.GetBool(config.KeyTreeShowColumns)
 	prevUpdated := config.GetBool(config.KeyTreeColumnsLastUpdated)
+	prevAssignee := config.GetBool(config.KeyTreeColumnsAssignee)
 	prevComments := config.GetBool(config.KeyTreeColumnsComments)
 	return func() {
 		_ = config.Set(config.KeyTreeShowColumns, prevShow)
 		_ = config.Set(config.KeyTreeColumnsLastUpdated, prevUpdated)
+		_ = config.Set(config.KeyTreeColumnsAssignee, prevAssignee)
 		_ = config.Set(config.KeyTreeColumnsComments, prevComments)
 	}
 }
@@ -354,6 +361,10 @@ func setColumnConfig(t *testing.T, showColumns, showUpdated, showComments bool) 
 	}
 	if err := config.Set(config.KeyTreeColumnsLastUpdated, showUpdated); err != nil {
 		t.Fatalf("failed to set showColumns.lastUpdated: %v", err)
+	}
+	// Disable assignee column in these tests so width math stays predictable
+	if err := config.Set(config.KeyTreeColumnsAssignee, false); err != nil {
+		t.Fatalf("failed to set showColumns.assignee: %v", err)
 	}
 	if err := config.Set(config.KeyTreeColumnsComments, showComments); err != nil {
 		t.Fatalf("failed to set showColumns.comments: %v", err)
