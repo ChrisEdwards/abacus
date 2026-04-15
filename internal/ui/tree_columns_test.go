@@ -35,10 +35,10 @@ func TestPrepareColumnState_ResponsiveHiding(t *testing.T) {
 
 	// Column widths: lastUpdated=8, assignee=10, comments=5, separator=3
 	// Inter-column spaces: 1 gap per adjacent pair
-	// minTreeWidth=18
-	// All 3:  minTreeWidth(18) + sep(3) + lastUpdated(8) + 1 + assignee(10) + 1 + comments(5) = 46
-	// 2 cols: minTreeWidth(18) + sep(3) + lastUpdated(8) + 1 + assignee(10) = 40
-	// 1 col:  minTreeWidth(18) + sep(3) + lastUpdated(8) = 29
+	// minTreeWidthForColumns=46
+	// All 3:  minTreeWidthForColumns(46) + sep(3) + lastUpdated(8) + 1 + assignee(10) + 1 + comments(5) = 74
+	// 2 cols: minTreeWidthForColumns(46) + sep(3) + lastUpdated(8) + 1 + assignee(10) = 68
+	// 1 col:  minTreeWidthForColumns(46) + sep(3) + lastUpdated(8) = 57
 
 	t.Run("wide_terminal_shows_all_columns", func(t *testing.T) {
 		// 100 chars should easily fit all 3 columns
@@ -55,8 +55,8 @@ func TestPrepareColumnState_ResponsiveHiding(t *testing.T) {
 	})
 
 	t.Run("medium_terminal_hides_rightmost_columns", func(t *testing.T) {
-		// Width 32: fits lastUpdated (29 needed) but not assignee+comments
-		state, treeWidth := prepareColumnState(32)
+		// Width 60: fits lastUpdated (57 needed) but not assignee+comments
+		state, treeWidth := prepareColumnState(60)
 		if !state.enabled() {
 			t.Fatal("expected columns to be enabled with medium terminal")
 		}
@@ -73,8 +73,8 @@ func TestPrepareColumnState_ResponsiveHiding(t *testing.T) {
 	})
 
 	t.Run("medium_terminal_shows_two_columns", func(t *testing.T) {
-		// Width 41: fits lastUpdated+assignee (40 needed) but not comments
-		state, treeWidth := prepareColumnState(41)
+		// Width 69: fits lastUpdated+assignee (68 needed) but not comments
+		state, treeWidth := prepareColumnState(69)
 		if !state.enabled() {
 			t.Fatal("expected columns to be enabled")
 		}
@@ -93,13 +93,12 @@ func TestPrepareColumnState_ResponsiveHiding(t *testing.T) {
 	})
 
 	t.Run("narrow_terminal_hides_all_columns", func(t *testing.T) {
-		// Test with width that can't even fit one column + minTreeWidth
-		// minTreeWidth(18) + separator(3) + lastUpdated(8) = 29
-		state, treeWidth := prepareColumnState(25)
+		// Width 55: can't fit even lastUpdated (57 needed)
+		state, treeWidth := prepareColumnState(55)
 		if state.enabled() {
 			t.Fatalf("expected no columns with narrow terminal, got %d columns", len(state.columns))
 		}
-		if treeWidth != 25 {
+		if treeWidth != 55 {
 			t.Fatalf("expected full width returned when no columns, got %d", treeWidth)
 		}
 	})

@@ -19,9 +19,13 @@ import (
 )
 
 const (
-	minViewportWidth       = 20
-	minViewportHeight      = 5
-	minTreeWidth           = 18
+	minViewportWidth  = 20
+	minViewportHeight = 5
+	minTreeWidth      = 18
+	// minTreeWidthForColumns is the minimum treeWidth (after subtracting column area)
+	// before a column is dropped during progressive hiding. Set to guarantee ~30 chars
+	// of title space (30 title + ~16 max prefix = 46).
+	minTreeWidthForColumns = 46
 	minListHeight          = 5
 	refreshDisplayDuration = 3 * time.Second // How long delta metrics stay visible in footer
 )

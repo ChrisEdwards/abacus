@@ -136,7 +136,7 @@ func prepareColumnState(totalWidth int) (columnState, int) {
 		}
 
 		treeWidth := totalWidth - width
-		if treeWidth >= minTreeWidth {
+		if treeWidth >= minTreeWidthForColumns {
 			// Columns fit while respecting minimum tree width
 			return columnState{
 				columns:    enabledCols,

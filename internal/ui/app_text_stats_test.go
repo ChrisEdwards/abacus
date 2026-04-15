@@ -74,7 +74,7 @@ func TestBuildTreeLines_TruncatesWhenColumnsEnabled(t *testing.T) {
 		cursor:      -1,
 	}
 
-	lines, _, _ := m.buildTreeLines(50)
+	lines, _, _ := m.buildTreeLines(80)
 	if len(lines) != 1 {
 		t.Fatalf("expected single line when columns enabled, got %d", len(lines))
 	}
@@ -127,7 +127,7 @@ func TestBuildTreeLines_RendersCommentColumn(t *testing.T) {
 		cursor:      -1,
 	}
 
-	lines, _, _ := m.buildTreeLines(60)
+	lines, _, _ := m.buildTreeLines(80)
 	if len(lines) != 1 {
 		t.Fatalf("expected single line output, got %d", len(lines))
 	}
