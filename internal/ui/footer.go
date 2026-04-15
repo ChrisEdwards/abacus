@@ -22,6 +22,7 @@ var globalFooterHints = []footerHint{
 	{"⇥", "Focus"},
 	{"/", "Search"},
 	{"v", "View"},
+	{"o", "Layout"},
 	{"n", "New"},
 	{"s", "✎ Status"},
 	{"L", "Labels"},

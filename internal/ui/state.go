@@ -172,6 +172,47 @@ func (m *App) restoreExpandedState(expanded map[string]bool) {
 	walk(m.roots)
 }
 
+// tallLayoutSplit computes the tree and detail pane heights for tall layout.
+// sharedBudget = listHeight - 2: two panes each have 1 border top/bottom (4 total),
+// but must match the wide-mode mainBody height of listHeight+2. So inner content
+// available = (listHeight+2) - 4 = listHeight - 2.
+func (m *App) tallLayoutSplit() (treeH, detailH int) {
+	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
+	sharedBudget := listHeight - 2
+	detailH = int(float64(sharedBudget) * 0.6)
+	detailH = clampDimension(detailH, minViewportHeight, sharedBudget-minListHeight)
+	treeH = sharedBudget - detailH
+	return
+}
+
+// treePaneHeight returns the height available for the tree list.
+// In wide mode (or when details are closed), this is the full body height.
+// In tall mode with details open, it is the tree portion of the shared budget.
+func (m *App) treePaneHeight() int {
+	if m.layout != LayoutTall || !m.ShowDetails {
+		return clampDimension(m.height-4, minListHeight, m.height-2)
+	}
+	treeH, _ := m.tallLayoutSplit()
+	return treeH
+}
+
+// recalcViewportSize recomputes viewport width and height based on current layout.
+// Called on resize and on layout toggle.
+func (m *App) recalcViewportSize() {
+	if m.layout == LayoutTall {
+		m.viewport.Width = m.width - 2
+		_, detailH := m.tallLayoutSplit()
+		m.viewport.Height = detailH
+	} else {
+		rawViewportWidth := int(float64(m.width)*0.45) - 2
+		maxViewportWidth := m.width - minTreeWidth - 4
+		m.viewport.Width = clampDimension(rawViewportWidth, minViewportWidth, maxViewportWidth)
+		rawViewportHeight := m.height - 5
+		maxViewportHeight := m.height - 2
+		m.viewport.Height = clampDimension(rawViewportHeight, minViewportHeight, maxViewportHeight)
+	}
+}
+
 func (m *App) restoreCursorToID(id string) {
 	prev := m.cursor
 	if id == "" {

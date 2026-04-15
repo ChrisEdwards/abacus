@@ -55,6 +55,9 @@ type KeyMap struct {
 
 	// Update
 	Update key.Binding
+
+	// Layout
+	Layout key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings for Abacus.
@@ -207,6 +210,12 @@ func DefaultKeyMap() KeyMap {
 		Update: key.NewBinding(
 			key.WithKeys("U"),
 			key.WithHelp("U", "Update app"),
+		),
+
+		// Layout
+		Layout: key.NewBinding(
+			key.WithKeys("o"),
+			key.WithHelp("o", "Toggle layout (wide / tall)"),
 		),
 	}
 }

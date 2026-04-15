@@ -15,7 +15,7 @@ const treeScrollMargin = 1
 // renderTreeView renders the tree list. Theme is managed by the caller (view.go)
 // which sets dimmed theme when an overlay is active.
 func (m *App) renderTreeView() string {
-	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
+	listHeight := m.treePaneHeight()
 	if len(m.visibleRows) == 0 {
 		m.treeTopLine = 0
 		// Show empty state message with hint to create first bead
@@ -26,7 +26,7 @@ func (m *App) renderTreeView() string {
 	}
 
 	totalWidth := m.width - 2
-	if m.ShowDetails {
+	if m.ShowDetails && m.layout != LayoutTall {
 		totalWidth = m.width - m.viewport.Width - 4
 	}
 	totalWidth = clampDimension(totalWidth, minTreeWidth, m.width-2)

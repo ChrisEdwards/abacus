@@ -143,6 +143,14 @@ func scheduleUpdateFailureToastTick() tea.Cmd {
 	})
 }
 
+type layoutToastTickMsg struct{}
+
+func scheduleLayoutToastTick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+		return layoutToastTickMsg{}
+	})
+}
+
 // Resize debounce message (ab-mhto)
 type resizeDebounceTickMsg struct{}
 

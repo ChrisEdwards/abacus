@@ -432,6 +432,56 @@ auto-refresh-seconds: 15
 	}
 }
 
+func TestSaveLayoutToUserConfig(t *testing.T) {
+	reset()
+	t.Cleanup(reset)
+
+	tmp := t.TempDir()
+	userDir := filepath.Join(tmp, ".abacus")
+	userCfg := filepath.Join(userDir, "config.yaml")
+
+	workDir := filepath.Join(tmp, "work")
+	mustMkdir(t, workDir)
+
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(workDir)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	if err := Initialize(WithWorkingDir(workDir), WithUserConfig(userCfg)); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	setUserConfigPathOverride(userCfg)
+
+	if err := SaveLayout("tall"); err != nil {
+		t.Fatalf("SaveLayout returned error: %v", err)
+	}
+
+	data, err := os.ReadFile(userCfg)
+	if err != nil {
+		t.Fatalf("failed to read user config: %v", err)
+	}
+	if !contains(string(data), "tall") {
+		t.Fatalf("expected user config to contain 'tall', got:\n%s", data)
+	}
+}
+
+func TestLayoutModeDefault(t *testing.T) {
+	reset()
+	t.Cleanup(reset)
+
+	tmp := t.TempDir()
+	userCfg := filepath.Join(tmp, "user.yaml")
+
+	if err := Initialize(WithWorkingDir(tmp), WithUserConfig(userCfg)); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	if got := GetString(KeyLayoutMode); got != "wide" {
+		t.Fatalf("expected default layout mode to be 'wide', got %q", got)
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
 }

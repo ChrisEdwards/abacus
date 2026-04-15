@@ -212,14 +212,7 @@ func (m *App) handleBackgroundMsg(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		// Debounce period elapsed - do the expensive redraw
 		m.resizePending = false
 
-		rawViewportWidth := int(float64(m.width)*0.45) - 2
-		maxViewportWidth := m.width - minTreeWidth - 4
-		m.viewport.Width = clampDimension(rawViewportWidth, minViewportWidth, maxViewportWidth)
-
-		rawViewportHeight := m.height - 5
-		maxViewportHeight := m.height - 2
-		m.viewport.Height = clampDimension(rawViewportHeight, minViewportHeight, maxViewportHeight)
-
+		m.recalcViewportSize()
 		m.applyViewportTheme()
 		m.updateViewportContent()
 
