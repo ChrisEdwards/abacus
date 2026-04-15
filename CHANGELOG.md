@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-15
+
 ### Added
 - **Wide/Tall layout toggle**: Press `o` to switch the detail pane between side-by-side (Wide) and stacked below the tree (Tall); preference persists across sessions (ab-9kgu)
 - **Assignee in tree view**: Tree rows now show the assignee; detail view also shows the `created_by` field
