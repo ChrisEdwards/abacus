@@ -30,9 +30,25 @@ Vague requests ("it would be nice to have X") are hard to act on. Specific ones 
 
 ## Scope
 
-Abacus is a TUI viewer for Beads issue tracking databases. It is intentionally focused. Before filing a feature request, consider whether it fits that scope.
+Abacus is a **read/write TUI for Beads issue databases**. It is intentionally focused on that and nothing else.
 
-**BR (beads_rust) is the active backend.** New features target BR first. BD support is frozen at v0.38.0 — bug fixes are accepted, new BD-only features are unlikely to be merged.
+Out of scope: general project management features, non-Beads backends, web or GUI interfaces, features that duplicate what `br`/`bd` already provide on the command line.
+
+**br (beads_rust) is the active backend.** New features target br first. bd support is frozen at v0.38.0 — bug fixes are accepted, new bd-only features are unlikely to be merged.
+
+## How Issues Are Closed
+
+Issues are closed for the following reasons, indicated by a label:
+
+| Label | Meaning |
+|-------|---------|
+| `*duplicate` | Already tracked — see the linked issue |
+| `*as-designed` | The behaviour is intentional — a comment explains why |
+| `*not-reproducible` | Could not reproduce with the information provided |
+| `*out-of-scope` | Outside the project's stated scope |
+| `*needs-info` | Closed after requesting more information with no response (14 days) |
+
+If your issue was closed and you disagree, comment with additional context and it will be reconsidered.
 
 ## Questions
 

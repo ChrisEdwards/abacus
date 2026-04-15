@@ -20,7 +20,7 @@ Quick fixes for common Abacus issues.
 - **Version check failure**: Ensure your backend meets minimum version requirements:
   - `br`: v0.1.7 or later
   - `bd`: v0.30.0 to v0.38.0
-- **BD version > 0.38.0 warning**: This is informational only. Abacus officially supports BD up to v0.38.0; newer versions may work but are not guaranteed.
+- **bd version > 0.38.0 warning**: This is informational only. Abacus officially supports bd up to v0.38.0; newer versions may work but are not guaranteed.
 
 ## Runtime Problems
 

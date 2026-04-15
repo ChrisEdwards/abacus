@@ -10,7 +10,7 @@ A powerful terminal UI for visualizing and navigating [Beads](https://github.com
 
 Abacus transforms your Beads issue database into an interactive, hierarchical tree view right in your terminal. It provides an intuitive interface for exploring complex dependency graphs, viewing issue details, and understanding project structure at a glance.
 
-## Beads Backends: BD vs BR
+## Beads Backends: bd vs br
 
 Abacus supports two Beads backends:
 
@@ -47,8 +47,8 @@ Key differences:
 
 ### Support Policy
 
-- **BD support is frozen at version 0.38.0** — We will continue supporting BD indefinitely at this version, but will not add support for newer BD versions or features
-- **BR is the path forward** — New features and improvements will be developed for the BR backend
+- **bd support is frozen at version 0.38.0** — We will continue supporting bd indefinitely at this version, but will not add support for newer bd versions or features
+- **br is the path forward** — New features and improvements will be developed for the br backend
 - **100% JSONL compatible** — Both backends use the same `.beads/issues.jsonl` format, so your data is portable
 
 ## Preview
@@ -177,7 +177,7 @@ Key workflows are summarized below—run `abacus --help` anytime for the full fl
 
 ### Backend Selection
 
-Abacus supports both **beads (bd)** and **beads_rust (br)** backends. See [Beads Backends: BD vs BR](#beads-backends-bd-vs-br) for details on choosing between them.
+Abacus supports both **beads (bd)** and **beads_rust (br)** backends. See [Beads Backends: bd vs br](#beads-backends-bd-vs-br) for details on choosing between them.
 
 **Auto-detection:** On startup, abacus checks which binaries are available:
 - Only `br` on PATH → uses br automatically
@@ -204,7 +204,7 @@ beads:
 - **br**: v0.1.7 or later
 - **bd**: v0.30.0 to v0.38.0 (versions > 0.38.0 may work but are not officially supported)
 
-**Note on BD version support:** If you're using BD version > 0.38.0, Abacus will display a one-time informational notice. The software may still work, but we cannot guarantee compatibility with newer BD features or breaking changes. For the best experience, we recommend migrating to BR for new projects.
+**Note on bd version support:** If you're using bd version > 0.38.0, Abacus will display a one-time informational notice. The software may still work, but we cannot guarantee compatibility with newer bd features or breaking changes. For the best experience, we recommend migrating to br for new projects.
 
 ### Detail Panel Relationship Sections
 
