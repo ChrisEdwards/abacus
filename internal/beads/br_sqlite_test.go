@@ -636,32 +636,68 @@ func brFindSubstring(s, substr string) int {
 	return -1
 }
 
-func TestBuildBrSQLiteDSN_NoDoubleSlash(t *testing.T) {
+func TestBuildSQLiteDSN(t *testing.T) {
 	t.Parallel()
 
-	// On Windows, url.URL produces file://C:/... which modernc.org/sqlite
-	// interprets as a network host. The DSN must use file: without authority.
-	tests := []struct {
-		name   string
-		dbPath string
-	}{
-		{"unix path", "/home/user/.beads/beads.db"},
-		{"windows style path", "C:/Users/user/.beads/beads.db"},
-		{"relative path", "project/.beads/beads.db"},
+	// requiredParams are the query parameters that must appear in every DSN.
+	type param struct{ key, val string }
+	required := []param{
+		{"mode", "ro"},
+		{"_journal_mode", "WAL"},
+		{"_busy_timeout", "3000"},
+		{"_foreign_keys", "on"},
+		{"cache", "shared"},
+	}
+	assertParams := func(t *testing.T, dsn string) {
+		t.Helper()
+		for _, p := range required {
+			if !strings.Contains(dsn, p.key+"="+p.val) {
+				t.Errorf("DSN missing %s=%s: %q", p.key, p.val, dsn)
+			}
+		}
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dsn := buildBrSQLiteDSN(tt.dbPath)
-			if !strings.HasPrefix(dsn, "file:") {
-				t.Errorf("DSN must start with 'file:': %q", dsn)
-			}
-			// file:// means authority component present — breaks Windows drive letters
-			if strings.HasPrefix(dsn, "file://") {
-				t.Errorf("DSN must not use authority (file://): %q", dsn)
-			}
-		})
-	}
+	t.Run("unix absolute path", func(t *testing.T) {
+		dsn := buildSQLiteDSN("/home/user/.beads/beads.db")
+		if !strings.HasPrefix(dsn, "file:/home/user/.beads/beads.db?") {
+			t.Errorf("unexpected DSN: %q", dsn)
+		}
+		assertParams(t, dsn)
+	})
+
+	t.Run("windows drive letter", func(t *testing.T) {
+		dsn := buildSQLiteDSN("C:/Users/user/.beads/beads.db")
+		if !strings.HasPrefix(dsn, "file:C:/Users/user/.beads/beads.db?") {
+			t.Errorf("unexpected DSN: %q", dsn)
+		}
+		// Must not use authority component — that's what broke Windows
+		if strings.HasPrefix(dsn, "file://C") {
+			t.Errorf("DSN must not use authority for drive letter: %q", dsn)
+		}
+		assertParams(t, dsn)
+	})
+
+	t.Run("relative path", func(t *testing.T) {
+		dsn := buildSQLiteDSN("project/.beads/beads.db")
+		if !strings.HasPrefix(dsn, "file:project/.beads/beads.db?") {
+			t.Errorf("unexpected DSN: %q", dsn)
+		}
+		assertParams(t, dsn)
+	})
+
+	t.Run("UNC path", func(t *testing.T) {
+		// On Windows \\server\share\... becomes //server/share/... after filepath.ToSlash.
+		// SQLite URI spec requires file:////server/share/... (four slashes) for UNC paths;
+		// file://server/... would treat "server" as an authority host and fail to open.
+		dsn := buildSQLiteDSN("//server/share/.beads/beads.db")
+		if !strings.HasPrefix(dsn, "file:////server/share/.beads/beads.db?") {
+			t.Errorf("UNC DSN must use four-slash form (file:////): %q", dsn)
+		}
+		if strings.HasPrefix(dsn, "file://server") {
+			t.Errorf("DSN must not treat UNC host as authority: %q", dsn)
+		}
+		assertParams(t, dsn)
+	})
 }
 
 func TestNewBrSQLiteClient_PanicsOnEmptyPath(t *testing.T) {

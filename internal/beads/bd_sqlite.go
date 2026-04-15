@@ -9,8 +9,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net/url"
-	"path/filepath"
 	"strings"
 
 	_ "modernc.org/sqlite" // Pure Go SQLite driver, WAL-friendly
@@ -35,7 +33,7 @@ func NewBdSQLiteClient(dbPath string, opts ...BdCLIOption) Client {
 		// A valid dbPath is required for SQLite client.
 		panic("NewBdSQLiteClient requires a non-empty dbPath; use NewBdCLIClient for CLI-only operations")
 	}
-	dsn := buildBdSQLiteDSN(trimmed)
+	dsn := buildSQLiteDSN(trimmed)
 	// Ensure writes go to the same DB when the CLI is used for mutations.
 	opts = append(opts, WithBdDatabasePath(trimmed))
 	return &bdSQLiteClient{
@@ -43,19 +41,6 @@ func NewBdSQLiteClient(dbPath string, opts ...BdCLIOption) Client {
 		dsn:    dsn,
 		writer: NewBdCLIClient(opts...),
 	}
-}
-
-// buildBdSQLiteDSN creates a read-only WAL DSN for the given path.
-// Uses "file:<path>?..." without an authority component so that Windows drive
-// letters (e.g. C:/...) are not misinterpreted as network hosts by modernc.org/sqlite.
-func buildBdSQLiteDSN(dbPath string) string {
-	q := url.Values{}
-	q.Set("mode", "ro")
-	q.Set("_journal_mode", "WAL")
-	q.Set("_busy_timeout", "3000")
-	q.Set("_foreign_keys", "on")
-	q.Set("cache", "shared")
-	return "file:" + filepath.ToSlash(dbPath) + "?" + q.Encode()
 }
 
 func (c *bdSQLiteClient) openDB(ctx context.Context) (*sql.DB, error) {

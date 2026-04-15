@@ -36,7 +36,7 @@ func NewBrSQLiteClient(dbPath string, opts ...BrCLIOption) Client {
 		// brCLIClient only implements Writer, not Client, so we can't fall back.
 		panic("NewBrSQLiteClient requires a non-empty dbPath; use NewBrCLIClient for CLI-only Writer operations")
 	}
-	dsn := buildBrSQLiteDSN(trimmed)
+	dsn := buildSQLiteDSN(trimmed)
 	// Ensure writes go to the same DB when the CLI is used for mutations.
 	opts = append(opts, WithBrDatabasePath(trimmed))
 	// Derive workDir from dbPath so br can discover the workspace.
@@ -74,17 +74,26 @@ func deriveWorkDirFromDBPath(dbPath string) string {
 	return ""
 }
 
-// buildBrSQLiteDSN creates a read-only WAL DSN for the given path.
-// Uses "file:<path>?..." without an authority component so that Windows drive
-// letters (e.g. C:/...) are not misinterpreted as network hosts by modernc.org/sqlite.
-func buildBrSQLiteDSN(dbPath string) string {
+// buildSQLiteDSN returns a read-only WAL SQLite URI for the given path.
+//
+// The URI uses the "file:<path>?..." form (no authority component) so that
+// Windows drive letters (e.g. C:/...) are not misinterpreted as network hosts
+// by modernc.org/sqlite. UNC paths (\\server\share\..., which filepath.ToSlash
+// normalises to //server/share/...) are prefixed with an extra "//" to produce
+// the four-slash form (file:////server/share/...) required by the SQLite URI spec.
+func buildSQLiteDSN(dbPath string) string {
+	slashed := filepath.ToSlash(dbPath)
 	q := url.Values{}
 	q.Set("mode", "ro")
 	q.Set("_journal_mode", "WAL")
 	q.Set("_busy_timeout", "3000")
 	q.Set("_foreign_keys", "on")
 	q.Set("cache", "shared")
-	return "file:" + filepath.ToSlash(dbPath) + "?" + q.Encode()
+	if strings.HasPrefix(slashed, "//") {
+		// UNC path: prepend "//" so the total prefix is "file:////" as required.
+		return "file://" + slashed + "?" + q.Encode()
+	}
+	return "file:" + slashed + "?" + q.Encode()
 }
 
 func (c *brSQLiteClient) openDB(ctx context.Context) (*sql.DB, error) {
