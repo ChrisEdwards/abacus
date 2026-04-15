@@ -11,7 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const columnSeparator = " │ "
+const columnSeparator = " │"
 
 var columnSeparatorWidth = lipgloss.Width(columnSeparator)
 
