@@ -1,0 +1,11 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What would you like?
+      description: "Describe what you want and why. Include as much or as little detail as you have — acceptance criteria, key bindings, UI behaviour, implementation hints, out-of-scope notes. The more context, the better."
+    validations:
+      required: true

@@ -1,0 +1,78 @@
+name: Bug Report
+description: Report a bug in Abacus
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, check the [Troubleshooting Guide](https://github.com/ChrisEdwards/abacus/blob/main/TROUBLESHOOTING.md). Many common issues are documented there.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: "Describe the bug. Include steps to reproduce, what you expected, and what actually occurred."
+      placeholder: |
+        1. Launch `abacus`
+        2. ...
+
+        Expected: ...
+        Actual: ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      options:
+        - br (beads_rust — Rust)
+        - bd (beads — Go, v0.38.0)
+        - Both / applies to either
+    validations:
+      required: false
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - macOS
+        - Linux
+        - Windows
+    validations:
+      required: false
+
+  - type: input
+    id: abacus-version
+    attributes:
+      label: Abacus Version
+      placeholder: "e.g. 0.9.0"
+      description: "Run `abacus --version`."
+    validations:
+      required: false
+
+  - type: input
+    id: backend-version
+    attributes:
+      label: Backend Version
+      placeholder: "e.g. br v0.2.1"
+      description: "Run `br --version` or `bd --version`."
+    validations:
+      required: false
+
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal & Shell
+      placeholder: "e.g. Ghostty + zsh"
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional Context
+      description: "Screenshots, `echo $TERM` output, `--debug` log lines, relevant component (e.g. 'create overlay', 'detail pane'), etc."
+    validations:
+      required: false
