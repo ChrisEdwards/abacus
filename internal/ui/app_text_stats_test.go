@@ -12,38 +12,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func TestWrapWithHangingIndent(t *testing.T) {
-	t.Run("appliesIndentToWrappedLines", func(t *testing.T) {
-		text := "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
-		got := wrapWithHangingIndent(4, text, 20)
-		lines := strings.Split(got, "\n")
-		if len(lines) <= 1 {
-			t.Fatalf("expected wrapped text, got %q", got)
-		}
-		for i := 1; i < len(lines); i++ {
-			if !strings.HasPrefix(lines[i], "    ") {
-				t.Fatalf("line %d missing hanging indent: %q", i, lines[i])
-			}
-		}
-	})
-
-	t.Run("returnsOriginalWhenTooNarrow", func(t *testing.T) {
-		text := "no change"
-		got := wrapWithHangingIndent(10, text, 8)
-		if got != text {
-			t.Fatalf("expected %q, got %q", text, got)
-		}
-	})
-
-	t.Run("returnsOriginalWhenAlreadyShort", func(t *testing.T) {
-		text := "short text"
-		got := wrapWithHangingIndent(2, text, 50)
-		if got != text {
-			t.Fatalf("expected %q, got %q", text, got)
-		}
-	})
-}
-
 func TestIndentBlock(t *testing.T) {
 	input := "first line\n\nthird line"
 	got := indentBlock(input, 2)
@@ -121,12 +89,12 @@ func TestBuildTreeLines_TruncatesWhenColumnsEnabled(t *testing.T) {
 	}
 
 	setColumnConfig(t, false, true, true)
-	wrappedLines, _, _ := m.buildTreeLines(30)
-	if len(wrappedLines) <= 1 {
-		t.Fatalf("expected wrapped lines when columns disabled, got %d", len(wrappedLines))
+	noColLines, _, _ := m.buildTreeLines(30)
+	if len(noColLines) != 1 {
+		t.Fatalf("expected single line when columns disabled, got %d", len(noColLines))
 	}
-	if strings.Contains(wrappedLines[0], "│") {
-		t.Fatalf("expected no column separator when columns disabled, got %q", wrappedLines[0])
+	if strings.Contains(noColLines[0], "│") {
+		t.Fatalf("expected no column separator when columns disabled, got %q", noColLines[0])
 	}
 }
 
