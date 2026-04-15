@@ -231,6 +231,8 @@ Common pitfalls
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
+- After a subagent worktree pushes, run `git pull` in the parent session immediately
+- At session end, `git status` MUST show no untracked files — commit them, confirm gitignored, or ask to delete
 
 ---
 
