@@ -28,11 +28,35 @@ Use the [Feature Request](.github/ISSUE_TEMPLATE/feature_request.yml) template. 
 
 Vague requests ("it would be nice to have X") are hard to act on. Specific ones ("pressing `f` in the list view should filter issues by label, showing a fuzzy-search overlay, dismissible with Esc") are directly implementable.
 
+## Proposals for Significant Changes
+
+For changes that affect the CLI interface, keybindings, data model, or architecture — **open an issue and wait for maintainer sign-off before writing code.** This prevents effort spent on changes that won't be accepted.
+
+What counts as significant: new commands or flags, changes to existing keybindings, backend protocol changes, anything that alters how `.beads/` data is read or written.
+
+What doesn't need a proposal: bug fixes, UI polish, documentation, performance improvements with no behaviour change.
+
 ## Scope
 
-Abacus is a TUI viewer for Beads issue tracking databases. It is intentionally focused. Before filing a feature request, consider whether it fits that scope.
+Abacus is a **read/write TUI for Beads issue databases**. It is intentionally focused on that and nothing else.
 
-**BR (beads_rust) is the active backend.** New features target BR first. BD support is frozen at v0.38.0 — bug fixes are accepted, new BD-only features are unlikely to be merged.
+Out of scope: general project management features, non-Beads backends, web or GUI interfaces, features that duplicate what `br`/`bd` already provide on the command line.
+
+**br (beads_rust) is the active backend.** New features target br first. bd support is frozen at v0.38.0 — bug fixes are accepted, new bd-only features are unlikely to be merged.
+
+## How Issues Are Closed
+
+Issues are closed for the following reasons, indicated by a label:
+
+| Label | Meaning |
+|-------|---------|
+| `*duplicate` | Already tracked — see the linked issue |
+| `*as-designed` | The behaviour is intentional — a comment explains why |
+| `*not-reproducible` | Could not reproduce with the information provided |
+| `*out-of-scope` | Outside the project's stated scope |
+| `*needs-info` | Closed after requesting more information with no response (14 days) |
+
+If your issue was closed and you disagree, comment with additional context and it will be reconsidered.
 
 ## Questions
 
