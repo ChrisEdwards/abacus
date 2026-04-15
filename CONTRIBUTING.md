@@ -28,14 +28,6 @@ Use the [Feature Request](.github/ISSUE_TEMPLATE/feature_request.yml) template. 
 
 Vague requests ("it would be nice to have X") are hard to act on. Specific ones ("pressing `f` in the list view should filter issues by label, showing a fuzzy-search overlay, dismissible with Esc") are directly implementable.
 
-## Proposals for Significant Changes
-
-For changes that affect the CLI interface, keybindings, data model, or architecture — **open an issue and wait for maintainer sign-off before writing code.** This prevents effort spent on changes that won't be accepted.
-
-What counts as significant: new commands or flags, changes to existing keybindings, backend protocol changes, anything that alters how `.beads/` data is read or written.
-
-What doesn't need a proposal: bug fixes, UI polish, documentation, performance improvements with no behaviour change.
-
 ## Scope
 
 Abacus is a **read/write TUI for Beads issue databases**. It is intentionally focused on that and nothing else.
