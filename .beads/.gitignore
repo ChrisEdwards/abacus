@@ -11,6 +11,7 @@ daemon.log
 daemon.pid
 bd.sock
 .sync.lock
+.write.lock
 
 # Legacy database files
 db.sqlite
