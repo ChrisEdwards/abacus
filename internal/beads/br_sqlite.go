@@ -83,17 +83,18 @@ func deriveWorkDirFromDBPath(dbPath string) string {
 // the four-slash form (file:////server/share/...) required by the SQLite URI spec.
 func buildSQLiteDSN(dbPath string) string {
 	slashed := filepath.ToSlash(dbPath)
+	escapedPath := (&url.URL{Path: slashed}).EscapedPath()
 	q := url.Values{}
 	q.Set("mode", "ro")
 	q.Set("_journal_mode", "WAL")
 	q.Set("_busy_timeout", "3000")
 	q.Set("_foreign_keys", "on")
 	q.Set("cache", "shared")
-	if strings.HasPrefix(slashed, "//") {
+	if strings.HasPrefix(escapedPath, "//") {
 		// UNC path: prepend "//" so the total prefix is "file:////" as required.
-		return "file://" + slashed + "?" + q.Encode()
+		return "file://" + escapedPath + "?" + q.Encode()
 	}
-	return "file:" + slashed + "?" + q.Encode()
+	return "file:" + escapedPath + "?" + q.Encode()
 }
 
 func (c *brSQLiteClient) openDB(ctx context.Context) (*sql.DB, error) {

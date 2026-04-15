@@ -15,8 +15,17 @@ import (
 // The caller should clean up with t.TempDir() or defer cleanup.
 func testBrDB(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "test.db")
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	createTestBrDB(t, dbPath)
+	return dbPath
+}
+
+func createTestBrDB(t *testing.T, dbPath string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
+		t.Fatalf("create test db directory: %v", err)
+	}
 
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -72,8 +81,6 @@ func testBrDB(t *testing.T) string {
 	if _, err := db.Exec(schema); err != nil {
 		t.Fatalf("create schema: %v", err)
 	}
-
-	return dbPath
 }
 
 // seedTestData populates the test database with sample data.
