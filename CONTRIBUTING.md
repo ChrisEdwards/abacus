@@ -36,6 +36,32 @@ Out of scope: general project management features, non-Beads backends, web or GU
 
 **br (beads_rust) is the active backend.** New features target br first. bd support is frozen at v0.38.0 — bug fixes are accepted, new bd-only features are unlikely to be merged.
 
+## Labels
+
+**Type**
+
+| Label | Use for |
+|-------|---------|
+| `bug` | Something isn't working correctly |
+| `enhancement` | New feature or improvement |
+| `documentation` | Docs-only change |
+| `question` | Question or clarification needed |
+
+**Area** — which part of the codebase is affected:
+
+| Label | Covers |
+|-------|--------|
+| `area/tui` | Tree view, navigation, filter, sort, state |
+| `area/overlays` | Create, edit, status, labels, delete, comment overlays |
+| `area/detail` | Detail pane |
+| `area/backend` | br/bd integration and data layer |
+| `area/cli` | CLI flags, config, startup |
+| `area/docs` | Documentation |
+
+**Backend** — which backend the issue applies to: `backend: br`, `backend: bd`, `backend: both`
+
+**Community**: `good first issue`, `help wanted`
+
 ## How Issues Are Closed
 
 Issues are closed for the following reasons, indicated by a label:
