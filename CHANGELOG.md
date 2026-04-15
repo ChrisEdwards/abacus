@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Wide/Tall layout toggle**: Press `o` to switch the detail pane between side-by-side (Wide) and stacked below the tree (Tall); preference persists across sessions (ab-9kgu)
+- **Assignee in tree view**: Tree rows now show the assignee; detail view also shows the `created_by` field
+
+### Fixed
+- **SQLite DSN path escaping**: Correctly escape SQLite DSN paths on Windows, fixing UNC path startup failures
+- **Filtered expand/collapse state**: Collapse/expand state is now preserved per tree row in filtered (Active/Ready) views (ab-lv0y)
+- **CHANGELOG duplicate headers**: Release script no longer inserts duplicate version headers
+
+### Changed
+- **Dependencies**: `charmbracelet/huh` 0.8.0→1.0.0, `charmbracelet/glamour` 0.10.0→1.0.0, `modernc.org/sqlite` 1.42.2→1.48.2, `golang.org/x/term` 0.31.0→0.41.0
+
 ## [0.9.0] - 2026-04-01
 
 ### Added
