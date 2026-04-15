@@ -12,38 +12,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func TestWrapWithHangingIndent(t *testing.T) {
-	t.Run("appliesIndentToWrappedLines", func(t *testing.T) {
-		text := "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
-		got := wrapWithHangingIndent(4, text, 20)
-		lines := strings.Split(got, "\n")
-		if len(lines) <= 1 {
-			t.Fatalf("expected wrapped text, got %q", got)
-		}
-		for i := 1; i < len(lines); i++ {
-			if !strings.HasPrefix(lines[i], "    ") {
-				t.Fatalf("line %d missing hanging indent: %q", i, lines[i])
-			}
-		}
-	})
-
-	t.Run("returnsOriginalWhenTooNarrow", func(t *testing.T) {
-		text := "no change"
-		got := wrapWithHangingIndent(10, text, 8)
-		if got != text {
-			t.Fatalf("expected %q, got %q", text, got)
-		}
-	})
-
-	t.Run("returnsOriginalWhenAlreadyShort", func(t *testing.T) {
-		text := "short text"
-		got := wrapWithHangingIndent(2, text, 50)
-		if got != text {
-			t.Fatalf("expected %q, got %q", text, got)
-		}
-	})
-}
-
 func TestIndentBlock(t *testing.T) {
 	input := "first line\n\nthird line"
 	got := indentBlock(input, 2)
@@ -65,7 +33,7 @@ func TestTruncateWithEllipsis(t *testing.T) {
 	t.Run("truncatesAndAppendsEllipsis", func(t *testing.T) {
 		text := "this title should be truncated"
 		got := truncateWithEllipsis(text, 12)
-		if !strings.HasSuffix(got, "...") {
+		if !strings.HasSuffix(got, "…") {
 			t.Fatalf("expected ellipsis suffix, got %q", got)
 		}
 		if lipgloss.Width(got) > 12 {
@@ -74,8 +42,13 @@ func TestTruncateWithEllipsis(t *testing.T) {
 	})
 
 	t.Run("handlesVeryNarrowWidths", func(t *testing.T) {
-		if got := truncateWithEllipsis("wide", 2); got != ".." {
-			t.Fatalf("expected fallback to dots for narrow width, got %q", got)
+		// maxWidth=1: ellipsis itself (width 1) can't fit with any content, falls back to "."
+		if got := truncateWithEllipsis("wide", 1); got != "." {
+			t.Fatalf("expected fallback dot for width 1, got %q", got)
+		}
+		// maxWidth=2: can fit one char + "…"
+		if got := truncateWithEllipsis("wide", 2); got != "w…" {
+			t.Fatalf("expected single char + ellipsis for width 2, got %q", got)
 		}
 	})
 }
@@ -101,11 +74,11 @@ func TestBuildTreeLines_TruncatesWhenColumnsEnabled(t *testing.T) {
 		cursor:      -1,
 	}
 
-	lines, _, _ := m.buildTreeLines(50)
+	lines, _, _ := m.buildTreeLines(80)
 	if len(lines) != 1 {
 		t.Fatalf("expected single line when columns enabled, got %d", len(lines))
 	}
-	if !strings.Contains(lines[0], "...") {
+	if !strings.Contains(lines[0], "…") {
 		t.Fatalf("expected ellipsis in truncated title, got %q", lines[0])
 	}
 	if !strings.Contains(lines[0], "│") {
@@ -116,12 +89,12 @@ func TestBuildTreeLines_TruncatesWhenColumnsEnabled(t *testing.T) {
 	}
 
 	setColumnConfig(t, false, true, true)
-	wrappedLines, _, _ := m.buildTreeLines(30)
-	if len(wrappedLines) <= 1 {
-		t.Fatalf("expected wrapped lines when columns disabled, got %d", len(wrappedLines))
+	noColLines, _, _ := m.buildTreeLines(30)
+	if len(noColLines) != 1 {
+		t.Fatalf("expected single line when columns disabled, got %d", len(noColLines))
 	}
-	if strings.Contains(wrappedLines[0], "│") {
-		t.Fatalf("expected no column separator when columns disabled, got %q", wrappedLines[0])
+	if strings.Contains(noColLines[0], "│") {
+		t.Fatalf("expected no column separator when columns disabled, got %q", noColLines[0])
 	}
 }
 
@@ -154,7 +127,7 @@ func TestBuildTreeLines_RendersCommentColumn(t *testing.T) {
 		cursor:      -1,
 	}
 
-	lines, _, _ := m.buildTreeLines(60)
+	lines, _, _ := m.buildTreeLines(80)
 	if len(lines) != 1 {
 		t.Fatalf("expected single line output, got %d", len(lines))
 	}
@@ -339,10 +312,12 @@ func captureColumnConfig(t *testing.T) func() {
 	t.Helper()
 	prevShow := config.GetBool(config.KeyTreeShowColumns)
 	prevUpdated := config.GetBool(config.KeyTreeColumnsLastUpdated)
+	prevAssignee := config.GetBool(config.KeyTreeColumnsAssignee)
 	prevComments := config.GetBool(config.KeyTreeColumnsComments)
 	return func() {
 		_ = config.Set(config.KeyTreeShowColumns, prevShow)
 		_ = config.Set(config.KeyTreeColumnsLastUpdated, prevUpdated)
+		_ = config.Set(config.KeyTreeColumnsAssignee, prevAssignee)
 		_ = config.Set(config.KeyTreeColumnsComments, prevComments)
 	}
 }
@@ -354,6 +329,10 @@ func setColumnConfig(t *testing.T, showColumns, showUpdated, showComments bool) 
 	}
 	if err := config.Set(config.KeyTreeColumnsLastUpdated, showUpdated); err != nil {
 		t.Fatalf("failed to set showColumns.lastUpdated: %v", err)
+	}
+	// Disable assignee column in these tests so width math stays predictable
+	if err := config.Set(config.KeyTreeColumnsAssignee, false); err != nil {
+		t.Fatalf("failed to set showColumns.assignee: %v", err)
 	}
 	if err := config.Set(config.KeyTreeColumnsComments, showComments); err != nil {
 		t.Fatalf("failed to set showColumns.comments: %v", err)

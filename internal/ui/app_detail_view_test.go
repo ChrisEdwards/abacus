@@ -702,3 +702,162 @@ func TestCopyToastTickWhenNotShowing(t *testing.T) {
 		t.Error("expected no tick scheduled when toast is not showing")
 	}
 }
+
+func TestDetailViewShowsAssigneeWhenSet(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-200",
+			Title:     "Assigned Issue",
+			Status:    "open",
+			IssueType: "task",
+			Priority:  2,
+			Assignee:  "alice",
+			CreatedAt: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			UpdatedAt: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  nodesToRows(node),
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	if !strings.Contains(content, "Assignee:") {
+		t.Fatalf("expected Assignee field in detail view, content:\n%s", content)
+	}
+	if !strings.Contains(content, "alice") {
+		t.Fatalf("expected assignee value 'alice' in detail view, content:\n%s", content)
+	}
+}
+
+func TestDetailViewOmitsAssigneeWhenEmpty(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-201",
+			Title:     "Unassigned Issue",
+			Status:    "open",
+			IssueType: "task",
+			Priority:  2,
+			Assignee:  "",
+			CreatedAt: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			UpdatedAt: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  nodesToRows(node),
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	if strings.Contains(content, "Assignee:") {
+		t.Fatalf("expected Assignee field omitted when empty, content:\n%s", content)
+	}
+}
+
+func TestDetailViewShowsCreatedByWhenSet(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-202",
+			Title:     "Issue With Creator",
+			Status:    "open",
+			IssueType: "task",
+			Priority:  2,
+			CreatedBy: "Bob Smith",
+			CreatedAt: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			UpdatedAt: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  nodesToRows(node),
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	if !strings.Contains(content, "Created By:") {
+		t.Fatalf("expected 'Created By:' field in detail view, content:\n%s", content)
+	}
+	if !strings.Contains(content, "Bob Smith") {
+		t.Fatalf("expected creator value 'Bob Smith' in detail view, content:\n%s", content)
+	}
+}
+
+func TestDetailViewOmitsCreatedByWhenEmpty(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-203",
+			Title:     "Issue Without Creator",
+			Status:    "open",
+			IssueType: "task",
+			Priority:  2,
+			CreatedBy: "",
+			CreatedAt: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			UpdatedAt: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  nodesToRows(node),
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	if strings.Contains(content, "Created By:") {
+		t.Fatalf("expected 'Created By:' field omitted when empty, content:\n%s", content)
+	}
+}
+
+func TestDetailViewAssigneeAppearsAfterType(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:        "ab-204",
+			Title:     "Order Test",
+			Status:    "open",
+			IssueType: "feature",
+			Priority:  2,
+			Assignee:  "carol",
+			CreatedAt: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			UpdatedAt: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+		CommentsLoaded: true,
+	}
+	app := &App{
+		ShowDetails:  true,
+		visibleRows:  nodesToRows(node),
+		viewport:     viewport.New(90, 30),
+		outputFormat: "plain",
+	}
+
+	app.updateViewportContent()
+	content := stripANSI(app.viewport.View())
+
+	typeIdx := strings.Index(content, "Type:")
+	assigneeIdx := strings.Index(content, "Assignee:")
+	createdIdx := strings.Index(content, "Created:")
+
+	if typeIdx == -1 || assigneeIdx == -1 || createdIdx == -1 {
+		t.Fatalf("expected Type, Assignee, and Created in content:\n%s", content)
+	}
+	if !(typeIdx < assigneeIdx && assigneeIdx < createdIdx) {
+		t.Fatalf("expected order Type < Assignee < Created, got Type=%d Assignee=%d Created=%d\n%s",
+			typeIdx, assigneeIdx, createdIdx, content)
+	}
+}

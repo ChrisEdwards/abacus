@@ -8,7 +8,6 @@ import (
 	"abacus/internal/domain"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/reflow/wordwrap"
 )
 
 const treeScrollMargin = 1
@@ -122,25 +121,11 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 		priorityStr := formatPriority(node.Issue.Priority, showPriority)
 
 		totalPrefixWidth := treePrefixWidth(indent, marker, iconStr, priorityStr, idDisplay)
-		titleLines := []string{node.Issue.Title}
-
-		if showColumns {
-			availableWidth := treeWidth - totalPrefixWidth
-			if availableWidth < 1 {
-				availableWidth = 1
-			}
-			titleLines[0] = truncateWithEllipsis(node.Issue.Title, availableWidth)
-		} else {
-			wrapWidth := treeWidth - 4
-			if wrapWidth < 1 {
-				wrapWidth = 1
-			}
-			wrappedTitle := wrapWithHangingIndent(totalPrefixWidth, node.Issue.Title, wrapWidth)
-			titleLines = strings.Split(wrappedTitle, "\n")
-			if len(titleLines) == 0 {
-				titleLines = []string{""}
-			}
+		availableWidth := treeWidth - totalPrefixWidth
+		if availableWidth < 1 {
+			availableWidth = 1
 		}
+		titleLines := []string{truncateWithEllipsis(node.Issue.Title, availableWidth)}
 
 		// Cross-highlighting: same node appears under multiple parents
 		isCrossHighlight := i != m.cursor && node.Issue.ID == selectedID
@@ -165,11 +150,6 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 				columns.render(node, columnRenderSelected),
 			)
 			lines = append(lines, line)
-			// Handle wrapped continuation lines with selection background
-			for k := 1; k < len(titleLines); k++ {
-				contLine := buildSelectedContinuation(titleLines[k], textStyle, totalWidth)
-				lines = append(lines, contLine)
-			}
 			cursorEnd = len(lines)
 		} else if isCrossHighlight {
 			// Cross-highlight style for duplicate instances - also full width
@@ -187,9 +167,6 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 				columns.render(node, columnRenderCrossHighlight),
 			)
 			lines = append(lines, line)
-			for k := 1; k < len(titleLines); k++ {
-				lines = append(lines, sp+textStyle.Render(titleLines[k]))
-			}
 		} else {
 			// Style the indent and all spacing with background
 			styledIndent := styleNormalText().Render(" " + indent)
@@ -204,9 +181,6 @@ func (m *App) buildTreeLines(totalWidth int) ([]string, int, int) {
 				line1 += columns.render(node, columnRenderNormal)
 			}
 			lines = append(lines, line1)
-			for k := 1; k < len(titleLines); k++ {
-				lines = append(lines, sp+textStyle.Render(titleLines[k]))
-			}
 		}
 	}
 	return lines, cursorStart, cursorEnd
@@ -255,35 +229,6 @@ func (m *App) ensureTreeSelectionVisible(listHeight, totalLines, cursorStart, cu
 	m.treeTopLine = top
 }
 
-func wrapWithHangingIndent(prefixWidth int, text string, maxWidth int) string {
-	if maxWidth <= prefixWidth {
-		return text
-	}
-
-	contentWidth := maxWidth - prefixWidth
-	if contentWidth <= 0 {
-		contentWidth = 10
-	}
-
-	wrapped := wordwrap.String(text, contentWidth)
-
-	lines := strings.Split(wrapped, "\n")
-	if len(lines) <= 1 {
-		return text
-	}
-
-	var sb strings.Builder
-	sb.WriteString(lines[0])
-
-	padding := strings.Repeat(" ", prefixWidth)
-	for i := 1; i < len(lines); i++ {
-		sb.WriteString("\n")
-		sb.WriteString(padding)
-		sb.WriteString(lines[i])
-	}
-	return sb.String()
-}
-
 func truncateWithEllipsis(text string, maxWidth int) string {
 	if maxWidth <= 0 {
 		return ""
@@ -293,7 +238,7 @@ func truncateWithEllipsis(text string, maxWidth int) string {
 		return text
 	}
 
-	ellipsis := "..."
+	ellipsis := "…"
 	ellipsisWidth := lipgloss.Width(ellipsis)
 	if maxWidth <= ellipsisWidth {
 		return strings.Repeat(".", maxWidth)
@@ -380,24 +325,6 @@ func buildSelectedRow(indent, marker, icon string, iconStyle lipgloss.Style, pri
 		Background(bg).
 		Width(totalWidth).
 		Render(treeContent)
-}
-
-// buildSelectedContinuation creates a continuation line for wrapped titles with selection background.
-func buildSelectedContinuation(text string, textStyle lipgloss.Style, width int) string {
-	t := currentThemeWrapper()
-	bg := t.BackgroundSecondary()
-
-	selectedText := lipgloss.NewStyle().
-		Background(bg).
-		Bold(true).
-		Foreground(textStyle.GetForeground())
-
-	content := lipgloss.NewStyle().Background(bg).Render(" ") + selectedText.Render(text)
-
-	return lipgloss.NewStyle().
-		Background(bg).
-		Width(width).
-		Render(content)
 }
 
 // buildCrossHighlightRow creates a full-width row with cross-highlight background.

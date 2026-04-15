@@ -48,6 +48,7 @@ func createTestBrDB(t *testing.T, dbPath string) {
 			priority INTEGER NOT NULL,
 			issue_type TEXT NOT NULL,
 			assignee TEXT,
+			created_by TEXT DEFAULT '',
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
 			closed_at TEXT,
@@ -297,6 +298,44 @@ func TestBrSQLiteClient_Export(t *testing.T) {
 	// Check comments loaded
 	if len(iss.Comments) != 2 {
 		t.Errorf("expected 2 comments for ab-001, got %d", len(iss.Comments))
+	}
+}
+
+func TestBrSQLiteClient_Export_LoadsCreatedBy(t *testing.T) {
+	t.Parallel()
+
+	dbPath := testBrDB(t)
+	seedTestData(t, dbPath)
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if _, err := db.Exec(`UPDATE issues SET created_by = 'Alice' WHERE id = 'ab-001'`); err != nil {
+		t.Fatalf("set created_by: %v", err)
+	}
+	_ = db.Close()
+
+	client := NewBrSQLiteClient(dbPath)
+	ctx := context.Background()
+
+	issues, err := client.Export(ctx)
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+
+	var ab001 *FullIssue
+	for i := range issues {
+		if issues[i].ID == "ab-001" {
+			ab001 = &issues[i]
+			break
+		}
+	}
+	if ab001 == nil {
+		t.Fatal("ab-001 not found")
+	}
+	if ab001.CreatedBy != "Alice" {
+		t.Errorf("expected CreatedBy = 'Alice', got %q", ab001.CreatedBy)
 	}
 }
 

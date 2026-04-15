@@ -29,6 +29,7 @@ const (
 	KeyTreeShowPriority       = "tree.showPriority"
 	KeyTreeShowColumns        = "tree.showColumns"
 	KeyTreeColumnsLastUpdated = "tree.columns.lastUpdated"
+	KeyTreeColumnsAssignee    = "tree.columns.assignee"
 	KeyTreeColumnsComments    = "tree.columns.comments"
 
 	// Backend selection keys
@@ -286,6 +287,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeyTreeShowPriority, true)
 	v.SetDefault(KeyTreeShowColumns, true)
 	v.SetDefault(KeyTreeColumnsLastUpdated, true)
+	v.SetDefault(KeyTreeColumnsAssignee, true)
 	v.SetDefault(KeyTreeColumnsComments, true)
 	v.SetDefault(KeyBeadsBackend, "")                     // Empty means auto-detect
 	v.SetDefault(KeyBdUnsupportedVersionWarnShown, false) // One-time warning not yet shown
