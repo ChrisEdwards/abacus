@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -633,6 +634,34 @@ func brFindSubstring(s, substr string) int {
 		}
 	}
 	return -1
+}
+
+func TestBuildBrSQLiteDSN_NoDoubleSlash(t *testing.T) {
+	t.Parallel()
+
+	// On Windows, url.URL produces file://C:/... which modernc.org/sqlite
+	// interprets as a network host. The DSN must use file: without authority.
+	tests := []struct {
+		name   string
+		dbPath string
+	}{
+		{"unix path", "/home/user/.beads/beads.db"},
+		{"windows style path", "C:/Users/user/.beads/beads.db"},
+		{"relative path", "project/.beads/beads.db"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dsn := buildBrSQLiteDSN(tt.dbPath)
+			if !strings.HasPrefix(dsn, "file:") {
+				t.Errorf("DSN must start with 'file:': %q", dsn)
+			}
+			// file:// means authority component present — breaks Windows drive letters
+			if strings.HasPrefix(dsn, "file://") {
+				t.Errorf("DSN must not use authority (file://): %q", dsn)
+			}
+		})
+	}
 }
 
 func TestNewBrSQLiteClient_PanicsOnEmptyPath(t *testing.T) {

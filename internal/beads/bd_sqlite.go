@@ -46,19 +46,16 @@ func NewBdSQLiteClient(dbPath string, opts ...BdCLIOption) Client {
 }
 
 // buildBdSQLiteDSN creates a read-only WAL DSN for the given path.
+// Uses "file:<path>?..." without an authority component so that Windows drive
+// letters (e.g. C:/...) are not misinterpreted as network hosts by modernc.org/sqlite.
 func buildBdSQLiteDSN(dbPath string) string {
-	u := url.URL{
-		Scheme: "file",
-		Path:   filepath.ToSlash(dbPath),
-	}
 	q := url.Values{}
 	q.Set("mode", "ro")
 	q.Set("_journal_mode", "WAL")
 	q.Set("_busy_timeout", "3000")
 	q.Set("_foreign_keys", "on")
 	q.Set("cache", "shared")
-	u.RawQuery = q.Encode()
-	return u.String()
+	return "file:" + filepath.ToSlash(dbPath) + "?" + q.Encode()
 }
 
 func (c *bdSQLiteClient) openDB(ctx context.Context) (*sql.DB, error) {
