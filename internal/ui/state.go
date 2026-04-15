@@ -172,21 +172,28 @@ func (m *App) restoreExpandedState(expanded map[string]bool) {
 	walk(m.roots)
 }
 
+// tallLayoutSplit computes the tree and detail pane heights for tall layout.
+// sharedBudget = listHeight - 2: two panes each have 1 border top/bottom (4 total),
+// but must match the wide-mode mainBody height of listHeight+2. So inner content
+// available = (listHeight+2) - 4 = listHeight - 2.
+func (m *App) tallLayoutSplit() (treeH, detailH int) {
+	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
+	sharedBudget := listHeight - 2
+	detailH = int(float64(sharedBudget) * 0.6)
+	detailH = clampDimension(detailH, minViewportHeight, sharedBudget-minListHeight)
+	treeH = sharedBudget - detailH
+	return
+}
+
 // treePaneHeight returns the height available for the tree list.
 // In wide mode (or when details are closed), this is the full body height.
 // In tall mode with details open, it is the tree portion of the shared budget.
 func (m *App) treePaneHeight() int {
-	listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
 	if m.layout != LayoutTall || !m.ShowDetails {
-		return listHeight
+		return clampDimension(m.height-4, minListHeight, m.height-2)
 	}
-	// sharedBudget = listHeight - 2: two panes each have 1 border top/bottom (4 total),
-	// but must match the wide-mode mainBody height of listHeight+2. So inner content
-	// available = (listHeight+2) - 4 = listHeight - 2.
-	sharedBudget := listHeight - 2
-	detailContent := int(float64(sharedBudget) * 0.6)
-	detailContent = clampDimension(detailContent, minViewportHeight, sharedBudget-minListHeight)
-	return sharedBudget - detailContent
+	treeH, _ := m.tallLayoutSplit()
+	return treeH
 }
 
 // recalcViewportSize recomputes viewport width and height based on current layout.
@@ -194,11 +201,8 @@ func (m *App) treePaneHeight() int {
 func (m *App) recalcViewportSize() {
 	if m.layout == LayoutTall {
 		m.viewport.Width = m.width - 2
-		listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
-		sharedBudget := listHeight - 2
-		detailContent := int(float64(sharedBudget) * 0.6)
-		detailContent = clampDimension(detailContent, minViewportHeight, sharedBudget-minListHeight)
-		m.viewport.Height = detailContent
+		_, detailH := m.tallLayoutSplit()
+		m.viewport.Height = detailH
 	} else {
 		rawViewportWidth := int(float64(m.width)*0.45) - 2
 		maxViewportWidth := m.width - minTreeWidth - 4
