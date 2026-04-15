@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting Guide
+    url: https://github.com/ChrisEdwards/abacus/blob/main/TROUBLESHOOTING.md
+    about: Check here first — common issues and fixes are documented.
+  - name: README & Docs
+    url: https://github.com/ChrisEdwards/abacus/blob/main/README.md
+    about: Installation, usage, backend selection, and key bindings.

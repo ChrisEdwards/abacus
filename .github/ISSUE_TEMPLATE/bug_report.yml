@@ -1,0 +1,99 @@
+name: Bug Report
+description: Report a bug in Abacus
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, check the [Troubleshooting Guide](https://github.com/ChrisEdwards/abacus/blob/main/TROUBLESHOOTING.md). Many common issues are documented there.
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      options:
+        - br (beads_rust — Rust)
+        - bd (beads — Go, v0.38.0)
+        - Both / applies to either
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - macOS
+        - Linux
+        - Windows
+    validations:
+      required: true
+
+  - type: input
+    id: abacus-version
+    attributes:
+      label: Abacus Version
+      placeholder: "e.g. 0.9.0"
+      description: "Run `abacus --version` and paste the output."
+    validations:
+      required: true
+
+  - type: input
+    id: backend-version
+    attributes:
+      label: Backend Version
+      placeholder: "e.g. br v0.2.1"
+      description: "Run `br --version` or `bd --version` and paste the output."
+    validations:
+      required: true
+
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal & Shell
+      placeholder: "e.g. Ghostty + zsh"
+      description: "Terminal emulator and shell."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Launch `abacus`
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: "Include any error messages or garbled output."
+    validations:
+      required: true
+
+  - type: textarea
+    id: component
+    attributes:
+      label: Relevant Component or Files
+      description: "Which part of abacus is involved? e.g. 'create overlay', 'SQLite DSN builder', 'detail pane rendering'. Helps narrow the search area for a fix."
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional Context
+      description: "Screenshots, `echo $TERM` output, `--debug` log lines, database size, etc."
+    validations:
+      required: false

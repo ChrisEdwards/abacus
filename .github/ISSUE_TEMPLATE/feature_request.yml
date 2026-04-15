@@ -1,0 +1,80 @@
+name: Feature Request
+description: Propose a new feature or behavior change
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A well-specified issue is the primary contribution to this project. The more precisely you describe the desired behavior and acceptance criteria, the more directly it can be implemented.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: "What workflow or limitation are you running into? Concrete examples help."
+      placeholder: "When working with a large database, I can't easily..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Desired Behavior
+      description: "Describe precisely what should happen from the user's perspective. Be specific about key bindings, UI changes, output format, etc."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: "Explicit, checkable conditions for 'done'. List each condition on its own line."
+      placeholder: |
+        - Pressing X in the list view opens Y
+        - The overlay shows Z
+        - Pressing Esc dismisses without saving
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected Area
+      options:
+        - TUI / navigation
+        - Overlay / input forms
+        - Detail pane
+        - Data layer / backend integration
+        - CLI / flags
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend Relevance
+      options:
+        - br (beads_rust) only
+        - bd (beads) only
+        - Both backends
+        - Not backend-specific
+    validations:
+      required: true
+
+  - type: textarea
+    id: hints
+    attributes:
+      label: Implementation Hints
+      description: "Anything known about where in the code this lives, patterns already used, or constraints to respect. Not required — include only if you know."
+    validations:
+      required: false
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of Scope
+      description: "What you explicitly do NOT want, to prevent scope creep."
+    validations:
+      required: false
