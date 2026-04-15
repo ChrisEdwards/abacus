@@ -289,3 +289,48 @@ func TestUpdateFailureToastTruncatesLongError(t *testing.T) {
 		t.Error("expected long error to be truncated")
 	}
 }
+
+// --- layoutToastLayer tests ---
+
+// TestLayoutToastLayerNilWhenNotVisible verifies the layer is nil when the toast is not visible.
+func TestLayoutToastLayerNilWhenNotVisible(t *testing.T) {
+	app := &App{
+		layoutToastVisible: false,
+		layoutToastName:    "Tall",
+	}
+	if layer := app.layoutToastLayer(80, 24, 2, 10); layer != nil {
+		t.Error("expected nil layer when layoutToastVisible=false")
+	}
+}
+
+// TestLayoutToastLayerNilWhenNoName verifies the layer is nil when the toast name is empty.
+func TestLayoutToastLayerNilWhenNoName(t *testing.T) {
+	app := &App{
+		layoutToastVisible: true,
+		layoutToastName:    "",
+	}
+	if layer := app.layoutToastLayer(80, 24, 2, 10); layer != nil {
+		t.Error("expected nil layer when layoutToastName is empty")
+	}
+}
+
+// TestLayoutToastLayerRendersName verifies the layer renders and contains the layout name.
+func TestLayoutToastLayerRendersName(t *testing.T) {
+	app := &App{
+		layoutToastVisible: true,
+		layoutToastStart:   time.Now(),
+		layoutToastName:    "Tall",
+	}
+	layer := app.layoutToastLayer(80, 24, 2, 10)
+	if layer == nil {
+		t.Fatal("expected non-nil layer when toast is visible with a name")
+	}
+	canvas := layer.Render()
+	if canvas == nil {
+		t.Fatal("expected non-nil canvas from layout toast layer")
+	}
+	out := canvas.Render()
+	if !strings.Contains(out, "Tall") {
+		t.Errorf("expected toast to contain 'Tall', got: %q", out)
+	}
+}

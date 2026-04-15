@@ -1,7 +1,12 @@
 package ui
 
 import (
+	"strings"
 	"testing"
+	"time"
+
+	"abacus/internal/beads"
+	"abacus/internal/graph"
 )
 
 // TestSizingInvariantTallMode verifies that at all terminal heights the shared
@@ -131,5 +136,215 @@ func TestLayoutNoopWhenDetailsClosed(t *testing.T) {
 	want := clampDimension(m.height-4, minListHeight, m.height-2)
 	if got := m.treePaneHeight(); got != want {
 		t.Errorf("treePaneHeight with ShowDetails=false: got %d, want %d", got, want)
+	}
+}
+
+// --- handleLayoutKey tests ---
+
+// TestHandleLayoutKeyTogglesWideToTall verifies pressing the layout key with details open
+// and wide layout switches to tall layout and schedules a toast tick.
+func TestHandleLayoutKeyTogglesWideToTall(t *testing.T) {
+	m := &App{
+		ShowDetails:   true,
+		layout:        LayoutWide,
+		activeOverlay: OverlayNone,
+		keys:          DefaultKeyMap(),
+	}
+	model, cmd := m.handleLayoutKey()
+	result := model.(*App)
+	if result.layout != LayoutTall {
+		t.Errorf("expected LayoutTall after toggle, got %v", result.layout)
+	}
+	if cmd == nil {
+		t.Error("expected non-nil cmd after layout toggle")
+	}
+}
+
+// TestHandleLayoutKeyTogglesTallToWide verifies the reverse toggle direction.
+func TestHandleLayoutKeyTogglesTallToWide(t *testing.T) {
+	m := &App{
+		ShowDetails:   true,
+		layout:        LayoutTall,
+		activeOverlay: OverlayNone,
+		keys:          DefaultKeyMap(),
+	}
+	model, cmd := m.handleLayoutKey()
+	result := model.(*App)
+	if result.layout != LayoutWide {
+		t.Errorf("expected LayoutWide after toggle, got %v", result.layout)
+	}
+	if cmd == nil {
+		t.Error("expected non-nil cmd after layout toggle")
+	}
+}
+
+// TestHandleLayoutKeyNoopWhenDetailsClosed verifies no toggle occurs when the detail pane is hidden.
+func TestHandleLayoutKeyNoopWhenDetailsClosed(t *testing.T) {
+	m := &App{
+		ShowDetails:   false,
+		layout:        LayoutWide,
+		activeOverlay: OverlayNone,
+		keys:          DefaultKeyMap(),
+	}
+	model, cmd := m.handleLayoutKey()
+	result := model.(*App)
+	if result.layout != LayoutWide {
+		t.Errorf("expected layout unchanged (LayoutWide), got %v", result.layout)
+	}
+	if result.layoutToastVisible {
+		t.Error("expected no toast when detail pane is closed")
+	}
+	if cmd != nil {
+		t.Errorf("expected nil cmd when no-op, got non-nil")
+	}
+}
+
+// TestHandleLayoutKeyNoopWhenOverlayActive verifies no toggle occurs when an overlay is open.
+func TestHandleLayoutKeyNoopWhenOverlayActive(t *testing.T) {
+	m := &App{
+		ShowDetails:   true,
+		layout:        LayoutWide,
+		activeOverlay: OverlayStatus,
+		keys:          DefaultKeyMap(),
+	}
+	model, cmd := m.handleLayoutKey()
+	result := model.(*App)
+	if result.layout != LayoutWide {
+		t.Errorf("expected layout unchanged (LayoutWide), got %v", result.layout)
+	}
+	if result.layoutToastVisible {
+		t.Error("expected no toast when overlay is active")
+	}
+	if cmd != nil {
+		t.Errorf("expected nil cmd when overlay active, got non-nil")
+	}
+}
+
+// TestHandleLayoutKeySetToastState verifies toast state is set correctly after each toggle direction.
+func TestHandleLayoutKeySetToastState(t *testing.T) {
+	tests := []struct {
+		name     string
+		initial  Layout
+		wantName string
+	}{
+		{"wide to tall sets Tall toast", LayoutWide, "Tall"},
+		{"tall to wide sets Wide toast", LayoutTall, "Wide"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &App{
+				ShowDetails:   true,
+				layout:        tt.initial,
+				activeOverlay: OverlayNone,
+				keys:          DefaultKeyMap(),
+			}
+			model, _ := m.handleLayoutKey()
+			result := model.(*App)
+			if !result.layoutToastVisible {
+				t.Error("expected layoutToastVisible=true after toggle")
+			}
+			if result.layoutToastName != tt.wantName {
+				t.Errorf("layoutToastName=%q, want %q", result.layoutToastName, tt.wantName)
+			}
+		})
+	}
+}
+
+// --- renderTreeView width tests ---
+
+// TestRenderTreeViewTallModeUsesFullWidth verifies that in tall layout the tree uses the full
+// terminal width (width-2) rather than subtracting the viewport width as in wide layout.
+func TestRenderTreeViewTallModeUsesFullWidth(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{
+			ID:     "ab-01",
+			Title:  strings.Repeat("x", 50),
+			Status: "open",
+		},
+	}
+
+	const termWidth = 80
+	const vpWidth = 30
+
+	m := &App{
+		roots:       []*graph.Node{node},
+		width:       termWidth,
+		height:      24,
+		ShowDetails: true,
+	}
+	m.viewport.Width = vpWidth
+	m.recalcVisibleRows()
+
+	// Tall mode: totalWidth = termWidth-2 = 78
+	m.layout = LayoutTall
+	renderedTall := m.renderTreeView()
+
+	// Wide mode: totalWidth = termWidth-vpWidth-4 = 46
+	m.layout = LayoutWide
+	renderedWide := m.renderTreeView()
+
+	// After stripping ANSI codes, tall-mode lines are padded to a wider totalWidth
+	// than wide-mode lines. Comparing byte lengths is valid here: both have the same
+	// unicode prefix characters, so extra bytes come from additional space padding.
+	tallLines := strings.Split(stripANSI(renderedTall), "\n")
+	wideLines := strings.Split(stripANSI(renderedWide), "\n")
+
+	var tallLen, wideLen int
+	for _, l := range tallLines {
+		if l != "" {
+			tallLen = len(l)
+			break
+		}
+	}
+	for _, l := range wideLines {
+		if l != "" {
+			wideLen = len(l)
+			break
+		}
+	}
+
+	if tallLen == 0 || wideLen == 0 {
+		t.Fatal("no non-empty lines found in rendered tree output")
+	}
+	if tallLen <= wideLen {
+		t.Errorf("tall mode should render wider lines than wide mode: tall=%d, wide=%d", tallLen, wideLen)
+	}
+}
+
+// --- layoutToastTickMsg handler tests ---
+
+// TestLayoutToastTickClearsAfterTimeout verifies the layout toast is hidden after its 3-second TTL.
+func TestLayoutToastTickClearsAfterTimeout(t *testing.T) {
+	m := &App{
+		layoutToastVisible: true,
+		layoutToastStart:   time.Now().Add(-4 * time.Second),
+	}
+	model, _, handled := m.handleOverlayMsg(layoutToastTickMsg{})
+	if !handled {
+		t.Fatal("layoutToastTickMsg should be handled")
+	}
+	result := model.(*App)
+	if result.layoutToastVisible {
+		t.Error("expected layoutToastVisible=false after timeout")
+	}
+}
+
+// TestLayoutToastTickContinuesWhileVisible verifies the toast stays visible and reschedules a tick
+// while still within its display window.
+func TestLayoutToastTickContinuesWhileVisible(t *testing.T) {
+	m := &App{
+		layoutToastVisible: true,
+		layoutToastStart:   time.Now(),
+	}
+	model, cmd, handled := m.handleOverlayMsg(layoutToastTickMsg{})
+	if !handled {
+		t.Fatal("layoutToastTickMsg should be handled")
+	}
+	result := model.(*App)
+	if !result.layoutToastVisible {
+		t.Error("expected layoutToastVisible=true while within display window")
+	}
+	if cmd == nil {
+		t.Error("expected non-nil cmd to reschedule tick")
 	}
 }

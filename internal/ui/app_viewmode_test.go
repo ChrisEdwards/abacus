@@ -548,3 +548,59 @@ func TestViewModeCollapsePreservesMultiParentInstances(t *testing.T) {
 		t.Fatalf("visible subtasks after collapse = %d, want 1", subtaskCount)
 	}
 }
+
+// --- NewApp layout config loading tests ---
+
+// TestNewAppLoadsLayoutTallFromConfig verifies that when config has layout.mode=tall,
+// NewApp initializes with LayoutTall.
+func TestNewAppLoadsLayoutTallFromConfig(t *testing.T) {
+	cleanup := config.ResetForTesting(t)
+	defer cleanup()
+
+	if err := config.Set(config.KeyLayoutMode, "tall"); err != nil {
+		t.Fatalf("failed to set config: %v", err)
+	}
+
+	mock := beads.NewMockClient()
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		return []beads.FullIssue{
+			{ID: "ab-001", Title: "Test Issue", Status: "open"},
+		}, nil
+	}
+	mock.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
+		return nil, nil
+	}
+
+	app, err := NewApp(Config{Client: mock})
+	if err != nil {
+		t.Fatalf("NewApp failed: %v", err)
+	}
+	if app.layout != LayoutTall {
+		t.Errorf("expected LayoutTall from config, got %v", app.layout)
+	}
+}
+
+// TestNewAppDefaultsToWideLayout verifies that without a config override, NewApp initializes
+// with LayoutWide (the default).
+func TestNewAppDefaultsToWideLayout(t *testing.T) {
+	cleanup := config.ResetForTesting(t)
+	defer cleanup()
+
+	mock := beads.NewMockClient()
+	mock.ExportFn = func(ctx context.Context) ([]beads.FullIssue, error) {
+		return []beads.FullIssue{
+			{ID: "ab-001", Title: "Test Issue", Status: "open"},
+		}, nil
+	}
+	mock.CommentsFn = func(ctx context.Context, issueID string) ([]beads.Comment, error) {
+		return nil, nil
+	}
+
+	app, err := NewApp(Config{Client: mock})
+	if err != nil {
+		t.Fatalf("NewApp failed: %v", err)
+	}
+	if app.layout != LayoutWide {
+		t.Errorf("expected LayoutWide by default, got %v", app.layout)
+	}
+}
