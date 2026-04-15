@@ -42,6 +42,14 @@ const (
 	OverlayComment
 )
 
+// Layout describes how the tree and detail panes are arranged.
+type Layout int
+
+const (
+	LayoutWide Layout = iota // default: tree left, detail right
+	LayoutTall               // tree top, detail below
+)
+
 // ViewMode represents the current view filter mode.
 type ViewMode int
 
@@ -217,6 +225,12 @@ type App struct {
 	columnsToastStart   time.Time
 	columnsToastEnabled bool
 
+	// Layout state
+	layout             Layout
+	layoutToastVisible bool
+	layoutToastStart   time.Time
+	layoutToastName    string
+
 	// Update notification state
 	updateToastVisible bool
 	updateToastStart   time.Time
@@ -327,6 +341,9 @@ func NewApp(cfg Config) (*App, error) {
 	}
 	if dbErr != nil {
 		app.lastRefreshStats = fmt.Sprintf("refresh unavailable: %v", dbErr)
+	}
+	if config.GetString(config.KeyLayoutMode) == "tall" {
+		app.layout = LayoutTall
 	}
 	app.recalcVisibleRows()
 	// Capture initial stats for session summary

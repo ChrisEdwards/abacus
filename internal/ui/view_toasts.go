@@ -569,6 +569,18 @@ func (m *App) updateFailureToastLayer(width, height, mainBodyStart, mainBodyHeig
 	return newToastLayer(styleErrorToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
 
+// layoutToastLayer renders the layout toggle toast if visible.
+func (m *App) layoutToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
+	if !m.layoutToastVisible || m.layoutToastName == "" {
+		return nil
+	}
+	label := styleStatsDim().Render("Layout:")
+	space := baseStyle().Render(" ")
+	name := styleID().Render(m.layoutToastName)
+	content := lipgloss.JoinHorizontal(lipgloss.Left, label, space, name)
+	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
+}
+
 // columnsToastLayer renders the columns toggle toast if visible.
 func (m *App) columnsToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.columnsToastVisible {

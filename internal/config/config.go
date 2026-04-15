@@ -35,6 +35,9 @@ const (
 	// Backend selection keys
 	KeyBeadsBackend                  = "beads.backend"                       // "bd" or "br", empty means auto-detect
 	KeyBdUnsupportedVersionWarnShown = "beads.bd_unsupported_version_warned" // true if user has seen the bd > 0.38.0 warning
+
+	// Layout
+	KeyLayoutMode = "layout.mode" // "wide" (default) or "tall"
 )
 
 const (
@@ -291,6 +294,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault(KeyTreeColumnsComments, true)
 	v.SetDefault(KeyBeadsBackend, "")                     // Empty means auto-detect
 	v.SetDefault(KeyBdUnsupportedVersionWarnShown, false) // One-time warning not yet shown
+	v.SetDefault(KeyLayoutMode, "wide")
 }
 
 func getViper() (*viper.Viper, error) {
@@ -512,6 +516,39 @@ func SaveBdUnsupportedVersionWarned() error {
 	}
 
 	// Write config
+	if err := v.WriteConfigAs(targetPath); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+
+	return nil
+}
+
+// SaveLayout persists the layout mode to user config (~/.abacus/config.yaml).
+// Layout preference is always per-user, never per-project.
+func SaveLayout(mode string) error {
+	targetPath := userConfigPathOverride
+	if targetPath == "" {
+		path, err := defaultUserConfigPath()
+		if err != nil {
+			return fmt.Errorf("get user config path: %w", err)
+		}
+		targetPath = path
+	}
+
+	v := viper.New()
+	v.SetConfigType("yaml")
+	v.SetConfigFile(targetPath)
+
+	_ = v.ReadInConfig() // ignore error if file doesn't exist
+
+	v.Set(KeyLayoutMode, mode)
+
+	dir := filepath.Dir(targetPath)
+	//nolint:gosec // G301: User config directory needs standard permissions
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
+
 	if err := v.WriteConfigAs(targetPath); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}

@@ -89,22 +89,33 @@ func (m *App) View() string {
 			rightStyle = stylePaneFocused()
 		}
 
-		leftWidth := m.width - m.viewport.Width - 4
-		if leftWidth < 1 {
-			leftWidth = 1
-		}
-		rightWidth := m.viewport.Width
-		if rightWidth < 1 {
-			rightWidth = 1
-		}
-
 		// Re-render viewport content with current theme (dimmed or bright)
 		// This ensures detail pane properly dims when overlay is active
 		m.updateViewportContent()
 
-		left := leftStyle.Width(leftWidth).Height(listHeight).Render(treeViewStr)
-		right := rightStyle.Width(rightWidth).Height(listHeight).Render(m.viewport.View())
-		mainBody = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+		if m.layout == LayoutTall {
+			paneW := m.width - 2
+			if paneW < 1 {
+				paneW = 1
+			}
+			treeH := m.treePaneHeight()
+			detailH := m.viewport.Height
+			top := leftStyle.Width(paneW).Height(treeH).Render(treeViewStr)
+			bottom := rightStyle.Width(paneW).Height(detailH).Render(m.viewport.View())
+			mainBody = lipgloss.JoinVertical(lipgloss.Left, top, bottom)
+		} else {
+			leftWidth := m.width - m.viewport.Width - 4
+			if leftWidth < 1 {
+				leftWidth = 1
+			}
+			rightWidth := m.viewport.Width
+			if rightWidth < 1 {
+				rightWidth = 1
+			}
+			left := leftStyle.Width(leftWidth).Height(listHeight).Render(treeViewStr)
+			right := rightStyle.Width(rightWidth).Height(listHeight).Render(m.viewport.View())
+			mainBody = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+		}
 	} else {
 		singleWidth := m.width - 2
 		if singleWidth < 1 {
@@ -183,6 +194,7 @@ func (m *App) View() string {
 	var toastLayer Layer
 	toastFactories := []func(int, int, int, int) Layer{
 		m.themeToastLayer,
+		m.layoutToastLayer,
 		m.columnsToastLayer,
 		m.updateSuccessToastLayer,
 		m.updateFailureToastLayer,

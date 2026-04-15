@@ -220,6 +220,8 @@ func (m *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleNewBeadKey(true)
 	case key.Matches(msg, m.keys.Update):
 		return m.handleUpdateKey()
+	case key.Matches(msg, m.keys.Layout):
+		return m.handleLayoutKey()
 	}
 
 	return m, nil
@@ -427,6 +429,34 @@ func (m *App) handleUpdateKey() (tea.Model, tea.Cmd) {
 
 	m.updateInProgress = true
 	return m, m.startUpdate()
+}
+
+// handleLayoutKey toggles the pane layout between Wide and Tall.
+// No-op when detail pane is closed or an overlay is active.
+func (m *App) handleLayoutKey() (tea.Model, tea.Cmd) {
+	if !m.ShowDetails || m.activeOverlay != OverlayNone {
+		return m, nil
+	}
+	if m.layout == LayoutWide {
+		m.layout = LayoutTall
+	} else {
+		m.layout = LayoutWide
+	}
+	m.recalcViewportSize()
+	m.updateViewportContent()
+	name := "Wide"
+	if m.layout == LayoutTall {
+		name = "Tall"
+	}
+	m.layoutToastVisible = true
+	m.layoutToastStart = time.Now()
+	m.layoutToastName = name
+	modeStr := "wide"
+	if m.layout == LayoutTall {
+		modeStr = "tall"
+	}
+	_ = config.SaveLayout(modeStr)
+	return m, scheduleLayoutToastTick()
 }
 
 // startUpdate returns a command that performs the update asynchronously.
