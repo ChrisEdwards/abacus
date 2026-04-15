@@ -10,7 +10,9 @@ import (
 )
 
 // TestSizingInvariantTallMode verifies that at all terminal heights the shared
-// budget invariant holds: (treeContent+2) + (detailContent+2) == listHeight.
+// budget invariant holds: (treeContent+2) + (detailContent+2) == listHeight+2.
+// This matches the wide-mode mainBody height of listHeight+2, so the full view
+// fills the terminal without a gap at the bottom.
 func TestSizingInvariantTallMode(t *testing.T) {
 	heights := []int{24, 15, 8}
 	for _, h := range heights {
@@ -22,15 +24,15 @@ func TestSizingInvariantTallMode(t *testing.T) {
 		}
 		// Compute values using same formulas as treePaneHeight / recalcViewportSize
 		listHeight := clampDimension(h-4, minListHeight, h-2)
-		sharedBudget := listHeight - 4
+		sharedBudget := listHeight - 2
 		detailContent := int(float64(sharedBudget) * 0.6)
 		detailContent = clampDimension(detailContent, minViewportHeight, sharedBudget-minListHeight)
 		treeContent := sharedBudget - detailContent
 
 		sum := (treeContent + 2) + (detailContent + 2)
-		if sum != listHeight {
+		if sum != listHeight+2 {
 			t.Errorf("height=%d: invariant failed: (treeContent+2)+(detailContent+2)=%d, want %d",
-				h, sum, listHeight)
+				h, sum, listHeight+2)
 		}
 
 		// Also verify treePaneHeight returns treeContent
@@ -118,7 +120,7 @@ func TestTreePaneHeightTallMode(t *testing.T) {
 		m := &App{height: h, width: 80, ShowDetails: true, layout: LayoutTall}
 
 		listHeight := clampDimension(h-4, minListHeight, h-2)
-		sharedBudget := listHeight - 4
+		sharedBudget := listHeight - 2
 		detailContent := int(float64(sharedBudget) * 0.6)
 		detailContent = clampDimension(detailContent, minViewportHeight, sharedBudget-minListHeight)
 		want := sharedBudget - detailContent

@@ -180,7 +180,10 @@ func (m *App) treePaneHeight() int {
 	if m.layout != LayoutTall || !m.ShowDetails {
 		return listHeight
 	}
-	sharedBudget := listHeight - 4
+	// sharedBudget = listHeight - 2: two panes each have 1 border top/bottom (4 total),
+	// but must match the wide-mode mainBody height of listHeight+2. So inner content
+	// available = (listHeight+2) - 4 = listHeight - 2.
+	sharedBudget := listHeight - 2
 	detailContent := int(float64(sharedBudget) * 0.6)
 	detailContent = clampDimension(detailContent, minViewportHeight, sharedBudget-minListHeight)
 	return sharedBudget - detailContent
@@ -192,7 +195,7 @@ func (m *App) recalcViewportSize() {
 	if m.layout == LayoutTall {
 		m.viewport.Width = m.width - 2
 		listHeight := clampDimension(m.height-4, minListHeight, m.height-2)
-		sharedBudget := listHeight - 4
+		sharedBudget := listHeight - 2
 		detailContent := int(float64(sharedBudget) * 0.6)
 		detailContent = clampDimension(detailContent, minViewportHeight, sharedBudget-minListHeight)
 		m.viewport.Height = detailContent
