@@ -80,6 +80,17 @@ func (c *brCLIClient) UpdateStatus(ctx context.Context, issueID, newStatus strin
 	return nil
 }
 
+func (c *brCLIClient) UpdatePriority(ctx context.Context, issueID string, priority int) error {
+	if strings.TrimSpace(issueID) == "" {
+		return fmt.Errorf("issue id is required for priority update")
+	}
+	_, err := c.run(ctx, "update", issueID, fmt.Sprintf("--priority=%d", priority))
+	if err != nil {
+		return fmt.Errorf("run br update: %w", err)
+	}
+	return nil
+}
+
 func (c *brCLIClient) Close(ctx context.Context, issueID string) error {
 	if strings.TrimSpace(issueID) == "" {
 		return fmt.Errorf("issue id is required for close")

@@ -28,6 +28,7 @@ type KeyMap struct {
 	Copy        key.Binding
 	Status      key.Binding
 	Labels      key.Binding
+	Priority    key.Binding
 	NewBead     key.Binding
 	NewRootBead key.Binding
 	Edit        key.Binding
@@ -138,6 +139,10 @@ func DefaultKeyMap() KeyMap {
 		Labels: key.NewBinding(
 			key.WithKeys("L"),
 			key.WithHelp("L", "Manage labels"),
+		),
+		Priority: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "Change priority"),
 		),
 		NewBead: key.NewBinding(
 			key.WithKeys("N"),

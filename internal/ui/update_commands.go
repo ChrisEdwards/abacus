@@ -291,3 +291,27 @@ func (m *App) displayCommentToast(issueID string) {
 	m.commentToastVisible = true
 	m.commentToastStart = time.Now()
 }
+
+func schedulePriorityToastTick() tea.Cmd {
+	return tea.Tick(200*time.Millisecond, func(_ time.Time) tea.Msg {
+		return priorityToastTickMsg{}
+	})
+}
+
+// executePriorityChangeCmd runs the UpdatePriority command asynchronously.
+func (m *App) executePriorityChangeCmd(issueID string, priority int) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), statusCommandTimeout)
+		defer cancel()
+		err := m.client.UpdatePriority(ctx, issueID, priority)
+		return priorityUpdateCompleteMsg{issueID: issueID, err: err}
+	}
+}
+
+// displayPriorityToast displays a success toast for priority changes.
+func (m *App) displayPriorityToast(issueID string, newPriority int) {
+	m.priorityToastBeadID = issueID
+	m.priorityToastNewPriority = newPriority
+	m.priorityToastVisible = true
+	m.priorityToastStart = time.Now()
+}

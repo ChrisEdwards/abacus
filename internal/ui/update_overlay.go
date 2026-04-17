@@ -292,6 +292,37 @@ func (m *App) handleOverlayMsg(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			return m, nil, true
 		}
 		return m, scheduleCommentToastTick(), true
+
+	case PriorityChangedMsg:
+		m.activeOverlay = OverlayNone
+		m.priorityOverlay = nil
+		m.displayPriorityToast(msg.IssueID, msg.NewPriority)
+		return m, tea.Batch(m.executePriorityChangeCmd(msg.IssueID, msg.NewPriority), schedulePriorityToastTick()), true
+
+	case PriorityCancelledMsg:
+		m.activeOverlay = OverlayNone
+		m.priorityOverlay = nil
+		return m, nil, true
+
+	case priorityUpdateCompleteMsg:
+		if msg.err != nil {
+			m.lastError = msg.err.Error()
+			m.lastErrorSource = errorSourceOperation
+			m.showErrorToast = true
+			m.errorToastStart = time.Now()
+			return m, scheduleErrorToastTick(), true
+		}
+		return m, m.forceRefresh(), true
+
+	case priorityToastTickMsg:
+		if !m.priorityToastVisible {
+			return m, nil, true
+		}
+		if time.Since(m.priorityToastStart) >= 7*time.Second {
+			m.priorityToastVisible = false
+			return m, nil, true
+		}
+		return m, schedulePriorityToastTick(), true
 	}
 
 	return nil, nil, false

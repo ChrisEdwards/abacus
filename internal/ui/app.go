@@ -40,6 +40,7 @@ const (
 	OverlayCreate
 	OverlayDelete
 	OverlayComment
+	OverlayPriority
 )
 
 // Layout describes how the tree and detail panes are arranged.
@@ -172,12 +173,13 @@ type App struct {
 	keys     KeyMap
 
 	// Overlay state
-	activeOverlay  OverlayType
-	statusOverlay  *StatusOverlay
-	labelsOverlay  *LabelsOverlay
-	createOverlay  *CreateOverlay
-	deleteOverlay  *DeleteOverlay
-	commentOverlay *CommentOverlay
+	activeOverlay   OverlayType
+	statusOverlay   *StatusOverlay
+	labelsOverlay   *LabelsOverlay
+	createOverlay   *CreateOverlay
+	deleteOverlay   *DeleteOverlay
+	commentOverlay  *CommentOverlay
+	priorityOverlay *PriorityOverlay
 
 	// Labels toast state
 	labelsToastVisible bool
@@ -219,6 +221,12 @@ type App struct {
 	commentToastVisible bool
 	commentToastStart   time.Time
 	commentToastBeadID  string
+
+	// Priority toast state
+	priorityToastVisible     bool
+	priorityToastStart       time.Time
+	priorityToastBeadID      string
+	priorityToastNewPriority int
 
 	// Columns toast state
 	columnsToastVisible bool
