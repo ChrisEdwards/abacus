@@ -16,6 +16,7 @@ type MockClient struct {
 	ExportFn           func(context.Context) ([]FullIssue, error)
 	CommentsFn         func(context.Context, string) ([]Comment, error)
 	UpdateStatusFn     func(context.Context, string, string) error
+	UpdatePriorityFn   func(context.Context, string, int) error
 	CloseFn            func(context.Context, string) error
 	ReopenFn           func(context.Context, string) error
 	AddLabelFn         func(context.Context, string, string) error
@@ -34,6 +35,7 @@ type MockClient struct {
 	ExportCallCount           int
 	CommentsCallCount         int
 	UpdateStatusCallCount     int
+	UpdatePriorityCallCount   int
 	CloseCallCount            int
 	ReopenCallCount           int
 	AddLabelCallCount         int
@@ -46,6 +48,7 @@ type MockClient struct {
 	ShowCallArgs              [][]string
 	CommentIDs                []string
 	UpdateStatusCallArgs      [][]string // [issueID, newStatus]
+	UpdatePriorityCallArgs    []UpdatePriorityCallArg
 	CloseCallArgs             []string
 	ReopenCallArgs            []string
 	AddLabelCallArgs          [][]string // [issueID, label]
@@ -82,6 +85,12 @@ type CreateFullCallArg struct {
 	Assignee    string
 	Description string
 	ParentID    string
+}
+
+// UpdatePriorityCallArg captures arguments passed to UpdatePriority.
+type UpdatePriorityCallArg struct {
+	IssueID  string
+	Priority int
 }
 
 // UpdateFullCallArg captures arguments passed to UpdateFull.
@@ -161,6 +170,22 @@ func (m *MockClient) UpdateStatus(ctx context.Context, issueID, newStatus string
 		return nil // Default to no-op for tests
 	}
 	return m.UpdateStatusFn(ctx, issueID, newStatus)
+}
+
+// UpdatePriority invokes the configured stub or returns nil (no-op by default).
+func (m *MockClient) UpdatePriority(ctx context.Context, issueID string, priority int) error {
+	m.mu.Lock()
+	m.UpdatePriorityCallCount++
+	m.UpdatePriorityCallArgs = append(m.UpdatePriorityCallArgs, UpdatePriorityCallArg{
+		IssueID:  issueID,
+		Priority: priority,
+	})
+	m.mu.Unlock()
+
+	if m.UpdatePriorityFn == nil {
+		return nil // Default to no-op for tests
+	}
+	return m.UpdatePriorityFn(ctx, issueID, priority)
 }
 
 // Close invokes the configured stub or returns nil (no-op by default).

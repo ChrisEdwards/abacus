@@ -78,9 +78,9 @@ func TestGetHelpSections(t *testing.T) {
 		}
 	})
 
-	t.Run("BeadActionsHas8Rows", func(t *testing.T) {
-		if len(sections[2].rows) != 8 {
-			t.Errorf("Bead Actions section: expected 8 rows, got %d", len(sections[2].rows))
+	t.Run("BeadActionsHas9Rows", func(t *testing.T) {
+		if len(sections[2].rows) != 9 {
+			t.Errorf("Bead Actions section: expected 9 rows, got %d", len(sections[2].rows))
 		}
 	})
 
@@ -175,4 +175,16 @@ func TestHelpOverlayDimensions(t *testing.T) {
 			t.Error("expected non-empty overlay for large terminal")
 		}
 	})
+}
+
+func TestHelpOverlayContainsPriorityRow(t *testing.T) {
+	keys := DefaultKeyMap()
+	overlay := renderHelpOverlay(keys)
+
+	if !strings.Contains(overlay, keys.Priority.Help().Key) {
+		t.Errorf("expected help overlay to contain Priority key %q", keys.Priority.Help().Key)
+	}
+	if !strings.Contains(overlay, keys.Priority.Help().Desc) {
+		t.Errorf("expected help overlay to contain Priority desc %q", keys.Priority.Help().Desc)
+	}
 }

@@ -49,6 +49,33 @@ func TestOverlayAndToastGoldenSnapshots(t *testing.T) {
 				t.Fatalf("expected toast canvas for theme %s", name)
 			}
 			assertGoldenSnapshot(t, fmt.Sprintf("%s_status_toast.golden", name), canvas.Render())
+
+			priorityOverlay := NewPriorityOverlay("ab-smg0", "Golden Snapshot Priority Overlay", 2)
+			priorityLayer := priorityOverlay.Layer(80, 24, 1, 1)
+			if priorityLayer == nil {
+				t.Fatalf("expected priority overlay layer for theme %s", name)
+			}
+			priorityCanvas := priorityLayer.Render()
+			if priorityCanvas == nil {
+				t.Fatalf("expected priority overlay canvas for theme %s", name)
+			}
+			assertGoldenSnapshot(t, fmt.Sprintf("%s_priority_overlay.golden", name), priorityCanvas.Render())
+
+			priorityApp := &App{
+				priorityToastVisible:     true,
+				priorityToastBeadID:      "ab-smg0",
+				priorityToastNewPriority: 1,
+				priorityToastStart:       time.Now(),
+			}
+			priorityToast := priorityApp.priorityToastLayer(80, 24, 2, 12)
+			if priorityToast == nil {
+				t.Fatalf("expected priority toast layer for theme %s", name)
+			}
+			priorityToastCanvas := priorityToast.Render()
+			if priorityToastCanvas == nil {
+				t.Fatalf("expected priority toast canvas for theme %s", name)
+			}
+			assertGoldenSnapshot(t, fmt.Sprintf("%s_priority_toast.golden", name), priorityToastCanvas.Render())
 		})
 	}
 }

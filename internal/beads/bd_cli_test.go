@@ -468,6 +468,36 @@ func TestCLIClient_CreateFull_HandlesOutputWithPrefix(t *testing.T) {
 // TestBdCLIClient_UpdateFull_ClearAssignee verifies that an empty assignee is
 // passed to the CLI to allow clearing it. Previously, empty assignee was omitted
 // entirely, which meant selecting "Unassigned" in the UI had no effect.
+func TestBdCLIClient_UpdatePriority(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "args.log")
+	script := filepath.Join(dir, "fakebd.sh")
+
+	scriptBody := "#!/bin/sh\n" +
+		"echo \"$@\" >> " + logFile + "\n" +
+		"exit 0\n"
+	writeTestScript(t, script, scriptBody)
+
+	client := NewBdCLIClient(WithBdBinaryPath(script))
+
+	ctx := context.Background()
+	if err := client.UpdatePriority(ctx, "ab-prio", 3); err != nil {
+		t.Fatalf("UpdatePriority: %v", err)
+	}
+
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("read args log: %v", err)
+	}
+
+	args := strings.TrimSpace(string(data))
+	if !strings.Contains(args, "update ab-prio --priority=3") {
+		t.Errorf("expected update with priority flag, got: %q", args)
+	}
+}
+
 func TestBdCLIClient_UpdateFull_ClearAssignee(t *testing.T) {
 	t.Parallel()
 

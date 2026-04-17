@@ -312,6 +312,10 @@ func (c *bdSQLiteClient) UpdateStatus(ctx context.Context, issueID, newStatus st
 	return c.writer.UpdateStatus(ctx, issueID, newStatus)
 }
 
+func (c *bdSQLiteClient) UpdatePriority(ctx context.Context, issueID string, priority int) error {
+	return c.writer.UpdatePriority(ctx, issueID, priority)
+}
+
 func (c *bdSQLiteClient) Close(ctx context.Context, issueID string) error {
 	return c.writer.Close(ctx, issueID)
 }

@@ -175,6 +175,10 @@ func (m *App) View() string {
 		if layer := m.commentOverlay.Layer(m.width, m.height, headerHeight, bottomMargin); layer != nil {
 			overlayLayers = append(overlayLayers, layer)
 		}
+	} else if m.activeOverlay == OverlayPriority && m.priorityOverlay != nil {
+		if layer := m.priorityOverlay.Layer(m.width, m.height, headerHeight, bottomMargin); layer != nil {
+			overlayLayers = append(overlayLayers, layer)
+		}
 	} else if m.showHelp {
 		overlayLayers = append(overlayLayers, newHelpOverlayLayer(m.keys, m.width, m.height, headerHeight, bottomMargin))
 	}
@@ -202,6 +206,7 @@ func (m *App) View() string {
 		m.deleteToastLayer,
 		m.createToastLayer,
 		m.commentToastLayer,
+		m.priorityToastLayer,
 		m.newAssigneeToastLayer,
 		m.newLabelToastLayer,
 		m.labelsToastLayer,

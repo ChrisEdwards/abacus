@@ -25,6 +25,7 @@ var globalFooterHints = []footerHint{
 	{"o", "Layout"},
 	{"n", "New"},
 	{"s", "✎ Status"},
+	{"p", "✎ Priority"},
 	{"L", "Labels"},
 	{"m", "Comment"},
 	{"q", "Quit"},
@@ -55,6 +56,15 @@ var labelsOverlayFooterHints = []footerHint{
 	{"esc", "Cancel"},
 }
 
+var priorityOverlayFooterHints = []footerHint{
+	{"0", "Crit"},
+	{"1", "High"},
+	{"2", "Med"},
+	{"3", "Low"},
+	{"4", "Back"},
+	{"esc", "Cancel"},
+}
+
 var createOverlayFooterHints = []footerHint{
 	{"Tab", "Next"},
 	{"←→", "Select"},
@@ -70,6 +80,8 @@ func (m *App) renderFooter() string {
 	switch m.activeOverlay {
 	case OverlayStatus:
 		hints = statusOverlayFooterHints
+	case OverlayPriority:
+		hints = priorityOverlayFooterHints
 	case OverlayLabels:
 		hints = labelsOverlayFooterHints
 	case OverlayCreate:

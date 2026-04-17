@@ -345,6 +345,36 @@ func TestBrCLIClient_UpdateStatus(t *testing.T) {
 	}
 }
 
+func TestBrCLIClient_UpdatePriority(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "args.log")
+	script := filepath.Join(dir, "fakebr.sh")
+
+	scriptBody := "#!/bin/sh\n" +
+		"echo \"$@\" >> " + logFile + "\n" +
+		"exit 0\n"
+	writeTestScript(t, script, scriptBody)
+
+	client := NewBrCLIClient(WithBrBinaryPath(script))
+
+	ctx := context.Background()
+	if err := client.UpdatePriority(ctx, "ab-prio", 1); err != nil {
+		t.Fatalf("UpdatePriority: %v", err)
+	}
+
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("read args log: %v", err)
+	}
+
+	args := strings.TrimSpace(string(data))
+	if !strings.Contains(args, "update ab-prio --priority=1") {
+		t.Errorf("expected update with priority flag, got: %q", args)
+	}
+}
+
 func TestBrCLIClient_AddLabel(t *testing.T) {
 	t.Parallel()
 

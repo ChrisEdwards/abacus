@@ -357,6 +357,63 @@ func (m *App) commentToastLayer(width, height, mainBodyStart, mainBodyHeight int
 	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
 }
 
+// priorityToastLayer renders the priority change success toast if visible.
+func (m *App) priorityToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
+	if !m.priorityToastVisible || m.priorityToastBeadID == "" {
+		return nil
+	}
+	elapsed := time.Since(m.priorityToastStart)
+	remaining := 7 - int(elapsed.Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	// Line 1: "Priority → P1 High"
+	label := styleStatsDim().Render("Priority →")
+	priorityStr := fmt.Sprintf("P%d %s", m.priorityToastNewPriority, priorityName(m.priorityToastNewPriority))
+	heroLine := " " + label + " " + styleID().Render(priorityStr)
+
+	// Line 2: bead ID + right-aligned countdown
+	beadID := styleID().Render(m.priorityToastBeadID)
+	countdownStr := styleStatsDim().Render(fmt.Sprintf("[%ds]", remaining))
+
+	leftPart := " " + beadID
+	heroWidth := lipgloss.Width(heroLine)
+	leftWidth := lipgloss.Width(leftPart)
+	countdownWidth := lipgloss.Width(countdownStr)
+
+	targetWidth := heroWidth
+	if targetWidth < 20 {
+		targetWidth = 20
+	}
+	padding := targetWidth - leftWidth - countdownWidth
+	if padding < 2 {
+		padding = 2
+	}
+
+	infoLine := leftPart + strings.Repeat(" ", padding) + countdownStr
+	content := heroLine + "\n" + infoLine
+	return newToastLayer(styleSuccessToast().Render(content), width, height, mainBodyStart, mainBodyHeight)
+}
+
+// priorityName returns the display name for a priority value.
+func priorityName(priority int) string {
+	switch priority {
+	case 0:
+		return "Critical"
+	case 1:
+		return "High"
+	case 2:
+		return "Medium"
+	case 3:
+		return "Low"
+	case 4:
+		return "Backlog"
+	default:
+		return ""
+	}
+}
+
 // themeToastLayer renders the theme change toast if visible.
 func (m *App) themeToastLayer(width, height, mainBodyStart, mainBodyHeight int) Layer {
 	if !m.themeToastVisible || m.themeToastName == "" {

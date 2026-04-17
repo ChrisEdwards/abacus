@@ -42,3 +42,11 @@ type commentCompleteMsg struct {
 }
 
 type commentToastTickMsg struct{}
+
+// Message types for priority operations
+type priorityUpdateCompleteMsg struct {
+	issueID string
+	err     error
+}
+
+type priorityToastTickMsg struct{}

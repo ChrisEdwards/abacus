@@ -21,6 +21,7 @@ type Writer interface {
 	Reopen(ctx context.Context, issueID string) error
 	AddLabel(ctx context.Context, issueID, label string) error
 	RemoveLabel(ctx context.Context, issueID, label string) error
+	UpdatePriority(ctx context.Context, issueID string, priority int) error
 	UpdateFull(ctx context.Context, issueID, title, issueType string, priority int, labels []string, assignee, description string) error
 	Create(ctx context.Context, title, issueType string, priority int, labels []string, assignee string) (string, error)
 	CreateFull(ctx context.Context, title, issueType string, priority int, labels []string, assignee, description, parentID string) (FullIssue, error)

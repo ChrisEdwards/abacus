@@ -101,6 +101,11 @@ func (m *App) delegateToOverlay(msg tea.KeyMsg) (tea.Cmd, bool) {
 		return cmd, true
 	}
 
+	if m.activeOverlay == OverlayPriority && m.priorityOverlay != nil {
+		m.priorityOverlay, cmd = m.priorityOverlay.Update(msg)
+		return cmd, true
+	}
+
 	return nil, false
 }
 
@@ -210,6 +215,8 @@ func (m *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleStatusKey()
 	case key.Matches(msg, m.keys.Labels):
 		return m.handleLabelsKey()
+	case key.Matches(msg, m.keys.Priority):
+		return m.handlePriorityKey()
 	case key.Matches(msg, m.keys.Edit):
 		return m.handleEditKey()
 	case key.Matches(msg, m.keys.Comment):
@@ -335,6 +342,16 @@ func (m *App) handleStatusKey() (tea.Model, tea.Cmd) {
 		row := m.visibleRows[m.cursor]
 		m.statusOverlay = NewStatusOverlay(row.Node.Issue.ID, row.Node.Issue.Title, row.Node.Issue.Status)
 		m.activeOverlay = OverlayStatus
+	}
+	return m, nil
+}
+
+// handlePriorityKey opens the priority overlay.
+func (m *App) handlePriorityKey() (tea.Model, tea.Cmd) {
+	if len(m.visibleRows) > 0 {
+		row := m.visibleRows[m.cursor]
+		m.priorityOverlay = NewPriorityOverlay(row.Node.Issue.ID, row.Node.Issue.Title, row.Node.Issue.Priority)
+		m.activeOverlay = OverlayPriority
 	}
 	return m, nil
 }

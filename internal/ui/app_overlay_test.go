@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -776,4 +777,249 @@ func TestGlobalHotkeysDisabledDuringTextInput(t *testing.T) {
 			t.Error("expected createOverlay to not be created")
 		}
 	})
+}
+
+func TestPriorityKeyOpensOverlay(t *testing.T) {
+	node := &graph.Node{Issue: beads.FullIssue{ID: "ab-100", Title: "Test", Priority: 2}}
+	app := &App{
+		visibleRows: nodesToRows(node),
+		keys:        DefaultKeyMap(),
+		ready:       true,
+	}
+
+	result, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	app = result.(*App)
+
+	if app.activeOverlay != OverlayPriority {
+		t.Errorf("expected activeOverlay OverlayPriority, got %v", app.activeOverlay)
+	}
+	if app.priorityOverlay == nil {
+		t.Error("expected priorityOverlay to be created")
+	}
+	if app.priorityOverlay != nil && app.priorityOverlay.issueID != "ab-100" {
+		t.Errorf("expected issueID ab-100, got %s", app.priorityOverlay.issueID)
+	}
+	if app.priorityOverlay != nil && app.priorityOverlay.currentPriority != 2 {
+		t.Errorf("expected currentPriority 2, got %d", app.priorityOverlay.currentPriority)
+	}
+}
+
+func TestPriorityOverlayBlocksGlobalHotkeys(t *testing.T) {
+	node := &graph.Node{Issue: beads.FullIssue{ID: "ab-101", Title: "Test", Priority: 2}}
+	app := &App{
+		visibleRows: nodesToRows(node),
+		keys:        DefaultKeyMap(),
+		ready:       true,
+	}
+
+	app.priorityOverlay = NewPriorityOverlay("ab-101", "Test", 2)
+	app.activeOverlay = OverlayPriority
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}}
+	result, _ := app.Update(msg)
+	app = result.(*App)
+
+	if app.activeOverlay != OverlayPriority {
+		t.Error("expected PriorityOverlay to remain active")
+	}
+	if app.createOverlay != nil {
+		t.Error("expected createOverlay to not be created")
+	}
+}
+
+func TestPriorityKeyNoOpOnEmptyTree(t *testing.T) {
+	app := &App{
+		visibleRows: nil,
+		keys:        DefaultKeyMap(),
+		ready:       true,
+	}
+
+	result, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	app = result.(*App)
+
+	if app.activeOverlay != OverlayNone {
+		t.Errorf("expected activeOverlay OverlayNone, got %v", app.activeOverlay)
+	}
+	if app.priorityOverlay != nil {
+		t.Error("expected priorityOverlay to be nil")
+	}
+}
+
+func TestPriorityChangedMsgClearsOverlayAndShowsToast(t *testing.T) {
+	mock := beads.NewMockClient()
+	app := &App{
+		keys:            DefaultKeyMap(),
+		client:          mock,
+		ready:           true,
+		activeOverlay:   OverlayPriority,
+		priorityOverlay: NewPriorityOverlay("ab-200", "T", 2),
+	}
+
+	result, cmd := app.Update(PriorityChangedMsg{IssueID: "ab-200", NewPriority: 1})
+	app = result.(*App)
+
+	if app.activeOverlay != OverlayNone {
+		t.Errorf("expected OverlayNone, got %v", app.activeOverlay)
+	}
+	if app.priorityOverlay != nil {
+		t.Error("expected priorityOverlay to be nil")
+	}
+	if !app.priorityToastVisible {
+		t.Error("expected priorityToastVisible to be true")
+	}
+	if app.priorityToastBeadID != "ab-200" {
+		t.Errorf("expected toast beadID ab-200, got %q", app.priorityToastBeadID)
+	}
+	if app.priorityToastNewPriority != 1 {
+		t.Errorf("expected toast newPriority 1, got %d", app.priorityToastNewPriority)
+	}
+	if cmd == nil {
+		t.Fatal("expected batch cmd, got nil")
+	}
+}
+
+func TestPriorityCancelledMsgClearsOverlay(t *testing.T) {
+	app := &App{
+		keys:            DefaultKeyMap(),
+		activeOverlay:   OverlayPriority,
+		priorityOverlay: NewPriorityOverlay("ab-201", "T", 2),
+	}
+
+	result, _ := app.Update(PriorityCancelledMsg{})
+	app = result.(*App)
+
+	if app.activeOverlay != OverlayNone {
+		t.Errorf("expected OverlayNone, got %v", app.activeOverlay)
+	}
+	if app.priorityOverlay != nil {
+		t.Error("expected priorityOverlay to be nil")
+	}
+	if app.priorityToastVisible {
+		t.Error("expected no toast on cancel")
+	}
+}
+
+func TestPriorityUpdateCompleteMsgSuccessTriggersRefresh(t *testing.T) {
+	mock := beads.NewMockClient()
+	app := &App{
+		keys:   DefaultKeyMap(),
+		client: mock,
+		ready:  true,
+	}
+
+	result, cmd := app.Update(priorityUpdateCompleteMsg{issueID: "ab-300", err: nil})
+	app = result.(*App)
+
+	if !app.refreshInFlight {
+		t.Error("expected refreshInFlight to be true after successful priority update")
+	}
+	if cmd == nil {
+		t.Fatal("expected forceRefresh cmd, got nil")
+	}
+	if app.showErrorToast {
+		t.Error("expected no error toast on success")
+	}
+}
+
+func TestPriorityUpdateCompleteMsgErrorShowsErrorToast(t *testing.T) {
+	mock := beads.NewMockClient()
+	app := &App{
+		keys:   DefaultKeyMap(),
+		client: mock,
+		ready:  true,
+	}
+
+	updateErr := errors.New("priority update failed: backend unavailable")
+	result, cmd := app.Update(priorityUpdateCompleteMsg{issueID: "ab-301", err: updateErr})
+	app = result.(*App)
+
+	if !app.showErrorToast {
+		t.Error("expected showErrorToast to be true")
+	}
+	if app.lastError != updateErr.Error() {
+		t.Errorf("expected lastError %q, got %q", updateErr.Error(), app.lastError)
+	}
+	if app.lastErrorSource != errorSourceOperation {
+		t.Errorf("expected lastErrorSource=errorSourceOperation, got %v", app.lastErrorSource)
+	}
+	if app.errorToastStart.IsZero() {
+		t.Error("expected errorToastStart to be set")
+	}
+	if app.refreshInFlight {
+		t.Error("expected refreshInFlight to be false on error")
+	}
+	if cmd == nil {
+		t.Fatal("expected error toast tick cmd, got nil")
+	}
+}
+
+func TestPriorityOverlayRendersInView(t *testing.T) {
+	node := &graph.Node{
+		Issue: beads.FullIssue{ID: "ab-pvi", Title: "Priority View Test", Status: "open", Priority: 2},
+	}
+	app := &App{
+		ready:           true,
+		width:           80,
+		height:          24,
+		visibleRows:     []graph.TreeRow{{Node: node}},
+		cursor:          0,
+		activeOverlay:   OverlayPriority,
+		priorityOverlay: NewPriorityOverlay(node.Issue.ID, node.Issue.Title, node.Issue.Priority),
+		repoName:        "abacus",
+		lastRefreshTime: time.Now(),
+	}
+
+	view := app.View()
+	plain := stripANSI(view)
+
+	if !strings.Contains(plain, "Priority") {
+		t.Fatalf("expected priority overlay title 'Priority' in view, got:\n%s", plain)
+	}
+	if !strings.Contains(plain, "Critical") {
+		t.Fatalf("expected priority option 'Critical' in view, got:\n%s", plain)
+	}
+	if !strings.Contains(plain, "Backlog") {
+		t.Fatalf("expected priority option 'Backlog' in view, got:\n%s", plain)
+	}
+}
+
+func TestPriorityToastLayerHiddenWhenNotVisible(t *testing.T) {
+	app := &App{priorityToastVisible: false}
+	layer := app.priorityToastLayer(80, 24, 2, 12)
+	if layer != nil {
+		t.Fatal("expected nil layer when toast not visible")
+	}
+}
+
+func TestPriorityToastLayerRendersContent(t *testing.T) {
+	app := &App{
+		priorityToastVisible:     true,
+		priorityToastBeadID:      "ab-400",
+		priorityToastNewPriority: 1,
+		priorityToastStart:       time.Now(),
+	}
+	layer := app.priorityToastLayer(80, 24, 2, 12)
+	if layer == nil {
+		t.Fatal("expected non-nil layer when toast visible")
+	}
+	canvas := layer.Render()
+	if canvas == nil {
+		t.Fatal("expected non-nil canvas")
+	}
+	rendered := canvas.Render()
+	if !strings.Contains(rendered, "Priority") {
+		t.Errorf("expected rendered output to contain 'Priority', got:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "P1") {
+		t.Errorf("expected rendered output to contain 'P1', got:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "High") {
+		t.Errorf("expected rendered output to contain 'High', got:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "ab-400") {
+		t.Errorf("expected rendered output to contain 'ab-400', got:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "[") || !strings.Contains(rendered, "s]") {
+		t.Errorf("expected countdown like [Ns], got:\n%s", rendered)
+	}
 }

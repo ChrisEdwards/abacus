@@ -24,7 +24,7 @@ func TestKeyPill(t *testing.T) {
 
 func TestRenderFooter(t *testing.T) {
 	m := &App{
-		width:    160, // Wider to accommodate all hints including v/View and m/Comment
+		width:    200, // Wider to accommodate all hints including v/View, m/Comment, p/Priority
 		repoName: "abacus",
 		focus:    FocusTree,
 	}
@@ -68,7 +68,7 @@ func TestRenderFooter(t *testing.T) {
 
 func TestRenderFooterDetailsFocus(t *testing.T) {
 	m := &App{
-		width:       150, // Wider to accommodate 8 global + 1 context hint
+		width:       200, // Wider to accommodate 12 global + 1 context hint
 		repoName:    "abacus",
 		focus:       FocusDetails,
 		ShowDetails: true,
@@ -142,8 +142,8 @@ func TestFooterNarrowTerminal(t *testing.T) {
 
 func TestFooterHintSlices(t *testing.T) {
 	t.Run("GlobalHintsCount", func(t *testing.T) {
-		if len(globalFooterHints) != 11 {
-			t.Errorf("expected 11 global hints, got %d", len(globalFooterHints))
+		if len(globalFooterHints) != 12 {
+			t.Errorf("expected 12 global hints, got %d", len(globalFooterHints))
 		}
 	})
 
@@ -280,7 +280,7 @@ func TestRenderBackendIndicator(t *testing.T) {
 func TestRenderFooterWithBackend(t *testing.T) {
 	t.Run("FooterShowsBackendIndicator", func(t *testing.T) {
 		m := &App{
-			width:    160,
+			width:    200,
 			repoName: "abacus",
 			focus:    FocusTree,
 			backend:  "br",
@@ -293,7 +293,7 @@ func TestRenderFooterWithBackend(t *testing.T) {
 
 	t.Run("FooterWithoutBackend", func(t *testing.T) {
 		m := &App{
-			width:    160,
+			width:    200,
 			repoName: "abacus",
 			focus:    FocusTree,
 			backend:  "",
@@ -307,7 +307,7 @@ func TestRenderFooterWithBackend(t *testing.T) {
 
 	t.Run("FooterWithBackendAndError", func(t *testing.T) {
 		m := &App{
-			width:     160,
+			width:     200,
 			repoName:  "abacus",
 			focus:     FocusTree,
 			backend:   "bd",
@@ -322,4 +322,53 @@ func TestRenderFooterWithBackend(t *testing.T) {
 			t.Errorf("expected footer to contain error indicator, got: %q", footer)
 		}
 	})
+}
+
+func TestFooterGlobalHintsIncludePriority(t *testing.T) {
+	found := false
+	for _, h := range globalFooterHints {
+		if h.key == "p" {
+			found = true
+			if !strings.Contains(h.desc, "Priority") {
+				t.Errorf("expected Priority description for p hint, got %q", h.desc)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("expected globalFooterHints to include p/Priority hint")
+	}
+}
+
+func TestPriorityOverlayFooterHints(t *testing.T) {
+	if len(priorityOverlayFooterHints) != 6 {
+		t.Errorf("expected 6 priority overlay hints, got %d", len(priorityOverlayFooterHints))
+	}
+	wantKeys := []string{"0", "1", "2", "3", "4", "esc"}
+	for i, want := range wantKeys {
+		if i >= len(priorityOverlayFooterHints) {
+			break
+		}
+		if priorityOverlayFooterHints[i].key != want {
+			t.Errorf("hint %d: expected key %q, got %q", i, want, priorityOverlayFooterHints[i].key)
+		}
+	}
+}
+
+func TestRenderFooterUsesPriorityHintsWhenOverlayActive(t *testing.T) {
+	m := &App{
+		width:         160,
+		repoName:      "abacus",
+		focus:         FocusTree,
+		activeOverlay: OverlayPriority,
+	}
+	footer := m.renderFooter()
+	for _, want := range []string{"0", "1", "2", "3", "4", "Cancel"} {
+		if !strings.Contains(footer, want) {
+			t.Errorf("expected footer to contain %q when OverlayPriority active, got: %q", want, footer)
+		}
+	}
+	if strings.Contains(footer, "Search") {
+		t.Error("expected global Search hint NOT to appear during priority overlay")
+	}
 }

@@ -582,6 +582,37 @@ func TestBrSQLiteClient_WriterDelegation(t *testing.T) {
 	}
 }
 
+func TestBrSQLiteClient_UpdatePriority_Delegation(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	logFile := filepath.Join(dir, "args.log")
+	script := filepath.Join(dir, "fakebr.sh")
+
+	scriptBody := "#!/bin/sh\n" +
+		"echo \"$@\" >> " + logFile + "\n" +
+		"exit 0\n"
+	writeTestScript(t, script, scriptBody)
+
+	dbPath := testBrDB(t)
+	client := NewBrSQLiteClient(dbPath, WithBrBinaryPath(script))
+
+	ctx := context.Background()
+	if err := client.UpdatePriority(ctx, "ab-prio", 2); err != nil {
+		t.Fatalf("UpdatePriority: %v", err)
+	}
+
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("read args log: %v", err)
+	}
+
+	args := string(data)
+	if !brContainsLine(args, "update ab-prio --priority=2") {
+		t.Errorf("expected 'update ab-prio --priority=2', got: %q", args)
+	}
+}
+
 func TestBrSQLiteClient_Close_Delegation(t *testing.T) {
 	t.Parallel()
 
