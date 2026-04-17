@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Priority overlay**: Press `p` in the tree to open a priority picker; use `j`/`k` to navigate or `0`–`4` hotkeys to jump-select; Esc cancels; success and error toasts confirm the result
+
 ## [0.10.0] - 2026-04-15
 
 ### Added
