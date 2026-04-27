@@ -17,3 +17,18 @@ updates:
       prefix: "deps"
     reviewers:
       - "ChrisEdwards"
+    groups:
+      gomod-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions-dependencies:
+        patterns:
+          - "*"
