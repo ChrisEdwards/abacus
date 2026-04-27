@@ -59,6 +59,8 @@ Before starting a release, ensure:
 
 **Note**: You no longer need to manually determine version numbers or write changelog entries. The `/update-changelog` command will analyze changes and suggest the appropriate semantic version bump automatically.
 
+> **One-step release**: The `/release-abacus` Claude Code command (included in this repo at `.claude/commands/release-abacus.md`) automates the entire process below end-to-end — pre-flight checks, changelog generation, version bump, dry run, execution, CI monitoring, and verification — with confirmation prompts at each step.
+
 ## Step-by-Step Release Process
 
 ### 1. Generate Changelog and Determine Version (AI-Powered)
