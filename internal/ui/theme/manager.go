@@ -162,8 +162,11 @@ func clampToUint8(v int) uint8 {
 
 func colorToANSIBackground(color lipgloss.AdaptiveColor) string {
 	hex := color.Dark
-	if hex == "" {
+	if !lipgloss.HasDarkBackground() {
 		hex = color.Light
+	}
+	if hex == "" {
+		hex = color.Dark
 	}
 	r, g, b := hexToRGB(hex)
 	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm", r, g, b)

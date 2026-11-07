@@ -353,8 +353,11 @@ func buildMarkdownRenderer(format string, width int) func(string) string {
 	}
 
 	style := strings.ToLower(strings.TrimSpace(format))
-	if style == "" || style == "rich" || style == "dark" {
+	if style == "" || style == "rich" {
 		style = "dark"
+		if !lipgloss.HasDarkBackground() {
+			style = "light"
+		}
 	}
 	if style == "plain" {
 		return fallback

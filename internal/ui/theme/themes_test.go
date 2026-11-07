@@ -271,3 +271,18 @@ func TestBlendHex(t *testing.T) {
 		}
 	}
 }
+
+// TestBackgroundANSIUsesLightVariantOnLightTerminal verifies that fill backgrounds
+// follow lipgloss's detected terminal background instead of always using the dark variant.
+func TestBackgroundANSIUsesLightVariantOnLightTerminal(t *testing.T) {
+	prev := lipgloss.HasDarkBackground()
+	lipgloss.SetHasDarkBackground(false)
+	t.Cleanup(func() { lipgloss.SetHasDarkBackground(prev) })
+
+	color := lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#282a36"}
+	got := colorToANSIBackground(color)
+	want := "\x1b[48;2;255;255;255m"
+	if got != want {
+		t.Errorf("colorToANSIBackground() = %q, want %q", got, want)
+	}
+}
